@@ -72,8 +72,7 @@ def main(page: ft.Page):
     )
 
     input_valor = ft.TextField(
-        label="Valor (Ex: 50.00)",
-        keyboard_type=ft.KeyboardType.NUMBER,
+        label="Valor (Ex: 50.00 ou 50,00)",
         width=300,
         prefix=ft.Text("R$ ")
     )
