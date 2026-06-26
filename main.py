@@ -1,6 +1,7 @@
 import flet as ft
 import sqlite3
 from datetime import datetime
+import os
 
 def inicializar_banco():
     conn = sqlite3.connect("meu_caixa.db", check_same_thread=False)
@@ -267,4 +268,6 @@ def main(page: ft.Page):
     atualizar_painel()
     carregar_lista_agrupada()
 
-ft.run(main, view=ft.AppView.WEB_BROWSER, port=5000, host="0.0.0.0")
+if __name__ == "__main__":
+    porta = int(os.environ.get("PORT", 5000))
+    ft.run(main, view=ft.AppView.WEB_BROWSER, port=porta, host="0.0.0.0")
