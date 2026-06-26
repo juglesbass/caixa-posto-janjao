@@ -26,6 +26,16 @@ def main(page: ft.Page):
 
     conn = inicializar_banco()
 
+    def abrir_dialogo(dlg):
+        if dlg not in page.overlay:
+            page.overlay.append(dlg)
+        dlg.open = True
+        page.update()
+
+    def fechar_dialogo(dlg):
+        dlg.open = False
+        page.update()
+
     def calcular_saldo():
         cursor = conn.cursor()
         cursor.execute("SELECT tipo, valor FROM lancamentos")
@@ -77,7 +87,6 @@ def main(page: ft.Page):
         for tipo, valor, desc, data in cursor.fetchall():
             cor = ft.Colors.GREEN if tipo == "Dinheiro" else ft.Colors.RED_400 if tipo == "Sangria" else ft.Colors.BLUE_400
             icone = ft.Icons.MONEY if tipo == "Dinheiro" else ft.Icons.CREDIT_CARD if tipo == "Cartão" else ft.Icons.PIX
-
             lista_historico.controls.append(
                 ft.ListTile(
                     leading=ft.Icon(icone, color=cor),
@@ -90,7 +99,6 @@ def main(page: ft.Page):
     def acao_lancar(e):
         if not input_valor.value:
             return
-
         try:
             valor_float = float(input_valor.value.replace(",", "."))
         except ValueError:
@@ -99,7 +107,6 @@ def main(page: ft.Page):
             return
 
         data_atual = datetime.now().strftime("%H:%M - %d/%m")
-
         cursor = conn.cursor()
         cursor.execute("INSERT INTO lancamentos (tipo, valor, descricao, data) VALUES (?, ?, ?, ?)",
                        (dropdown_tipo.value, valor_float, input_desc.value, data_atual))
@@ -127,27 +134,29 @@ def main(page: ft.Page):
         bgcolor=ft.Colors.BLUE_700,
     )
 
-    # --- BOTÃO LIMPAR TUDO ---
+    # --- DIÁLOGO LIMPAR TUDO ---
     dlg_limpar = ft.AlertDialog(
         modal=True,
         title=ft.Text("⚠️ Zerar Tudo?"),
-        content=ft.Text("Isso vai apagar TODOS os lançamentos do caixa.\nEssa ação não pode ser desfeita.", color=ft.Colors.GREY_400),
+        content=ft.Text(
+            "Isso vai apagar TODOS os lançamentos do caixa.\nEssa ação não pode ser desfeita.",
+            color=ft.Colors.GREY_400
+        ),
     )
 
     def confirmar_limpar(e):
         cursor = conn.cursor()
         cursor.execute("DELETE FROM lancamentos")
         conn.commit()
-        page.close(dlg_limpar)
+        fechar_dialogo(dlg_limpar)
         texto_saldo.value = "R$ 0.00"
         input_valor.value = ""
         input_desc.value = ""
         dropdown_tipo.value = "Dinheiro"
         carregar_historico()
-        page.update()
 
     def cancelar_limpar(e):
-        page.close(dlg_limpar)
+        fechar_dialogo(dlg_limpar)
 
     dlg_limpar.actions = [
         ft.TextButton("Cancelar", on_click=cancelar_limpar),
@@ -165,9 +174,6 @@ def main(page: ft.Page):
         ),
     ]
 
-    def abrir_limpar(e):
-        page.open(dlg_limpar)
-
     btn_limpar = ft.ElevatedButton(
         content=ft.Row(
             [
@@ -177,26 +183,25 @@ def main(page: ft.Page):
             alignment=ft.MainAxisAlignment.CENTER,
             tight=True,
         ),
-        on_click=abrir_limpar,
+        on_click=lambda e: abrir_dialogo(dlg_limpar),
         width=300,
         height=45,
         bgcolor=ft.Colors.RED_900,
     )
 
-    # --- LÓGICA DO FECHAMENTO DE CAIXA ---
-    dlg_modal = ft.AlertDialog(modal=True, title=ft.Text("Resumo do Turno"))
+    # --- DIÁLOGO RESUMO / FECHAR CAIXA ---
+    dlg_resumo = ft.AlertDialog(modal=True, title=ft.Text("Resumo do Turno"))
 
     def fechar_turno(e):
         cursor = conn.cursor()
         cursor.execute("DELETE FROM lancamentos")
         conn.commit()
-        page.close(dlg_modal)
+        fechar_dialogo(dlg_resumo)
         texto_saldo.value = f"R$ {calcular_saldo():.2f}"
         carregar_historico()
-        page.update()
 
     def cancelar_fechamento(e):
-        page.close(dlg_modal)
+        fechar_dialogo(dlg_resumo)
 
     def abrir_resumo(e):
         cursor = conn.cursor()
@@ -211,7 +216,7 @@ def main(page: ft.Page):
         fisico_esperado = dinheiro - sangria
         total_vendido = dinheiro + cartao + pix
 
-        dlg_modal.content = ft.Column([
+        dlg_resumo.content = ft.Column([
             ft.Text(f"💰 Dinheiro: R$ {dinheiro:.2f}"),
             ft.Text(f"💳 Cartão: R$ {cartao:.2f}"),
             ft.Text(f"📱 Pix: R$ {pix:.2f}"),
@@ -220,10 +225,10 @@ def main(page: ft.Page):
             ft.Divider(),
             ft.Text(f"💵 FÍSICO NA CARTEIRA: R$ {fisico_esperado:.2f}", weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_400),
             ft.Text(f"📊 TOTAL VENDIDO (Soma Geral): R$ {total_vendido:.2f}", weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_400),
-            ft.Text("\nDeseja finalizar este turno e zerar o caixa para amanhã?", size=12, color=ft.Colors.GREY_400)
+            ft.Text("\nDeseja finalizar este turno e zerar o caixa para amanhã?", size=12, color=ft.Colors.GREY_400),
         ], tight=True)
 
-        dlg_modal.actions = [
+        dlg_resumo.actions = [
             ft.TextButton("Cancelar", on_click=cancelar_fechamento),
             ft.ElevatedButton(
                 content=ft.Row(
@@ -236,7 +241,7 @@ def main(page: ft.Page):
             ),
         ]
 
-        page.open(dlg_modal)
+        abrir_dialogo(dlg_resumo)
 
     btn_resumo = ft.ElevatedButton(
         content=ft.Row(
