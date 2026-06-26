@@ -127,6 +127,62 @@ def main(page: ft.Page):
         bgcolor=ft.Colors.BLUE_700,
     )
 
+    # --- BOTÃO LIMPAR TUDO ---
+    dlg_limpar = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("⚠️ Zerar Tudo?"),
+        content=ft.Text("Isso vai apagar TODOS os lançamentos do caixa.\nEssa ação não pode ser desfeita.", color=ft.Colors.GREY_400),
+    )
+
+    def confirmar_limpar(e):
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM lancamentos")
+        conn.commit()
+        page.close(dlg_limpar)
+        texto_saldo.value = "R$ 0.00"
+        input_valor.value = ""
+        input_desc.value = ""
+        dropdown_tipo.value = "Dinheiro"
+        carregar_historico()
+        page.update()
+
+    def cancelar_limpar(e):
+        page.close(dlg_limpar)
+
+    dlg_limpar.actions = [
+        ft.TextButton("Cancelar", on_click=cancelar_limpar),
+        ft.ElevatedButton(
+            content=ft.Row(
+                [
+                    ft.Icon(ft.Icons.DELETE_FOREVER, color=ft.Colors.WHITE),
+                    ft.Text("Zerar Tudo", color=ft.Colors.WHITE),
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                tight=True,
+            ),
+            bgcolor=ft.Colors.RED_700,
+            on_click=confirmar_limpar,
+        ),
+    ]
+
+    def abrir_limpar(e):
+        page.open(dlg_limpar)
+
+    btn_limpar = ft.ElevatedButton(
+        content=ft.Row(
+            [
+                ft.Icon(ft.Icons.DELETE_SWEEP, color=ft.Colors.WHITE),
+                ft.Text("Limpar / Zerar Tudo", color=ft.Colors.WHITE),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            tight=True,
+        ),
+        on_click=abrir_limpar,
+        width=300,
+        height=45,
+        bgcolor=ft.Colors.RED_900,
+    )
+
     # --- LÓGICA DO FECHAMENTO DE CAIXA ---
     dlg_modal = ft.AlertDialog(modal=True, title=ft.Text("Resumo do Turno"))
 
@@ -207,6 +263,7 @@ def main(page: ft.Page):
             input_desc,
             btn_lancar,
             btn_resumo,
+            btn_limpar,
             ft.Divider(height=20, color=ft.Colors.WHITE24),
             ft.Text("Últimos Lançamentos:", size=16, weight=ft.FontWeight.BOLD),
             lista_historico
