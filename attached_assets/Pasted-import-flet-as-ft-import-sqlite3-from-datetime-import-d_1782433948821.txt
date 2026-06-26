@@ -20,7 +20,7 @@ def inicializar_banco():
 def main(page: ft.Page):
     page.title = "Caixa - Posto Janjão"
     page.theme_mode = ft.ThemeMode.DARK
-    page.window.width = 400
+    page.window_width = 400
     page.vertical_alignment = ft.MainAxisAlignment.START
     page.scroll = ft.ScrollMode.AUTO
 
@@ -38,9 +38,9 @@ def main(page: ft.Page):
         return saldo
 
     texto_saldo = ft.Text(
-        f"R$ {calcular_saldo():.2f}",
-        size=45,
-        weight=ft.FontWeight.BOLD,
+        f"R$ {calcular_saldo():.2f}", 
+        size=45, 
+        weight=ft.FontWeight.BOLD, 
         color=ft.Colors.GREEN_400
     )
 
@@ -56,13 +56,14 @@ def main(page: ft.Page):
         width=300
     )
 
+    # Corrigido para Flet 0.85+ (usando prefix=ft.Text ao invés de prefix_text)
     input_valor = ft.TextField(
-        label="Valor (Ex: 50.00)",
+        label="Valor (Ex: 50.00)", 
         keyboard_type=ft.KeyboardType.NUMBER,
         width=300,
         prefix=ft.Text("R$ ")
     )
-
+    
     input_desc = ft.TextField(
         label="Descrição / Placa (Opcional)",
         width=300
@@ -77,7 +78,7 @@ def main(page: ft.Page):
         for tipo, valor, desc, data in cursor.fetchall():
             cor = ft.Colors.GREEN if tipo == "Dinheiro" else ft.Colors.RED_400 if tipo == "Sangria" else ft.Colors.BLUE_400
             icone = ft.Icons.MONEY if tipo == "Dinheiro" else ft.Icons.CREDIT_CARD if tipo == "Cartão" else ft.Icons.PIX
-
+            
             lista_historico.controls.append(
                 ft.ListTile(
                     leading=ft.Icon(icone, color=cor),
@@ -90,7 +91,7 @@ def main(page: ft.Page):
     def acao_lancar(e):
         if not input_valor.value:
             return
-
+        
         try:
             valor_float = float(input_valor.value.replace(",", "."))
         except ValueError:
@@ -99,7 +100,7 @@ def main(page: ft.Page):
             return
 
         data_atual = datetime.now().strftime("%H:%M - %d/%m")
-
+        
         cursor = conn.cursor()
         cursor.execute("INSERT INTO lancamentos (tipo, valor, descricao, data) VALUES (?, ?, ?, ?)",
                        (dropdown_tipo.value, valor_float, input_desc.value, data_atual))
@@ -112,25 +113,22 @@ def main(page: ft.Page):
         carregar_historico()
         input_valor.focus()
 
+    # Botão atualizado para Flet 0.85+
     btn_lancar = ft.ElevatedButton(
-        content=ft.Row(
-            [
-                ft.Icon(ft.Icons.ADD_SHOPPING_CART, color=ft.Colors.WHITE),
-                ft.Text("Lançar Abastecimento", color=ft.Colors.WHITE),
-            ],
-            alignment=ft.MainAxisAlignment.CENTER,
-            tight=True,
-        ),
+        "Lançar Abastecimento", 
+        icon=ft.Icons.ADD_SHOPPING_CART,
         on_click=acao_lancar,
         width=300,
         height=55,
         bgcolor=ft.Colors.BLUE_700,
+        color=ft.Colors.WHITE
     )
 
     # --- LÓGICA DO FECHAMENTO DE CAIXA ---
     dlg_modal = ft.AlertDialog(modal=True, title=ft.Text("Resumo do Turno"))
 
     def fechar_turno(e):
+        # Zera o banco de dados para o próximo dia
         cursor = conn.cursor()
         cursor.execute("DELETE FROM lancamentos")
         conn.commit()
@@ -144,17 +142,18 @@ def main(page: ft.Page):
 
     def abrir_resumo(e):
         cursor = conn.cursor()
+        # Faz a soma agrupando por tipo de pagamento
         cursor.execute("SELECT tipo, SUM(valor) FROM lancamentos GROUP BY tipo")
         totais = {tipo: valor for tipo, valor in cursor.fetchall()}
-
+        
         dinheiro = totais.get("Dinheiro", 0.0)
         cartao = totais.get("Cartão", 0.0)
         pix = totais.get("Pix", 0.0)
         sangria = totais.get("Sangria", 0.0)
-
+        
         fisico_esperado = dinheiro - sangria
         total_vendido = dinheiro + cartao + pix
-
+        
         dlg_modal.content = ft.Column([
             ft.Text(f"💰 Dinheiro: R$ {dinheiro:.2f}"),
             ft.Text(f"💳 Cartão: R$ {cartao:.2f}"),
@@ -166,35 +165,22 @@ def main(page: ft.Page):
             ft.Text(f"📊 TOTAL VENDIDO (Soma Geral): R$ {total_vendido:.2f}", weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_400),
             ft.Text("\nDeseja finalizar este turno e zerar o caixa para amanhã?", size=12, color=ft.Colors.GREY_400)
         ], tight=True)
-
+        
         dlg_modal.actions = [
             ft.TextButton("Cancelar", on_click=cancelar_fechamento),
-            ft.ElevatedButton(
-                content=ft.Row(
-                    [ft.Text("Zerar Caixa", color=ft.Colors.WHITE)],
-                    alignment=ft.MainAxisAlignment.CENTER,
-                    tight=True,
-                ),
-                bgcolor=ft.Colors.RED_700,
-                on_click=fechar_turno,
-            ),
+            ft.ElevatedButton("Zerar Caixa", bgcolor=ft.Colors.RED_700, color=ft.Colors.WHITE, on_click=fechar_turno),
         ]
-
+        
         page.open(dlg_modal)
 
     btn_resumo = ft.ElevatedButton(
-        content=ft.Row(
-            [
-                ft.Icon(ft.Icons.ANALYTICS, color=ft.Colors.WHITE),
-                ft.Text("Fechar Caixa / Resumo", color=ft.Colors.WHITE),
-            ],
-            alignment=ft.MainAxisAlignment.CENTER,
-            tight=True,
-        ),
+        "Fechar Caixa / Resumo",
+        icon=ft.Icons.ANALYTICS,
         on_click=abrir_resumo,
         width=300,
         height=45,
         bgcolor=ft.Colors.GREY_800,
+        color=ft.Colors.WHITE
     )
 
     page.add(
@@ -206,7 +192,7 @@ def main(page: ft.Page):
             input_valor,
             input_desc,
             btn_lancar,
-            btn_resumo,
+            btn_resumo,  # Novo botão adicionado aqui
             ft.Divider(height=20, color=ft.Colors.WHITE24),
             ft.Text("Últimos Lançamentos:", size=16, weight=ft.FontWeight.BOLD),
             lista_historico
@@ -215,4 +201,5 @@ def main(page: ft.Page):
 
     carregar_historico()
 
-ft.run(main, view=ft.AppView.WEB_BROWSER, port=5000, host="0.0.0.0")
+# Usando ft.app() com configuração host/port para ambiente web/Replit
+ft.app(target=main, view=ft.AppView.WEB_BROWSER, port=8000, host="0.0.0.0")
