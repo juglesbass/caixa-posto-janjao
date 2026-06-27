@@ -8,3 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
+
+# App-specific
+meu_caixa.db
+.local/
