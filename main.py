@@ -170,11 +170,6 @@ def main(page: ft.Page):
         ]
     )
 
-        alignment=ft.WrapAlignment.CENTER,
-        spacing=6,
-        run_spacing=6,
-        width=largura_conteudo,
-    )
 
     lista_agrupada = ft.ListView(expand=True, spacing=5, height=180, width=largura_conteudo)
     lista_historico = ft.ListView(expand=True, spacing=4, height=200, width=largura_conteudo)
