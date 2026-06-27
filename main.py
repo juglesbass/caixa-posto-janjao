@@ -244,7 +244,7 @@ def main(page: ft.Page):
         def enviar_whatsapp(x):
             texto_codificado = urllib.parse.quote(resumo)
             # Usando api.whatsapp.com que é mais amigável para o Safari do iPhone
-            page.launch_url(f"https://api.whatsapp.com/send?text={texto_codificado}")
+            page.launch_url(f"https://api.whatsapp.com/send?text={texto_codificado}", web_window_name="_blank")
 
         conteudo = ft.Column(
             width=280,
