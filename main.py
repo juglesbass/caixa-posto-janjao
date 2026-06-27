@@ -149,7 +149,12 @@ def main(page: ft.Page):
         page.update()
         input_valor.focus()
 
-    botoes_rapidos = ft.Wrap(
+        botoes_rapidos = ft.Row(
+        wrap=True,
+        alignment=ft.MainAxisAlignment.CENTER,
+        spacing=6,
+        run_spacing=6,
+        width=largura_conteudo,
         controls=[
             make_btn_rapido("R$ 50", "50.00"),
             make_btn_rapido("R$ 100", "100.00"),
@@ -162,7 +167,9 @@ def main(page: ft.Page):
                 on_click=acao_completou,
                 height=38,
             ),
-        ],
+        ]
+    )
+
         alignment=ft.WrapAlignment.CENTER,
         spacing=6,
         run_spacing=6,
