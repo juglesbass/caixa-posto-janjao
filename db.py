@@ -7,6 +7,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
+# ── Constantes de tipo (evita strings soltas espalhadas pelo código) ───────
+TIPO_DINHEIRO = "Dinheiro"
+TIPO_PIX = "Pix"
+TIPO_REQUISICAO = "Requisição"
+TIPO_SODEXO = "Sodexo"
+TIPO_SANGRIA = "Sangria"
+
 LISTA_CARTOES = [
     "Master Crédito",
     "Master Débito",
@@ -14,16 +21,19 @@ LISTA_CARTOES = [
     "Visa Débito",
     "Elo Crédito",
     "Elo Débito",
-    "Sodexo",
+    TIPO_SODEXO,
 ]
 
+# OBS: TIPO_SODEXO já está dentro de LISTA_CARTOES, então não é repetido aqui.
+# (No código original, "Sodexo" era adicionado duas vezes na lista do
+# dropdown, o que pode causar erro/comportamento estranho no componente
+# de seleção quando há duas opções com o mesmo valor.)
 TIPOS_DROPDOWN = [
-    "Dinheiro",
-    "Pix",
-    "Requisição",
-    "Sodexo",
+    TIPO_DINHEIRO,
+    TIPO_PIX,
+    TIPO_REQUISICAO,
     *LISTA_CARTOES,
-    "Sangria",
+    TIPO_SANGRIA,
 ]
 
 
@@ -33,6 +43,13 @@ def caminho_banco() -> str:
 
 def caminho_backups() -> str:
     return os.environ.get("CAIXA_BACKUP_DIR", "backups")
+
+
+def formatar_moeda(valor: float) -> str:
+    """Formata um valor float no padrão monetário brasileiro: R$ 1.234,56"""
+    texto = f"{valor:,.2f}"
+    texto = texto.replace(",", "_").replace(".", ",").replace("_", ".")
+    return f"R$ {texto}"
 
 
 @dataclass
@@ -59,6 +76,12 @@ class Turno:
 def conectar() -> sqlite3.Connection:
     conn = sqlite3.connect(caminho_banco(), check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    # WAL melhora a concorrência quando há mais de uma aba/sessão acessando
+    # o mesmo arquivo de banco ao mesmo tempo.
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except sqlite3.Error:
+        pass
     return conn
 
 
@@ -69,7 +92,7 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS lancamentos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tipo TEXT,
-            valor REAL,
+            valor_centavos INTEGER,
             descricao TEXT,
             data TEXT,
             turno_id INTEGER
@@ -91,9 +114,27 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
         """
     )
 
-    colunas = {linha[1] for linha in cursor.execute("PRAGMA table_info(lancamentos)")}
-    if "turno_id" not in colunas:
+    colunas_lanc = {linha[1] for linha in cursor.execute("PRAGMA table_info(lancamentos)")}
+
+    if "turno_id" not in colunas_lanc:
         cursor.execute("ALTER TABLE lancamentos ADD COLUMN turno_id INTEGER")
+        colunas_lanc.add("turno_id")
+
+    # ── Migração: bancos antigos guardavam "valor" como REAL (float em
+    # reais). A partir de agora, os valores são guardados como inteiros em
+    # centavos ("valor_centavos"), o que elimina erros de arredondamento
+    # que se acumulam com somas repetidas de ponto flutuante.
+    if "valor_centavos" not in colunas_lanc:
+        cursor.execute("ALTER TABLE lancamentos ADD COLUMN valor_centavos INTEGER")
+        if "valor" in colunas_lanc:
+            cursor.execute(
+                """
+                UPDATE lancamentos
+                SET valor_centavos = CAST(ROUND(valor * 100) AS INTEGER)
+                WHERE valor_centavos IS NULL AND valor IS NOT NULL
+                """
+            )
+        colunas_lanc.add("valor_centavos")
 
     turno = obter_ou_criar_turno_aberto(conn)
     cursor.execute(
@@ -121,16 +162,16 @@ def obter_ou_criar_turno_aberto(conn: sqlite3.Connection) -> Turno:
 def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT tipo, SUM(valor) FROM lancamentos WHERE turno_id = ? GROUP BY tipo",
+        "SELECT tipo, SUM(valor_centavos) FROM lancamentos WHERE turno_id = ? GROUP BY tipo",
         (turno_id,),
     )
-    totais = {tipo: valor for tipo, valor in cursor.fetchall()}
+    totais_centavos = {tipo: (centavos or 0) for tipo, centavos in cursor.fetchall()}
 
-    dinheiro = totais.get("Dinheiro", 0.0)
-    pix = totais.get("Pix", 0.0)
-    sangria = totais.get("Sangria", 0.0)
-    requisicao = totais.get("Requisição", 0.0)
-    total_cartoes = sum(totais.get(cartao, 0.0) for cartao in LISTA_CARTOES)
+    dinheiro = totais_centavos.get(TIPO_DINHEIRO, 0) / 100.0
+    pix = totais_centavos.get(TIPO_PIX, 0) / 100.0
+    sangria = totais_centavos.get(TIPO_SANGRIA, 0) / 100.0
+    requisicao = totais_centavos.get(TIPO_REQUISICAO, 0) / 100.0
+    total_cartoes = sum(totais_centavos.get(cartao, 0) for cartao in LISTA_CARTOES) / 100.0
     fisico = dinheiro - sangria
 
     return Totais(
@@ -147,12 +188,12 @@ def montar_resumo_texto(totais: Totais, turno: Turno) -> str:
     return (
         f"⛽ *Fechamento de Turno - Posto Janjão*\n"
         f"🕐 Turno aberto em: {turno.aberto_em}\n\n"
-        f"💵 Dinheiro (físico): R$ {totais.fisico:.2f}\n"
-        f"📱 PIX: R$ {totais.pix:.2f}\n"
-        f"💳 Cartões (+ Sodexo): R$ {totais.cartoes:.2f}\n"
-        f"📋 Requisição: R$ {totais.requisicao:.2f}\n"
-        f"🔻 Sangria: R$ {totais.sangria:.2f}\n\n"
-        f"✅ Total Geral: R$ {totais.total_geral:.2f}"
+        f"💵 Dinheiro (físico): {formatar_moeda(totais.fisico)}\n"
+        f"📱 PIX: {formatar_moeda(totais.pix)}\n"
+        f"💳 Cartões (+ Sodexo): {formatar_moeda(totais.cartoes)}\n"
+        f"📋 Requisição: {formatar_moeda(totais.requisicao)}\n"
+        f"🔻 Sangria: {formatar_moeda(totais.sangria)}\n\n"
+        f"✅ Total Geral: {formatar_moeda(totais.total_geral)}"
     )
 
 
@@ -164,12 +205,36 @@ def inserir_lancamento(
     descricao: str,
 ) -> None:
     data_atual = datetime.now().strftime("%H:%M - %d/%m")
+    valor_centavos = int(round(valor * 100))
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO lancamentos (tipo, valor, descricao, data, turno_id) VALUES (?, ?, ?, ?, ?)",
-        (tipo, valor, descricao, data_atual, turno_id),
+        "INSERT INTO lancamentos (tipo, valor_centavos, descricao, data, turno_id) VALUES (?, ?, ?, ?, ?)",
+        (tipo, valor_centavos, descricao, data_atual, turno_id),
     )
     conn.commit()
+
+
+def atualizar_lancamento(
+    conn: sqlite3.Connection,
+    lancamento_id: int,
+    turno_id: int,
+    tipo: str,
+    valor: float,
+    descricao: str,
+) -> bool:
+    """Atualiza um lançamento existente (tipo, valor, descrição) sem apagar e recriar."""
+    valor_centavos = int(round(valor * 100))
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE lancamentos
+        SET tipo = ?, valor_centavos = ?, descricao = ?
+        WHERE id = ? AND turno_id = ?
+        """,
+        (tipo, valor_centavos, descricao, lancamento_id, turno_id),
+    )
+    conn.commit()
+    return cursor.rowcount > 0
 
 
 def deletar_lancamento(conn: sqlite3.Connection, lancamento_id: int, turno_id: int) -> bool:
@@ -214,17 +279,21 @@ def fechar_turno(conn: sqlite3.Connection, turno_id: int, totais: Totais) -> Tur
 def listar_agrupado(conn: sqlite3.Connection, turno_id: int) -> list[tuple[str, float]]:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT tipo, SUM(valor) FROM lancamentos WHERE turno_id = ? GROUP BY tipo",
+        "SELECT tipo, SUM(valor_centavos) FROM lancamentos WHERE turno_id = ? GROUP BY tipo",
         (turno_id,),
     )
-    return [(tipo, valor) for tipo, valor in cursor.fetchall() if valor != 0]
+    return [
+        (tipo, (centavos or 0) / 100.0)
+        for tipo, centavos in cursor.fetchall()
+        if centavos
+    ]
 
 
 def listar_historico(conn: sqlite3.Connection, turno_id: int, limite: int = 30) -> list[sqlite3.Row]:
     cursor = conn.cursor()
     return cursor.execute(
         """
-        SELECT id, tipo, valor, descricao, data
+        SELECT id, tipo, valor_centavos / 100.0 AS valor, descricao, data
         FROM lancamentos
         WHERE turno_id = ?
         ORDER BY id DESC
@@ -256,7 +325,7 @@ def exportar_turno_csv(conn: sqlite3.Connection, turno_id: int) -> str:
     cursor = conn.cursor()
     linhas = cursor.execute(
         """
-        SELECT id, tipo, valor, descricao, data
+        SELECT id, tipo, valor_centavos / 100.0 AS valor, descricao, data
         FROM lancamentos
         WHERE turno_id = ?
         ORDER BY id

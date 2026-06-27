@@ -8,7 +8,6 @@ import db
 def main(page: ft.Page):
     page.title = "Caixa - Posto Janjão"
     page.theme_mode = ft.ThemeMode.DARK
-    page.window.width = 460
     page.vertical_alignment = ft.MainAxisAlignment.START
     page.scroll = ft.ScrollMode.AUTO
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
@@ -21,6 +20,15 @@ def main(page: ft.Page):
     pin_configurado = os.environ.get("CAIXA_PIN", "").strip()
     autenticado = not pin_configurado
     largura_conteudo = 380
+
+    # ── Fechamento de conexão ao desconectar a sessão/aba ──────────────────
+    def on_disconnect(e):
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    page.on_disconnect = on_disconnect
 
     def atualizar_largura():
         nonlocal largura_conteudo
@@ -47,56 +55,55 @@ def main(page: ft.Page):
             bgcolor=cor,
             duration=2500,
         )
-        page.overlay.append(snack)
-        snack.open = True
-        page.update()
+        # Nesta versão do Flet, AlertDialog/SnackBar/BottomSheet são todos
+        # abertos com page.show_dialog() e fechados com page.pop_dialog().
+        page.show_dialog(snack)
 
     def abrir_dialogo(dlg):
-        if dlg not in page.overlay:
-            page.overlay.append(dlg)
-        dlg.open = True
-        page.update()
+        page.show_dialog(dlg)
 
     def fechar_dialogo(dlg):
-        dlg.open = False
-        page.update()
+        page.pop_dialog()
 
     def cor_icone_tipo(tipo):
-        if tipo == "Dinheiro":
+        if tipo == db.TIPO_DINHEIRO:
             return ft.Colors.GREEN, ft.Icons.MONEY
-        if tipo == "Sangria":
+        if tipo == db.TIPO_SANGRIA:
             return ft.Colors.RED_400, ft.Icons.REMOVE_CIRCLE
-        if tipo == "Pix":
+        if tipo == db.TIPO_PIX:
             return ft.Colors.BLUE_400, ft.Icons.PIX
-        if tipo == "Requisição":
+        if tipo == db.TIPO_REQUISICAO:
             return ft.Colors.PURPLE_400, ft.Icons.RECEIPT_LONG
-        if tipo == "Sodexo":
+        if tipo == db.TIPO_SODEXO:
             return ft.Colors.TEAL_400, ft.Icons.LUNCH_DINING
         return ft.Colors.ORANGE_400, ft.Icons.CREDIT_CARD
 
-    txt_fisico = ft.Text("R$ 0.00", size=52, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_400)
-    txt_pix = ft.Text("R$ 0.00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_400)
-    txt_cartoes = ft.Text("R$ 0.00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_400)
-    txt_requisicao = ft.Text("R$ 0.00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.PURPLE_400)
-    txt_sangria = ft.Text("R$ 0.00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.RED_400)
+    def formatar_moeda(valor: float) -> str:
+        return db.formatar_moeda(valor)
+
+    txt_fisico = ft.Text("R$ 0,00", size=52, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_400)
+    txt_pix = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_400)
+    txt_cartoes = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_400)
+    txt_requisicao = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.PURPLE_400)
+    txt_sangria = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.RED_400)
     txt_turno = ft.Text("", size=13, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
 
     def atualizar_painel():
         nonlocal turno_atual
         turno_atual = db.obter_ou_criar_turno_aberto(conn)
         totais = db.obter_totais(conn, turno_atual.id)
-        txt_fisico.value = f"R$ {totais.fisico:.2f}"
-        txt_pix.value = f"R$ {totais.pix:.2f}"
-        txt_cartoes.value = f"R$ {totais.cartoes:.2f}"
-        txt_requisicao.value = f"R$ {totais.requisicao:.2f}"
-        txt_sangria.value = f"R$ {totais.sangria:.2f}"
+        txt_fisico.value = formatar_moeda(totais.fisico)
+        txt_pix.value = formatar_moeda(totais.pix)
+        txt_cartoes.value = formatar_moeda(totais.cartoes)
+        txt_requisicao.value = formatar_moeda(totais.requisicao)
+        txt_sangria.value = formatar_moeda(totais.sangria)
         txt_turno.value = f"Turno #{turno_atual.id} · aberto em {turno_atual.aberto_em}"
         page.update()
 
     dropdown_tipo = ft.Dropdown(
         label="Forma de Pagamento",
         options=[ft.dropdown.Option(tipo) for tipo in db.TIPOS_DROPDOWN],
-        value="Dinheiro",
+        value=db.TIPO_DINHEIRO,
         width=largura_conteudo,
     )
 
@@ -116,18 +123,33 @@ def main(page: ft.Page):
         if desc:
             input_desc.value = desc
         page.update()
-        input_valor.focus()
+        page.run_task(input_valor.focus)
 
     def validar_valor(texto: str) -> float | None:
+        """Converte texto digitado em valor numérico, aceitando formatos
+        comuns: '50.00', '50,00', '1.234,56' (BR) ou '1234.56'."""
         if not texto or not texto.strip():
             return None
+
+        limpo = texto.strip().replace("R$", "").replace(" ", "")
+
+        if "," in limpo and "." in limpo:
+            # Formato BR com separador de milhar: 1.234,56 -> 1234.56
+            limpo = limpo.replace(".", "").replace(",", ".")
+        elif "," in limpo:
+            # Apenas vírgula decimal: 50,00 -> 50.00
+            limpo = limpo.replace(",", ".")
+        # Se só tem ponto, assume que já é decimal (ex.: 50.00)
+
         try:
-            valor = float(texto.replace(",", "."))
+            valor = float(limpo)
         except ValueError:
             return None
+
         if valor <= 0:
             return None
-        return valor
+
+        return round(valor, 2)
 
     def _estilo_btn(cor_bg):
         return ft.ButtonStyle(
@@ -148,12 +170,12 @@ def main(page: ft.Page):
         )
 
     def acao_completou(e):
-        dropdown_tipo.value = "Dinheiro"
+        dropdown_tipo.value = db.TIPO_DINHEIRO
         input_desc.value = "Completou"
         input_valor.value = ""
         input_valor.error_text = None
         page.update()
-        input_valor.focus()
+        page.run_task(input_valor.focus)
 
     botoes_rapidos = ft.Row(
         wrap=True,
@@ -186,7 +208,7 @@ def main(page: ft.Page):
             lista_agrupada.controls.append(
                 ft.ListTile(
                     leading=ft.Icon(icone, color=cor),
-                    title=ft.Text(f"{tipo} - R$ {valor_total:.2f}", color=cor, weight=ft.FontWeight.BOLD),
+                    title=ft.Text(f"{tipo} - {formatar_moeda(valor_total)}", color=cor, weight=ft.FontWeight.BOLD),
                 )
             )
         page.update()
@@ -200,7 +222,7 @@ def main(page: ft.Page):
             def confirmar_exclusao(e, rid=row["id"], tipo=row["tipo"], valor=row["valor"]):
                 dlg_excluir = ft.AlertDialog(
                     title=ft.Text("Apagar lançamento?"),
-                    content=ft.Text(f"Remover R$ {valor:.2f} · {tipo}?"),
+                    content=ft.Text(f"Remover {formatar_moeda(valor)} · {tipo}?"),
                 )
 
                 def excluir_confirmado(x, lancamento_id=rid):
@@ -219,21 +241,98 @@ def main(page: ft.Page):
                 ]
                 abrir_dialogo(dlg_excluir)
 
+            def abrir_edicao(
+                e,
+                rid=row["id"],
+                tipo=row["tipo"],
+                valor=row["valor"],
+                descricao=row["descricao"],
+            ):
+                campo_tipo_edit = ft.Dropdown(
+                    label="Forma de Pagamento",
+                    options=[ft.dropdown.Option(t) for t in db.TIPOS_DROPDOWN],
+                    value=tipo,
+                    width=min(300, largura_conteudo),
+                )
+                campo_valor_edit = ft.TextField(
+                    label="Valor",
+                    value=f"{valor:.2f}".replace(".", ","),
+                    prefix=ft.Text("R$ "),
+                    width=min(300, largura_conteudo),
+                )
+                campo_desc_edit = ft.TextField(
+                    label="Descrição / Placa (Opcional)",
+                    value=descricao or "",
+                    width=min(300, largura_conteudo),
+                )
+
+                dlg_editar = ft.AlertDialog(
+                    title=ft.Text("Editar lançamento"),
+                    content=ft.Column(
+                        [campo_tipo_edit, campo_valor_edit, campo_desc_edit],
+                        tight=True,
+                        spacing=10,
+                    ),
+                )
+
+                def salvar_edicao(x, lancamento_id=rid):
+                    novo_valor = validar_valor(campo_valor_edit.value or "")
+                    if novo_valor is None:
+                        campo_valor_edit.error_text = "Informe um valor maior que zero"
+                        page.update()
+                        return
+                    try:
+                        ok = db.atualizar_lancamento(
+                            conn,
+                            lancamento_id,
+                            turno_atual.id,
+                            campo_tipo_edit.value,
+                            novo_valor,
+                            campo_desc_edit.value or "",
+                        )
+                        if ok:
+                            fechar_dialogo(dlg_editar)
+                            mostrar_snackbar("Lançamento atualizado.")
+                            recarregar_listas()
+                        else:
+                            mostrar_snackbar("Não foi possível editar.", ft.Colors.RED_800)
+                    except Exception:
+                        mostrar_snackbar("Erro ao editar. Tente novamente.", ft.Colors.RED_800)
+
+                dlg_editar.actions = [
+                    ft.TextButton("Salvar", on_click=salvar_edicao),
+                    ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_editar)),
+                ]
+                abrir_dialogo(dlg_editar)
+
             lista_historico.controls.append(
                 ft.ListTile(
                     leading=ft.Icon(icone, color=cor, size=18),
                     title=ft.Text(
-                        f"R$ {row['valor']:.2f} · {row['tipo']}{desc_texto}",
+                        f"{formatar_moeda(row['valor'])} · {row['tipo']}{desc_texto}",
                         color=cor,
                         size=13,
                     ),
                     subtitle=ft.Text(row["data"], color=ft.Colors.GREY_500, size=11),
-                    trailing=ft.IconButton(
-                        icon=ft.Icons.DELETE_OUTLINE,
-                        icon_color=ft.Colors.RED_400,
-                        icon_size=18,
-                        tooltip="Apagar",
-                        on_click=confirmar_exclusao,
+                    trailing=ft.Row(
+                        controls=[
+                            ft.IconButton(
+                                icon=ft.Icons.EDIT_OUTLINED,
+                                icon_color=ft.Colors.BLUE_300,
+                                icon_size=18,
+                                tooltip="Editar",
+                                on_click=abrir_edicao,
+                            ),
+                            ft.IconButton(
+                                icon=ft.Icons.DELETE_OUTLINE,
+                                icon_color=ft.Colors.RED_400,
+                                icon_size=18,
+                                tooltip="Apagar",
+                                on_click=confirmar_exclusao,
+                            ),
+                        ],
+                        tight=True,
+                        spacing=0,
                     ),
                     dense=True,
                 )
@@ -246,27 +345,40 @@ def main(page: ft.Page):
         carregar_historico()
 
     def acao_lancar(e=None):
+        # Evita lançamento duplicado por duplo clique / Enter repetido
+        if btn_lancar.disabled:
+            return
+
         valor_float = validar_valor(input_valor.value or "")
         if valor_float is None:
             input_valor.error_text = "Informe um valor maior que zero"
             page.update()
             return
 
-        db.inserir_lancamento(
-            conn,
-            turno_atual.id,
-            dropdown_tipo.value,
-            valor_float,
-            input_desc.value or "",
-        )
+        btn_lancar.disabled = True
+        page.update()
 
-        input_valor.value = ""
-        input_desc.value = ""
-        input_valor.error_text = None
+        try:
+            db.inserir_lancamento(
+                conn,
+                turno_atual.id,
+                dropdown_tipo.value,
+                valor_float,
+                input_desc.value or "",
+            )
 
-        mostrar_snackbar(f"R$ {valor_float:.2f} lançado em {dropdown_tipo.value}")
-        recarregar_listas()
-        input_valor.focus()
+            input_valor.value = ""
+            input_desc.value = ""
+            input_valor.error_text = None
+
+            mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {dropdown_tipo.value}")
+            recarregar_listas()
+            page.run_task(input_valor.focus)
+        except Exception:
+            mostrar_snackbar("Erro ao lançar. Tente novamente.", ft.Colors.RED_800)
+        finally:
+            btn_lancar.disabled = False
+            page.update()
 
     input_valor.on_submit = acao_lancar
     input_desc.on_submit = acao_lancar
@@ -280,34 +392,34 @@ def main(page: ft.Page):
                 ft.Row([
                     ft.Icon(ft.Icons.MONEY, color=ft.Colors.GREEN),
                     ft.Text("Dinheiro (físico):", expand=True),
-                    ft.Text(f"R$ {totais.fisico:.2f}", weight=ft.FontWeight.BOLD),
+                    ft.Text(formatar_moeda(totais.fisico), weight=ft.FontWeight.BOLD),
                 ]),
                 ft.Row([
                     ft.Icon(ft.Icons.PIX, color=ft.Colors.BLUE_400),
                     ft.Text("Total PIX:", expand=True),
-                    ft.Text(f"R$ {totais.pix:.2f}", weight=ft.FontWeight.BOLD),
+                    ft.Text(formatar_moeda(totais.pix), weight=ft.FontWeight.BOLD),
                 ]),
                 ft.Row([
                     ft.Icon(ft.Icons.CREDIT_CARD, color=ft.Colors.ORANGE_400),
                     ft.Text("Cartões (+ Sodexo):", expand=True),
-                    ft.Text(f"R$ {totais.cartoes:.2f}", weight=ft.FontWeight.BOLD),
+                    ft.Text(formatar_moeda(totais.cartoes), weight=ft.FontWeight.BOLD),
                 ]),
                 ft.Row([
                     ft.Icon(ft.Icons.RECEIPT_LONG, color=ft.Colors.PURPLE_400),
                     ft.Text("Requisição:", expand=True),
-                    ft.Text(f"R$ {totais.requisicao:.2f}", weight=ft.FontWeight.BOLD),
+                    ft.Text(formatar_moeda(totais.requisicao), weight=ft.FontWeight.BOLD),
                 ]),
                 ft.Row([
                     ft.Icon(ft.Icons.REMOVE_CIRCLE, color=ft.Colors.RED_400),
                     ft.Text("Sangria:", expand=True),
-                    ft.Text(f"R$ {totais.sangria:.2f}", weight=ft.FontWeight.BOLD),
+                    ft.Text(formatar_moeda(totais.sangria), weight=ft.FontWeight.BOLD),
                 ]),
                 ft.Divider(color=ft.Colors.WHITE24, height=20),
                 ft.Row([
                     ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=ft.Colors.GREEN_ACCENT_400),
                     ft.Text("Total Geral:", expand=True, weight=ft.FontWeight.BOLD, size=18),
                     ft.Text(
-                        f"R$ {totais.total_geral:.2f}",
+                        formatar_moeda(totais.total_geral),
                         weight=ft.FontWeight.BOLD,
                         size=18,
                         color=ft.Colors.GREEN_ACCENT_400,
@@ -331,11 +443,14 @@ def main(page: ft.Page):
 
         def encerrar_turno(x):
             nonlocal turno_atual
-            db.fechar_turno(conn, turno_atual.id, totais)
-            turno_atual = db.obter_ou_criar_turno_aberto(conn)
-            fechar_dialogo(dlg)
-            mostrar_snackbar("Turno encerrado. Novo turno iniciado.")
-            recarregar_listas()
+            try:
+                db.fechar_turno(conn, turno_atual.id, totais)
+                turno_atual = db.obter_ou_criar_turno_aberto(conn)
+                fechar_dialogo(dlg)
+                mostrar_snackbar("Turno encerrado. Novo turno iniciado.")
+                recarregar_listas()
+            except Exception:
+                mostrar_snackbar("Erro ao encerrar o turno. Tente novamente.", ft.Colors.RED_800)
 
         dlg.actions = [
             ft.TextButton(
@@ -361,7 +476,7 @@ def main(page: ft.Page):
         for turno in turnos:
             itens.append(
                 ft.ListTile(
-                    title=ft.Text(f"Turno #{turno['id']} · R$ {turno['total_geral']:.2f}"),
+                    title=ft.Text(f"Turno #{turno['id']} · {formatar_moeda(turno['total_geral'])}"),
                     subtitle=ft.Text(f"{turno['aberto_em']} → {turno['fechado_em']}"),
                 )
             )
@@ -387,11 +502,14 @@ def main(page: ft.Page):
         )
 
         def confirmar_zerar(x):
-            caminho_backup = db.exportar_turno_csv(conn, turno_atual.id)
-            db.zerar_turno(conn, turno_atual.id)
-            fechar_dialogo(dlg_confirmar)
-            mostrar_snackbar(f"Turno zerado. Backup: {os.path.basename(caminho_backup)}")
-            recarregar_listas()
+            try:
+                caminho_backup = db.exportar_turno_csv(conn, turno_atual.id)
+                db.zerar_turno(conn, turno_atual.id)
+                fechar_dialogo(dlg_confirmar)
+                mostrar_snackbar(f"Turno zerado. Backup: {os.path.basename(caminho_backup)}")
+                recarregar_listas()
+            except Exception:
+                mostrar_snackbar("Erro ao zerar o turno. Nada foi apagado.", ft.Colors.RED_800)
 
         dlg_confirmar.actions = [
             ft.TextButton("Sim, Zerar", on_click=confirmar_zerar),
@@ -437,14 +555,10 @@ def main(page: ft.Page):
     )
 
     def abrir_bottom_sheet(e):
-        if bottom_sheet not in page.overlay:
-            page.overlay.append(bottom_sheet)
-        bottom_sheet.open = True
-        page.update()
+        page.show_dialog(bottom_sheet)
 
     def fechar_bottom_sheet():
-        bottom_sheet.open = False
-        page.update()
+        page.pop_dialog()
 
     # ── Botão principal ────────────────────────────────────────────────────
     btn_lancar = ft.Button(
@@ -590,7 +704,7 @@ def main(page: ft.Page):
         )
         dlg_pin.actions = [ft.TextButton("Entrar", on_click=lambda x: validar_pin())]
         abrir_dialogo(dlg_pin)
-        campo_pin.focus()
+        page.run_task(campo_pin.focus)
 
     page.on_resized = lambda e: atualizar_largura()
 
