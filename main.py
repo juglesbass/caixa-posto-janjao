@@ -2,7 +2,6 @@ import flet as ft
 import sqlite3
 from datetime import datetime
 import os
-import urllib.parse
 
 def inicializar_banco():
     conn = sqlite3.connect("meu_caixa.db", check_same_thread=False)
@@ -118,12 +117,21 @@ def main(page: ft.Page):
             height=38,
         )
 
+    def acao_completou(e):
+        input_desc.value = "Completou"
+        page.update()
+        input_valor.focus() # Joga o cursor para você digitar o valor da bomba
     botoes_rapidos = ft.Row(
         controls=[
             make_btn_rapido("R$ 50", "50.00"),
             make_btn_rapido("R$ 100", "100.00"),
             make_btn_rapido("R$ 200", "200.00"),
-            make_btn_rapido("Completou", "", "Completou", ft.Colors.GREEN_800),
+            ft.ElevatedButton(
+                content=ft.Text("Completou", color=ft.Colors.WHITE, size=13),
+                bgcolor=ft.Colors.GREEN_800, 
+                on_click=acao_completou, 
+                height=38
+            ),
         ],
         alignment=ft.MainAxisAlignment.CENTER,
         width=320,
@@ -232,20 +240,6 @@ def main(page: ft.Page):
         fisico, pix, cartoes, requisicao = obter_totais()
         total_geral = fisico + pix + cartoes + requisicao
 
-        resumo = (
-            f"⛽ *Fechamento de Turno - Posto Janjão*\n\n"
-            f"💵 Dinheiro (físico): R$ {fisico:.2f}\n"
-            f"📱 PIX: R$ {pix:.2f}\n"
-            f"💳 Cartões (+ Sodexo): R$ {cartoes:.2f}\n"
-            f"📋 Requisição: R$ {requisicao:.2f}\n\n"
-            f"✅ Total Geral: R$ {total_geral:.2f}"
-        )
-
-        def enviar_whatsapp(x):
-            texto_codificado = urllib.parse.quote(resumo)
-            # Usando api.whatsapp.com que é mais amigável para o Safari do iPhone
-            page.launch_url(f"https://api.whatsapp.com/send?text={texto_codificado}", web_popup_window_name="_blank")
-
         conteudo = ft.Column(
             width=280,
             tight=True,
@@ -284,10 +278,6 @@ def main(page: ft.Page):
             content=conteudo,
         )
         dlg.actions = [
-            ft.TextButton(
-                content=ft.Row([ft.Icon(ft.Icons.SEND, color=ft.Colors.GREEN_400), ft.Text("WhatsApp", color=ft.Colors.GREEN_400)], tight=True),
-                on_click=enviar_whatsapp,
-            ),
             ft.TextButton("Fechar", on_click=lambda x: fechar_dialogo(dlg)),
         ]
         abrir_dialogo(dlg)
