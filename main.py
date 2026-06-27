@@ -73,6 +73,8 @@ def main(page: ft.Page):
         options=[
             ft.dropdown.Option("Dinheiro"),
             ft.dropdown.Option("Pix"),
+            ft.dropdown.Option("Requisição"),
+            ft.dropdown.Option("Sodexo"),
             ft.dropdown.Option("Master Crédito"),
             ft.dropdown.Option("Master Débito"),
             ft.dropdown.Option("Visa Crédito"),
@@ -116,6 +118,12 @@ def main(page: ft.Page):
             elif tipo == "Pix":
                 cor = ft.Colors.BLUE_400
                 icone = ft.Icons.PIX
+            elif tipo == "Requisição":
+                cor = ft.Colors.PURPLE_400
+                icone = ft.Icons.RECEIPT_LONG
+            elif tipo == "Sodexo":
+                cor = ft.Colors.TEAL_400
+                icone = ft.Icons.LUNCH_DINING
             else:
                 cor = ft.Colors.ORANGE_400
                 icone = ft.Icons.CREDIT_CARD
