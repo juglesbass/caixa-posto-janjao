@@ -8,11 +8,11 @@ import db
 def main(page: ft.Page):
     page.title = "Caixa - Posto Janjão"
     page.theme_mode = ft.ThemeMode.DARK
-    page.window.width = 420
+    page.window.width = 460
     page.vertical_alignment = ft.MainAxisAlignment.START
     page.scroll = ft.ScrollMode.AUTO
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-    page.padding = 16
+    page.padding = 20
 
     conn = db.conectar()
     db.inicializar_banco(conn)
@@ -36,12 +36,10 @@ def main(page: ft.Page):
         lista_agrupada.width = largura
         lista_historico.width = largura
         btn_lancar.width = largura
-        btn_fechar.width = largura
-        btn_limpar.width = largura
-        btn_historico_turnos.width = largura
         linha_totais_secundarios.width = largura
         linha_totais_extras.width = largura
         txt_turno.width = largura
+        page.update()
 
     def mostrar_snackbar(mensagem: str, cor=ft.Colors.GREEN_700):
         snack = ft.SnackBar(
@@ -323,7 +321,8 @@ def main(page: ft.Page):
             ],
         )
 
-    def acao_fechar_caixa(e):
+    def acao_fechar_caixa(e=None):
+        fechar_bottom_sheet()
         totais = db.obter_totais(conn, turno_atual.id)
         resumo = db.montar_resumo_texto(totais, turno_atual)
         dlg = ft.AlertDialog(
@@ -356,7 +355,8 @@ def main(page: ft.Page):
         ]
         abrir_dialogo(dlg)
 
-    def acao_historico_turnos(e):
+    def acao_historico_turnos(e=None):
+        fechar_bottom_sheet()
         turnos = db.listar_turnos_fechados(conn)
         if not turnos:
             mostrar_snackbar("Nenhum turno encerrado ainda.", ft.Colors.BLUE_GREY_700)
@@ -381,7 +381,8 @@ def main(page: ft.Page):
         dlg_hist.actions = [ft.TextButton("Fechar", on_click=lambda x: fechar_dialogo(dlg_hist))]
         abrir_dialogo(dlg_hist)
 
-    def acao_zerar_tudo(e):
+    def acao_zerar_tudo(e=None):
+        fechar_bottom_sheet()
         dlg_confirmar = ft.AlertDialog(
             title=ft.Text("Aviso Importante"),
             content=ft.Text(
@@ -403,6 +404,54 @@ def main(page: ft.Page):
         ]
         abrir_dialogo(dlg_confirmar)
 
+    # ── Bottom Sheet de Gerenciamento ──────────────────────────────────────
+    bottom_sheet = ft.BottomSheet(
+        open=False,
+        content=ft.Container(
+            padding=ft.padding.symmetric(vertical=24, horizontal=20),
+            content=ft.Column(
+                tight=True,
+                spacing=12,
+                controls=[
+                    ft.Text(
+                        "Gerenciar Turno",
+                        size=18,
+                        weight=ft.FontWeight.BOLD,
+                        color=ft.Colors.WHITE,
+                    ),
+                    ft.Divider(color=ft.Colors.WHITE24, height=10),
+                    ft.ListTile(
+                        leading=ft.Icon(ft.Icons.ASSESSMENT, color=ft.Colors.BLUE_300),
+                        title=ft.Text("Fechar Caixa / Resumo", size=16),
+                        on_click=acao_fechar_caixa,
+                    ),
+                    ft.ListTile(
+                        leading=ft.Icon(ft.Icons.HISTORY, color=ft.Colors.GREY_300),
+                        title=ft.Text("Histórico de Turnos", size=16),
+                        on_click=acao_historico_turnos,
+                    ),
+                    ft.Divider(color=ft.Colors.WHITE24, height=10),
+                    ft.ListTile(
+                        leading=ft.Icon(ft.Icons.DELETE_FOREVER, color=ft.Colors.RED_400),
+                        title=ft.Text("Limpar / Zerar Tudo", size=16, color=ft.Colors.RED_400),
+                        on_click=acao_zerar_tudo,
+                    ),
+                ],
+            ),
+        ),
+    )
+
+    def abrir_bottom_sheet(e):
+        if bottom_sheet not in page.overlay:
+            page.overlay.append(bottom_sheet)
+        bottom_sheet.open = True
+        page.update()
+
+    def fechar_bottom_sheet():
+        bottom_sheet.open = False
+        page.update()
+
+    # ── Botão principal ────────────────────────────────────────────────────
     btn_lancar = ft.ElevatedButton(
         content=ft.Row(
             [
@@ -418,59 +467,16 @@ def main(page: ft.Page):
         bgcolor=ft.Colors.BLUE_700,
     )
 
-    btn_fechar = ft.ElevatedButton(
-        content=ft.Row(
-            [
-                ft.Icon(ft.Icons.ASSESSMENT, color=ft.Colors.WHITE),
-                ft.Text("Fechar Caixa / Resumo", color=ft.Colors.WHITE, size=16),
-            ],
-            alignment=ft.MainAxisAlignment.CENTER,
-            tight=True,
-        ),
-        on_click=acao_fechar_caixa,
-        width=largura_conteudo,
-        height=58,
-        bgcolor=ft.Colors.GREY_700,
-    )
-
-    btn_limpar = ft.ElevatedButton(
-        content=ft.Row(
-            [
-                ft.Icon(ft.Icons.DELETE_FOREVER, color=ft.Colors.WHITE),
-                ft.Text("Limpar / Zerar Tudo", color=ft.Colors.WHITE, size=16),
-            ],
-            alignment=ft.MainAxisAlignment.CENTER,
-            tight=True,
-        ),
-        on_click=acao_zerar_tudo,
-        width=largura_conteudo,
-        height=58,
-        bgcolor=ft.Colors.RED_700,
-    )
-
-    btn_historico_turnos = ft.OutlinedButton(
-        content=ft.Row(
-            [
-                ft.Icon(ft.Icons.HISTORY, size=20),
-                ft.Text("Histórico de Turnos", size=15),
-            ],
-            alignment=ft.MainAxisAlignment.CENTER,
-            tight=True,
-        ),
-        on_click=acao_historico_turnos,
-        width=largura_conteudo,
-        height=50,
-    )
-
+    # ── Totais ─────────────────────────────────────────────────────────────
     linha_totais_secundarios = ft.Row(
         controls=[
             ft.Column(
-                [ft.Text("PIX", size=11, color=ft.Colors.GREY_400), txt_pix],
+                [ft.Text("PIX", size=13, color=ft.Colors.GREY_400), txt_pix],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=2,
             ),
             ft.Column(
-                [ft.Text("Cartões", size=11, color=ft.Colors.GREY_400), txt_cartoes],
+                [ft.Text("Cartões", size=13, color=ft.Colors.GREY_400), txt_cartoes],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=2,
             ),
@@ -482,12 +488,12 @@ def main(page: ft.Page):
     linha_totais_extras = ft.Row(
         controls=[
             ft.Column(
-                [ft.Text("Requisição", size=11, color=ft.Colors.GREY_400), txt_requisicao],
+                [ft.Text("Requisição", size=13, color=ft.Colors.GREY_400), txt_requisicao],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=2,
             ),
             ft.Column(
-                [ft.Text("Sangria", size=11, color=ft.Colors.GREY_400), txt_sangria],
+                [ft.Text("Sangria", size=13, color=ft.Colors.GREY_400), txt_sangria],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=2,
             ),
@@ -496,10 +502,33 @@ def main(page: ft.Page):
         width=largura_conteudo,
     )
 
+    # ── Header com botão de menu ───────────────────────────────────────────
+    header = ft.Row(
+        controls=[
+            ft.Text(
+                "Caixa · Posto Janjão",
+                size=16,
+                weight=ft.FontWeight.BOLD,
+                color=ft.Colors.WHITE70,
+                expand=True,
+            ),
+            ft.IconButton(
+                icon=ft.Icons.MORE_VERT,
+                icon_color=ft.Colors.WHITE70,
+                tooltip="Gerenciar turno",
+                on_click=abrir_bottom_sheet,
+            ),
+        ],
+        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        width=largura_conteudo,
+    )
+
+    # ── Layout principal ───────────────────────────────────────────────────
     conteudo_principal = ft.Column(
         controls=[
+            header,
             txt_turno,
-            ft.Text("Físico na Carteira (Dinheiro):", size=14, color=ft.Colors.GREY_400),
+            ft.Text("Físico na Carteira (Dinheiro):", size=16, color=ft.Colors.GREY_400),
             txt_fisico,
             linha_totais_secundarios,
             linha_totais_extras,
@@ -510,14 +539,23 @@ def main(page: ft.Page):
             input_desc,
             ft.Divider(height=5, color=ft.Colors.TRANSPARENT),
             btn_lancar,
-            btn_fechar,
-            btn_limpar,
-            btn_historico_turnos,
-            ft.Divider(height=10),
-            ft.Text("Totais por Tipo:", size=16, weight=ft.FontWeight.BOLD, width=largura_conteudo, text_align=ft.TextAlign.LEFT),
+            ft.Divider(height=14),
+            ft.Text(
+                "Totais por Tipo:",
+                size=18,
+                weight=ft.FontWeight.BOLD,
+                width=largura_conteudo,
+                text_align=ft.TextAlign.LEFT,
+            ),
             lista_agrupada,
             ft.Divider(height=5),
-            ft.Text("Histórico Recente:", size=16, weight=ft.FontWeight.BOLD, width=largura_conteudo, text_align=ft.TextAlign.LEFT),
+            ft.Text(
+                "Histórico Recente:",
+                size=18,
+                weight=ft.FontWeight.BOLD,
+                width=largura_conteudo,
+                text_align=ft.TextAlign.LEFT,
+            ),
             lista_historico,
         ],
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
