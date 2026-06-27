@@ -20,11 +20,11 @@ def main(page: ft.Page):
 
     pin_configurado = os.environ.get("CAIXA_PIN", "").strip()
     autenticado = not pin_configurado
-    largura_conteudo = 320
+    largura_conteudo = 380
 
     def atualizar_largura():
         nonlocal largura_conteudo
-        largura_conteudo = max(280, min(400, int(page.width) - 32))
+        largura_conteudo = max(340, min(480, int(page.width) - 24))
         aplicar_largura()
 
     def aplicar_largura():
@@ -76,12 +76,12 @@ def main(page: ft.Page):
             return ft.Colors.TEAL_400, ft.Icons.LUNCH_DINING
         return ft.Colors.ORANGE_400, ft.Icons.CREDIT_CARD
 
-    txt_fisico = ft.Text("R$ 0.00", size=40, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_400)
-    txt_pix = ft.Text("R$ 0.00", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_400)
-    txt_cartoes = ft.Text("R$ 0.00", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_400)
-    txt_requisicao = ft.Text("R$ 0.00", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.PURPLE_400)
-    txt_sangria = ft.Text("R$ 0.00", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.RED_400)
-    txt_turno = ft.Text("", size=12, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
+    txt_fisico = ft.Text("R$ 0.00", size=52, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_400)
+    txt_pix = ft.Text("R$ 0.00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_400)
+    txt_cartoes = ft.Text("R$ 0.00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_400)
+    txt_requisicao = ft.Text("R$ 0.00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.PURPLE_400)
+    txt_sangria = ft.Text("R$ 0.00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.RED_400)
+    txt_turno = ft.Text("", size=13, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
 
     def atualizar_painel():
         nonlocal turno_atual
@@ -136,10 +136,10 @@ def main(page: ft.Page):
             set_valor(v, d)
 
         return ft.ElevatedButton(
-            content=ft.Text(label, color=ft.Colors.WHITE, size=13),
+            content=ft.Text(label, color=ft.Colors.WHITE, size=15),
             bgcolor=cor,
             on_click=_click,
-            height=38,
+            height=44,
         )
 
     def acao_completou(e):
@@ -163,10 +163,10 @@ def main(page: ft.Page):
             make_btn_rapido("R$ 300", "300.00"),
             make_btn_rapido("R$ 500", "500.00"),
             ft.ElevatedButton(
-                content=ft.Text("Completou", color=ft.Colors.WHITE, size=13),
+                content=ft.Text("Completou", color=ft.Colors.WHITE, size=15),
                 bgcolor=ft.Colors.GREEN_800,
                 on_click=acao_completou,
-                height=38,
+                height=44,
             ),
         ],
     )
@@ -407,14 +407,14 @@ def main(page: ft.Page):
         content=ft.Row(
             [
                 ft.Icon(ft.Icons.ADD_SHOPPING_CART, color=ft.Colors.WHITE),
-                ft.Text("Lançar Abastecimento", color=ft.Colors.WHITE),
+                ft.Text("Lançar Abastecimento", color=ft.Colors.WHITE, size=16),
             ],
             alignment=ft.MainAxisAlignment.CENTER,
             tight=True,
         ),
         on_click=acao_lancar,
         width=largura_conteudo,
-        height=50,
+        height=58,
         bgcolor=ft.Colors.BLUE_700,
     )
 
@@ -422,14 +422,14 @@ def main(page: ft.Page):
         content=ft.Row(
             [
                 ft.Icon(ft.Icons.ASSESSMENT, color=ft.Colors.WHITE),
-                ft.Text("Fechar Caixa / Resumo", color=ft.Colors.WHITE),
+                ft.Text("Fechar Caixa / Resumo", color=ft.Colors.WHITE, size=16),
             ],
             alignment=ft.MainAxisAlignment.CENTER,
             tight=True,
         ),
         on_click=acao_fechar_caixa,
         width=largura_conteudo,
-        height=50,
+        height=58,
         bgcolor=ft.Colors.GREY_700,
     )
 
@@ -437,29 +437,29 @@ def main(page: ft.Page):
         content=ft.Row(
             [
                 ft.Icon(ft.Icons.DELETE_FOREVER, color=ft.Colors.WHITE),
-                ft.Text("Limpar / Zerar Tudo", color=ft.Colors.WHITE),
+                ft.Text("Limpar / Zerar Tudo", color=ft.Colors.WHITE, size=16),
             ],
             alignment=ft.MainAxisAlignment.CENTER,
             tight=True,
         ),
         on_click=acao_zerar_tudo,
         width=largura_conteudo,
-        height=50,
+        height=58,
         bgcolor=ft.Colors.RED_700,
     )
 
     btn_historico_turnos = ft.OutlinedButton(
         content=ft.Row(
             [
-                ft.Icon(ft.Icons.HISTORY, size=18),
-                ft.Text("Histórico de Turnos"),
+                ft.Icon(ft.Icons.HISTORY, size=20),
+                ft.Text("Histórico de Turnos", size=15),
             ],
             alignment=ft.MainAxisAlignment.CENTER,
             tight=True,
         ),
         on_click=acao_historico_turnos,
         width=largura_conteudo,
-        height=42,
+        height=50,
     )
 
     linha_totais_secundarios = ft.Row(
