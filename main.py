@@ -129,13 +129,20 @@ def main(page: ft.Page):
             return None
         return valor
 
+    def _estilo_btn(cor_bg):
+        return ft.ButtonStyle(
+            bgcolor=cor_bg,
+            shape=ft.RoundedRectangleBorder(radius=8),
+            color=ft.Colors.WHITE,
+        )
+
     def make_btn_rapido(label, val, desc="", cor=ft.Colors.BLUE_GREY_700):
         def _click(e, v=val, d=desc):
             set_valor(v, d)
 
-        return ft.ElevatedButton(
+        return ft.Button(
             content=ft.Text(label, color=ft.Colors.WHITE, size=15),
-            bgcolor=cor,
+            style=_estilo_btn(cor),
             on_click=_click,
             height=44,
         )
@@ -160,9 +167,9 @@ def main(page: ft.Page):
             make_btn_rapido("R$ 200", "200.00"),
             make_btn_rapido("R$ 300", "300.00"),
             make_btn_rapido("R$ 500", "500.00"),
-            ft.ElevatedButton(
+            ft.Button(
                 content=ft.Text("Completou", color=ft.Colors.WHITE, size=15),
-                bgcolor=ft.Colors.GREEN_800,
+                style=_estilo_btn(ft.Colors.GREEN_800),
                 on_click=acao_completou,
                 height=44,
             ),
@@ -270,54 +277,42 @@ def main(page: ft.Page):
             tight=True,
             controls=[
                 ft.Text(f"Turno #{turno_atual.id} · {turno_atual.aberto_em}", size=12, color=ft.Colors.GREY_500),
-                ft.Row(
-                    [
-                        ft.Icon(ft.Icons.MONEY, color=ft.Colors.GREEN),
-                        ft.Text("Dinheiro (físico):", expand=True),
-                        ft.Text(f"R$ {totais.fisico:.2f}", weight=ft.FontWeight.BOLD),
-                    ]
-                ),
-                ft.Row(
-                    [
-                        ft.Icon(ft.Icons.PIX, color=ft.Colors.BLUE_400),
-                        ft.Text("Total PIX:", expand=True),
-                        ft.Text(f"R$ {totais.pix:.2f}", weight=ft.FontWeight.BOLD),
-                    ]
-                ),
-                ft.Row(
-                    [
-                        ft.Icon(ft.Icons.CREDIT_CARD, color=ft.Colors.ORANGE_400),
-                        ft.Text("Cartões (+ Sodexo):", expand=True),
-                        ft.Text(f"R$ {totais.cartoes:.2f}", weight=ft.FontWeight.BOLD),
-                    ]
-                ),
-                ft.Row(
-                    [
-                        ft.Icon(ft.Icons.RECEIPT_LONG, color=ft.Colors.PURPLE_400),
-                        ft.Text("Requisição:", expand=True),
-                        ft.Text(f"R$ {totais.requisicao:.2f}", weight=ft.FontWeight.BOLD),
-                    ]
-                ),
-                ft.Row(
-                    [
-                        ft.Icon(ft.Icons.REMOVE_CIRCLE, color=ft.Colors.RED_400),
-                        ft.Text("Sangria:", expand=True),
-                        ft.Text(f"R$ {totais.sangria:.2f}", weight=ft.FontWeight.BOLD),
-                    ]
-                ),
+                ft.Row([
+                    ft.Icon(ft.Icons.MONEY, color=ft.Colors.GREEN),
+                    ft.Text("Dinheiro (físico):", expand=True),
+                    ft.Text(f"R$ {totais.fisico:.2f}", weight=ft.FontWeight.BOLD),
+                ]),
+                ft.Row([
+                    ft.Icon(ft.Icons.PIX, color=ft.Colors.BLUE_400),
+                    ft.Text("Total PIX:", expand=True),
+                    ft.Text(f"R$ {totais.pix:.2f}", weight=ft.FontWeight.BOLD),
+                ]),
+                ft.Row([
+                    ft.Icon(ft.Icons.CREDIT_CARD, color=ft.Colors.ORANGE_400),
+                    ft.Text("Cartões (+ Sodexo):", expand=True),
+                    ft.Text(f"R$ {totais.cartoes:.2f}", weight=ft.FontWeight.BOLD),
+                ]),
+                ft.Row([
+                    ft.Icon(ft.Icons.RECEIPT_LONG, color=ft.Colors.PURPLE_400),
+                    ft.Text("Requisição:", expand=True),
+                    ft.Text(f"R$ {totais.requisicao:.2f}", weight=ft.FontWeight.BOLD),
+                ]),
+                ft.Row([
+                    ft.Icon(ft.Icons.REMOVE_CIRCLE, color=ft.Colors.RED_400),
+                    ft.Text("Sangria:", expand=True),
+                    ft.Text(f"R$ {totais.sangria:.2f}", weight=ft.FontWeight.BOLD),
+                ]),
                 ft.Divider(color=ft.Colors.WHITE24, height=20),
-                ft.Row(
-                    [
-                        ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=ft.Colors.GREEN_ACCENT_400),
-                        ft.Text("Total Geral:", expand=True, weight=ft.FontWeight.BOLD, size=18),
-                        ft.Text(
-                            f"R$ {totais.total_geral:.2f}",
-                            weight=ft.FontWeight.BOLD,
-                            size=18,
-                            color=ft.Colors.GREEN_ACCENT_400,
-                        ),
-                    ]
-                ),
+                ft.Row([
+                    ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=ft.Colors.GREEN_ACCENT_400),
+                    ft.Text("Total Geral:", expand=True, weight=ft.FontWeight.BOLD, size=18),
+                    ft.Text(
+                        f"R$ {totais.total_geral:.2f}",
+                        weight=ft.FontWeight.BOLD,
+                        size=18,
+                        color=ft.Colors.GREEN_ACCENT_400,
+                    ),
+                ]),
             ],
         )
 
@@ -408,7 +403,7 @@ def main(page: ft.Page):
     bottom_sheet = ft.BottomSheet(
         open=False,
         content=ft.Container(
-            padding=ft.padding.symmetric(vertical=24, horizontal=20),
+            padding=20,
             content=ft.Column(
                 tight=True,
                 spacing=12,
@@ -452,7 +447,7 @@ def main(page: ft.Page):
         page.update()
 
     # ── Botão principal ────────────────────────────────────────────────────
-    btn_lancar = ft.ElevatedButton(
+    btn_lancar = ft.Button(
         content=ft.Row(
             [
                 ft.Icon(ft.Icons.ADD_SHOPPING_CART, color=ft.Colors.WHITE),
@@ -461,10 +456,10 @@ def main(page: ft.Page):
             alignment=ft.MainAxisAlignment.CENTER,
             tight=True,
         ),
+        style=_estilo_btn(ft.Colors.BLUE_700),
         on_click=acao_lancar,
         width=largura_conteudo,
         height=58,
-        bgcolor=ft.Colors.BLUE_700,
     )
 
     # ── Totais ─────────────────────────────────────────────────────────────
