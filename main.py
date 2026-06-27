@@ -2,6 +2,7 @@ import flet as ft
 import sqlite3
 from datetime import datetime
 import os
+import urllib.parse
 
 def inicializar_banco():
     conn = sqlite3.connect("meu_caixa.db", check_same_thread=False)
@@ -52,17 +53,19 @@ def main(page: ft.Page):
         dinheiro = totais.get("Dinheiro", 0.0)
         pix = totais.get("Pix", 0.0)
         sangria = totais.get("Sangria", 0.0)
+        requisicao = totais.get("Requisição", 0.0)
+        sodexo = totais.get("Sodexo", 0.0)
         total_cartoes = sum(totais.get(c, 0.0) for c in lista_cartoes)
 
         fisico = dinheiro - sangria
-        return fisico, pix, total_cartoes
+        return fisico, pix, total_cartoes, requisicao, sodexo
 
     txt_fisico = ft.Text("R$ 0.00", size=40, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_400)
     txt_pix = ft.Text("R$ 0.00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_400)
     txt_cartoes = ft.Text("R$ 0.00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_400)
 
     def atualizar_painel():
-        fisico, pix, cartoes = obter_totais()
+        fisico, pix, cartoes, _, _ = obter_totais()
         txt_fisico.value = f"R$ {fisico:.2f}"
         txt_pix.value = f"R$ {pix:.2f}"
         txt_cartoes.value = f"R$ {cartoes:.2f}"
@@ -98,7 +101,51 @@ def main(page: ft.Page):
         width=320
     )
 
-    lista_agrupada = ft.ListView(expand=True, spacing=5, height=250, width=320)
+    def set_valor(val, desc=""):
+        input_valor.value = val
+        if desc:
+            input_desc.value = desc
+        page.update()
+        input_valor.focus()
+
+    def make_btn_rapido(label, val, desc="", cor=ft.Colors.BLUE_GREY_700):
+        def _click(e, v=val, d=desc):
+            set_valor(v, d)
+        return ft.ElevatedButton(
+            content=ft.Text(label, color=ft.Colors.WHITE, size=13),
+            bgcolor=cor,
+            on_click=_click,
+            height=38,
+        )
+
+    botoes_rapidos = ft.Row(
+        controls=[
+            make_btn_rapido("R$ 50", "50.00"),
+            make_btn_rapido("R$ 100", "100.00"),
+            make_btn_rapido("R$ 200", "200.00"),
+            make_btn_rapido("Completou", "", "Completou", ft.Colors.GREEN_800),
+        ],
+        alignment=ft.MainAxisAlignment.CENTER,
+        width=320,
+        spacing=6,
+    )
+
+    lista_agrupada = ft.ListView(expand=True, spacing=5, height=200, width=320)
+    lista_historico = ft.ListView(expand=True, spacing=4, height=220, width=320)
+
+    def cor_icone_tipo(tipo):
+        if tipo == "Dinheiro":
+            return ft.Colors.GREEN, ft.Icons.MONEY
+        elif tipo == "Sangria":
+            return ft.Colors.RED_400, ft.Icons.REMOVE_CIRCLE
+        elif tipo == "Pix":
+            return ft.Colors.BLUE_400, ft.Icons.PIX
+        elif tipo == "Requisição":
+            return ft.Colors.PURPLE_400, ft.Icons.RECEIPT_LONG
+        elif tipo == "Sodexo":
+            return ft.Colors.TEAL_400, ft.Icons.LUNCH_DINING
+        else:
+            return ft.Colors.ORANGE_400, ft.Icons.CREDIT_CARD
 
     def carregar_lista_agrupada():
         lista_agrupada.controls.clear()
@@ -108,30 +155,50 @@ def main(page: ft.Page):
         for tipo, valor_total in cursor.fetchall():
             if valor_total == 0:
                 continue
-
-            if tipo == "Dinheiro":
-                cor = ft.Colors.GREEN
-                icone = ft.Icons.MONEY
-            elif tipo == "Sangria":
-                cor = ft.Colors.RED_400
-                icone = ft.Icons.REMOVE_CIRCLE
-            elif tipo == "Pix":
-                cor = ft.Colors.BLUE_400
-                icone = ft.Icons.PIX
-            elif tipo == "Requisição":
-                cor = ft.Colors.PURPLE_400
-                icone = ft.Icons.RECEIPT_LONG
-            elif tipo == "Sodexo":
-                cor = ft.Colors.TEAL_400
-                icone = ft.Icons.LUNCH_DINING
-            else:
-                cor = ft.Colors.ORANGE_400
-                icone = ft.Icons.CREDIT_CARD
-
+            cor, icone = cor_icone_tipo(tipo)
             lista_agrupada.controls.append(
                 ft.ListTile(
                     leading=ft.Icon(icone, color=cor),
                     title=ft.Text(f"{tipo} - R$ {valor_total:.2f}", color=cor, weight=ft.FontWeight.BOLD),
+                )
+            )
+        page.update()
+
+    def carregar_historico():
+        lista_historico.controls.clear()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, tipo, valor, descricao, data FROM lancamentos ORDER BY id DESC LIMIT 30")
+
+        for row in cursor.fetchall():
+            item_id, tipo, valor, descricao, data = row
+            cor, icone = cor_icone_tipo(tipo)
+            desc_texto = f" — {descricao}" if descricao else ""
+
+            def deletar_item(e, rid=item_id):
+                c = conn.cursor()
+                c.execute("DELETE FROM lancamentos WHERE id=?", (rid,))
+                conn.commit()
+                atualizar_painel()
+                carregar_lista_agrupada()
+                carregar_historico()
+
+            lista_historico.controls.append(
+                ft.ListTile(
+                    leading=ft.Icon(icone, color=cor, size=18),
+                    title=ft.Text(
+                        f"R$ {valor:.2f} · {tipo}{desc_texto}",
+                        color=cor,
+                        size=13,
+                    ),
+                    subtitle=ft.Text(data, color=ft.Colors.GREY_500, size=11),
+                    trailing=ft.IconButton(
+                        icon=ft.Icons.DELETE_OUTLINE,
+                        icon_color=ft.Colors.RED_400,
+                        icon_size=18,
+                        tooltip="Apagar",
+                        on_click=deletar_item,
+                    ),
+                    dense=True,
                 )
             )
         page.update()
@@ -158,22 +225,43 @@ def main(page: ft.Page):
 
         atualizar_painel()
         carregar_lista_agrupada()
+        carregar_historico()
         input_valor.focus()
 
     def acao_fechar_caixa(e):
-        fisico, pix, cartoes = obter_totais()
-        total_geral = fisico + pix + cartoes
+        fisico, pix, cartoes, requisicao, sodexo = obter_totais()
+        total_geral = fisico + pix + cartoes + requisicao + sodexo
+
+        resumo = (
+            f"⛽ *Fechamento de Turno - Posto Janjão*\n\n"
+            f"💵 Dinheiro (físico): R$ {fisico:.2f}\n"
+            f"📱 PIX: R$ {pix:.2f}\n"
+            f"💳 Cartões: R$ {cartoes:.2f}\n"
+            f"📋 Requisição: R$ {requisicao:.2f}\n"
+            f"🍽️ Sodexo: R$ {sodexo:.2f}\n\n"
+            f"✅ Total Geral: R$ {total_geral:.2f}"
+        )
+
+        def enviar_whatsapp(x):
+            texto_codificado = urllib.parse.quote(resumo)
+            page.launch_url(f"https://wa.me/?text={texto_codificado}")
 
         dlg = ft.AlertDialog(
             title=ft.Text("Resumo do Turno"),
             content=ft.Text(
-                f"Físico (Dinheiro): R$ {fisico:.2f}\n"
+                f"Dinheiro (físico): R$ {fisico:.2f}\n"
                 f"Total PIX: R$ {pix:.2f}\n"
-                f"Total Cartões: R$ {cartoes:.2f}\n\n"
+                f"Total Cartões: R$ {cartoes:.2f}\n"
+                f"Requisição: R$ {requisicao:.2f}\n"
+                f"Sodexo: R$ {sodexo:.2f}\n\n"
                 f"Total Geral: R$ {total_geral:.2f}"
             ),
         )
         dlg.actions = [
+            ft.TextButton(
+                content=ft.Row([ft.Icon(ft.Icons.SEND, color=ft.Colors.GREEN_400), ft.Text("WhatsApp", color=ft.Colors.GREEN_400)], tight=True),
+                on_click=enviar_whatsapp,
+            ),
             ft.TextButton("Fechar", on_click=lambda x: fechar_dialogo(dlg)),
         ]
         abrir_dialogo(dlg)
@@ -191,6 +279,7 @@ def main(page: ft.Page):
             fechar_dialogo(dlg_confirmar)
             atualizar_painel()
             carregar_lista_agrupada()
+            carregar_historico()
 
         dlg_confirmar.actions = [
             ft.TextButton("Sim, Zerar", on_click=confirmar_zerar),
@@ -259,14 +348,18 @@ def main(page: ft.Page):
                 ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
                 dropdown_tipo,
                 input_valor,
+                botoes_rapidos,
                 input_desc,
                 ft.Divider(height=5, color=ft.Colors.TRANSPARENT),
                 btn_lancar,
                 btn_fechar,
                 btn_limpar,
                 ft.Divider(height=10),
-                ft.Text("Totais por Bandeira:", size=16, weight=ft.FontWeight.BOLD, width=320, text_align=ft.TextAlign.LEFT),
+                ft.Text("Totais por Tipo:", size=16, weight=ft.FontWeight.BOLD, width=320, text_align=ft.TextAlign.LEFT),
                 lista_agrupada,
+                ft.Divider(height=5),
+                ft.Text("Histórico Recente:", size=16, weight=ft.FontWeight.BOLD, width=320, text_align=ft.TextAlign.LEFT),
+                lista_historico,
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=10,
@@ -275,6 +368,7 @@ def main(page: ft.Page):
 
     atualizar_painel()
     carregar_lista_agrupada()
+    carregar_historico()
 
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
