@@ -32,7 +32,8 @@ def main(page: ft.Page):
     lista_cartoes = [
         "Master Crédito", "Master Débito",
         "Visa Crédito", "Visa Débito",
-        "Elo Crédito", "Elo Débito"
+        "Elo Crédito", "Elo Débito",
+        "Sodexo"
     ]
 
     def abrir_dialogo(dlg):
@@ -54,18 +55,17 @@ def main(page: ft.Page):
         pix = totais.get("Pix", 0.0)
         sangria = totais.get("Sangria", 0.0)
         requisicao = totais.get("Requisição", 0.0)
-        sodexo = totais.get("Sodexo", 0.0)
         total_cartoes = sum(totais.get(c, 0.0) for c in lista_cartoes)
 
         fisico = dinheiro - sangria
-        return fisico, pix, total_cartoes, requisicao, sodexo
+        return fisico, pix, total_cartoes, requisicao
 
     txt_fisico = ft.Text("R$ 0.00", size=40, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_400)
     txt_pix = ft.Text("R$ 0.00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_400)
     txt_cartoes = ft.Text("R$ 0.00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_400)
 
     def atualizar_painel():
-        fisico, pix, cartoes, _, _ = obter_totais()
+        fisico, pix, cartoes, _ = obter_totais()
         txt_fisico.value = f"R$ {fisico:.2f}"
         txt_pix.value = f"R$ {pix:.2f}"
         txt_cartoes.value = f"R$ {cartoes:.2f}"
@@ -229,16 +229,15 @@ def main(page: ft.Page):
         input_valor.focus()
 
     def acao_fechar_caixa(e):
-        fisico, pix, cartoes, requisicao, sodexo = obter_totais()
-        total_geral = fisico + pix + cartoes + requisicao + sodexo
+        fisico, pix, cartoes, requisicao = obter_totais()
+        total_geral = fisico + pix + cartoes + requisicao
 
         resumo = (
             f"⛽ *Fechamento de Turno - Posto Janjão*\n\n"
             f"💵 Dinheiro (físico): R$ {fisico:.2f}\n"
             f"📱 PIX: R$ {pix:.2f}\n"
-            f"💳 Cartões: R$ {cartoes:.2f}\n"
-            f"📋 Requisição: R$ {requisicao:.2f}\n"
-            f"🍽️ Sodexo: R$ {sodexo:.2f}\n\n"
+            f"💳 Cartões (+ Sodexo): R$ {cartoes:.2f}\n"
+            f"📋 Requisição: R$ {requisicao:.2f}\n\n"
             f"✅ Total Geral: R$ {total_geral:.2f}"
         )
 
@@ -251,9 +250,8 @@ def main(page: ft.Page):
             content=ft.Text(
                 f"Dinheiro (físico): R$ {fisico:.2f}\n"
                 f"Total PIX: R$ {pix:.2f}\n"
-                f"Total Cartões: R$ {cartoes:.2f}\n"
-                f"Requisição: R$ {requisicao:.2f}\n"
-                f"Sodexo: R$ {sodexo:.2f}\n\n"
+                f"Cartões (+ Sodexo): R$ {cartoes:.2f}\n"
+                f"Requisição: R$ {requisicao:.2f}\n\n"
                 f"Total Geral: R$ {total_geral:.2f}"
             ),
         )
