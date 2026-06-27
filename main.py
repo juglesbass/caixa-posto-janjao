@@ -44,13 +44,14 @@ def main(page: ft.Page):
         txt_turno.width = largura
 
     def mostrar_snackbar(mensagem: str, cor=ft.Colors.GREEN_700):
-        page.open(
-            ft.SnackBar(
-                content=ft.Text(mensagem, color=ft.Colors.WHITE),
-                bgcolor=cor,
-                duration=2500,
-            )
+        snack = ft.SnackBar(
+            content=ft.Text(mensagem, color=ft.Colors.WHITE),
+            bgcolor=cor,
+            duration=2500,
         )
+        page.overlay.append(snack)
+        snack.open = True
+        page.update()
 
     def abrir_dialogo(dlg):
         if dlg not in page.overlay:
