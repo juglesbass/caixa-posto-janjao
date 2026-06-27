@@ -245,15 +245,42 @@ def main(page: ft.Page):
             texto_codificado = urllib.parse.quote(resumo)
             page.launch_url(f"https://wa.me/?text={texto_codificado}")
 
+        conteudo = ft.Column(
+            width=280,
+            tight=True,
+            controls=[
+                ft.Row([
+                    ft.Icon(ft.Icons.MONEY, color=ft.Colors.GREEN),
+                    ft.Text("Dinheiro (físico):", expand=True),
+                    ft.Text(f"R$ {fisico:.2f}", weight=ft.FontWeight.BOLD),
+                ]),
+                ft.Row([
+                    ft.Icon(ft.Icons.PIX, color=ft.Colors.BLUE_400),
+                    ft.Text("Total PIX:", expand=True),
+                    ft.Text(f"R$ {pix:.2f}", weight=ft.FontWeight.BOLD),
+                ]),
+                ft.Row([
+                    ft.Icon(ft.Icons.CREDIT_CARD, color=ft.Colors.ORANGE_400),
+                    ft.Text("Cartões (+ Sodexo):", expand=True),
+                    ft.Text(f"R$ {cartoes:.2f}", weight=ft.FontWeight.BOLD),
+                ]),
+                ft.Row([
+                    ft.Icon(ft.Icons.RECEIPT_LONG, color=ft.Colors.PURPLE_400),
+                    ft.Text("Requisição:", expand=True),
+                    ft.Text(f"R$ {requisicao:.2f}", weight=ft.FontWeight.BOLD),
+                ]),
+                ft.Divider(color=ft.Colors.WHITE24, height=20),
+                ft.Row([
+                    ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=ft.Colors.GREEN_ACCENT_400),
+                    ft.Text("Total Geral:", expand=True, weight=ft.FontWeight.BOLD, size=18),
+                    ft.Text(f"R$ {total_geral:.2f}", weight=ft.FontWeight.BOLD, size=18, color=ft.Colors.GREEN_ACCENT_400),
+                ]),
+            ],
+        )
+
         dlg = ft.AlertDialog(
             title=ft.Text("Resumo do Turno"),
-            content=ft.Text(
-                f"Dinheiro (físico): R$ {fisico:.2f}\n"
-                f"Total PIX: R$ {pix:.2f}\n"
-                f"Cartões (+ Sodexo): R$ {cartoes:.2f}\n"
-                f"Requisição: R$ {requisicao:.2f}\n\n"
-                f"Total Geral: R$ {total_geral:.2f}"
-            ),
+            content=conteudo,
         )
         dlg.actions = [
             ft.TextButton(
