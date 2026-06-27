@@ -1,7 +1,7 @@
 [project]
-name = "repl-nix-workspace"
-version = "0.1.0"
-description = "Add your description here"
+name = "caixa-posto-janjao"
+version = "0.2.0"
+description = "Caixa de turno para o Posto Janjão"
 requires-python = ">=3.11"
 dependencies = [
     "flet>=0.85.3",
