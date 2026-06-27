@@ -149,7 +149,7 @@ def main(page: ft.Page):
         page.update()
         input_valor.focus()
 
-        botoes_rapidos = ft.Row(
+    botoes_rapidos = ft.Row(
         wrap=True,
         alignment=ft.MainAxisAlignment.CENTER,
         spacing=6,
@@ -167,9 +167,8 @@ def main(page: ft.Page):
                 on_click=acao_completou,
                 height=38,
             ),
-        ]
+        ],
     )
-
 
     lista_agrupada = ft.ListView(expand=True, spacing=5, height=180, width=largura_conteudo)
     lista_historico = ft.ListView(expand=True, spacing=4, height=200, width=largura_conteudo)
