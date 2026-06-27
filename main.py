@@ -44,7 +44,7 @@ def main(page: ft.Page):
         txt_turno.width = largura
 
     def mostrar_snackbar(mensagem: str, cor=ft.Colors.GREEN_700):
-        page.show_snack_bar(
+        page.open(
             ft.SnackBar(
                 content=ft.Text(mensagem, color=ft.Colors.WHITE),
                 bgcolor=cor,
