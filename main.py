@@ -62,7 +62,6 @@ def main(page: ft.Page):
         btn_lancar.width = largura
         linha_totais_secundarios.width = largura
         linha_totais_extras.width = largura
-        linha_totais_deposito.width = largura
         txt_turno.width = largura
         page.update()
 
@@ -90,7 +89,6 @@ def main(page: ft.Page):
     # manter boa leitura nos dois temas.
     ICONES_TIPOS = {
         db.TIPO_DINHEIRO: ft.Icons.MONEY,
-        db.TIPO_SANGRIA: ft.Icons.REMOVE_CIRCLE,
         db.TIPO_PIX: ft.Icons.PIX,
         db.TIPO_REQUISICAO: ft.Icons.RECEIPT_LONG,
         db.TIPO_SODEXO: ft.Icons.LUNCH_DINING,
@@ -99,7 +97,6 @@ def main(page: ft.Page):
 
     CORES_TIPOS_ESCURO = {
         db.TIPO_DINHEIRO: ft.Colors.GREEN,
-        db.TIPO_SANGRIA: ft.Colors.RED_400,
         db.TIPO_PIX: ft.Colors.BLUE_400,
         db.TIPO_REQUISICAO: ft.Colors.PURPLE_400,
         db.TIPO_SODEXO: ft.Colors.TEAL_400,
@@ -114,7 +111,6 @@ def main(page: ft.Page):
 
     CORES_TIPOS_CLARO = {
         db.TIPO_DINHEIRO: ft.Colors.GREEN_800,
-        db.TIPO_SANGRIA: ft.Colors.RED_700,
         db.TIPO_PIX: ft.Colors.BLUE_800,
         db.TIPO_REQUISICAO: ft.Colors.PURPLE_800,
         db.TIPO_SODEXO: ft.Colors.TEAL_800,
@@ -193,7 +189,6 @@ def main(page: ft.Page):
                 db.TIPO_DINHEIRO,
                 db.TIPO_PIX,
                 db.TIPO_REQUISICAO,
-                db.TIPO_SANGRIA,
                 db.TIPO_DEPOSITO_GLOBAL,
             ]
             for i in range(0, len(principais), 2):
@@ -217,7 +212,6 @@ def main(page: ft.Page):
     txt_pix = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_400)
     txt_cartoes = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_400)
     txt_requisicao = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.PURPLE_400)
-    txt_sangria = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.RED_400)
     txt_deposito_global = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.BROWN_400)
     txt_turno = ft.Text("", size=13, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
 
@@ -229,7 +223,6 @@ def main(page: ft.Page):
         txt_pix.value = formatar_moeda(totais.pix)
         txt_cartoes.value = formatar_moeda(totais.cartoes)
         txt_requisicao.value = formatar_moeda(totais.requisicao)
-        txt_sangria.value = formatar_moeda(totais.sangria)
         txt_deposito_global.value = formatar_moeda(totais.deposito_global)
         txt_turno.value = f"Turno #{turno_atual.id} · aberto em {turno_atual.aberto_em}"
         page.update()
@@ -569,11 +562,6 @@ def main(page: ft.Page):
                     ft.Text(formatar_moeda(totais.requisicao), weight=ft.FontWeight.BOLD),
                 ]),
                 ft.Row([
-                    ft.Icon(ft.Icons.REMOVE_CIRCLE, color=ft.Colors.RED_400),
-                    ft.Text("Sangria:", expand=True),
-                    ft.Text(formatar_moeda(totais.sangria), weight=ft.FontWeight.BOLD),
-                ]),
-                ft.Row([
                     ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=ft.Colors.BROWN_400),
                     ft.Text("Depósito Global:", expand=True),
                     ft.Text(formatar_moeda(totais.deposito_global), weight=ft.FontWeight.BOLD),
@@ -770,24 +758,12 @@ def main(page: ft.Page):
                 spacing=2,
             ),
             ft.Column(
-                [ft.Text("Sangria", size=13, color=ft.Colors.GREY_400), txt_sangria],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=2,
-            ),
-        ],
-        alignment=ft.MainAxisAlignment.SPACE_AROUND,
-        width=largura_conteudo,
-    )
-
-    linha_totais_deposito = ft.Row(
-        controls=[
-            ft.Column(
                 [ft.Text("Depósito Global", size=13, color=ft.Colors.GREY_400), txt_deposito_global],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=2,
             ),
         ],
-        alignment=ft.MainAxisAlignment.CENTER,
+        alignment=ft.MainAxisAlignment.SPACE_AROUND,
         width=largura_conteudo,
     )
 
@@ -843,7 +819,6 @@ def main(page: ft.Page):
             txt_fisico,
             linha_totais_secundarios,
             linha_totais_extras,
-            linha_totais_deposito,
             ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
             rotulo_forma_pagamento,
             seletor_tipo,
