@@ -13,6 +13,7 @@ TIPO_PIX = "Pix"
 TIPO_REQUISICAO = "Requisição"
 TIPO_SODEXO = "Sodexo"
 TIPO_SANGRIA = "Sangria"
+TIPO_DEPOSITO_GLOBAL = "Depósito Global"
 
 LISTA_CARTOES = [
     "Master Crédito",
@@ -34,6 +35,7 @@ TIPOS_DROPDOWN = [
     TIPO_REQUISICAO,
     *LISTA_CARTOES,
     TIPO_SANGRIA,
+    TIPO_DEPOSITO_GLOBAL,
 ]
 
 
@@ -60,6 +62,7 @@ class Totais:
     requisicao: float
     sangria: float
     dinheiro: float
+    deposito_global: float = 0.0
 
     @property
     def total_geral(self) -> float:
@@ -171,8 +174,13 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
     pix = totais_centavos.get(TIPO_PIX, 0) / 100.0
     sangria = totais_centavos.get(TIPO_SANGRIA, 0) / 100.0
     requisicao = totais_centavos.get(TIPO_REQUISICAO, 0) / 100.0
+    deposito_global = totais_centavos.get(TIPO_DEPOSITO_GLOBAL, 0) / 100.0
     total_cartoes = sum(totais_centavos.get(cartao, 0) for cartao in LISTA_CARTOES) / 100.0
-    fisico = dinheiro - sangria
+    # Depósito Global é dinheiro físico que saiu da carteira/gaveta direto
+    # pro cofre da transportadora — assim como a Sangria, reduz o "Físico",
+    # mas é contabilizado numa categoria separada pra bater com o controle
+    # em papel.
+    fisico = dinheiro - sangria - deposito_global
 
     return Totais(
         fisico=fisico,
@@ -181,6 +189,7 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
         requisicao=requisicao,
         sangria=sangria,
         dinheiro=dinheiro,
+        deposito_global=deposito_global,
     )
 
 
@@ -207,7 +216,8 @@ def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str,
         f"💵 Dinheiro (físico): {formatar_moeda(totais.fisico)}\n"
         f"📱 PIX: {formatar_moeda(totais.pix)}\n"
         f"📋 Requisição: {formatar_moeda(totais.requisicao)}\n"
-        f"🔻 Sangria: {formatar_moeda(totais.sangria)}\n\n"
+        f"🔻 Sangria: {formatar_moeda(totais.sangria)}\n"
+        f"🔒 Depósito Global: {formatar_moeda(totais.deposito_global)}\n\n"
         f"💳 Cartões e Sodexo por bandeira:\n"
         f"{linhas_cartoes}\n"
         f"   Total de Cartões (+ Sodexo): {formatar_moeda(totais.cartoes)}\n\n"
