@@ -184,15 +184,33 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
     )
 
 
-def montar_resumo_texto(totais: Totais, turno: Turno) -> str:
+def obter_detalhe_cartoes(conn: sqlite3.Connection, turno_id: int) -> dict[str, float]:
+    """Retorna o valor lançado em cada bandeira de cartão (e Sodexo),
+    na mesma ordem de LISTA_CARTOES, incluindo bandeiras com valor zero
+    (pra bater fácil com uma planilha/papel de fechamento que lista todas)."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT tipo, SUM(valor_centavos) FROM lancamentos WHERE turno_id = ? GROUP BY tipo",
+        (turno_id,),
+    )
+    totais_centavos = {tipo: (centavos or 0) for tipo, centavos in cursor.fetchall()}
+    return {cartao: totais_centavos.get(cartao, 0) / 100.0 for cartao in LISTA_CARTOES}
+
+
+def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str, float]) -> str:
+    linhas_cartoes = "\n".join(
+        f"   • {bandeira}: {formatar_moeda(valor)}" for bandeira, valor in detalhe_cartoes.items()
+    )
     return (
         f"⛽ *Fechamento de Turno - Posto Janjão*\n"
         f"🕐 Turno aberto em: {turno.aberto_em}\n\n"
         f"💵 Dinheiro (físico): {formatar_moeda(totais.fisico)}\n"
         f"📱 PIX: {formatar_moeda(totais.pix)}\n"
-        f"💳 Cartões (+ Sodexo): {formatar_moeda(totais.cartoes)}\n"
         f"📋 Requisição: {formatar_moeda(totais.requisicao)}\n"
         f"🔻 Sangria: {formatar_moeda(totais.sangria)}\n\n"
+        f"💳 Cartões e Sodexo por bandeira:\n"
+        f"{linhas_cartoes}\n"
+        f"   Total de Cartões (+ Sodexo): {formatar_moeda(totais.cartoes)}\n\n"
         f"✅ Total Geral: {formatar_moeda(totais.total_geral)}"
     )
 
