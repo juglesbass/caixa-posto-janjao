@@ -16,7 +16,7 @@ def main(page: ft.Page):
     # barra de status (relógio/bateria/sinal). Esse padding maior no topo
     # garante que o cabeçalho (e o botão de menu "⋮") fiquem sempre visíveis
     # e clicáveis, abaixo dessa área.
-    page.padding = ft.padding.only(left=20, right=20, top=54, bottom=20)
+    page.padding = ft.Padding.only(left=20, right=20, top=54, bottom=20)
 
     conn = db.conectar()
     db.inicializar_banco(conn)
