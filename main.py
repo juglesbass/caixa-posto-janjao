@@ -21,14 +21,25 @@ def main(page: ft.Page):
     autenticado = not pin_configurado
     largura_conteudo = 380
 
-    # ── Fechamento de conexão ao desconectar a sessão/aba ──────────────────
-    def on_disconnect(e):
+    # ── Garantia de conexão viva ────────────────────────────────────────────
+    # OBS: não fechamos a conexão no on_disconnect. Em apps móveis/PWA, a
+    # sessão desconecta sozinha quando o app vai para segundo plano, mas o
+    # Flet RECONECTA na mesma sessão quando o app volta — não cria uma nova.
+    # Se a conexão fosse fechada ali, ficaria fechada para sempre nessa
+    # mesma sessão, e só um restart completo do app resolveria (era
+    # exatamente esse o bug). Em vez disso, verificamos e reabrimos a
+    # conexão automaticamente sempre que algo for fazer uma operação no
+    # banco, cobrindo esse caso e qualquer outro motivo de queda.
+    def garantir_conexao():
+        nonlocal conn
         try:
-            conn.close()
+            conn.execute("SELECT 1")
         except Exception:
-            pass
-
-    page.on_disconnect = on_disconnect
+            try:
+                conn.close()
+            except Exception:
+                pass
+            conn = db.conectar()
 
     def atualizar_largura():
         nonlocal largura_conteudo
@@ -226,6 +237,7 @@ def main(page: ft.Page):
                 )
 
                 def excluir_confirmado(x, lancamento_id=rid):
+                    garantir_conexao()
                     if db.deletar_lancamento(conn, lancamento_id, turno_atual.id):
                         fechar_dialogo(dlg_excluir)
                         mostrar_snackbar("Lançamento removido.", ft.Colors.ORANGE_800)
@@ -282,6 +294,7 @@ def main(page: ft.Page):
                         page.update()
                         return
                     try:
+                        garantir_conexao()
                         ok = db.atualizar_lancamento(
                             conn,
                             lancamento_id,
@@ -340,6 +353,7 @@ def main(page: ft.Page):
         page.update()
 
     def recarregar_listas():
+        garantir_conexao()
         atualizar_painel()
         carregar_lista_agrupada()
         carregar_historico()
@@ -359,6 +373,7 @@ def main(page: ft.Page):
         page.update()
 
         try:
+            garantir_conexao()
             db.inserir_lancamento(
                 conn,
                 turno_atual.id,
@@ -430,6 +445,7 @@ def main(page: ft.Page):
 
     def acao_fechar_caixa(e=None):
         fechar_bottom_sheet()
+        garantir_conexao()
         totais = db.obter_totais(conn, turno_atual.id)
         resumo = db.montar_resumo_texto(totais, turno_atual)
         dlg = ft.AlertDialog(
@@ -444,6 +460,7 @@ def main(page: ft.Page):
         def encerrar_turno(x):
             nonlocal turno_atual
             try:
+                garantir_conexao()
                 db.fechar_turno(conn, turno_atual.id, totais)
                 turno_atual = db.obter_ou_criar_turno_aberto(conn)
                 fechar_dialogo(dlg)
@@ -467,6 +484,7 @@ def main(page: ft.Page):
 
     def acao_historico_turnos(e=None):
         fechar_bottom_sheet()
+        garantir_conexao()
         turnos = db.listar_turnos_fechados(conn)
         if not turnos:
             mostrar_snackbar("Nenhum turno encerrado ainda.", ft.Colors.BLUE_GREY_700)
@@ -503,6 +521,7 @@ def main(page: ft.Page):
 
         def confirmar_zerar(x):
             try:
+                garantir_conexao()
                 caminho_backup = db.exportar_turno_csv(conn, turno_atual.id)
                 db.zerar_turno(conn, turno_atual.id)
                 fechar_dialogo(dlg_confirmar)
