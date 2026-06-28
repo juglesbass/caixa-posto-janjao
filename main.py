@@ -17,7 +17,6 @@ def main(page: ft.Page):
     page.vertical_alignment = ft.MainAxisAlignment.START
     page.scroll = ft.ScrollMode.AUTO
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-<<<<<<< HEAD
     if mobile:
         # SafeArea cuida da barra de status; padding leve nas bordas.
         page.padding = ft.Padding.only(left=16, right=16, top=8, bottom=16)
@@ -28,14 +27,6 @@ def main(page: ft.Page):
         # garante que o cabeçalho (e o botão de menu "⋮") fiquem sempre visíveis
         # e clicáveis, abaixo dessa área.
         page.padding = ft.Padding.only(left=20, right=20, top=54, bottom=20)
-=======
-    # Respiro extra no topo: quando o app é aberto como PWA em tela cheia no
-    # iOS ("Adicionar à Tela de Início"), o conteúdo pode ficar por baixo da
-    # barra de status (relógio/bateria/sinal). Esse padding maior no topo
-    # garante que o cabeçalho (e o botão de menu "⋮") fiquem sempre visíveis
-    # e clicáveis, abaixo dessa área.
-    page.padding = ft.Padding.only(left=20, right=20, top=54, bottom=20)
->>>>>>> ce78e27a2c485f32529a6369a2329da8d86ff08d
 
     conn = db.conectar()
     db.inicializar_banco(conn)
