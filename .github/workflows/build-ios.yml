@@ -79,25 +79,67 @@ jobs:
         run: |
           set -euo pipefail
 
-          RUNNER_APP=""
-          for candidate in \
-            build/flutter/build/ios/iphoneos/Runner.app \
-            build/flutter/build/ios/Release-iphoneos/Runner.app \
-            build/flutter/build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
-          do
-            if [ -d "$candidate" ]; then
-              RUNNER_APP="$candidate"
-              break
-            fi
-          done
+          echo "Procurando bundle .app para dispositivo (iphoneos)..."
 
+          # Busca em todo o diretório build/ — exclui builds de simulador.
+          mapfile -t DEVICE_APPS < <(
+            find build -type d -name "*.app" 2>/dev/null \
+              | grep -Ev 'iphonesimulator|/simulator/|/ios-simulator/|Simulator\.app' \
+              | sort -u
+          )
+
+          echo "Bundles .app encontrados (exceto simulador):"
+          if [ "${#DEVICE_APPS[@]}" -eq 0 ]; then
+            echo "  (nenhum)"
+          else
+            printf '  %s\n' "${DEVICE_APPS[@]}"
+          fi
+
+          # Escolhe o melhor candidato: iphoneos > Release-iphoneos > xcarchive > demais.
+          pick_app() {
+            local pattern="$1"
+            local app
+            for app in "${DEVICE_APPS[@]}"; do
+              if [[ "$app" == *"$pattern"* ]]; then
+                echo "$app"
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          RUNNER_APP=""
+          RUNNER_APP="$(pick_app "/iphoneos/" || true)"
+          RUNNER_APP="${RUNNER_APP:-$(pick_app "/Release-iphoneos/" || true)}"
+          RUNNER_APP="${RUNNER_APP:-$(pick_app "/Products/Applications/" || true)}"
+          RUNNER_APP="${RUNNER_APP:-$(pick_app "/archive/" || true)}"
+
+          if [ -z "$RUNNER_APP" ] && [ "${#DEVICE_APPS[@]}" -gt 0 ]; then
+            RUNNER_APP="${DEVICE_APPS[0]}"
+          fi
+
+          # Fallback: busca por Runner.app ou pelo artifact do Flet em todo o repo.
           if [ -z "$RUNNER_APP" ]; then
-            echo "::error::Runner.app não encontrado após o build."
-            find build/flutter/build/ios -name "Runner.app" -type d 2>/dev/null || true
+            mapfile -t NAMED_APPS < <(
+              find build -type d \( -name "Runner.app" -o -name "CaixaPostoJanjao.app" \) 2>/dev/null \
+                | grep -Ev 'iphonesimulator|/simulator/|/ios-simulator/' \
+                | sort -u
+            )
+            if [ "${#NAMED_APPS[@]}" -gt 0 ]; then
+              RUNNER_APP="${NAMED_APPS[0]}"
+            fi
+          fi
+
+          if [ -z "$RUNNER_APP" ] || [ ! -d "$RUNNER_APP" ]; then
+            echo "::error::Nenhum .app de dispositivo encontrado após o build."
+            echo "Árvore build/flutter/build/ios (se existir):"
+            find build/flutter/build/ios -maxdepth 4 -type d 2>/dev/null | head -80 || true
+            echo "Todos os .app em build/:"
+            find build -type d -name "*.app" 2>/dev/null || true
             exit 1
           fi
 
-          echo "Usando: $RUNNER_APP"
+          echo "Usando bundle: $RUNNER_APP"
 
           PKG_DIR="$RUNNER_TEMP/ipa-package"
           rm -rf "$PKG_DIR"
