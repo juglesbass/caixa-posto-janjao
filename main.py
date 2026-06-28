@@ -48,7 +48,7 @@ def main(page: ft.Page):
 
     def aplicar_largura():
         largura = largura_conteudo
-        dropdown_tipo.width = largura
+        seletor_tipo.width = largura
         input_valor.width = largura
         input_desc.width = largura
         botoes_rapidos.width = largura
@@ -76,6 +76,18 @@ def main(page: ft.Page):
     def fechar_dialogo(dlg):
         page.pop_dialog()
 
+    # Cada bandeira tem sua própria cor (mesmo tom para Crédito/Débito da
+    # mesma bandeira, mas Crédito mais escuro e Débito mais claro), pra
+    # dar pra identificar visualmente sem precisar ler o texto.
+    CORES_CARTOES = {
+        "Master Crédito": ft.Colors.DEEP_ORANGE_700,
+        "Master Débito": ft.Colors.DEEP_ORANGE_300,
+        "Visa Crédito": ft.Colors.INDIGO_700,
+        "Visa Débito": ft.Colors.INDIGO_300,
+        "Elo Crédito": ft.Colors.AMBER_700,
+        "Elo Débito": ft.Colors.AMBER_300,
+    }
+
     def cor_icone_tipo(tipo):
         if tipo == db.TIPO_DINHEIRO:
             return ft.Colors.GREEN, ft.Icons.MONEY
@@ -87,10 +99,81 @@ def main(page: ft.Page):
             return ft.Colors.PURPLE_400, ft.Icons.RECEIPT_LONG
         if tipo == db.TIPO_SODEXO:
             return ft.Colors.TEAL_400, ft.Icons.LUNCH_DINING
+        if tipo in CORES_CARTOES:
+            return CORES_CARTOES[tipo], ft.Icons.CREDIT_CARD
         return ft.Colors.ORANGE_400, ft.Icons.CREDIT_CARD
 
     def formatar_moeda(valor: float) -> str:
         return db.formatar_moeda(valor)
+
+    def criar_seletor_tipo(valor_inicial: str):
+        """Cria um seletor de forma de pagamento em grade de 2 colunas,
+        com chips coloridos agrupados por categoria (Operações / Cartões).
+        Retorna (controle_coluna, estado, funcao_selecionar) — estado é um
+        dict mutável com a chave 'valor' contendo o tipo selecionado atual.
+        """
+        estado = {"valor": valor_inicial}
+        coluna = ft.Column(spacing=8, width=largura_conteudo)
+
+        def construir_linha(tipos_da_linha):
+            chips = []
+            for tipo in tipos_da_linha:
+                cor, icone = cor_icone_tipo(tipo)
+                selecionado = tipo == estado["valor"]
+                chips.append(
+                    ft.Button(
+                        content=ft.Row(
+                            [
+                                ft.Icon(
+                                    icone,
+                                    size=15,
+                                    color=ft.Colors.WHITE if selecionado else cor,
+                                ),
+                                ft.Text(
+                                    tipo,
+                                    size=12,
+                                    color=ft.Colors.WHITE if selecionado else cor,
+                                    weight=ft.FontWeight.BOLD if selecionado else ft.FontWeight.NORMAL,
+                                ),
+                            ],
+                            spacing=5,
+                            tight=True,
+                            alignment=ft.MainAxisAlignment.CENTER,
+                        ),
+                        style=ft.ButtonStyle(
+                            bgcolor=cor if selecionado else ft.Colors.with_opacity(0.12, cor),
+                            shape=ft.RoundedRectangleBorder(radius=8),
+                            side=ft.BorderSide(
+                                1.5 if selecionado else 1,
+                                cor if selecionado else ft.Colors.with_opacity(0.45, cor),
+                            ),
+                        ),
+                        height=42,
+                        expand=1,
+                        on_click=lambda e, t=tipo: selecionar(t),
+                    )
+                )
+            return ft.Row(chips, spacing=8)
+
+        def construir():
+            coluna.controls.clear()
+            principais = [db.TIPO_DINHEIRO, db.TIPO_PIX, db.TIPO_REQUISICAO, db.TIPO_SANGRIA]
+            for i in range(0, len(principais), 2):
+                coluna.controls.append(construir_linha(principais[i : i + 2]))
+
+            coluna.controls.append(
+                ft.Text("Cartões", size=12, color=ft.Colors.GREY_500, weight=ft.FontWeight.BOLD)
+            )
+            for i in range(0, len(db.LISTA_CARTOES), 2):
+                coluna.controls.append(construir_linha(db.LISTA_CARTOES[i : i + 2]))
+
+        def selecionar(tipo):
+            estado["valor"] = tipo
+            construir()
+            page.update()
+
+        construir()
+        return coluna, estado, selecionar
 
     txt_fisico = ft.Text("R$ 0,00", size=52, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_400)
     txt_pix = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_400)
@@ -111,12 +194,8 @@ def main(page: ft.Page):
         txt_turno.value = f"Turno #{turno_atual.id} · aberto em {turno_atual.aberto_em}"
         page.update()
 
-    dropdown_tipo = ft.Dropdown(
-        label="Forma de Pagamento",
-        options=[ft.dropdown.Option(tipo) for tipo in db.TIPOS_DROPDOWN],
-        value=db.TIPO_DINHEIRO,
-        width=largura_conteudo,
-    )
+    rotulo_forma_pagamento = ft.Text("Forma de Pagamento", size=12, color=ft.Colors.GREY_400)
+    seletor_tipo, estado_tipo, selecionar_tipo = criar_seletor_tipo(db.TIPO_DINHEIRO)
 
     input_valor = ft.TextField(
         label="Valor (Ex: 50.00 ou 50,00)",
@@ -181,7 +260,7 @@ def main(page: ft.Page):
         )
 
     def acao_completou(e):
-        dropdown_tipo.value = db.TIPO_DINHEIRO
+        selecionar_tipo(db.TIPO_DINHEIRO)
         input_desc.value = "Completou"
         input_valor.value = ""
         input_valor.error_text = None
@@ -260,12 +339,7 @@ def main(page: ft.Page):
                 valor=row["valor"],
                 descricao=row["descricao"],
             ):
-                campo_tipo_edit = ft.Dropdown(
-                    label="Forma de Pagamento",
-                    options=[ft.dropdown.Option(t) for t in db.TIPOS_DROPDOWN],
-                    value=tipo,
-                    width=min(300, largura_conteudo),
-                )
+                seletor_edit, estado_edit, _selecionar_edit = criar_seletor_tipo(tipo)
                 campo_valor_edit = ft.TextField(
                     label="Valor",
                     value=f"{valor:.2f}".replace(".", ","),
@@ -277,13 +351,21 @@ def main(page: ft.Page):
                     value=descricao or "",
                     width=min(300, largura_conteudo),
                 )
+                seletor_edit.width = min(300, largura_conteudo)
 
                 dlg_editar = ft.AlertDialog(
                     title=ft.Text("Editar lançamento"),
                     content=ft.Column(
-                        [campo_tipo_edit, campo_valor_edit, campo_desc_edit],
+                        [
+                            ft.Text("Forma de Pagamento", size=12, color=ft.Colors.GREY_400),
+                            seletor_edit,
+                            campo_valor_edit,
+                            campo_desc_edit,
+                        ],
                         tight=True,
                         spacing=10,
+                        scroll=ft.ScrollMode.AUTO,
+                        height=420,
                     ),
                 )
 
@@ -299,7 +381,7 @@ def main(page: ft.Page):
                             conn,
                             lancamento_id,
                             turno_atual.id,
-                            campo_tipo_edit.value,
+                            estado_edit["valor"],
                             novo_valor,
                             campo_desc_edit.value or "",
                         )
@@ -377,7 +459,7 @@ def main(page: ft.Page):
             db.inserir_lancamento(
                 conn,
                 turno_atual.id,
-                dropdown_tipo.value,
+                estado_tipo["valor"],
                 valor_float,
                 input_desc.value or "",
             )
@@ -386,7 +468,7 @@ def main(page: ft.Page):
             input_desc.value = ""
             input_valor.error_text = None
 
-            mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {dropdown_tipo.value}")
+            mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {estado_tipo['valor']}")
             recarregar_listas()
             page.run_task(input_valor.focus)
         except Exception:
@@ -661,7 +743,8 @@ def main(page: ft.Page):
             linha_totais_secundarios,
             linha_totais_extras,
             ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
-            dropdown_tipo,
+            rotulo_forma_pagamento,
+            seletor_tipo,
             input_valor,
             botoes_rapidos,
             input_desc,
