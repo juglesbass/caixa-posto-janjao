@@ -62,6 +62,7 @@ def main(page: ft.Page):
         btn_lancar.width = largura
         linha_totais_secundarios.width = largura
         linha_totais_extras.width = largura
+        linha_totais_deposito.width = largura
         txt_turno.width = largura
         page.update()
 
@@ -93,6 +94,7 @@ def main(page: ft.Page):
         db.TIPO_PIX: ft.Icons.PIX,
         db.TIPO_REQUISICAO: ft.Icons.RECEIPT_LONG,
         db.TIPO_SODEXO: ft.Icons.LUNCH_DINING,
+        db.TIPO_DEPOSITO_GLOBAL: ft.Icons.ACCOUNT_BALANCE,
     }
 
     CORES_TIPOS_ESCURO = {
@@ -101,6 +103,7 @@ def main(page: ft.Page):
         db.TIPO_PIX: ft.Colors.BLUE_400,
         db.TIPO_REQUISICAO: ft.Colors.PURPLE_400,
         db.TIPO_SODEXO: ft.Colors.TEAL_400,
+        db.TIPO_DEPOSITO_GLOBAL: ft.Colors.BROWN_400,
         "Master Crédito": ft.Colors.DEEP_ORANGE_700,
         "Master Débito": ft.Colors.DEEP_ORANGE_300,
         "Visa Crédito": ft.Colors.INDIGO_ACCENT_400,
@@ -115,6 +118,7 @@ def main(page: ft.Page):
         db.TIPO_PIX: ft.Colors.BLUE_800,
         db.TIPO_REQUISICAO: ft.Colors.PURPLE_800,
         db.TIPO_SODEXO: ft.Colors.TEAL_800,
+        db.TIPO_DEPOSITO_GLOBAL: ft.Colors.BROWN_800,
         "Master Crédito": ft.Colors.DEEP_ORANGE_900,
         "Master Débito": ft.Colors.DEEP_ORANGE_700,
         "Visa Crédito": ft.Colors.INDIGO_900,
@@ -185,7 +189,13 @@ def main(page: ft.Page):
 
         def construir():
             coluna.controls.clear()
-            principais = [db.TIPO_DINHEIRO, db.TIPO_PIX, db.TIPO_REQUISICAO, db.TIPO_SANGRIA]
+            principais = [
+                db.TIPO_DINHEIRO,
+                db.TIPO_PIX,
+                db.TIPO_REQUISICAO,
+                db.TIPO_SANGRIA,
+                db.TIPO_DEPOSITO_GLOBAL,
+            ]
             for i in range(0, len(principais), 2):
                 coluna.controls.append(construir_linha(principais[i : i + 2]))
 
@@ -208,6 +218,7 @@ def main(page: ft.Page):
     txt_cartoes = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_400)
     txt_requisicao = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.PURPLE_400)
     txt_sangria = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.RED_400)
+    txt_deposito_global = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.BROWN_400)
     txt_turno = ft.Text("", size=13, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
 
     def atualizar_painel():
@@ -219,6 +230,7 @@ def main(page: ft.Page):
         txt_cartoes.value = formatar_moeda(totais.cartoes)
         txt_requisicao.value = formatar_moeda(totais.requisicao)
         txt_sangria.value = formatar_moeda(totais.sangria)
+        txt_deposito_global.value = formatar_moeda(totais.deposito_global)
         txt_turno.value = f"Turno #{turno_atual.id} · aberto em {turno_atual.aberto_em}"
         page.update()
 
@@ -561,6 +573,11 @@ def main(page: ft.Page):
                     ft.Text("Sangria:", expand=True),
                     ft.Text(formatar_moeda(totais.sangria), weight=ft.FontWeight.BOLD),
                 ]),
+                ft.Row([
+                    ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=ft.Colors.BROWN_400),
+                    ft.Text("Depósito Global:", expand=True),
+                    ft.Text(formatar_moeda(totais.deposito_global), weight=ft.FontWeight.BOLD),
+                ]),
                 ft.Divider(height=20),
                 ft.Row([
                     ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=ft.Colors.GREEN_ACCENT_400),
@@ -762,6 +779,18 @@ def main(page: ft.Page):
         width=largura_conteudo,
     )
 
+    linha_totais_deposito = ft.Row(
+        controls=[
+            ft.Column(
+                [ft.Text("Depósito Global", size=13, color=ft.Colors.GREY_400), txt_deposito_global],
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=2,
+            ),
+        ],
+        alignment=ft.MainAxisAlignment.CENTER,
+        width=largura_conteudo,
+    )
+
     # ── Header com botão de tema e botão de menu ────────────────────────────
     def alternar_tema(e):
         # Sem cor fixa (WHITE70) no título/ícones do header, eles já seguem
@@ -814,6 +843,7 @@ def main(page: ft.Page):
             txt_fisico,
             linha_totais_secundarios,
             linha_totais_extras,
+            linha_totais_deposito,
             ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
             rotulo_forma_pagamento,
             seletor_tipo,
