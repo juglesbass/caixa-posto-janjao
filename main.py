@@ -519,7 +519,7 @@ def main(page: ft.Page):
                     ft.Text("Sangria:", expand=True),
                     ft.Text(formatar_moeda(totais.sangria), weight=ft.FontWeight.BOLD),
                 ]),
-                ft.Divider(color=ft.Colors.WHITE24, height=20),
+                ft.Divider(height=20),
                 ft.Row([
                     ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=ft.Colors.GREEN_ACCENT_400),
                     ft.Text("Total Geral:", expand=True, weight=ft.FontWeight.BOLD, size=18),
@@ -639,9 +639,8 @@ def main(page: ft.Page):
                         "Gerenciar Turno",
                         size=18,
                         weight=ft.FontWeight.BOLD,
-                        color=ft.Colors.WHITE,
                     ),
-                    ft.Divider(color=ft.Colors.WHITE24, height=10),
+                    ft.Divider(height=10),
                     ft.ListTile(
                         leading=ft.Icon(ft.Icons.ASSESSMENT, color=ft.Colors.BLUE_300),
                         title=ft.Text("Fechar Caixa / Resumo", size=16),
@@ -652,7 +651,7 @@ def main(page: ft.Page):
                         title=ft.Text("Histórico de Turnos", size=16),
                         on_click=acao_historico_turnos,
                     ),
-                    ft.Divider(color=ft.Colors.WHITE24, height=10),
+                    ft.Divider(height=10),
                     ft.ListTile(
                         leading=ft.Icon(ft.Icons.DELETE_FOREVER, color=ft.Colors.RED_400),
                         title=ft.Text("Limpar / Zerar Tudo", size=16, color=ft.Colors.RED_400),
@@ -720,19 +719,36 @@ def main(page: ft.Page):
         width=largura_conteudo,
     )
 
-    # ── Header com botão de menu ───────────────────────────────────────────
+    # ── Header com botão de tema e botão de menu ────────────────────────────
+    def alternar_tema(e):
+        # Sem cor fixa (WHITE70) no título/ícones do header, eles já seguem
+        # o tema automaticamente — só precisamos trocar o theme_mode e
+        # atualizar o ícone do próprio botão (sol/lua).
+        page.theme_mode = (
+            ft.ThemeMode.LIGHT if page.theme_mode == ft.ThemeMode.DARK else ft.ThemeMode.DARK
+        )
+        btn_tema.icon = (
+            ft.Icons.LIGHT_MODE if page.theme_mode == ft.ThemeMode.DARK else ft.Icons.DARK_MODE
+        )
+        page.update()
+
+    btn_tema = ft.IconButton(
+        icon=ft.Icons.LIGHT_MODE,
+        tooltip="Alternar tema claro/escuro",
+        on_click=alternar_tema,
+    )
+
     header = ft.Row(
         controls=[
             ft.Text(
                 "Caixa · Posto Janjão",
                 size=16,
                 weight=ft.FontWeight.BOLD,
-                color=ft.Colors.WHITE70,
                 expand=True,
             ),
+            btn_tema,
             ft.IconButton(
                 icon=ft.Icons.MORE_VERT,
-                icon_color=ft.Colors.WHITE70,
                 tooltip="Gerenciar turno",
                 on_click=abrir_bottom_sheet,
             ),
