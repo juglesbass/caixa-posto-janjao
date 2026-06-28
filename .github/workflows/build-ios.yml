@@ -76,58 +76,63 @@ jobs:
           flutter build ios --release --no-codesign --build-number "${{ github.run_number }}"
 
       - name: Package unsigned IPA (Payload)
+        shell: bash
         run: |
           set -euo pipefail
 
           echo "Procurando bundle .app para dispositivo (iphoneos)..."
 
-          # Busca em todo o diretório build/ — exclui builds de simulador.
-          mapfile -t DEVICE_APPS < <(
-            find build -type d -name "*.app" 2>/dev/null \
-              | grep -Ev 'iphonesimulator|/simulator/|/ios-simulator/|Simulator\.app' \
-              | sort -u
-          )
+          is_device_app() {
+            case "$1" in
+              *iphonesimulator*|*/simulator/*|*/ios-simulator/*|*Simulator.app) return 1 ;;
+              *) return 0 ;;
+            esac
+          }
 
-          echo "Bundles .app encontrados (exceto simulador):"
-          if [ "${#DEVICE_APPS[@]}" -eq 0 ]; then
-            echo "  (nenhum)"
-          else
-            printf '  %s\n' "${DEVICE_APPS[@]}"
-          fi
-
-          # Escolhe o melhor candidato: iphoneos > Release-iphoneos > xcarchive > demais.
-          pick_app() {
+          find_device_app() {
             local pattern="$1"
             local app
-            for app in "${DEVICE_APPS[@]}"; do
-              if [[ "$app" == *"$pattern"* ]]; then
+            while IFS= read -r app; do
+              if is_device_app "$app"; then
                 echo "$app"
                 return 0
               fi
-            done
+            done < <(find build -type d -name "*.app" 2>/dev/null | grep -F "$pattern" | sort -u)
             return 1
           }
 
-          RUNNER_APP=""
-          RUNNER_APP="$(pick_app "/iphoneos/" || true)"
-          RUNNER_APP="${RUNNER_APP:-$(pick_app "/Release-iphoneos/" || true)}"
-          RUNNER_APP="${RUNNER_APP:-$(pick_app "/Products/Applications/" || true)}"
-          RUNNER_APP="${RUNNER_APP:-$(pick_app "/archive/" || true)}"
+          echo "Bundles .app encontrados (exceto simulador):"
+          found_any=0
+          while IFS= read -r app; do
+            if is_device_app "$app"; then
+              echo "  $app"
+              found_any=1
+            fi
+          done < <(find build -type d -name "*.app" 2>/dev/null | sort -u)
+          [ "$found_any" -eq 0 ] && echo "  (nenhum)"
 
-          if [ -z "$RUNNER_APP" ] && [ "${#DEVICE_APPS[@]}" -gt 0 ]; then
-            RUNNER_APP="${DEVICE_APPS[0]}"
+          # Prioridade: iphoneos > Release-iphoneos > xcarchive > nome conhecido > qualquer outro.
+          RUNNER_APP=""
+          RUNNER_APP="$(find_device_app "/iphoneos/" || true)"
+          RUNNER_APP="${RUNNER_APP:-$(find_device_app "Release-iphoneos" || true)}"
+          RUNNER_APP="${RUNNER_APP:-$(find_device_app "Products/Applications" || true)}"
+
+          if [ -z "$RUNNER_APP" ]; then
+            for candidate in \
+              build/flutter/build/ios/iphoneos/CaixaPostoJanjao.app \
+              build/flutter/build/ios/iphoneos/Runner.app \
+              build/ios/iphoneos/CaixaPostoJanjao.app \
+              build/ios/iphoneos/Runner.app
+            do
+              if [ -d "$candidate" ]; then
+                RUNNER_APP="$candidate"
+                break
+              fi
+            done
           fi
 
-          # Fallback: busca por Runner.app ou pelo artifact do Flet em todo o repo.
           if [ -z "$RUNNER_APP" ]; then
-            mapfile -t NAMED_APPS < <(
-              find build -type d \( -name "Runner.app" -o -name "CaixaPostoJanjao.app" \) 2>/dev/null \
-                | grep -Ev 'iphonesimulator|/simulator/|/ios-simulator/' \
-                | sort -u
-            )
-            if [ "${#NAMED_APPS[@]}" -gt 0 ]; then
-              RUNNER_APP="${NAMED_APPS[0]}"
-            fi
+            RUNNER_APP="$(find build -type d \( -name "CaixaPostoJanjao.app" -o -name "Runner.app" \) 2>/dev/null | while IFS= read -r app; do if is_device_app "$app"; then echo "$app"; break; fi; done)"
           fi
 
           if [ -z "$RUNNER_APP" ] || [ ! -d "$RUNNER_APP" ]; then
