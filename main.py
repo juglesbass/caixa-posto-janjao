@@ -81,13 +81,26 @@ def main(page: ft.Page):
     def fechar_dialogo(dlg):
         page.pop_dialog()
 
-    # Cada bandeira tem sua própria cor (mesmo tom para Crédito/Débito da
-    # mesma bandeira, mas Crédito mais escuro/saturado e Débito mais claro),
-    # pra dar pra identificar visualmente sem precisar ler o texto.
-    # Visa usa a variante "accent" do índigo: o tom "normal" (700/300) fica
-    # com pouco brilho sobre fundo escuro e parece apagado; o "accent" é
-    # mais vibrante e legível, mesmo em opacidade reduzida.
-    CORES_CARTOES = {
+    # Cada tipo/bandeira tem uma cor para tema ESCURO e outra para tema
+    # CLARO. No escuro, tons médios/claros (300, 400, accent) têm ótimo
+    # contraste contra o fundo quase preto. No claro, esses mesmos tons
+    # ficam apagados contra um fundo branco — por isso usamos tons bem mais
+    # escuros/saturados (700, 800, 900) das mesmas cores nesse caso, pra
+    # manter boa leitura nos dois temas.
+    ICONES_TIPOS = {
+        db.TIPO_DINHEIRO: ft.Icons.MONEY,
+        db.TIPO_SANGRIA: ft.Icons.REMOVE_CIRCLE,
+        db.TIPO_PIX: ft.Icons.PIX,
+        db.TIPO_REQUISICAO: ft.Icons.RECEIPT_LONG,
+        db.TIPO_SODEXO: ft.Icons.LUNCH_DINING,
+    }
+
+    CORES_TIPOS_ESCURO = {
+        db.TIPO_DINHEIRO: ft.Colors.GREEN,
+        db.TIPO_SANGRIA: ft.Colors.RED_400,
+        db.TIPO_PIX: ft.Colors.BLUE_400,
+        db.TIPO_REQUISICAO: ft.Colors.PURPLE_400,
+        db.TIPO_SODEXO: ft.Colors.TEAL_400,
         "Master Crédito": ft.Colors.DEEP_ORANGE_700,
         "Master Débito": ft.Colors.DEEP_ORANGE_300,
         "Visa Crédito": ft.Colors.INDIGO_ACCENT_400,
@@ -96,20 +109,27 @@ def main(page: ft.Page):
         "Elo Débito": ft.Colors.AMBER_300,
     }
 
+    CORES_TIPOS_CLARO = {
+        db.TIPO_DINHEIRO: ft.Colors.GREEN_800,
+        db.TIPO_SANGRIA: ft.Colors.RED_700,
+        db.TIPO_PIX: ft.Colors.BLUE_800,
+        db.TIPO_REQUISICAO: ft.Colors.PURPLE_800,
+        db.TIPO_SODEXO: ft.Colors.TEAL_800,
+        "Master Crédito": ft.Colors.DEEP_ORANGE_900,
+        "Master Débito": ft.Colors.DEEP_ORANGE_700,
+        "Visa Crédito": ft.Colors.INDIGO_900,
+        "Visa Débito": ft.Colors.INDIGO_700,
+        "Elo Crédito": ft.Colors.AMBER_900,
+        "Elo Débito": ft.Colors.AMBER_700,
+    }
+
     def cor_icone_tipo(tipo):
-        if tipo == db.TIPO_DINHEIRO:
-            return ft.Colors.GREEN, ft.Icons.MONEY
-        if tipo == db.TIPO_SANGRIA:
-            return ft.Colors.RED_400, ft.Icons.REMOVE_CIRCLE
-        if tipo == db.TIPO_PIX:
-            return ft.Colors.BLUE_400, ft.Icons.PIX
-        if tipo == db.TIPO_REQUISICAO:
-            return ft.Colors.PURPLE_400, ft.Icons.RECEIPT_LONG
-        if tipo == db.TIPO_SODEXO:
-            return ft.Colors.TEAL_400, ft.Icons.LUNCH_DINING
-        if tipo in CORES_CARTOES:
-            return CORES_CARTOES[tipo], ft.Icons.CREDIT_CARD
-        return ft.Colors.ORANGE_400, ft.Icons.CREDIT_CARD
+        no_claro = page.theme_mode == ft.ThemeMode.LIGHT
+        mapa_cores = CORES_TIPOS_CLARO if no_claro else CORES_TIPOS_ESCURO
+        cor_padrao = ft.Colors.ORANGE_900 if no_claro else ft.Colors.ORANGE_400
+        cor = mapa_cores.get(tipo, cor_padrao)
+        icone = ICONES_TIPOS.get(tipo, ft.Icons.CREDIT_CARD)
+        return cor, icone
 
     def formatar_moeda(valor: float) -> str:
         return db.formatar_moeda(valor)
@@ -181,7 +201,7 @@ def main(page: ft.Page):
             page.update()
 
         construir()
-        return coluna, estado, selecionar
+        return coluna, estado, selecionar, construir
 
     txt_fisico = ft.Text("R$ 0,00", size=52, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_400)
     txt_pix = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_400)
@@ -203,7 +223,7 @@ def main(page: ft.Page):
         page.update()
 
     rotulo_forma_pagamento = ft.Text("Forma de Pagamento", size=12, color=ft.Colors.GREY_400)
-    seletor_tipo, estado_tipo, selecionar_tipo = criar_seletor_tipo(db.TIPO_DINHEIRO)
+    seletor_tipo, estado_tipo, selecionar_tipo, reconstruir_seletor_tipo = criar_seletor_tipo(db.TIPO_DINHEIRO)
 
     input_valor = ft.TextField(
         label="Valor (Ex: 50.00 ou 50,00)",
@@ -347,7 +367,7 @@ def main(page: ft.Page):
                 valor=row["valor"],
                 descricao=row["descricao"],
             ):
-                seletor_edit, estado_edit, _selecionar_edit = criar_seletor_tipo(tipo)
+                seletor_edit, estado_edit, _selecionar_edit, _reconstruir_edit = criar_seletor_tipo(tipo)
                 campo_valor_edit = ft.TextField(
                     label="Valor",
                     value=f"{valor:.2f}".replace(".", ","),
@@ -722,14 +742,19 @@ def main(page: ft.Page):
     # ── Header com botão de tema e botão de menu ────────────────────────────
     def alternar_tema(e):
         # Sem cor fixa (WHITE70) no título/ícones do header, eles já seguem
-        # o tema automaticamente — só precisamos trocar o theme_mode e
-        # atualizar o ícone do próprio botão (sol/lua).
+        # o tema automaticamente — só precisamos trocar o theme_mode.
+        # Já os chips de forma de pagamento e as listas usam cores próprias
+        # (cor_icone_tipo), que dependem do tema mas só são calculadas na
+        # hora de montar o controle — por isso recriamos esses controles
+        # aqui pra eles pegarem a paleta certa imediatamente.
         page.theme_mode = (
             ft.ThemeMode.LIGHT if page.theme_mode == ft.ThemeMode.DARK else ft.ThemeMode.DARK
         )
         btn_tema.icon = (
             ft.Icons.LIGHT_MODE if page.theme_mode == ft.ThemeMode.DARK else ft.Icons.DARK_MODE
         )
+        reconstruir_seletor_tipo()
+        recarregar_listas()
         page.update()
 
     btn_tema = ft.IconButton(
