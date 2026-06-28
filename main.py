@@ -77,13 +77,16 @@ def main(page: ft.Page):
         page.pop_dialog()
 
     # Cada bandeira tem sua própria cor (mesmo tom para Crédito/Débito da
-    # mesma bandeira, mas Crédito mais escuro e Débito mais claro), pra
-    # dar pra identificar visualmente sem precisar ler o texto.
+    # mesma bandeira, mas Crédito mais escuro/saturado e Débito mais claro),
+    # pra dar pra identificar visualmente sem precisar ler o texto.
+    # Visa usa a variante "accent" do índigo: o tom "normal" (700/300) fica
+    # com pouco brilho sobre fundo escuro e parece apagado; o "accent" é
+    # mais vibrante e legível, mesmo em opacidade reduzida.
     CORES_CARTOES = {
         "Master Crédito": ft.Colors.DEEP_ORANGE_700,
         "Master Débito": ft.Colors.DEEP_ORANGE_300,
-        "Visa Crédito": ft.Colors.INDIGO_700,
-        "Visa Débito": ft.Colors.INDIGO_300,
+        "Visa Crédito": ft.Colors.INDIGO_ACCENT_400,
+        "Visa Débito": ft.Colors.INDIGO_ACCENT_100,
         "Elo Crédito": ft.Colors.AMBER_700,
         "Elo Débito": ft.Colors.AMBER_300,
     }
