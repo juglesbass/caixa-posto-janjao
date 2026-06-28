@@ -62,3 +62,57 @@ O SQLite fica no caminho configurado em `CAIXA_DB_PATH`. Em ambientes como Repli
 
 - `main.py` — interface Flet
 - `db.py` — banco de dados, turnos e exportação CSV
+- `assets/` — ícone e splash para build mobile
+- `scripts/build-ios.sh` — script de build iOS (macOS)
+
+## App iOS (iPhone/iPad)
+
+O mesmo código Python vira app nativo com [Flet](https://flet.dev/docs/publish/ios/). O build **precisa ser feito em um Mac** com Xcode instalado.
+
+### O que já está configurado
+
+- Bundle ID: `br.com.postojanjao.caixa`
+- Banco SQLite persistente em `FLET_APP_STORAGE_DATA` (sobrevive a atualizações do app)
+- Ícone e splash em `assets/`
+- `SafeArea` automática no iOS/Android
+
+### 1. Testar no Simulador (Mac)
+
+```bash
+pip install "flet>=0.85.3"
+chmod +x scripts/build-ios.sh
+./scripts/build-ios.sh simulator
+```
+
+Depois abra o **Simulator** e arraste `build/ios-simulator/Runner.app` para a janela.
+
+### 2. Instalar no iPhone/iPad
+
+1. Crie um **App ID** no [Apple Developer Portal](https://developer.apple.com/account/resources/identifiers/list) com o bundle `br.com.postojanjao.caixa`.
+2. Gere certificado **Apple Development** e um **Provisioning Profile** de desenvolvimento.
+3. Edite `pyproject.toml` e preencha em `[tool.flet.ios]`:
+
+```toml
+team_id = "SEU_TEAM_ID"
+provisioning_profile = "Nome do Profile"
+signing_certificate = "Apple Development"
+export_method = "debugging"
+```
+
+4. No Mac:
+
+```bash
+./scripts/build-ios.sh ipa
+```
+
+5. Instale o `.ipa` com **Apple Configurator** (arrastar para o iPhone conectado) ou pelo Xcode.
+
+Documentação completa: [Packaging app for iOS | Flet](https://flet.dev/docs/publish/ios/)
+
+### 3. Publicar na App Store
+
+Use `export_method = "app-store-connect"` e envie o `.ipa` pelo app **Transporter** da Apple.
+
+### Desenvolvimento local (web)
+
+Continua igual — `python main.py` abre no navegador. O modo app nativo só entra quando `FLET_PLATFORM=ios` (build empacotado).

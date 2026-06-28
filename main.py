@@ -5,13 +5,28 @@ import flet as ft
 import db
 
 
+def _app_mobile() -> bool:
+    return os.environ.get("FLET_PLATFORM", "") in ("ios", "android")
+
+
 def main(page: ft.Page):
+    mobile = _app_mobile()
+
     page.title = "Caixa - Posto Janjão"
     page.theme_mode = ft.ThemeMode.DARK
     page.vertical_alignment = ft.MainAxisAlignment.START
     page.scroll = ft.ScrollMode.AUTO
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-    page.padding = 20
+    if mobile:
+        # SafeArea cuida da barra de status; padding leve nas bordas.
+        page.padding = ft.Padding.only(left=16, right=16, top=8, bottom=16)
+    else:
+        # Respiro extra no topo: quando o app é aberto como PWA em tela cheia no
+        # iOS ("Adicionar à Tela de Início"), o conteúdo pode ficar por baixo da
+        # barra de status (relógio/bateria/sinal). Esse padding maior no topo
+        # garante que o cabeçalho (e o botão de menu "⋮") fiquem sempre visíveis
+        # e clicáveis, abaixo dessa área.
+        page.padding = ft.Padding.only(left=20, right=20, top=54, bottom=20)
 
     conn = db.conectar()
     db.inicializar_banco(conn)
@@ -21,14 +36,25 @@ def main(page: ft.Page):
     autenticado = not pin_configurado
     largura_conteudo = 380
 
-    # ── Fechamento de conexão ao desconectar a sessão/aba ──────────────────
-    def on_disconnect(e):
+    # ── Garantia de conexão viva ────────────────────────────────────────────
+    # OBS: não fechamos a conexão no on_disconnect. Em apps móveis/PWA, a
+    # sessão desconecta sozinha quando o app vai para segundo plano, mas o
+    # Flet RECONECTA na mesma sessão quando o app volta — não cria uma nova.
+    # Se a conexão fosse fechada ali, ficaria fechada para sempre nessa
+    # mesma sessão, e só um restart completo do app resolveria (era
+    # exatamente esse o bug). Em vez disso, verificamos e reabrimos a
+    # conexão automaticamente sempre que algo for fazer uma operação no
+    # banco, cobrindo esse caso e qualquer outro motivo de queda.
+    def garantir_conexao():
+        nonlocal conn
         try:
-            conn.close()
+            conn.execute("SELECT 1")
         except Exception:
-            pass
-
-    page.on_disconnect = on_disconnect
+            try:
+                conn.close()
+            except Exception:
+                pass
+            conn = db.conectar()
 
     def atualizar_largura():
         nonlocal largura_conteudo
@@ -37,7 +63,7 @@ def main(page: ft.Page):
 
     def aplicar_largura():
         largura = largura_conteudo
-        dropdown_tipo.width = largura
+        seletor_tipo.width = largura
         input_valor.width = largura
         input_desc.width = largura
         botoes_rapidos.width = largura
@@ -65,27 +91,138 @@ def main(page: ft.Page):
     def fechar_dialogo(dlg):
         page.pop_dialog()
 
+    # Cada tipo/bandeira tem uma cor para tema ESCURO e outra para tema
+    # CLARO. No escuro, tons médios/claros (300, 400, accent) têm ótimo
+    # contraste contra o fundo quase preto. No claro, esses mesmos tons
+    # ficam apagados contra um fundo branco — por isso usamos tons bem mais
+    # escuros/saturados (700, 800, 900) das mesmas cores nesse caso, pra
+    # manter boa leitura nos dois temas.
+    ICONES_TIPOS = {
+        db.TIPO_DINHEIRO: ft.Icons.MONEY,
+        db.TIPO_PIX: ft.Icons.PIX,
+        db.TIPO_REQUISICAO: ft.Icons.RECEIPT_LONG,
+        db.TIPO_SODEXO: ft.Icons.LUNCH_DINING,
+        db.TIPO_DEPOSITO_GLOBAL: ft.Icons.ACCOUNT_BALANCE,
+    }
+
+    CORES_TIPOS_ESCURO = {
+        db.TIPO_DINHEIRO: ft.Colors.GREEN,
+        db.TIPO_PIX: ft.Colors.BLUE_400,
+        db.TIPO_REQUISICAO: ft.Colors.PURPLE_400,
+        db.TIPO_SODEXO: ft.Colors.TEAL_400,
+        db.TIPO_DEPOSITO_GLOBAL: ft.Colors.BROWN_400,
+        "Master Crédito": ft.Colors.DEEP_ORANGE_700,
+        "Master Débito": ft.Colors.DEEP_ORANGE_300,
+        "Visa Crédito": ft.Colors.INDIGO_ACCENT_400,
+        "Visa Débito": ft.Colors.INDIGO_ACCENT_100,
+        "Elo Crédito": ft.Colors.AMBER_700,
+        "Elo Débito": ft.Colors.AMBER_300,
+    }
+
+    CORES_TIPOS_CLARO = {
+        db.TIPO_DINHEIRO: ft.Colors.GREEN_800,
+        db.TIPO_PIX: ft.Colors.BLUE_800,
+        db.TIPO_REQUISICAO: ft.Colors.PURPLE_800,
+        db.TIPO_SODEXO: ft.Colors.TEAL_800,
+        db.TIPO_DEPOSITO_GLOBAL: ft.Colors.BROWN_800,
+        "Master Crédito": ft.Colors.DEEP_ORANGE_900,
+        "Master Débito": ft.Colors.DEEP_ORANGE_700,
+        "Visa Crédito": ft.Colors.INDIGO_900,
+        "Visa Débito": ft.Colors.INDIGO_700,
+        "Elo Crédito": ft.Colors.AMBER_900,
+        "Elo Débito": ft.Colors.AMBER_700,
+    }
+
     def cor_icone_tipo(tipo):
-        if tipo == db.TIPO_DINHEIRO:
-            return ft.Colors.GREEN, ft.Icons.MONEY
-        if tipo == db.TIPO_SANGRIA:
-            return ft.Colors.RED_400, ft.Icons.REMOVE_CIRCLE
-        if tipo == db.TIPO_PIX:
-            return ft.Colors.BLUE_400, ft.Icons.PIX
-        if tipo == db.TIPO_REQUISICAO:
-            return ft.Colors.PURPLE_400, ft.Icons.RECEIPT_LONG
-        if tipo == db.TIPO_SODEXO:
-            return ft.Colors.TEAL_400, ft.Icons.LUNCH_DINING
-        return ft.Colors.ORANGE_400, ft.Icons.CREDIT_CARD
+        no_claro = page.theme_mode == ft.ThemeMode.LIGHT
+        mapa_cores = CORES_TIPOS_CLARO if no_claro else CORES_TIPOS_ESCURO
+        cor_padrao = ft.Colors.ORANGE_900 if no_claro else ft.Colors.ORANGE_400
+        cor = mapa_cores.get(tipo, cor_padrao)
+        icone = ICONES_TIPOS.get(tipo, ft.Icons.CREDIT_CARD)
+        return cor, icone
 
     def formatar_moeda(valor: float) -> str:
         return db.formatar_moeda(valor)
+
+    def criar_seletor_tipo(valor_inicial: str):
+        """Cria um seletor de forma de pagamento em grade de 2 colunas,
+        com chips coloridos agrupados por categoria (Operações / Cartões).
+        Retorna (controle_coluna, estado, funcao_selecionar) — estado é um
+        dict mutável com a chave 'valor' contendo o tipo selecionado atual.
+        """
+        estado = {"valor": valor_inicial}
+        coluna = ft.Column(spacing=8, width=largura_conteudo)
+
+        def construir_linha(tipos_da_linha):
+            chips = []
+            for tipo in tipos_da_linha:
+                cor, icone = cor_icone_tipo(tipo)
+                selecionado = tipo == estado["valor"]
+                chips.append(
+                    ft.Button(
+                        content=ft.Row(
+                            [
+                                ft.Icon(
+                                    icone,
+                                    size=15,
+                                    color=ft.Colors.WHITE if selecionado else cor,
+                                ),
+                                ft.Text(
+                                    tipo,
+                                    size=12,
+                                    color=ft.Colors.WHITE if selecionado else cor,
+                                    weight=ft.FontWeight.BOLD if selecionado else ft.FontWeight.NORMAL,
+                                ),
+                            ],
+                            spacing=5,
+                            tight=True,
+                            alignment=ft.MainAxisAlignment.CENTER,
+                        ),
+                        style=ft.ButtonStyle(
+                            bgcolor=cor if selecionado else ft.Colors.with_opacity(0.12, cor),
+                            shape=ft.RoundedRectangleBorder(radius=8),
+                            side=ft.BorderSide(
+                                1.5 if selecionado else 1,
+                                cor if selecionado else ft.Colors.with_opacity(0.45, cor),
+                            ),
+                        ),
+                        height=42,
+                        expand=1,
+                        on_click=lambda e, t=tipo: selecionar(t),
+                    )
+                )
+            return ft.Row(chips, spacing=8)
+
+        def construir():
+            coluna.controls.clear()
+            principais = [
+                db.TIPO_DINHEIRO,
+                db.TIPO_PIX,
+                db.TIPO_REQUISICAO,
+                db.TIPO_DEPOSITO_GLOBAL,
+            ]
+            for i in range(0, len(principais), 2):
+                coluna.controls.append(construir_linha(principais[i : i + 2]))
+
+            coluna.controls.append(
+                ft.Text("Cartões", size=12, color=ft.Colors.GREY_500, weight=ft.FontWeight.BOLD)
+            )
+            for i in range(0, len(db.LISTA_CARTOES), 2):
+                coluna.controls.append(construir_linha(db.LISTA_CARTOES[i : i + 2]))
+
+        def selecionar(tipo):
+            estado["valor"] = tipo
+            construir()
+            page.update()
+
+        construir()
+        return coluna, estado, selecionar, construir
 
     txt_fisico = ft.Text("R$ 0,00", size=52, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_400)
     txt_pix = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_400)
     txt_cartoes = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_400)
     txt_requisicao = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.PURPLE_400)
-    txt_sangria = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.RED_400)
+    txt_deposito_global = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.BROWN_400)
     txt_turno = ft.Text("", size=13, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
 
     def atualizar_painel():
@@ -96,16 +233,12 @@ def main(page: ft.Page):
         txt_pix.value = formatar_moeda(totais.pix)
         txt_cartoes.value = formatar_moeda(totais.cartoes)
         txt_requisicao.value = formatar_moeda(totais.requisicao)
-        txt_sangria.value = formatar_moeda(totais.sangria)
+        txt_deposito_global.value = formatar_moeda(totais.deposito_global)
         txt_turno.value = f"Turno #{turno_atual.id} · aberto em {turno_atual.aberto_em}"
         page.update()
 
-    dropdown_tipo = ft.Dropdown(
-        label="Forma de Pagamento",
-        options=[ft.dropdown.Option(tipo) for tipo in db.TIPOS_DROPDOWN],
-        value=db.TIPO_DINHEIRO,
-        width=largura_conteudo,
-    )
+    rotulo_forma_pagamento = ft.Text("Forma de Pagamento", size=12, color=ft.Colors.GREY_400)
+    seletor_tipo, estado_tipo, selecionar_tipo, reconstruir_seletor_tipo = criar_seletor_tipo(db.TIPO_DINHEIRO)
 
     input_valor = ft.TextField(
         label="Valor (Ex: 50.00 ou 50,00)",
@@ -170,7 +303,7 @@ def main(page: ft.Page):
         )
 
     def acao_completou(e):
-        dropdown_tipo.value = db.TIPO_DINHEIRO
+        selecionar_tipo(db.TIPO_DINHEIRO)
         input_desc.value = "Completou"
         input_valor.value = ""
         input_valor.error_text = None
@@ -226,6 +359,7 @@ def main(page: ft.Page):
                 )
 
                 def excluir_confirmado(x, lancamento_id=rid):
+                    garantir_conexao()
                     if db.deletar_lancamento(conn, lancamento_id, turno_atual.id):
                         fechar_dialogo(dlg_excluir)
                         mostrar_snackbar("Lançamento removido.", ft.Colors.ORANGE_800)
@@ -248,12 +382,7 @@ def main(page: ft.Page):
                 valor=row["valor"],
                 descricao=row["descricao"],
             ):
-                campo_tipo_edit = ft.Dropdown(
-                    label="Forma de Pagamento",
-                    options=[ft.dropdown.Option(t) for t in db.TIPOS_DROPDOWN],
-                    value=tipo,
-                    width=min(300, largura_conteudo),
-                )
+                seletor_edit, estado_edit, _selecionar_edit, _reconstruir_edit = criar_seletor_tipo(tipo)
                 campo_valor_edit = ft.TextField(
                     label="Valor",
                     value=f"{valor:.2f}".replace(".", ","),
@@ -265,13 +394,21 @@ def main(page: ft.Page):
                     value=descricao or "",
                     width=min(300, largura_conteudo),
                 )
+                seletor_edit.width = min(300, largura_conteudo)
 
                 dlg_editar = ft.AlertDialog(
                     title=ft.Text("Editar lançamento"),
                     content=ft.Column(
-                        [campo_tipo_edit, campo_valor_edit, campo_desc_edit],
+                        [
+                            ft.Text("Forma de Pagamento", size=12, color=ft.Colors.GREY_400),
+                            seletor_edit,
+                            campo_valor_edit,
+                            campo_desc_edit,
+                        ],
                         tight=True,
                         spacing=10,
+                        scroll=ft.ScrollMode.AUTO,
+                        height=420,
                     ),
                 )
 
@@ -282,11 +419,12 @@ def main(page: ft.Page):
                         page.update()
                         return
                     try:
+                        garantir_conexao()
                         ok = db.atualizar_lancamento(
                             conn,
                             lancamento_id,
                             turno_atual.id,
-                            campo_tipo_edit.value,
+                            estado_edit["valor"],
                             novo_valor,
                             campo_desc_edit.value or "",
                         )
@@ -340,6 +478,7 @@ def main(page: ft.Page):
         page.update()
 
     def recarregar_listas():
+        garantir_conexao()
         atualizar_painel()
         carregar_lista_agrupada()
         carregar_historico()
@@ -359,10 +498,11 @@ def main(page: ft.Page):
         page.update()
 
         try:
+            garantir_conexao()
             db.inserir_lancamento(
                 conn,
                 turno_atual.id,
-                dropdown_tipo.value,
+                estado_tipo["valor"],
                 valor_float,
                 input_desc.value or "",
             )
@@ -371,7 +511,7 @@ def main(page: ft.Page):
             input_desc.value = ""
             input_valor.error_text = None
 
-            mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {dropdown_tipo.value}")
+            mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {estado_tipo['valor']}")
             recarregar_listas()
             page.run_task(input_valor.focus)
         except Exception:
@@ -383,10 +523,28 @@ def main(page: ft.Page):
     input_valor.on_submit = acao_lancar
     input_desc.on_submit = acao_lancar
 
-    def montar_conteudo_resumo(totais: db.Totais):
+    def montar_conteudo_resumo(totais: db.Totais, detalhe_cartoes: dict):
+        linhas_bandeiras = []
+        for bandeira, valor in detalhe_cartoes.items():
+            cor, icone = cor_icone_tipo(bandeira)
+            linhas_bandeiras.append(
+                ft.Row(
+                    [
+                        ft.Container(width=18),
+                        ft.Icon(icone, color=cor, size=15),
+                        ft.Text(bandeira, size=12, expand=True, color=cor),
+                        ft.Text(formatar_moeda(valor), size=12, color=cor),
+                    ],
+                    spacing=4,
+                )
+            )
+
         return ft.Column(
             width=min(300, largura_conteudo),
             tight=True,
+            spacing=8,
+            scroll=ft.ScrollMode.AUTO,
+            height=480,
             controls=[
                 ft.Text(f"Turno #{turno_atual.id} · {turno_atual.aberto_em}", size=12, color=ft.Colors.GREY_500),
                 ft.Row([
@@ -399,22 +557,26 @@ def main(page: ft.Page):
                     ft.Text("Total PIX:", expand=True),
                     ft.Text(formatar_moeda(totais.pix), weight=ft.FontWeight.BOLD),
                 ]),
+                ft.Divider(height=1),
+                ft.Text("Cartões por bandeira:", size=13, color=ft.Colors.GREY_500, weight=ft.FontWeight.BOLD),
+                *linhas_bandeiras,
                 ft.Row([
                     ft.Icon(ft.Icons.CREDIT_CARD, color=ft.Colors.ORANGE_400),
-                    ft.Text("Cartões (+ Sodexo):", expand=True),
+                    ft.Text("Total de Cartões (+ Sodexo):", expand=True, size=13),
                     ft.Text(formatar_moeda(totais.cartoes), weight=ft.FontWeight.BOLD),
                 ]),
+                ft.Divider(height=1),
                 ft.Row([
                     ft.Icon(ft.Icons.RECEIPT_LONG, color=ft.Colors.PURPLE_400),
                     ft.Text("Requisição:", expand=True),
                     ft.Text(formatar_moeda(totais.requisicao), weight=ft.FontWeight.BOLD),
                 ]),
                 ft.Row([
-                    ft.Icon(ft.Icons.REMOVE_CIRCLE, color=ft.Colors.RED_400),
-                    ft.Text("Sangria:", expand=True),
-                    ft.Text(formatar_moeda(totais.sangria), weight=ft.FontWeight.BOLD),
+                    ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=ft.Colors.BROWN_400),
+                    ft.Text("Depósito Global:", expand=True),
+                    ft.Text(formatar_moeda(totais.deposito_global), weight=ft.FontWeight.BOLD),
                 ]),
-                ft.Divider(color=ft.Colors.WHITE24, height=20),
+                ft.Divider(height=20),
                 ft.Row([
                     ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=ft.Colors.GREEN_ACCENT_400),
                     ft.Text("Total Geral:", expand=True, weight=ft.FontWeight.BOLD, size=18),
@@ -430,11 +592,13 @@ def main(page: ft.Page):
 
     def acao_fechar_caixa(e=None):
         fechar_bottom_sheet()
+        garantir_conexao()
         totais = db.obter_totais(conn, turno_atual.id)
-        resumo = db.montar_resumo_texto(totais, turno_atual)
+        detalhe_cartoes = db.obter_detalhe_cartoes(conn, turno_atual.id)
+        resumo = db.montar_resumo_texto(totais, turno_atual, detalhe_cartoes)
         dlg = ft.AlertDialog(
             title=ft.Text("Resumo do Turno"),
-            content=montar_conteudo_resumo(totais),
+            content=montar_conteudo_resumo(totais, detalhe_cartoes),
         )
 
         def copiar_resumo(x):
@@ -444,6 +608,7 @@ def main(page: ft.Page):
         def encerrar_turno(x):
             nonlocal turno_atual
             try:
+                garantir_conexao()
                 db.fechar_turno(conn, turno_atual.id, totais)
                 turno_atual = db.obter_ou_criar_turno_aberto(conn)
                 fechar_dialogo(dlg)
@@ -467,6 +632,7 @@ def main(page: ft.Page):
 
     def acao_historico_turnos(e=None):
         fechar_bottom_sheet()
+        garantir_conexao()
         turnos = db.listar_turnos_fechados(conn)
         if not turnos:
             mostrar_snackbar("Nenhum turno encerrado ainda.", ft.Colors.BLUE_GREY_700)
@@ -503,6 +669,7 @@ def main(page: ft.Page):
 
         def confirmar_zerar(x):
             try:
+                garantir_conexao()
                 caminho_backup = db.exportar_turno_csv(conn, turno_atual.id)
                 db.zerar_turno(conn, turno_atual.id)
                 fechar_dialogo(dlg_confirmar)
@@ -530,9 +697,8 @@ def main(page: ft.Page):
                         "Gerenciar Turno",
                         size=18,
                         weight=ft.FontWeight.BOLD,
-                        color=ft.Colors.WHITE,
                     ),
-                    ft.Divider(color=ft.Colors.WHITE24, height=10),
+                    ft.Divider(height=10),
                     ft.ListTile(
                         leading=ft.Icon(ft.Icons.ASSESSMENT, color=ft.Colors.BLUE_300),
                         title=ft.Text("Fechar Caixa / Resumo", size=16),
@@ -543,7 +709,7 @@ def main(page: ft.Page):
                         title=ft.Text("Histórico de Turnos", size=16),
                         on_click=acao_historico_turnos,
                     ),
-                    ft.Divider(color=ft.Colors.WHITE24, height=10),
+                    ft.Divider(height=10),
                     ft.ListTile(
                         leading=ft.Icon(ft.Icons.DELETE_FOREVER, color=ft.Colors.RED_400),
                         title=ft.Text("Limpar / Zerar Tudo", size=16, color=ft.Colors.RED_400),
@@ -602,7 +768,7 @@ def main(page: ft.Page):
                 spacing=2,
             ),
             ft.Column(
-                [ft.Text("Sangria", size=13, color=ft.Colors.GREY_400), txt_sangria],
+                [ft.Text("Depósito Global", size=13, color=ft.Colors.GREY_400), txt_deposito_global],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=2,
             ),
@@ -611,19 +777,41 @@ def main(page: ft.Page):
         width=largura_conteudo,
     )
 
-    # ── Header com botão de menu ───────────────────────────────────────────
+    # ── Header com botão de tema e botão de menu ────────────────────────────
+    def alternar_tema(e):
+        # Sem cor fixa (WHITE70) no título/ícones do header, eles já seguem
+        # o tema automaticamente — só precisamos trocar o theme_mode.
+        # Já os chips de forma de pagamento e as listas usam cores próprias
+        # (cor_icone_tipo), que dependem do tema mas só são calculadas na
+        # hora de montar o controle — por isso recriamos esses controles
+        # aqui pra eles pegarem a paleta certa imediatamente.
+        page.theme_mode = (
+            ft.ThemeMode.LIGHT if page.theme_mode == ft.ThemeMode.DARK else ft.ThemeMode.DARK
+        )
+        btn_tema.icon = (
+            ft.Icons.LIGHT_MODE if page.theme_mode == ft.ThemeMode.DARK else ft.Icons.DARK_MODE
+        )
+        reconstruir_seletor_tipo()
+        recarregar_listas()
+        page.update()
+
+    btn_tema = ft.IconButton(
+        icon=ft.Icons.LIGHT_MODE,
+        tooltip="Alternar tema claro/escuro",
+        on_click=alternar_tema,
+    )
+
     header = ft.Row(
         controls=[
             ft.Text(
                 "Caixa · Posto Janjão",
                 size=16,
                 weight=ft.FontWeight.BOLD,
-                color=ft.Colors.WHITE70,
                 expand=True,
             ),
+            btn_tema,
             ft.IconButton(
                 icon=ft.Icons.MORE_VERT,
-                icon_color=ft.Colors.WHITE70,
                 tooltip="Gerenciar turno",
                 on_click=abrir_bottom_sheet,
             ),
@@ -642,7 +830,8 @@ def main(page: ft.Page):
             linha_totais_secundarios,
             linha_totais_extras,
             ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
-            dropdown_tipo,
+            rotulo_forma_pagamento,
+            seletor_tipo,
             input_valor,
             botoes_rapidos,
             input_desc,
@@ -673,7 +862,8 @@ def main(page: ft.Page):
 
     def montar_interface():
         page.controls.clear()
-        page.add(conteudo_principal)
+        raiz = ft.SafeArea(content=conteudo_principal) if mobile else conteudo_principal
+        page.add(raiz)
         aplicar_largura()
         recarregar_listas()
 
@@ -715,5 +905,10 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    porta = int(os.environ.get("PORT", 5000))
-    ft.run(main, view=ft.AppView.WEB_BROWSER, port=porta, host="0.0.0.0")
+    if _app_mobile():
+        # App nativo empacotado (flet build ipa / apk).
+        ft.run(main)
+    else:
+        # Desenvolvimento e deploy web (Replit, servidor, PWA).
+        porta = int(os.environ.get("PORT", 5000))
+        ft.run(main, view=ft.AppView.WEB_BROWSER, port=porta, host="0.0.0.0")

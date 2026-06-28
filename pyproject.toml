@@ -6,3 +6,25 @@ requires-python = ">=3.11"
 dependencies = [
     "flet>=0.85.3",
 ]
+
+[tool.flet]
+product = "Caixa - Posto Janjão"
+org = "br.com.postojanjao"
+bundle_id = "br.com.postojanjao.caixa"
+build_number = 1
+
+[tool.flet.app]
+module = "main"
+
+[tool.flet.ios]
+artifact = "CaixaPostoJanjao"
+# Preencha ao gerar o .ipa no Mac (ver docs/IOS.md):
+# team_id = "XXXXXXXXXX"
+# provisioning_profile = "Caixa Posto Janjao Development"
+# signing_certificate = "Apple Development"
+# export_method = "debugging"
+
+[tool.flet.ios.info]
+UIFileSharingEnabled = true
+LSSupportsOpeningDocumentsInPlace = true
+ITSAppUsesNonExemptEncryption = false

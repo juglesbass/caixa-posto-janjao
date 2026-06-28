@@ -1,0 +1,119 @@
+# Compila um .ipa NÃO ASSINADO para sideload (Sideloadly / AltStore).
+# Não exige conta paga da Apple nem secrets de certificado.
+#
+# Fluxo:
+#   1. Flet prepara o projeto Flutter em build/flutter
+#   2. Flutter compila para dispositivo com --no-codesign
+#   3. Runner.app é empacotado manualmente em Payload → caixa-posto-janjao.ipa
+#
+# Disparo: push na main, tags v* ou manual (Actions → Build iOS IPA).
+
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+concurrency:
+  group: build-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUTF8: 1
+  FLET_CLI_NO_RICH_OUTPUT: 1
+
+jobs:
+  build-ipa:
+    name: Build unsigned .ipa (macOS)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
+          flutter --version
+
+      - name: Prepare Flutter project with Flet
+        run: |
+          set -euo pipefail
+          # ios-simulator prepara build/flutter + app Python empacotado, sem assinatura.
+          flet build ios-simulator \
+            --yes \
+            --verbose \
+            --build-number "${{ github.run_number }}"
+
+      - name: Build unsigned iOS app (device)
+        working-directory: build/flutter
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter build ios --release --no-codesign --build-number "${{ github.run_number }}"
+
+      - name: Package unsigned IPA (Payload)
+        run: |
+          set -euo pipefail
+
+          RUNNER_APP=""
+          for candidate in \
+            build/flutter/build/ios/iphoneos/Runner.app \
+            build/flutter/build/ios/Release-iphoneos/Runner.app \
+            build/flutter/build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
+          do
+            if [ -d "$candidate" ]; then
+              RUNNER_APP="$candidate"
+              break
+            fi
+          done
+
+          if [ -z "$RUNNER_APP" ]; then
+            echo "::error::Runner.app não encontrado após o build."
+            find build/flutter/build/ios -name "Runner.app" -type d 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "Usando: $RUNNER_APP"
+
+          PKG_DIR="$RUNNER_TEMP/ipa-package"
+          rm -rf "$PKG_DIR"
+          mkdir -p "$PKG_DIR/Payload"
+          cp -R "$RUNNER_APP" "$PKG_DIR/Payload/"
+
+          mkdir -p dist
+          (cd "$PKG_DIR" && zip -qr "$GITHUB_WORKSPACE/dist/caixa-posto-janjao.ipa" Payload)
+
+          ls -lh dist/caixa-posto-janjao.ipa
+          unzip -l dist/caixa-posto-janjao.ipa | head -20
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: caixa-posto-janjao-ipa
+          path: dist/caixa-posto-janjao.ipa
+          if-no-files-found: error
+          retention-days: 30
