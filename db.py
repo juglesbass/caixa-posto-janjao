@@ -26,9 +26,6 @@ LISTA_CARTOES = [
 ]
 
 # OBS: TIPO_SODEXO já está dentro de LISTA_CARTOES, então não é repetido aqui.
-# (No código original, "Sodexo" era adicionado duas vezes na lista do
-# dropdown, o que pode causar erro/comportamento estranho no componente
-# de seleção quando há duas opções com o mesmo valor.)
 TIPOS_DROPDOWN = [
     TIPO_DINHEIRO,
     TIPO_PIX,
@@ -79,8 +76,6 @@ class Turno:
 def conectar() -> sqlite3.Connection:
     conn = sqlite3.connect(caminho_banco(), check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    # WAL melhora a concorrência quando há mais de uma aba/sessão acessando
-    # o mesmo arquivo de banco ao mesmo tempo.
     try:
         conn.execute("PRAGMA journal_mode=WAL")
     except sqlite3.Error:
@@ -123,10 +118,6 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
         cursor.execute("ALTER TABLE lancamentos ADD COLUMN turno_id INTEGER")
         colunas_lanc.add("turno_id")
 
-    # ── Migração: bancos antigos guardavam "valor" como REAL (float em
-    # reais). A partir de agora, os valores são guardados como inteiros em
-    # centavos ("valor_centavos"), o que elimina erros de arredondamento
-    # que se acumulam com somas repetidas de ponto flutuante.
     if "valor_centavos" not in colunas_lanc:
         cursor.execute("ALTER TABLE lancamentos ADD COLUMN valor_centavos INTEGER")
         if "valor" in colunas_lanc:
@@ -176,10 +167,6 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
     requisicao = totais_centavos.get(TIPO_REQUISICAO, 0) / 100.0
     deposito_global = totais_centavos.get(TIPO_DEPOSITO_GLOBAL, 0) / 100.0
     total_cartoes = sum(totais_centavos.get(cartao, 0) for cartao in LISTA_CARTOES) / 100.0
-    # Depósito Global é dinheiro físico que saiu da carteira/gaveta direto
-    # pro cofre da transportadora — assim como a Sangria, reduz o "Físico",
-    # mas é contabilizado numa categoria separada pra bater com o controle
-    # em papel.
     fisico = dinheiro - sangria - deposito_global
 
     return Totais(
@@ -194,9 +181,6 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
 
 
 def obter_detalhe_cartoes(conn: sqlite3.Connection, turno_id: int) -> dict[str, float]:
-    """Retorna o valor lançado em cada bandeira de cartão (e Sodexo),
-    na mesma ordem de LISTA_CARTOES, incluindo bandeiras com valor zero
-    (pra bater fácil com uma planilha/papel de fechamento que lista todas)."""
     cursor = conn.cursor()
     cursor.execute(
         "SELECT tipo, SUM(valor_centavos) FROM lancamentos WHERE turno_id = ? GROUP BY tipo",
@@ -250,7 +234,6 @@ def atualizar_lancamento(
     valor: float,
     descricao: str,
 ) -> bool:
-    """Atualiza um lançamento existente (tipo, valor, descrição) sem apagar e recriar."""
     valor_centavos = int(round(valor * 100))
     cursor = conn.cursor()
     cursor.execute(
