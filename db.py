@@ -12,7 +12,6 @@ TIPO_DINHEIRO = "Dinheiro"
 TIPO_PIX = "Pix"
 TIPO_REQUISICAO = "Requisição"
 TIPO_SODEXO = "Sodexo"
-TIPO_SANGRIA = "Sangria"
 TIPO_DEPOSITO_GLOBAL = "Depósito Global"
 
 LISTA_CARTOES = [
@@ -34,7 +33,6 @@ TIPOS_DROPDOWN = [
     TIPO_PIX,
     TIPO_REQUISICAO,
     *LISTA_CARTOES,
-    TIPO_SANGRIA,
     TIPO_DEPOSITO_GLOBAL,
 ]
 
@@ -60,13 +58,13 @@ class Totais:
     pix: float
     cartoes: float
     requisicao: float
-    sangria: float
     dinheiro: float
     deposito_global: float = 0.0
 
     @property
     def total_geral(self) -> float:
-        return self.fisico + self.pix + self.cartoes + self.requisicao
+        # Depósito Global soma no total geral como categoria independente
+        return self.fisico + self.pix + self.cartoes + self.requisicao + self.deposito_global
 
 
 @dataclass
@@ -172,22 +170,16 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
 
     dinheiro = totais_centavos.get(TIPO_DINHEIRO, 0) / 100.0
     pix = totais_centavos.get(TIPO_PIX, 0) / 100.0
-    sangria = totais_centavos.get(TIPO_SANGRIA, 0) / 100.0
     requisicao = totais_centavos.get(TIPO_REQUISICAO, 0) / 100.0
     deposito_global = totais_centavos.get(TIPO_DEPOSITO_GLOBAL, 0) / 100.0
     total_cartoes = sum(totais_centavos.get(cartao, 0) for cartao in LISTA_CARTOES) / 100.0
-    # Depósito Global é dinheiro físico que saiu da carteira/gaveta direto
-    # pro cofre da transportadora — assim como a Sangria, reduz o "Físico",
-    # mas é contabilizado numa categoria separada pra bater com o controle
-    # em papel.
-    fisico = dinheiro - sangria - deposito_global
+    fisico = dinheiro
 
     return Totais(
         fisico=fisico,
         pix=pix,
         cartoes=total_cartoes,
         requisicao=requisicao,
-        sangria=sangria,
         dinheiro=dinheiro,
         deposito_global=deposito_global,
     )
@@ -216,7 +208,6 @@ def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str,
         f"💵 Dinheiro (físico): {formatar_moeda(totais.fisico)}\n"
         f"📱 PIX: {formatar_moeda(totais.pix)}\n"
         f"📋 Requisição: {formatar_moeda(totais.requisicao)}\n"
-        f"🔻 Sangria: {formatar_moeda(totais.sangria)}\n"
         f"🔒 Depósito Global: {formatar_moeda(totais.deposito_global)}\n\n"
         f"💳 Cartões e Sodexo por bandeira:\n"
         f"{linhas_cartoes}\n"
