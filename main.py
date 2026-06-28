@@ -244,6 +244,7 @@ def main(page: ft.Page):
         label="Valor (Ex: 50.00 ou 50,00)",
         width=largura_conteudo,
         prefix=ft.Text("R$ "),
+        keyboard_type=ft.KeyboardType.PHONE,
     )
 
     input_desc = ft.TextField(
@@ -511,9 +512,13 @@ def main(page: ft.Page):
             input_desc.value = ""
             input_valor.error_text = None
 
+            if mobile:
+                page.close_keyboard()
+            else:
+                page.run_task(input_valor.focus)
+
             mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {estado_tipo['valor']}")
             recarregar_listas()
-            page.run_task(input_valor.focus)
         except Exception:
             mostrar_snackbar("Erro ao lançar. Tente novamente.", ft.Colors.RED_800)
         finally:
