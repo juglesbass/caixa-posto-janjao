@@ -1,14 +1,10 @@
-# Compila um .ipa NÃO ASSINADO para sideload (Sideloadly / AltStore).
-# Não exige conta paga da Apple nem secrets de certificado.
+# Compila apps mobile do Caixa Posto Janjão:
+#   - iOS: .ipa não assinado (Sideloadly / AltStore)
+#   - Android: .apk (instalação direta)
 #
-# Fluxo:
-#   1. Flet prepara o projeto Flutter em build/flutter
-#   2. Flutter compila para dispositivo com --no-codesign
-#   3. Runner.app é empacotado manualmente em Payload → caixa-posto-janjao.ipa
-#
-# Disparo: push na main, tags v* ou manual (Actions → Build iOS IPA).
+# Disparo: push na main, tags v* ou manual (Actions → Build Mobile Apps).
 
-name: Build iOS IPA
+name: Build Mobile Apps
 
 on:
   workflow_dispatch:
@@ -19,7 +15,7 @@ on:
       - "v*"
 
 concurrency:
-  group: build-ios-${{ github.ref }}
+  group: build-mobile-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -62,7 +58,6 @@ jobs:
       - name: Prepare Flutter project with Flet
         run: |
           set -euo pipefail
-          # ios-simulator prepara build/flutter + app Python empacotado, sem assinatura.
           flet build ios-simulator \
             --yes \
             --verbose \
@@ -111,7 +106,6 @@ jobs:
           done < <(find build -type d -name "*.app" 2>/dev/null | sort -u)
           [ "$found_any" -eq 0 ] && echo "  (nenhum)"
 
-          # Prioridade: iphoneos > Release-iphoneos > xcarchive > nome conhecido > qualquer outro.
           RUNNER_APP=""
           RUNNER_APP="$(find_device_app "/iphoneos/" || true)"
           RUNNER_APP="${RUNNER_APP:-$(find_device_app "Release-iphoneos" || true)}"
@@ -137,9 +131,7 @@ jobs:
 
           if [ -z "$RUNNER_APP" ] || [ ! -d "$RUNNER_APP" ]; then
             echo "::error::Nenhum .app de dispositivo encontrado após o build."
-            echo "Árvore build/flutter/build/ios (se existir):"
             find build/flutter/build/ios -maxdepth 4 -type d 2>/dev/null | head -80 || true
-            echo "Todos os .app em build/:"
             find build -type d -name "*.app" 2>/dev/null || true
             exit 1
           fi
@@ -155,12 +147,87 @@ jobs:
           (cd "$PKG_DIR" && zip -qr "$GITHUB_WORKSPACE/dist/caixa-posto-janjao.ipa" Payload)
 
           ls -lh dist/caixa-posto-janjao.ipa
-          unzip -l dist/caixa-posto-janjao.ipa | head -20
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: caixa-posto-janjao-ipa
           path: dist/caixa-posto-janjao.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+  build-apk:
+    name: Build .apk (Ubuntu)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build APK with Flet
+        run: |
+          set -euo pipefail
+          flet build apk \
+            --yes \
+            --verbose \
+            --build-number "${{ github.run_number }}"
+
+      - name: Collect APK output
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "APKs gerados:"
+          find build -name "*.apk" -type f 2>/dev/null | sort || true
+
+          APK_FILE=""
+          for candidate in \
+            build/apk/app-release.apk \
+            build/apk/*-release.apk
+          do
+            if [ -f "$candidate" ]; then
+              APK_FILE="$candidate"
+              break
+            fi
+          done
+
+          if [ -z "$APK_FILE" ]; then
+            APK_FILE="$(find build -name "*.apk" -type f 2>/dev/null | head -1)"
+          fi
+
+          if [ -z "$APK_FILE" ] || [ ! -f "$APK_FILE" ]; then
+            echo "::error::Nenhum .apk encontrado após flet build apk."
+            find build -type f 2>/dev/null | head -50 || true
+            exit 1
+          fi
+
+          echo "Usando APK: $APK_FILE"
+          mkdir -p dist
+          cp "$APK_FILE" dist/caixa-posto-janjao.apk
+          ls -lh dist/caixa-posto-janjao.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: caixa-posto-janjao-apk
+          path: dist/caixa-posto-janjao.apk
           if-no-files-found: error
           retention-days: 30
