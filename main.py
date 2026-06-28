@@ -508,10 +508,28 @@ def main(page: ft.Page):
     input_valor.on_submit = acao_lancar
     input_desc.on_submit = acao_lancar
 
-    def montar_conteudo_resumo(totais: db.Totais):
+    def montar_conteudo_resumo(totais: db.Totais, detalhe_cartoes: dict):
+        linhas_bandeiras = []
+        for bandeira, valor in detalhe_cartoes.items():
+            cor, icone = cor_icone_tipo(bandeira)
+            linhas_bandeiras.append(
+                ft.Row(
+                    [
+                        ft.Container(width=18),
+                        ft.Icon(icone, color=cor, size=15),
+                        ft.Text(bandeira, size=12, expand=True, color=cor),
+                        ft.Text(formatar_moeda(valor), size=12, color=cor),
+                    ],
+                    spacing=4,
+                )
+            )
+
         return ft.Column(
             width=min(300, largura_conteudo),
             tight=True,
+            spacing=8,
+            scroll=ft.ScrollMode.AUTO,
+            height=480,
             controls=[
                 ft.Text(f"Turno #{turno_atual.id} · {turno_atual.aberto_em}", size=12, color=ft.Colors.GREY_500),
                 ft.Row([
@@ -524,11 +542,15 @@ def main(page: ft.Page):
                     ft.Text("Total PIX:", expand=True),
                     ft.Text(formatar_moeda(totais.pix), weight=ft.FontWeight.BOLD),
                 ]),
+                ft.Divider(height=1),
+                ft.Text("Cartões por bandeira:", size=13, color=ft.Colors.GREY_500, weight=ft.FontWeight.BOLD),
+                *linhas_bandeiras,
                 ft.Row([
                     ft.Icon(ft.Icons.CREDIT_CARD, color=ft.Colors.ORANGE_400),
-                    ft.Text("Cartões (+ Sodexo):", expand=True),
+                    ft.Text("Total de Cartões (+ Sodexo):", expand=True, size=13),
                     ft.Text(formatar_moeda(totais.cartoes), weight=ft.FontWeight.BOLD),
                 ]),
+                ft.Divider(height=1),
                 ft.Row([
                     ft.Icon(ft.Icons.RECEIPT_LONG, color=ft.Colors.PURPLE_400),
                     ft.Text("Requisição:", expand=True),
@@ -557,10 +579,11 @@ def main(page: ft.Page):
         fechar_bottom_sheet()
         garantir_conexao()
         totais = db.obter_totais(conn, turno_atual.id)
-        resumo = db.montar_resumo_texto(totais, turno_atual)
+        detalhe_cartoes = db.obter_detalhe_cartoes(conn, turno_atual.id)
+        resumo = db.montar_resumo_texto(totais, turno_atual, detalhe_cartoes)
         dlg = ft.AlertDialog(
             title=ft.Text("Resumo do Turno"),
-            content=montar_conteudo_resumo(totais),
+            content=montar_conteudo_resumo(totais, detalhe_cartoes),
         )
 
         def copiar_resumo(x):
