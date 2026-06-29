@@ -252,12 +252,21 @@ def main(page: ft.Page):
         width=largura_conteudo,
     )
 
+    _blur_token = 0
+
+    def desfocar_campos(*campos):
+        nonlocal _blur_token
+        _blur_token += 1
+        token = str(_blur_token)
+        for campo in campos:
+            campo.blur = token
+
     def set_valor(val, desc=""):
         input_valor.value = val
         if desc:
             input_desc.value = desc
+        desfocar_campos(input_valor, input_desc)
         page.update()
-        page.run_task(input_valor.focus)
 
     def validar_valor(texto: str) -> float | None:
         """Converte texto digitado em valor numérico, aceitando formatos
@@ -308,8 +317,8 @@ def main(page: ft.Page):
         input_desc.value = "Completou"
         input_valor.value = ""
         input_valor.error_text = None
+        desfocar_campos(input_valor, input_desc)
         page.update()
-        page.run_task(input_valor.focus)
 
     botoes_rapidos = ft.Row(
         wrap=True,
@@ -512,13 +521,9 @@ def main(page: ft.Page):
             input_desc.value = ""
             input_valor.error_text = None
 
-            if mobile:
-                page.close_keyboard()
-            else:
-                page.run_task(input_valor.focus)
-
             mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {estado_tipo['valor']}")
             recarregar_listas()
+            desfocar_campos(input_valor, input_desc)
         except Exception:
             mostrar_snackbar("Erro ao lançar. Tente novamente.", ft.Colors.RED_800)
         finally:
