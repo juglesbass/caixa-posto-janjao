@@ -269,6 +269,16 @@ def main(page: ft.Page):
         width=largura_conteudo,
     )
 
+    # Campo invisível usado apenas para roubar o foco e fechar o teclado
+    # virtual no iOS/Android após um lançamento. O Flet não expõe
+    # resignFirstResponder diretamente, mas mover o foco para um campo
+    # fora da área visível tem o mesmo efeito garantido nos dois sistemas.
+    _campo_fantasma = ft.TextField(
+        width=1,
+        height=1,
+        visible=False,
+    )
+
     _blur_token = 0
 
     def desfocar_campos(*campos):
@@ -539,12 +549,12 @@ def main(page: ft.Page):
             input_valor.error_text = None
 
             if mobile:
-                page.close_keyboard()
+                page.run_task(_campo_fantasma.focus)
+            else:
+                page.run_task(input_valor.focus)
 
             mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {estado_tipo['valor']}")
             recarregar_listas()
-            if not mobile:
-                page.run_task(input_valor.focus)
         except Exception:
             mostrar_snackbar("Erro ao lançar. Tente novamente.", ft.Colors.RED_800)
         finally:
@@ -909,6 +919,7 @@ def main(page: ft.Page):
 
     conteudo_principal = ft.Column(
         controls=[
+            _campo_fantasma,
             header,
             card_fisico,
             linha_totais_secundarios,
