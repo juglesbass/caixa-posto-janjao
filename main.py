@@ -240,11 +240,24 @@ def main(page: ft.Page):
     rotulo_forma_pagamento = ft.Text("Forma de Pagamento", size=12, color=ft.Colors.GREY_400)
     seletor_tipo, estado_tipo, selecionar_tipo, reconstruir_seletor_tipo = criar_seletor_tipo(db.TIPO_DINHEIRO)
 
+    _keyboard_valor = (
+        ft.KeyboardType.WEB_SEARCH
+        if page.platform == ft.PagePlatform.IOS
+        else ft.KeyboardType.NUMBER
+    )
+
     input_valor = ft.TextField(
         label="Valor (Ex: 50.00 ou 50,00)",
         width=largura_conteudo,
         prefix=ft.Text("R$ "),
-        keyboard_type=ft.KeyboardType.PHONE,
+        keyboard_type=_keyboard_valor,
+        autocorrect=False,
+        enable_suggestions=False,
+        input_filter=ft.InputFilter(
+            allow=True,
+            regex_string=r"^[\d.,]*$",
+            replacement_string="",
+        ),
     )
 
     input_desc = ft.TextField(
