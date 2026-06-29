@@ -1,4 +1,5 @@
 import os
+from types import SimpleNamespace
 
 import flet as ft
 
@@ -9,24 +10,111 @@ def _app_mobile() -> bool:
     return os.environ.get("FLET_PLATFORM", "") in ("ios", "android")
 
 
+def criar_paleta(escuro: bool) -> SimpleNamespace:
+    if escuro:
+        return SimpleNamespace(
+            bg="#0a0a0f",
+            surface=ft.Colors.with_opacity(0.06, ft.Colors.WHITE),
+            border=ft.Colors.with_opacity(0.11, ft.Colors.WHITE),
+            border_strong=ft.Colors.with_opacity(0.35, ft.Colors.WHITE),
+            text_pri="#f2f2f7",
+            text_sec=ft.Colors.with_opacity(0.80, "#f2f2f7"),
+            text_ter=ft.Colors.with_opacity(0.65, "#f2f2f7"),
+            sheet_bg=ft.Colors.with_opacity(0.97, "#1c1c1e"),
+        )
+    return SimpleNamespace(
+        bg="#f2f2f7",
+        surface=ft.Colors.WHITE,
+        border=ft.Colors.with_opacity(0.10, ft.Colors.BLACK),
+        border_strong=ft.Colors.with_opacity(0.20, ft.Colors.BLACK),
+        text_pri="#1c1c1e",
+        text_sec=ft.Colors.with_opacity(0.72, "#1c1c1e"),
+        text_ter=ft.Colors.with_opacity(0.50, "#1c1c1e"),
+        sheet_bg=ft.Colors.WHITE,
+    )
+
+
+# ── Acentos (funcionam em ambos os temas) ──────────────────────────────────
+
+# Acento por categoria
+C_GREEN   = "#34d399"
+C_BLUE    = "#60a5fa"
+C_PURPLE  = "#a78bfa"
+C_ORANGE  = "#fb923c"
+C_BROWN   = "#d4a27a"
+C_TEAL    = "#2dd4bf"
+C_RED     = "#f87171"
+C_INDIGO  = "#818cf8"
+C_INDIGO2 = "#a5b4fc"
+C_AMBER   = "#fbbf24"
+C_AMBER2  = "#fde68a"
+
+RADIUS    = 18
+RADIUS_SM = 12
+
+FILTRO_VALOR_MONETARIO = ft.InputFilter(
+    allow=True,
+    regex_string=r"^[\d.,]*$",
+    replacement_string="",
+)
+
+
+def _plataforma_mobile(page: ft.Page) -> bool:
+    if os.environ.get("FLET_PLATFORM", "") in ("ios", "android"):
+        return True
+    plat = getattr(page, "platform", None)
+    if plat is not None and hasattr(plat, "is_mobile"):
+        return plat.is_mobile()
+    return False
+
+
+def _plataforma_ios(page: ft.Page) -> bool:
+    if os.environ.get("FLET_PLATFORM", "") == "ios":
+        return True
+    return getattr(page, "platform", None) == ft.PagePlatform.IOS
+
+
 def main(page: ft.Page):
-    mobile = _app_mobile()
+    mobile = _plataforma_mobile(page)
+    ios = _plataforma_ios(page)
+    adaptive_ui = mobile or ios
 
     page.title = "Caixa - Posto Janjão"
-    page.theme_mode = ft.ThemeMode.DARK
+    if adaptive_ui:
+        page.adaptive = True
+    page.theme = ft.Theme(color_scheme_seed=ft.Colors.BLUE_700, use_material3=True)
+    page.dark_theme = ft.Theme(color_scheme_seed=ft.Colors.BLUE_400, use_material3=True)
+
+    tema_inicial = ft.ThemeMode.DARK
+    try:
+        if page.client_storage.get("caixa_tema") == "light":
+            tema_inicial = ft.ThemeMode.LIGHT
+    except Exception:
+        pass
+    page.theme_mode = tema_inicial
+
+    def tema_escuro() -> bool:
+        return page.theme_mode == ft.ThemeMode.DARK
+
+    pal = criar_paleta(tema_escuro())
+    page.bgcolor = pal.bg
     page.vertical_alignment = ft.MainAxisAlignment.START
-    page.scroll = ft.ScrollMode.AUTO
+    page.scroll = ft.ScrollMode.HIDDEN if mobile else ft.ScrollMode.AUTO
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+    page.padding = (
+        ft.Padding.only(left=16, right=16, top=8, bottom=0 if mobile else 16)
+        if mobile
+        else ft.Padding.only(left=20, right=20, top=54, bottom=20)
+    )
+
     if mobile:
-        # SafeArea cuida da barra de status; padding leve nas bordas.
-        page.padding = ft.Padding.only(left=16, right=16, top=8, bottom=16)
-    else:
-        # Respiro extra no topo: quando o app é aberto como PWA em tela cheia no
-        # iOS ("Adicionar à Tela de Início"), o conteúdo pode ficar por baixo da
-        # barra de status (relógio/bateria/sinal). Esse padding maior no topo
-        # garante que o cabeçalho (e o botão de menu "⋮") fiquem sempre visíveis
-        # e clicáveis, abaixo dessa área.
-        page.padding = ft.Padding.only(left=20, right=20, top=54, bottom=20)
+        async def fixar_retrato():
+            try:
+                await page.set_allowed_device_orientations([ft.DeviceOrientation.PORTRAIT_UP])
+            except Exception:
+                pass
+
+        page.run_task(fixar_retrato)
 
     conn = db.conectar()
     db.inicializar_banco(conn)
@@ -36,15 +124,7 @@ def main(page: ft.Page):
     autenticado = not pin_configurado
     largura_conteudo = 380
 
-    # ── Garantia de conexão viva ────────────────────────────────────────────
-    # OBS: não fechamos a conexão no on_disconnect. Em apps móveis/PWA, a
-    # sessão desconecta sozinha quando o app vai para segundo plano, mas o
-    # Flet RECONECTA na mesma sessão quando o app volta — não cria uma nova.
-    # Se a conexão fosse fechada ali, ficaria fechada para sempre nessa
-    # mesma sessão, e só um restart completo do app resolveria (era
-    # exatamente esse o bug). Em vez disso, verificamos e reabrimos a
-    # conexão automaticamente sempre que algo for fazer uma operação no
-    # banco, cobrindo esse caso e qualquer outro motivo de queda.
+    # ── Conexão viva ────────────────────────────────────────────────────────
     def garantir_conexao():
         nonlocal conn
         try:
@@ -62,30 +142,30 @@ def main(page: ft.Page):
         aplicar_largura()
 
     def aplicar_largura():
-        largura = largura_conteudo
-        seletor_tipo.width = largura
-        input_valor.width = largura
-        input_desc.width = largura
-        botoes_rapidos.width = largura
-        lista_agrupada.width = largura
-        lista_historico.width = largura
-        btn_lancar.width = largura
-        card_fisico.width = largura
-        linha_totais_secundarios.width = largura
-        linha_totais_extras.width = largura
-        linha_total_geral.width = largura
-        txt_turno.width = largura
+        w = largura_conteudo
+        seletor_col.width = w
+        input_valor.width = w
+        input_desc.width = w
+        row_botoes_rapidos.width = w
+        col_agrupada.width = w
+        col_historico.width = w
+        btn_lancar.width = w
+        if mobile:
+            rodape_lancar.width = w
+        hero_card.width = w
+        total_geral_card.width = w
+        stats_grid.width = w
+        txt_turno.width = w
         page.update()
 
     def mostrar_snackbar(mensagem: str, cor=ft.Colors.GREEN_700):
-        snack = ft.SnackBar(
-            content=ft.Text(mensagem, color=ft.Colors.WHITE),
-            bgcolor=cor,
-            duration=2500,
+        page.show_dialog(
+            ft.SnackBar(
+                content=ft.Text(mensagem, color=ft.Colors.WHITE),
+                bgcolor=cor,
+                duration=2500,
+            )
         )
-        # Nesta versão do Flet, AlertDialog/SnackBar/BottomSheet são todos
-        # abertos com page.show_dialog() e fechados com page.pop_dialog().
-        page.show_dialog(snack)
 
     def abrir_dialogo(dlg):
         page.show_dialog(dlg)
@@ -93,190 +173,343 @@ def main(page: ft.Page):
     def fechar_dialogo(dlg):
         page.pop_dialog()
 
-    # Cada tipo/bandeira tem uma cor para tema ESCURO e outra para tema
-    # CLARO. No escuro, tons médios/claros (300, 400, accent) têm ótimo
-    # contraste contra o fundo quase preto. No claro, esses mesmos tons
-    # ficam apagados contra um fundo branco — por isso usamos tons bem mais
-    # escuros/saturados (700, 800, 900) das mesmas cores nesse caso, pra
-    # manter boa leitura nos dois temas.
-    ICONES_TIPOS = {
-        db.TIPO_DINHEIRO: ft.Icons.MONEY,
-        db.TIPO_PIX: ft.Icons.PIX,
-        db.TIPO_REQUISICAO: ft.Icons.RECEIPT_LONG,
-        db.TIPO_SODEXO: ft.Icons.LUNCH_DINING,
+    def storage_get(chave: str, padrao=None):
+        try:
+            return page.client_storage.get(chave)
+        except Exception:
+            return padrao
+
+    def storage_set(chave: str, valor):
+        try:
+            page.client_storage.set(chave, valor)
+        except Exception:
+            pass
+
+    def carregar_ultimo_tipo() -> str:
+        salvo = storage_get("caixa_ultimo_tipo")
+        if salvo in db.TIPOS_DROPDOWN:
+            return salvo
+        return db.TIPO_DINHEIRO
+
+    def salvar_ultimo_tipo(tipo: str):
+        if tipo in db.TIPOS_DROPDOWN:
+            storage_set("caixa_ultimo_tipo", tipo)
+
+    # ── Mapa de cores / ícones por tipo ────────────────────────────────────
+    CORES = {
+        db.TIPO_DINHEIRO:        C_GREEN,
+        db.TIPO_PIX:             C_BLUE,
+        db.TIPO_REQUISICAO:      C_PURPLE,
+        db.TIPO_SODEXO:          C_TEAL,
+        db.TIPO_DEPOSITO_GLOBAL: C_BROWN,
+        "Master Crédito":        C_RED,
+        "Master Débito":         C_ORANGE,
+        "Visa Crédito":          C_INDIGO,
+        "Visa Débito":           C_INDIGO2,
+        "Elo Crédito":           C_AMBER,
+        "Elo Débito":            C_AMBER2,
+    }
+
+    ICONES = {
+        db.TIPO_DINHEIRO:        ft.Icons.MONEY,
+        db.TIPO_PIX:             ft.Icons.PIX,
+        db.TIPO_REQUISICAO:      ft.Icons.RECEIPT_LONG,
+        db.TIPO_SODEXO:          ft.Icons.LUNCH_DINING,
         db.TIPO_DEPOSITO_GLOBAL: ft.Icons.ACCOUNT_BALANCE,
     }
 
-    CORES_TIPOS_ESCURO = {
-        db.TIPO_DINHEIRO: ft.Colors.GREEN,
-        db.TIPO_PIX: ft.Colors.BLUE_400,
-        db.TIPO_REQUISICAO: ft.Colors.PURPLE_400,
-        db.TIPO_SODEXO: ft.Colors.TEAL_400,
-        db.TIPO_DEPOSITO_GLOBAL: ft.Colors.BROWN_400,
-        "Master Crédito": ft.Colors.DEEP_ORANGE_700,
-        "Master Débito": ft.Colors.DEEP_ORANGE_300,
-        "Visa Crédito": ft.Colors.INDIGO_ACCENT_400,
-        "Visa Débito": ft.Colors.INDIGO_ACCENT_100,
-        "Elo Crédito": ft.Colors.AMBER_700,
-        "Elo Débito": ft.Colors.AMBER_300,
-    }
+    def cor_tipo(tipo: str) -> str:
+        return CORES.get(tipo, C_ORANGE)
 
-    CORES_TIPOS_CLARO = {
-        db.TIPO_DINHEIRO: ft.Colors.GREEN_800,
-        db.TIPO_PIX: ft.Colors.BLUE_800,
-        db.TIPO_REQUISICAO: ft.Colors.PURPLE_800,
-        db.TIPO_SODEXO: ft.Colors.TEAL_800,
-        db.TIPO_DEPOSITO_GLOBAL: ft.Colors.BROWN_800,
-        "Master Crédito": ft.Colors.DEEP_ORANGE_900,
-        "Master Débito": ft.Colors.DEEP_ORANGE_700,
-        "Visa Crédito": ft.Colors.INDIGO_900,
-        "Visa Débito": ft.Colors.INDIGO_700,
-        "Elo Crédito": ft.Colors.AMBER_900,
-        "Elo Débito": ft.Colors.AMBER_700,
-    }
-
-    def cor_icone_tipo(tipo):
-        no_claro = page.theme_mode == ft.ThemeMode.LIGHT
-        mapa_cores = CORES_TIPOS_CLARO if no_claro else CORES_TIPOS_ESCURO
-        cor_padrao = ft.Colors.ORANGE_900 if no_claro else ft.Colors.ORANGE_400
-        cor = mapa_cores.get(tipo, cor_padrao)
-        icone = ICONES_TIPOS.get(tipo, ft.Icons.CREDIT_CARD)
-        return cor, icone
+    def icone_tipo(tipo: str):
+        return ICONES.get(tipo, ft.Icons.CREDIT_CARD)
 
     def formatar_moeda(valor: float) -> str:
         return db.formatar_moeda(valor)
 
-    def criar_seletor_tipo(valor_inicial: str):
-        """Cria um seletor de forma de pagamento em grade de 2 colunas,
-        com chips coloridos agrupados por categoria (Operações / Cartões).
-        Retorna (controle_coluna, estado, funcao_selecionar) — estado é um
-        dict mutável com a chave 'valor' contendo o tipo selecionado atual.
-        """
-        estado = {"valor": valor_inicial}
-        coluna = ft.Column(spacing=8, width=largura_conteudo)
+    # ── Helper: container vidro ─────────────────────────────────────────────
+    def glass_container(content, padding=16, radius=RADIUS_SM, border_color=pal.border, bgcolor=pal.surface):
+        return ft.Container(
+            content=content,
+            bgcolor=bgcolor,
+            border_radius=radius,
+            border=ft.Border(
+                left=ft.BorderSide(1, border_color),
+                right=ft.BorderSide(1, border_color),
+                top=ft.BorderSide(1, border_color),
+                bottom=ft.BorderSide(1, border_color),
+            ),
+            padding=padding,
+        )
 
-        def construir_linha(tipos_da_linha):
-            chips = []
-            for tipo in tipos_da_linha:
-                cor, icone = cor_icone_tipo(tipo)
-                selecionado = tipo == estado["valor"]
-                chips.append(
-                    ft.Button(
-                        content=ft.Row(
-                            [
-                                ft.Icon(
-                                    icone,
-                                    size=15,
-                                    color=ft.Colors.WHITE if selecionado else cor,
-                                ),
-                                ft.Text(
-                                    tipo,
-                                    size=12,
-                                    color=ft.Colors.WHITE if selecionado else cor,
-                                    weight=ft.FontWeight.BOLD if selecionado else ft.FontWeight.NORMAL,
-                                ),
-                            ],
-                            spacing=5,
-                            tight=True,
-                            alignment=ft.MainAxisAlignment.CENTER,
+    # ══════════════════════════════════════════════════════════════════
+    # HERO — Dinheiro físico
+    # ══════════════════════════════════════════════════════════════════
+    txt_fisico_label = ft.Text(
+        "💵  Físico na Carteira",
+        size=13,
+        color=pal.text_sec,
+        weight=ft.FontWeight.W_500,
+    )
+    txt_fisico = ft.Text(
+        "R$ 0,00",
+        size=52,
+        weight=ft.FontWeight.BOLD,
+        color=C_GREEN,
+        font_family="SF Pro Display",
+    )
+    txt_turno = ft.Text(
+        "",
+        size=13,
+        color=pal.text_sec,
+        width=largura_conteudo,
+    )
+
+    hero_card = ft.Container(
+        width=largura_conteudo,
+        border_radius=RADIUS,
+        border=ft.Border(
+            left=ft.BorderSide(1, ft.Colors.with_opacity(0.22, C_GREEN)),
+            right=ft.BorderSide(1, ft.Colors.with_opacity(0.22, C_GREEN)),
+            top=ft.BorderSide(1, ft.Colors.with_opacity(0.35, C_GREEN)),
+            bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.12, C_GREEN)),
+        ),
+        gradient=ft.LinearGradient(
+            begin=ft.Alignment(-1, -1),
+            end=ft.Alignment(1, 1),
+            colors=[
+                ft.Colors.with_opacity(0.16, C_GREEN),
+                ft.Colors.with_opacity(0.06, C_GREEN),
+                ft.Colors.with_opacity(0.08, C_BLUE),
+            ],
+        ),
+        padding=ft.Padding.only(left=20, right=20, top=22, bottom=18),
+        content=ft.Column(
+            spacing=4,
+            controls=[
+                txt_fisico_label,
+                txt_fisico,
+                txt_turno,
+            ],
+        ),
+    )
+
+    # ══════════════════════════════════════════════════════════════════
+    # STATS GRID — PIX / Cartões / Requisição / Depósito
+    # ══════════════════════════════════════════════════════════════════
+    def _stat_card(label: str, cor: str):
+        lbl = ft.Text(label.upper(), size=12, color=pal.text_ter, weight=ft.FontWeight.W_600)
+        txt = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=cor)
+        card = ft.Container(
+            content=ft.Column(
+                spacing=4,
+                controls=[lbl, txt],
+            ),
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border=ft.Border(
+                left=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
+                right=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
+                top=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
+                bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
+            ),
+            padding=ft.Padding.only(left=14, right=14, top=13, bottom=13),
+            expand=True,
+        )
+        return card, txt, lbl
+
+    stat_pix_card, txt_pix, lbl_pix = _stat_card("PIX", C_BLUE)
+    stat_cart_card, txt_cartoes, lbl_cart = _stat_card("Cartões", C_ORANGE)
+    stat_req_card, txt_requisicao, lbl_req = _stat_card("Requisição", C_PURPLE)
+    stat_dep_card, txt_deposito_global, lbl_dep = _stat_card("Depósito Global", C_BROWN)
+
+    stats_grid = ft.Column(
+        spacing=10,
+        width=largura_conteudo,
+        controls=[
+            ft.Row(spacing=10, controls=[stat_pix_card, stat_cart_card]),
+            ft.Row(spacing=10, controls=[stat_req_card, stat_dep_card]),
+        ],
+    )
+
+    # ══════════════════════════════════════════════════════════════════
+    # TOTAL GERAL
+    # ══════════════════════════════════════════════════════════════════
+    txt_total_geral = ft.Text(
+        "R$ 0,00",
+        size=22,
+        weight=ft.FontWeight.BOLD,
+        color=C_GREEN,
+    )
+
+    txt_total_geral_label = ft.Text(
+        "Total Geral", size=15, weight=ft.FontWeight.W_600, color=pal.text_pri
+    )
+
+    total_geral_card = ft.Container(
+        width=largura_conteudo,
+        border_radius=RADIUS_SM,
+        gradient=ft.LinearGradient(
+            begin=ft.Alignment(-1, 0),
+            end=ft.Alignment(1, 0),
+            colors=[
+                ft.Colors.with_opacity(0.20, C_GREEN),
+                ft.Colors.with_opacity(0.08, C_GREEN),
+            ],
+        ),
+        border=ft.Border(
+            left=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
+            right=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
+            top=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
+            bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
+        ),
+        padding=ft.Padding.only(left=16, right=16, top=13, bottom=13),
+        content=ft.Row(
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[
+                ft.Row(
+                    spacing=10,
+                    controls=[
+                        ft.Container(
+                            content=ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=C_GREEN, size=20),
+                            bgcolor=ft.Colors.with_opacity(0.20, C_GREEN),
+                            border_radius=10,
+                            padding=7,
                         ),
-                        style=ft.ButtonStyle(
-                            bgcolor=cor if selecionado else ft.Colors.with_opacity(0.12, cor),
-                            shape=ft.RoundedRectangleBorder(radius=8),
-                            side=ft.BorderSide(
-                                1.5 if selecionado else 1,
-                                cor if selecionado else ft.Colors.with_opacity(0.45, cor),
-                            ),
-                        ),
-                        height=42,
-                        expand=1,
-                        on_click=lambda e, t=tipo: selecionar(t),
-                    )
-                )
-            return ft.Row(chips, spacing=8)
-
-        def construir():
-            coluna.controls.clear()
-            principais = [
-                db.TIPO_DINHEIRO,
-                db.TIPO_PIX,
-                db.TIPO_REQUISICAO,
-                db.TIPO_DEPOSITO_GLOBAL,
-            ]
-            for i in range(0, len(principais), 2):
-                coluna.controls.append(construir_linha(principais[i : i + 2]))
-
-            coluna.controls.append(
-                ft.Text("Cartões", size=12, color=ft.Colors.GREY_500, weight=ft.FontWeight.BOLD)
-            )
-            for i in range(0, len(db.LISTA_CARTOES), 2):
-                coluna.controls.append(construir_linha(db.LISTA_CARTOES[i : i + 2]))
-
-        def selecionar(tipo):
-            estado["valor"] = tipo
-            construir()
-            page.update()
-
-        construir()
-        return coluna, estado, selecionar, construir
-
-    txt_fisico = ft.Text("R$ 0,00", size=52, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_400)
-    txt_pix = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_400)
-    txt_cartoes = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_400)
-    txt_requisicao = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.PURPLE_400)
-    txt_deposito_global = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.BROWN_400)
-    txt_total_geral = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_ACCENT_400)
-    txt_turno = ft.Text("", size=13, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
+                        txt_total_geral_label,
+                    ],
+                ),
+                txt_total_geral,
+            ],
+        ),
+    )
 
     def atualizar_painel():
         nonlocal turno_atual
         turno_atual = db.obter_ou_criar_turno_aberto(conn)
         totais = db.obter_totais(conn, turno_atual.id)
-        txt_fisico.value = formatar_moeda(totais.fisico)
-        txt_pix.value = formatar_moeda(totais.pix)
-        txt_cartoes.value = formatar_moeda(totais.cartoes)
-        txt_requisicao.value = formatar_moeda(totais.requisicao)
+        txt_fisico.value        = formatar_moeda(totais.fisico)
+        txt_pix.value           = formatar_moeda(totais.pix)
+        txt_cartoes.value       = formatar_moeda(totais.cartoes)
+        txt_requisicao.value    = formatar_moeda(totais.requisicao)
         txt_deposito_global.value = formatar_moeda(totais.deposito_global)
-        txt_total_geral.value = formatar_moeda(totais.total_geral)
-        txt_turno.value = f"Turno #{turno_atual.id} · aberto em {turno_atual.aberto_em}"
+        txt_total_geral.value   = formatar_moeda(totais.total_geral)
+        txt_turno.value         = f"Turno #{turno_atual.id} · aberto em {turno_atual.aberto_em}"
+        if mobile:
+            txt_rodape_resumo.value = f"Total geral · {formatar_moeda(totais.total_geral)}"
         page.update()
 
-    rotulo_forma_pagamento = ft.Text("Forma de Pagamento", size=12, color=ft.Colors.GREY_400)
-    seletor_tipo, estado_tipo, selecionar_tipo, reconstruir_seletor_tipo = criar_seletor_tipo(db.TIPO_DINHEIRO)
+    # ══════════════════════════════════════════════════════════════════
+    # SELETOR DE TIPO — chips estilo iOS
+    # ══════════════════════════════════════════════════════════════════
+    def criar_seletor_tipo(valor_inicial: str):
+        estado = {"valor": valor_inicial}
+        seletor_col = ft.Column(spacing=8, width=largura_conteudo)
 
+        def _chip(tipo: str):
+            cor = cor_tipo(tipo)
+            icone = icone_tipo(tipo)
+            selecionado = tipo == estado["valor"]
+
+            return ft.Container(
+                content=ft.Row(
+                    spacing=6,
+                    tight=True,
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    controls=[
+                        ft.Icon(
+                            icone,
+                            size=14,
+                            color=ft.Colors.WHITE if selecionado else cor,
+                        ),
+                        ft.Text(
+                            tipo,
+                            size=12,
+                            color=ft.Colors.WHITE if selecionado else cor,
+                            weight=ft.FontWeight.W_600 if selecionado else ft.FontWeight.W_500,
+                        ),
+                    ],
+                ),
+                bgcolor=cor if selecionado else ft.Colors.with_opacity(0.12, cor),
+                border_radius=RADIUS_SM,
+                border=ft.Border(
+                    left=ft.BorderSide(1.5 if selecionado else 1,
+                                       cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
+                    right=ft.BorderSide(1.5 if selecionado else 1,
+                                        cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
+                    top=ft.BorderSide(1.5 if selecionado else 1,
+                                      cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
+                    bottom=ft.BorderSide(1.5 if selecionado else 1,
+                                         cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
+                ),
+                height=46,
+                expand=True,
+                alignment=ft.Alignment(0, 0),
+                on_click=lambda e, t=tipo: selecionar(t),
+                animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+            )
+
+        def _linha(tipos):
+            return ft.Row(spacing=8, controls=[_chip(t) for t in tipos])
+
+        def construir():
+            seletor_col.controls.clear()
+            principais = [
+                db.TIPO_DINHEIRO, db.TIPO_PIX,
+                db.TIPO_REQUISICAO, db.TIPO_DEPOSITO_GLOBAL,
+            ]
+            for i in range(0, len(principais), 2):
+                seletor_col.controls.append(_linha(principais[i:i+2]))
+
+            seletor_col.controls.append(
+                ft.Text("Cartões", size=13, color=pal.text_ter,
+                        weight=ft.FontWeight.W_600)
+            )
+            for i in range(0, len(db.LISTA_CARTOES), 2):
+                seletor_col.controls.append(_linha(db.LISTA_CARTOES[i:i+2]))
+
+        def selecionar(tipo):
+            estado["valor"] = tipo
+            salvar_ultimo_tipo(tipo)
+            construir()
+            page.update()
+
+        construir()
+        return seletor_col, estado, selecionar, construir
+
+    tipo_inicial = carregar_ultimo_tipo()
+    seletor_col, estado_tipo, selecionar_tipo, reconstruir_seletor = criar_seletor_tipo(tipo_inicial)
+
+    # ══════════════════════════════════════════════════════════════════
+    # INPUTS
+    # ══════════════════════════════════════════════════════════════════
     _keyboard_valor = (
         ft.KeyboardType.WEB_SEARCH
         if page.platform == ft.PagePlatform.IOS
         else ft.KeyboardType.NUMBER
     )
 
+    def ao_tocar_fora(e):
+        desfocar_campos(input_valor, input_desc)
+
     input_valor = ft.TextField(
         label="Valor (Ex: 50.00 ou 50,00)",
         width=largura_conteudo,
         prefix=ft.Text("R$ "),
         keyboard_type=_keyboard_valor,
+        adaptive=adaptive_ui,
         autocorrect=False,
         enable_suggestions=False,
-        input_filter=ft.InputFilter(
-            allow=True,
-            regex_string=r"^[\d.,]*$",
-            replacement_string="",
-        ),
+        input_filter=FILTRO_VALOR_MONETARIO,
+        on_tap_outside=ao_tocar_fora,
     )
 
     input_desc = ft.TextField(
         label="Descrição / Placa (Opcional)",
         width=largura_conteudo,
-    )
-
-    # Campo invisível usado apenas para roubar o foco e fechar o teclado
-    # virtual no iOS/Android após um lançamento. O Flet não expõe
-    # resignFirstResponder diretamente, mas mover o foco para um campo
-    # fora da área visível tem o mesmo efeito garantido nos dois sistemas.
-    _campo_fantasma = ft.TextField(
-        width=1,
-        height=1,
-        visible=False,
+        adaptive=adaptive_ui,
+        on_tap_outside=ao_tocar_fora,
     )
 
     _blur_token = 0
@@ -295,48 +528,38 @@ def main(page: ft.Page):
         desfocar_campos(input_valor, input_desc)
         page.update()
 
-    def validar_valor(texto: str) -> float | None:
-        """Converte texto digitado em valor numérico, aceitando formatos
-        comuns: '50.00', '50,00', '1.234,56' (BR) ou '1234.56'."""
+    def validar_valor(texto: str):
         if not texto or not texto.strip():
             return None
-
         limpo = texto.strip().replace("R$", "").replace(" ", "")
-
         if "," in limpo and "." in limpo:
-            # Formato BR com separador de milhar: 1.234,56 -> 1234.56
             limpo = limpo.replace(".", "").replace(",", ".")
         elif "," in limpo:
-            # Apenas vírgula decimal: 50,00 -> 50.00
             limpo = limpo.replace(",", ".")
-        # Se só tem ponto, assume que já é decimal (ex.: 50.00)
-
         try:
             valor = float(limpo)
         except ValueError:
             return None
+        return round(valor, 2) if valor > 0 else None
 
-        if valor <= 0:
-            return None
-
-        return round(valor, 2)
-
-    def _estilo_btn(cor_bg):
-        return ft.ButtonStyle(
+    # ══════════════════════════════════════════════════════════════════
+    # BOTÕES RÁPIDOS
+    # ══════════════════════════════════════════════════════════════════
+    def _pill_btn(label, on_click, is_completou=False):
+        cor_borda = ft.Colors.with_opacity(0.35, C_GREEN) if is_completou else pal.border_strong
+        cor_texto = C_GREEN if is_completou else pal.text_sec
+        cor_bg    = ft.Colors.with_opacity(0.10, C_GREEN) if is_completou else pal.surface
+        return ft.Container(
+            content=ft.Text(label, size=14, color=cor_texto, weight=ft.FontWeight.W_500),
             bgcolor=cor_bg,
-            shape=ft.RoundedRectangleBorder(radius=8),
-            color=ft.Colors.WHITE,
-        )
-
-    def make_btn_rapido(label, val, desc="", cor=ft.Colors.BLUE_GREY_700):
-        def _click(e, v=val, d=desc):
-            set_valor(v, d)
-
-        return ft.Button(
-            content=ft.Text(label, color=ft.Colors.WHITE, size=15),
-            style=_estilo_btn(cor),
-            on_click=_click,
-            height=44,
+            border_radius=100,
+            border=ft.Border(
+                left=ft.BorderSide(1, cor_borda), right=ft.BorderSide(1, cor_borda),
+                top=ft.BorderSide(1, cor_borda),  bottom=ft.BorderSide(1, cor_borda),
+            ),
+            padding=ft.Padding.only(left=16, right=16, top=9, bottom=9),
+            on_click=on_click,
+            animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
         )
 
     def acao_completou(e):
@@ -347,46 +570,78 @@ def main(page: ft.Page):
         desfocar_campos(input_valor, input_desc)
         page.update()
 
-    botoes_rapidos = ft.Row(
-        wrap=True,
-        alignment=ft.MainAxisAlignment.CENTER,
-        spacing=6,
-        run_spacing=6,
-        width=largura_conteudo,
-        controls=[
-            make_btn_rapido("R$ 50", "50.00"),
-            make_btn_rapido("R$ 100", "100.00"),
-            make_btn_rapido("R$ 200", "200.00"),
-            make_btn_rapido("R$ 300", "300.00"),
-            make_btn_rapido("R$ 500", "500.00"),
-            ft.Button(
-                content=ft.Text("Completou", color=ft.Colors.WHITE, size=15),
-                style=_estilo_btn(ft.Colors.GREEN_800),
-                on_click=acao_completou,
-                height=44,
-            ),
-        ],
-    )
+    def montar_botoes_rapidos():
+        row_botoes_rapidos.controls = [
+            _pill_btn("R$ 50", lambda e: set_valor("50.00")),
+            _pill_btn("R$ 100", lambda e: set_valor("100.00")),
+            _pill_btn("R$ 200", lambda e: set_valor("200.00")),
+            _pill_btn("R$ 300", lambda e: set_valor("300.00")),
+            _pill_btn("R$ 500", lambda e: set_valor("500.00")),
+            _pill_btn("✓ Completou", acao_completou, is_completou=True),
+        ]
 
-    lista_agrupada = ft.ListView(expand=True, spacing=5, height=180, width=largura_conteudo)
-    lista_historico = ft.ListView(expand=True, spacing=4, height=200, width=largura_conteudo)
+    row_botoes_rapidos = ft.Row(
+        wrap=True,
+        alignment=ft.MainAxisAlignment.START,
+        spacing=8,
+        run_spacing=8,
+        width=largura_conteudo,
+        controls=[],
+    )
+    montar_botoes_rapidos()
+
+    # ══════════════════════════════════════════════════════════════════
+    # LISTAS (Column — evita scroll duplo no iOS)
+    # ══════════════════════════════════════════════════════════════════
+    col_agrupada = ft.Column(spacing=6, width=largura_conteudo)
+    col_historico = ft.Column(spacing=6, width=largura_conteudo)
+
+    def _list_tile_agrupado(tipo, valor_total):
+        cor   = cor_tipo(tipo)
+        icone = icone_tipo(tipo)
+        return ft.Container(
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    ft.Row(
+                        spacing=10,
+                        controls=[
+                            ft.Container(
+                                content=ft.Icon(icone, color=cor, size=17),
+                                bgcolor=ft.Colors.with_opacity(0.14, cor),
+                                border_radius=9,
+                                padding=7,
+                            ),
+                            ft.Text(tipo, size=14, color=cor, weight=ft.FontWeight.W_600),
+                        ],
+                    ),
+                    ft.Text(formatar_moeda(valor_total), size=15, color=cor,
+                            weight=ft.FontWeight.BOLD),
+                ],
+            ),
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border=ft.Border(
+                left=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
+                right=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
+                top=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
+                bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
+            ),
+            padding=ft.Padding.only(left=14, right=14, top=11, bottom=11),
+        )
 
     def carregar_lista_agrupada():
-        lista_agrupada.controls.clear()
+        col_agrupada.controls.clear()
         for tipo, valor_total in db.listar_agrupado(conn, turno_atual.id):
-            cor, icone = cor_icone_tipo(tipo)
-            lista_agrupada.controls.append(
-                ft.ListTile(
-                    leading=ft.Icon(icone, color=cor),
-                    title=ft.Text(f"{tipo} - {formatar_moeda(valor_total)}", color=cor, weight=ft.FontWeight.BOLD),
-                )
-            )
+            col_agrupada.controls.append(_list_tile_agrupado(tipo, valor_total))
         page.update()
 
     def carregar_historico():
-        lista_historico.controls.clear()
+        col_historico.controls.clear()
         for row in db.listar_historico(conn, turno_atual.id):
-            cor, icone = cor_icone_tipo(row["tipo"])
+            cor   = cor_tipo(row["tipo"])
+            icone = icone_tipo(row["tipo"])
             desc_texto = f" — {row['descricao']}" if row["descricao"] else ""
 
             def confirmar_exclusao(e, rid=row["id"], tipo=row["tipo"], valor=row["valor"]):
@@ -419,33 +674,41 @@ def main(page: ft.Page):
                 valor=row["valor"],
                 descricao=row["descricao"],
             ):
-                seletor_edit, estado_edit, _selecionar_edit, _reconstruir_edit = criar_seletor_tipo(tipo)
+                seletor_edit, estado_edit, _sel_edit, _rec_edit = criar_seletor_tipo(tipo)
+                seletor_edit.width = min(300, largura_conteudo)
+
+                def ao_tocar_fora_edicao(e):
+                    desfocar_campos(campo_valor_edit, campo_desc_edit)
+
                 campo_valor_edit = ft.TextField(
                     label="Valor",
                     value=f"{valor:.2f}".replace(".", ","),
                     prefix=ft.Text("R$ "),
                     width=min(300, largura_conteudo),
+                    adaptive=adaptive_ui,
+                    autocorrect=False,
+                    enable_suggestions=False,
+                    input_filter=FILTRO_VALOR_MONETARIO,
+                    on_tap_outside=ao_tocar_fora_edicao,
                 )
                 campo_desc_edit = ft.TextField(
                     label="Descrição / Placa (Opcional)",
                     value=descricao or "",
                     width=min(300, largura_conteudo),
+                    adaptive=adaptive_ui,
+                    on_tap_outside=ao_tocar_fora_edicao,
                 )
-                seletor_edit.width = min(300, largura_conteudo)
-
                 dlg_editar = ft.AlertDialog(
                     title=ft.Text("Editar lançamento"),
                     content=ft.Column(
                         [
-                            ft.Text("Forma de Pagamento", size=12, color=ft.Colors.GREY_400),
+                            ft.Text("Forma de Pagamento", size=12, color=pal.text_sec),
                             seletor_edit,
                             campo_valor_edit,
                             campo_desc_edit,
                         ],
-                        tight=True,
-                        spacing=10,
-                        scroll=ft.ScrollMode.AUTO,
-                        height=420,
+                        tight=True, spacing=10,
+                        scroll=ft.ScrollMode.AUTO, height=420,
                     ),
                 )
 
@@ -458,12 +721,8 @@ def main(page: ft.Page):
                     try:
                         garantir_conexao()
                         ok = db.atualizar_lancamento(
-                            conn,
-                            lancamento_id,
-                            turno_atual.id,
-                            estado_edit["valor"],
-                            novo_valor,
-                            campo_desc_edit.value or "",
+                            conn, lancamento_id, turno_atual.id,
+                            estado_edit["valor"], novo_valor, campo_desc_edit.value or "",
                         )
                         if ok:
                             fechar_dialogo(dlg_editar)
@@ -475,41 +734,70 @@ def main(page: ft.Page):
                         mostrar_snackbar("Erro ao editar. Tente novamente.", ft.Colors.RED_800)
 
                 dlg_editar.actions = [
-                    ft.TextButton("Salvar", on_click=salvar_edicao),
+                    ft.TextButton("Salvar",   on_click=salvar_edicao),
                     ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_editar)),
                 ]
                 abrir_dialogo(dlg_editar)
 
-            lista_historico.controls.append(
-                ft.ListTile(
-                    leading=ft.Icon(icone, color=cor, size=18),
-                    title=ft.Text(
-                        f"{formatar_moeda(row['valor'])} · {row['tipo']}{desc_texto}",
-                        color=cor,
-                        size=13,
-                    ),
-                    subtitle=ft.Text(row["data"], color=ft.Colors.GREY_500, size=11),
-                    trailing=ft.Row(
+            col_historico.controls.append(
+                ft.Container(
+                    content=ft.Row(
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         controls=[
-                            ft.IconButton(
-                                icon=ft.Icons.EDIT_OUTLINED,
-                                icon_color=ft.Colors.BLUE_300,
-                                icon_size=18,
-                                tooltip="Editar",
-                                on_click=abrir_edicao,
+                            ft.Row(
+                                spacing=10,
+                                expand=True,
+                                controls=[
+                                    ft.Container(
+                                        content=ft.Icon(icone, color=cor, size=15),
+                                        bgcolor=ft.Colors.with_opacity(0.13, cor),
+                                        border_radius=8,
+                                        padding=6,
+                                    ),
+                                    ft.Column(
+                                        spacing=2,
+                                        expand=True,
+                                        controls=[
+                                            ft.Text(
+                                                f"{formatar_moeda(row['valor'])} · {row['tipo']}{desc_texto}",
+                                                color=cor, size=13, weight=ft.FontWeight.W_600,
+                                            ),
+                                            ft.Text(row["data"], color=pal.text_ter, size=11),
+                                        ],
+                                    ),
+                                ],
                             ),
-                            ft.IconButton(
-                                icon=ft.Icons.DELETE_OUTLINE,
-                                icon_color=ft.Colors.RED_400,
-                                icon_size=18,
-                                tooltip="Apagar",
-                                on_click=confirmar_exclusao,
+                            ft.Row(
+                                spacing=0,
+                                controls=[
+                                    ft.IconButton(
+                                        icon=ft.Icons.EDIT_OUTLINED,
+                                        icon_color=C_BLUE,
+                                        icon_size=17,
+                                        tooltip="Editar",
+                                        on_click=abrir_edicao,
+                                    ),
+                                    ft.IconButton(
+                                        icon=ft.Icons.DELETE_OUTLINE,
+                                        icon_color=C_RED,
+                                        icon_size=17,
+                                        tooltip="Apagar",
+                                        on_click=confirmar_exclusao,
+                                    ),
+                                ],
                             ),
                         ],
-                        tight=True,
-                        spacing=0,
                     ),
-                    dense=True,
+                    bgcolor=pal.surface,
+                    border_radius=RADIUS_SM,
+                    border=ft.Border(
+                        left=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
+                        right=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
+                        top=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
+                        bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
+                    ),
+                    padding=ft.Padding.only(left=12, right=4, top=10, bottom=10),
                 )
             )
         page.update()
@@ -520,126 +808,133 @@ def main(page: ft.Page):
         carregar_lista_agrupada()
         carregar_historico()
 
-    def acao_lancar(e=None):
-        # Evita lançamento duplicado por duplo clique / Enter repetido
-        if btn_lancar.disabled:
-            return
+    # ══════════════════════════════════════════════════════════════════
+    # BOTÃO LANÇAR
+    # ══════════════════════════════════════════════════════════════════
+    btn_lancar = ft.Container(
+        content=ft.Row(
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=10,
+            controls=[
+                ft.Icon(ft.Icons.ADD_SHOPPING_CART, color=ft.Colors.WHITE, size=20),
+                ft.Text("Lançar Abastecimento", color=ft.Colors.WHITE, size=16,
+                        weight=ft.FontWeight.W_600),
+            ],
+        ),
+        bgcolor=None,
+        gradient=ft.LinearGradient(
+            begin=ft.Alignment(-1, 0),
+            end=ft.Alignment(1, 0),
+            colors=["#3b82f6", "#2563eb"],
+        ),
+        border_radius=RADIUS,
+        height=56,
+        width=largura_conteudo,
+        alignment=ft.Alignment(0, 0),
+        shadow=ft.BoxShadow(
+            blur_radius=20,
+            spread_radius=0,
+            color=ft.Colors.with_opacity(0.35, "#3b82f6"),
+            offset=ft.Offset(0, 4),
+        ),
+        on_click=None,  # definido abaixo
+        animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
+    )
 
+    def acao_lancar(e=None):
+        if btn_lancar.opacity == 0.5:
+            return
         valor_float = validar_valor(input_valor.value or "")
         if valor_float is None:
             input_valor.error_text = "Informe um valor maior que zero"
             page.update()
             return
 
-        btn_lancar.disabled = True
+        btn_lancar.opacity = 0.5
         page.update()
 
         try:
             garantir_conexao()
             db.inserir_lancamento(
-                conn,
-                turno_atual.id,
-                estado_tipo["valor"],
-                valor_float,
-                input_desc.value or "",
+                conn, turno_atual.id,
+                estado_tipo["valor"], valor_float, input_desc.value or "",
             )
-
             input_valor.value = ""
-            input_desc.value = ""
+            input_desc.value  = ""
             input_valor.error_text = None
-
-            if mobile:
-                page.run_task(_campo_fantasma.focus)
-            else:
-                page.run_task(input_valor.focus)
-
             mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {estado_tipo['valor']}")
+            salvar_ultimo_tipo(estado_tipo["valor"])
             recarregar_listas()
+            desfocar_campos(input_valor, input_desc)
         except Exception:
             mostrar_snackbar("Erro ao lançar. Tente novamente.", ft.Colors.RED_800)
         finally:
-            btn_lancar.disabled = False
+            btn_lancar.opacity = 1.0
             page.update()
 
+    btn_lancar.on_click = acao_lancar
     input_valor.on_submit = acao_lancar
-    input_desc.on_submit = acao_lancar
+    input_desc.on_submit  = acao_lancar
 
-    def montar_conteudo_resumo(totais: db.Totais, detalhe_cartoes: dict):
+    # ══════════════════════════════════════════════════════════════════
+    # RESUMO / FECHAR CAIXA
+    # ══════════════════════════════════════════════════════════════════
+    def montar_conteudo_resumo(totais, detalhe_cartoes):
         linhas_bandeiras = []
         for bandeira, valor in detalhe_cartoes.items():
-            cor, icone = cor_icone_tipo(bandeira)
+            cor   = cor_tipo(bandeira)
+            icone = icone_tipo(bandeira)
             linhas_bandeiras.append(
-                ft.Row(
-                    [
-                        ft.Container(width=18),
-                        ft.Icon(icone, color=cor, size=15),
-                        ft.Text(bandeira, size=12, expand=True, color=cor),
-                        ft.Text(formatar_moeda(valor), size=12, color=cor),
-                    ],
-                    spacing=4,
-                )
+                ft.Row([
+                    ft.Container(width=18),
+                    ft.Icon(icone, color=cor, size=14),
+                    ft.Text(bandeira, size=12, expand=True, color=cor),
+                    ft.Text(formatar_moeda(valor), size=12, color=cor),
+                ], spacing=4)
             )
-
         return ft.Column(
             width=min(300, largura_conteudo),
-            tight=True,
-            spacing=8,
-            scroll=ft.ScrollMode.AUTO,
-            height=480,
+            tight=True, spacing=8,
+            scroll=ft.ScrollMode.AUTO, height=480,
             controls=[
-                ft.Text(f"Turno #{turno_atual.id} · {turno_atual.aberto_em}", size=12, color=ft.Colors.GREY_500),
-                ft.Row([
-                    ft.Icon(ft.Icons.MONEY, color=ft.Colors.GREEN),
-                    ft.Text("Dinheiro (físico):", expand=True),
-                    ft.Text(formatar_moeda(totais.fisico), weight=ft.FontWeight.BOLD),
-                ]),
-                ft.Row([
-                    ft.Icon(ft.Icons.PIX, color=ft.Colors.BLUE_400),
-                    ft.Text("Total PIX:", expand=True),
-                    ft.Text(formatar_moeda(totais.pix), weight=ft.FontWeight.BOLD),
-                ]),
+                ft.Text(f"Turno #{turno_atual.id} · {turno_atual.aberto_em}",
+                        size=12, color=pal.text_ter),
+                ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN),
+                        ft.Text("Dinheiro (físico):", expand=True),
+                        ft.Text(formatar_moeda(totais.fisico), weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Icon(ft.Icons.PIX, color=C_BLUE),
+                        ft.Text("Total PIX:", expand=True),
+                        ft.Text(formatar_moeda(totais.pix), weight=ft.FontWeight.BOLD)]),
                 ft.Divider(height=1),
-                ft.Text("Cartões por bandeira:", size=13, color=ft.Colors.GREY_500, weight=ft.FontWeight.BOLD),
+                ft.Text("Cartões por bandeira:", size=13, color=pal.text_sec, weight=ft.FontWeight.BOLD),
                 *linhas_bandeiras,
-                ft.Row([
-                    ft.Icon(ft.Icons.CREDIT_CARD, color=ft.Colors.ORANGE_400),
-                    ft.Text("Total de Cartões (+ Sodexo):", expand=True, size=13),
-                    ft.Text(formatar_moeda(totais.cartoes), weight=ft.FontWeight.BOLD),
-                ]),
+                ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE),
+                        ft.Text("Total Cartões (+ Sodexo):", expand=True, size=13),
+                        ft.Text(formatar_moeda(totais.cartoes), weight=ft.FontWeight.BOLD)]),
                 ft.Divider(height=1),
-                ft.Row([
-                    ft.Icon(ft.Icons.RECEIPT_LONG, color=ft.Colors.PURPLE_400),
-                    ft.Text("Requisição:", expand=True),
-                    ft.Text(formatar_moeda(totais.requisicao), weight=ft.FontWeight.BOLD),
-                ]),
-                ft.Row([
-                    ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=ft.Colors.BROWN_400),
-                    ft.Text("Depósito Global:", expand=True),
-                    ft.Text(formatar_moeda(totais.deposito_global), weight=ft.FontWeight.BOLD),
-                ]),
+                ft.Row([ft.Icon(ft.Icons.RECEIPT_LONG, color=C_PURPLE),
+                        ft.Text("Requisição:", expand=True),
+                        ft.Text(formatar_moeda(totais.requisicao), weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=C_BROWN),
+                        ft.Text("Depósito Global:", expand=True),
+                        ft.Text(formatar_moeda(totais.deposito_global), weight=ft.FontWeight.BOLD)]),
                 ft.Divider(height=20),
-                ft.Row([
-                    ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=ft.Colors.GREEN_ACCENT_400),
-                    ft.Text("Total Geral:", expand=True, weight=ft.FontWeight.BOLD, size=18),
-                    ft.Text(
-                        formatar_moeda(totais.total_geral),
-                        weight=ft.FontWeight.BOLD,
-                        size=18,
-                        color=ft.Colors.GREEN_ACCENT_400,
-                    ),
-                ]),
+                ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=C_GREEN),
+                        ft.Text("Total Geral:", expand=True, weight=ft.FontWeight.BOLD, size=18),
+                        ft.Text(formatar_moeda(totais.total_geral),
+                                weight=ft.FontWeight.BOLD, size=18, color=C_GREEN)]),
             ],
         )
 
     def acao_fechar_caixa(e=None):
         fechar_bottom_sheet()
         garantir_conexao()
-        totais = db.obter_totais(conn, turno_atual.id)
-        detalhe_cartoes = db.obter_detalhe_cartoes(conn, turno_atual.id)
-        resumo = db.montar_resumo_texto(totais, turno_atual, detalhe_cartoes)
+        totais        = db.obter_totais(conn, turno_atual.id)
+        detalhe_cart  = db.obter_detalhe_cartoes(conn, turno_atual.id)
+        resumo        = db.montar_resumo_texto(totais, turno_atual, detalhe_cart)
         dlg = ft.AlertDialog(
             title=ft.Text("Resumo do Turno"),
-            content=montar_conteudo_resumo(totais, detalhe_cartoes),
+            content=montar_conteudo_resumo(totais, detalhe_cart),
         )
 
         def copiar_resumo(x):
@@ -656,14 +951,12 @@ def main(page: ft.Page):
                 mostrar_snackbar("Turno encerrado. Novo turno iniciado.")
                 recarregar_listas()
             except Exception:
-                mostrar_snackbar("Erro ao encerrar o turno. Tente novamente.", ft.Colors.RED_800)
+                mostrar_snackbar("Erro ao encerrar o turno.", ft.Colors.RED_800)
 
         dlg.actions = [
             ft.TextButton(
-                content=ft.Row(
-                    [ft.Icon(ft.Icons.CONTENT_COPY, size=18), ft.Text("Copiar resumo")],
-                    tight=True,
-                ),
+                content=ft.Row([ft.Icon(ft.Icons.CONTENT_COPY, size=16), ft.Text("Copiar resumo")],
+                               tight=True),
                 on_click=copiar_resumo,
             ),
             ft.TextButton("Encerrar turno", on_click=encerrar_turno),
@@ -678,16 +971,13 @@ def main(page: ft.Page):
         if not turnos:
             mostrar_snackbar("Nenhum turno encerrado ainda.", ft.Colors.BLUE_GREY_700)
             return
-
-        itens = []
-        for turno in turnos:
-            itens.append(
-                ft.ListTile(
-                    title=ft.Text(f"Turno #{turno['id']} · {formatar_moeda(turno['total_geral'])}"),
-                    subtitle=ft.Text(f"{turno['aberto_em']} → {turno['fechado_em']}"),
-                )
+        itens = [
+            ft.ListTile(
+                title=ft.Text(f"Turno #{t['id']} · {formatar_moeda(t['total_geral'])}"),
+                subtitle=ft.Text(f"{t['aberto_em']} → {t['fechado_em']}"),
             )
-
+            for t in turnos
+        ]
         dlg_hist = ft.AlertDialog(
             title=ft.Text("Histórico de Turnos"),
             content=ft.Container(
@@ -717,248 +1007,297 @@ def main(page: ft.Page):
                 mostrar_snackbar(f"Turno zerado. Backup: {os.path.basename(caminho_backup)}")
                 recarregar_listas()
             except Exception:
-                mostrar_snackbar("Erro ao zerar o turno. Nada foi apagado.", ft.Colors.RED_800)
+                mostrar_snackbar("Erro ao zerar. Nada foi apagado.", ft.Colors.RED_800)
 
         dlg_confirmar.actions = [
             ft.TextButton("Sim, Zerar", on_click=confirmar_zerar),
-            ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_confirmar)),
+            ft.TextButton("Cancelar",   on_click=lambda x: fechar_dialogo(dlg_confirmar)),
         ]
         abrir_dialogo(dlg_confirmar)
 
-    # ── Bottom Sheet de Gerenciamento ──────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════
+    # BOTTOM SHEET
+    # ══════════════════════════════════════════════════════════════════
+    txt_bottom_titulo = ft.Text(
+        "Gerenciar Turno", size=17, weight=ft.FontWeight.BOLD, color=pal.text_pri
+    )
+    bottom_div_1 = ft.Divider(height=8, color=pal.border)
+    bottom_div_2 = ft.Divider(height=8, color=pal.border)
+    bottom_sheet_content = ft.Container(
+        padding=20,
+        bgcolor=pal.sheet_bg,
+        content=ft.Column(
+            tight=True,
+            spacing=8,
+            controls=[
+                txt_bottom_titulo,
+                bottom_div_1,
+                ft.ListTile(
+                    leading=ft.Icon(ft.Icons.ASSESSMENT, color=C_BLUE),
+                    title=ft.Text("Fechar Caixa / Resumo", size=15),
+                    on_click=acao_fechar_caixa,
+                ),
+                ft.ListTile(
+                    leading=ft.Icon(ft.Icons.HISTORY, color=pal.text_sec),
+                    title=ft.Text("Histórico de Turnos", size=15),
+                    on_click=acao_historico_turnos,
+                ),
+                bottom_div_2,
+                ft.ListTile(
+                    leading=ft.Icon(ft.Icons.DELETE_FOREVER, color=C_RED),
+                    title=ft.Text("Limpar / Zerar Tudo", size=15, color=C_RED),
+                    on_click=acao_zerar_tudo,
+                ),
+            ],
+        ),
+    )
+
     bottom_sheet = ft.BottomSheet(
         open=False,
-        content=ft.Container(
-            padding=20,
-            content=ft.Column(
-                tight=True,
-                spacing=12,
-                controls=[
-                    ft.Text(
-                        "Gerenciar Turno",
-                        size=18,
-                        weight=ft.FontWeight.BOLD,
-                    ),
-                    ft.Divider(height=10),
-                    ft.ListTile(
-                        leading=ft.Icon(ft.Icons.ASSESSMENT, color=ft.Colors.BLUE_300),
-                        title=ft.Text("Fechar Caixa / Resumo", size=16),
-                        on_click=acao_fechar_caixa,
-                    ),
-                    ft.ListTile(
-                        leading=ft.Icon(ft.Icons.HISTORY, color=ft.Colors.GREY_300),
-                        title=ft.Text("Histórico de Turnos", size=16),
-                        on_click=acao_historico_turnos,
-                    ),
-                    ft.Divider(height=10),
-                    ft.ListTile(
-                        leading=ft.Icon(ft.Icons.DELETE_FOREVER, color=ft.Colors.RED_400),
-                        title=ft.Text("Limpar / Zerar Tudo", size=16, color=ft.Colors.RED_400),
-                        on_click=acao_zerar_tudo,
-                    ),
-                ],
-            ),
-        ),
+        content=bottom_sheet_content,
     )
 
-    def abrir_bottom_sheet(e):
-        page.show_dialog(bottom_sheet)
-
-    def fechar_bottom_sheet():
+    def fechar_menu():
         page.pop_dialog()
 
-    # ── Botão principal ────────────────────────────────────────────────────
-    btn_lancar = ft.Button(
-        content=ft.Row(
-            [
-                ft.Icon(ft.Icons.ADD_SHOPPING_CART, color=ft.Colors.WHITE),
-                ft.Text("Lançar Abastecimento", color=ft.Colors.WHITE, size=16),
+    def _menu_handler(callback):
+        def handler(e):
+            fechar_menu()
+            callback()
+        return handler
+
+    def abrir_bottom_sheet(e):
+        if ios:
+            sheet = ft.CupertinoActionSheet(
+                title=ft.Text("Gerenciar Turno"),
+                cancel=ft.CupertinoActionSheetAction(
+                    content=ft.Text("Cancelar"),
+                    on_click=lambda ev: fechar_menu(),
+                ),
+                actions=[
+                    ft.CupertinoActionSheetAction(
+                        content=ft.Text("Fechar Caixa / Resumo"),
+                        on_click=_menu_handler(acao_fechar_caixa),
+                    ),
+                    ft.CupertinoActionSheetAction(
+                        content=ft.Text("Histórico de Turnos"),
+                        on_click=_menu_handler(acao_historico_turnos),
+                    ),
+                    ft.CupertinoActionSheetAction(
+                        content=ft.Text("Limpar / Zerar Tudo"),
+                        is_destructive_action=True,
+                        on_click=_menu_handler(acao_zerar_tudo),
+                    ),
+                ],
+            )
+            page.show_dialog(ft.CupertinoBottomSheet(sheet))
+        else:
+            page.show_dialog(bottom_sheet)
+
+    def fechar_bottom_sheet():
+        fechar_menu()
+
+    # ══════════════════════════════════════════════════════════════════
+    # HEADER / TEMA
+    # ══════════════════════════════════════════════════════════════════
+    def aplicar_paleta_ui():
+        nonlocal pal
+        pal = criar_paleta(tema_escuro())
+        page.bgcolor = pal.bg
+
+        txt_fisico_label.color = pal.text_sec
+        txt_turno.color = pal.text_sec
+
+        for card, lbl in (
+            (stat_pix_card, lbl_pix),
+            (stat_cart_card, lbl_cart),
+            (stat_req_card, lbl_req),
+            (stat_dep_card, lbl_dep),
+        ):
+            card.bgcolor = pal.surface
+            lbl.color = pal.text_ter
+
+        txt_total_geral_label.color = pal.text_pri
+        txt_header_titulo.color = pal.text_pri
+        btn_tema.icon_color = pal.text_sec
+        btn_menu.icon_color = pal.text_sec
+
+        txt_sec_forma.color = pal.text_ter
+        txt_sec_totais.color = pal.text_pri
+        txt_sec_historico.color = pal.text_pri
+
+        for div in (div_top, div_mid, div_bot):
+            div.bgcolor = pal.border
+
+        txt_bottom_titulo.color = pal.text_pri
+        bottom_div_1.color = pal.border
+        bottom_div_2.color = pal.border
+        bottom_sheet_content.bgcolor = pal.sheet_bg
+        if mobile:
+            rodape_lancar.bgcolor = pal.bg
+            rodape_lancar.border = ft.Border(
+                top=ft.BorderSide(1, pal.border),
+            )
+            txt_rodape_resumo.color = pal.text_sec
+
+        op = 0.16 if tema_escuro() else 0.11
+        hero_card.gradient = ft.LinearGradient(
+            begin=ft.Alignment(-1, -1),
+            end=ft.Alignment(1, 1),
+            colors=[
+                ft.Colors.with_opacity(op, C_GREEN),
+                ft.Colors.with_opacity(op * 0.4, C_GREEN),
+                ft.Colors.with_opacity(op * 0.5, C_BLUE),
             ],
-            alignment=ft.MainAxisAlignment.CENTER,
-            tight=True,
-        ),
-        style=_estilo_btn(ft.Colors.BLUE_700),
-        on_click=acao_lancar,
-        width=largura_conteudo,
-        height=58,
-    )
+        )
 
-    # ── Totais ─────────────────────────────────────────────────────────────
-    linha_totais_secundarios = ft.Row(
-        controls=[
-            ft.Container(
-                content=ft.Column(
-                    [ft.Text("PIX", size=12, color=ft.Colors.GREY_400), txt_pix],
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    spacing=2,
-                ),
-                bgcolor=ft.Colors.with_opacity(0.08, ft.Colors.BLUE_400),
-                border_radius=12,
-                padding=ft.Padding.only(left=16, right=16, top=10, bottom=10),
-                expand=1,
-            ),
-            ft.Container(
-                content=ft.Column(
-                    [ft.Text("Cartões", size=12, color=ft.Colors.GREY_400), txt_cartoes],
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    spacing=2,
-                ),
-                bgcolor=ft.Colors.with_opacity(0.08, ft.Colors.ORANGE_400),
-                border_radius=12,
-                padding=ft.Padding.only(left=16, right=16, top=10, bottom=10),
-                expand=1,
-            ),
-        ],
-        spacing=8,
-        width=largura_conteudo,
-    )
+        montar_botoes_rapidos()
+        reconstruir_seletor()
+        recarregar_listas()
+        page.update()
 
-    linha_totais_extras = ft.Row(
-        controls=[
-            ft.Container(
-                content=ft.Column(
-                    [ft.Text("Requisição", size=12, color=ft.Colors.GREY_400), txt_requisicao],
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    spacing=2,
-                ),
-                bgcolor=ft.Colors.with_opacity(0.08, ft.Colors.PURPLE_400),
-                border_radius=12,
-                padding=ft.Padding.only(left=16, right=16, top=10, bottom=10),
-                expand=1,
-            ),
-            ft.Container(
-                content=ft.Column(
-                    [ft.Text("Depósito Global", size=12, color=ft.Colors.GREY_400), txt_deposito_global],
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    spacing=2,
-                ),
-                bgcolor=ft.Colors.with_opacity(0.08, ft.Colors.BROWN_400),
-                border_radius=12,
-                padding=ft.Padding.only(left=16, right=16, top=10, bottom=10),
-                expand=1,
-            ),
-        ],
-        spacing=8,
-        width=largura_conteudo,
-    )
-
-    linha_total_geral = ft.Container(
-        content=ft.Row(
-            [
-                ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=ft.Colors.GREEN_ACCENT_400, size=20),
-                ft.Text("Total Geral", size=14, color=ft.Colors.GREY_300, expand=True),
-                txt_total_geral,
-            ],
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-        ),
-        bgcolor=ft.Colors.with_opacity(0.12, ft.Colors.GREEN_ACCENT_400),
-        border_radius=12,
-        padding=ft.Padding.only(left=16, right=16, top=12, bottom=12),
-        width=largura_conteudo,
-    )
-
-    # ── Header com botão de tema e botão de menu ────────────────────────────
     def alternar_tema(e):
-        # Sem cor fixa (WHITE70) no título/ícones do header, eles já seguem
-        # o tema automaticamente — só precisamos trocar o theme_mode.
-        # Já os chips de forma de pagamento e as listas usam cores próprias
-        # (cor_icone_tipo), que dependem do tema mas só são calculadas na
-        # hora de montar o controle — por isso recriamos esses controles
-        # aqui pra eles pegarem a paleta certa imediatamente.
         page.theme_mode = (
             ft.ThemeMode.LIGHT if page.theme_mode == ft.ThemeMode.DARK else ft.ThemeMode.DARK
         )
         btn_tema.icon = (
             ft.Icons.LIGHT_MODE if page.theme_mode == ft.ThemeMode.DARK else ft.Icons.DARK_MODE
         )
-        reconstruir_seletor_tipo()
-        recarregar_listas()
-        page.update()
+        try:
+            page.client_storage.set(
+                "caixa_tema",
+                "dark" if page.theme_mode == ft.ThemeMode.DARK else "light",
+            )
+        except Exception:
+            pass
+        aplicar_paleta_ui()
 
     btn_tema = ft.IconButton(
-        icon=ft.Icons.LIGHT_MODE,
-        tooltip="Alternar tema claro/escuro",
+        icon=ft.Icons.LIGHT_MODE if tema_escuro() else ft.Icons.DARK_MODE,
+        tooltip="Alternar tema",
+        icon_color=pal.text_sec,
         on_click=alternar_tema,
     )
 
+    txt_header_titulo = ft.Text(
+        "Caixa · Posto Janjão",
+        size=17,
+        weight=ft.FontWeight.W_600,
+        color=pal.text_pri,
+        expand=True,
+    )
+    btn_menu = ft.IconButton(
+        icon=ft.Icons.MORE_VERT,
+        tooltip="Gerenciar turno",
+        icon_color=pal.text_sec,
+        on_click=abrir_bottom_sheet,
+    )
+
     header = ft.Row(
-        controls=[
-            ft.Text(
-                "Caixa · Posto Janjão",
-                size=16,
-                weight=ft.FontWeight.BOLD,
-                expand=True,
-            ),
-            btn_tema,
-            ft.IconButton(
-                icon=ft.Icons.MORE_VERT,
-                tooltip="Gerenciar turno",
-                on_click=abrir_bottom_sheet,
-            ),
-        ],
+        controls=[txt_header_titulo, btn_tema, btn_menu],
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         width=largura_conteudo,
     )
 
-    # ── Layout principal ───────────────────────────────────────────────────
-    card_fisico = ft.Container(
-        content=ft.Column(
-            [
-                ft.Text("💵 Físico na Carteira", size=13, color=ft.Colors.GREY_400),
-                txt_fisico,
-                txt_turno,
-            ],
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=2,
-        ),
-        bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.GREEN_400),
-        border_radius=16,
-        padding=ft.Padding.only(left=20, right=20, top=16, bottom=16),
+    # ── Separador fino ──────────────────────────────────────────────────────
+    def _divider():
+        return ft.Container(height=1, bgcolor=pal.border, width=largura_conteudo)
+
+    div_top = _divider()
+    div_mid = _divider()
+    div_bot = _divider()
+
+    txt_sec_forma = ft.Text(
+        "Forma de Pagamento", size=13, color=pal.text_ter, weight=ft.FontWeight.W_600
+    )
+    txt_sec_totais = ft.Text(
+        "Totais por Tipo",
+        size=18,
+        weight=ft.FontWeight.BOLD,
+        color=pal.text_pri,
+        width=largura_conteudo,
+    )
+    txt_sec_historico = ft.Text(
+        "Histórico Recente",
+        size=18,
+        weight=ft.FontWeight.BOLD,
+        color=pal.text_pri,
         width=largura_conteudo,
     )
 
-    conteudo_principal = ft.Column(
-        controls=[
-            _campo_fantasma,
-            header,
-            card_fisico,
-            linha_totais_secundarios,
-            linha_totais_extras,
-            linha_total_geral,
-            ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
-            rotulo_forma_pagamento,
-            seletor_tipo,
-            input_valor,
-            botoes_rapidos,
-            input_desc,
-            ft.Divider(height=5, color=ft.Colors.TRANSPARENT),
+    txt_rodape_resumo = ft.Text(
+        "Total geral · R$ 0,00",
+        size=13,
+        color=pal.text_sec,
+        text_align=ft.TextAlign.CENTER,
+    )
+
+    # ══════════════════════════════════════════════════════════════════
+    # LAYOUT PRINCIPAL
+    # ══════════════════════════════════════════════════════════════════
+    controles_scroll = [
+        header,
+        hero_card,
+        stats_grid,
+        total_geral_card,
+        div_top,
+        txt_sec_forma,
+        seletor_col,
+        input_valor,
+        row_botoes_rapidos,
+        input_desc,
+        div_mid,
+        txt_sec_totais,
+        col_agrupada,
+        div_bot,
+        txt_sec_historico,
+        col_historico,
+    ]
+
+    if not mobile:
+        controles_scroll.insert(
+            controles_scroll.index(input_desc) + 1,
             btn_lancar,
-            ft.Divider(height=14),
-            ft.Text(
-                "Totais por Tipo:",
-                size=18,
-                weight=ft.FontWeight.BOLD,
-                width=largura_conteudo,
-                text_align=ft.TextAlign.LEFT,
-            ),
-            lista_agrupada,
-            ft.Divider(height=5),
-            ft.Text(
-                "Histórico Recente:",
-                size=18,
-                weight=ft.FontWeight.BOLD,
-                width=largura_conteudo,
-                text_align=ft.TextAlign.LEFT,
-            ),
-            lista_historico,
-        ],
+        )
+
+    area_scroll = ft.Column(
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         spacing=10,
+        controls=controles_scroll,
+        scroll=ft.ScrollMode.AUTO if mobile else None,
+        expand=mobile,
+    )
+
+    rodape_lancar = ft.Container(
+        content=ft.Column(
+            spacing=8,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[txt_rodape_resumo, btn_lancar],
+        ),
+        width=largura_conteudo,
+        padding=ft.Padding.only(left=0, right=0, top=8, bottom=8),
+        bgcolor=pal.bg,
+        border=ft.Border(top=ft.BorderSide(1, pal.border)),
+        visible=mobile,
+    )
+
+    conteudo_principal = (
+        ft.Column(
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=0,
+            expand=True,
+            controls=[area_scroll, rodape_lancar],
+        )
+        if mobile
+        else area_scroll
     )
 
     def montar_interface():
         page.controls.clear()
-        raiz = ft.SafeArea(content=conteudo_principal) if mobile else conteudo_principal
+        if mobile:
+            raiz = ft.SafeArea(ft.Column(controls=[conteudo_principal], expand=True))
+        else:
+            raiz = conteudo_principal
         page.add(raiz)
         aplicar_largura()
         recarregar_listas()
@@ -1002,9 +1341,7 @@ def main(page: ft.Page):
 
 if __name__ == "__main__":
     if _app_mobile():
-        # App nativo empacotado (flet build ipa / apk).
         ft.run(main)
     else:
-        # Desenvolvimento e deploy web (Replit, servidor, PWA).
         porta = int(os.environ.get("PORT", 5000))
         ft.run(main, view=ft.AppView.WEB_BROWSER, port=porta, host="0.0.0.0")
