@@ -1084,8 +1084,7 @@ def main(page: ft.Page):
                         on_click=_menu_handler(acao_historico_turnos),
                     ),
                     ft.CupertinoActionSheetAction(
-                        content=ft.Text("Limpar / Zerar Tudo"),
-                        is_destructive_action=True,
+                        content=ft.Text("Limpar / Zerar Tudo", color=C_RED),
                         on_click=_menu_handler(acao_zerar_tudo),
                     ),
                 ],
