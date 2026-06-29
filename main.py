@@ -70,8 +70,10 @@ def main(page: ft.Page):
         lista_agrupada.width = largura
         lista_historico.width = largura
         btn_lancar.width = largura
+        card_fisico.width = largura
         linha_totais_secundarios.width = largura
         linha_totais_extras.width = largura
+        linha_total_geral.width = largura
         txt_turno.width = largura
         page.update()
 
@@ -223,6 +225,7 @@ def main(page: ft.Page):
     txt_cartoes = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_400)
     txt_requisicao = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.PURPLE_400)
     txt_deposito_global = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.BROWN_400)
+    txt_total_geral = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_ACCENT_400)
     txt_turno = ft.Text("", size=13, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
 
     def atualizar_painel():
@@ -234,6 +237,7 @@ def main(page: ft.Page):
         txt_cartoes.value = formatar_moeda(totais.cartoes)
         txt_requisicao.value = formatar_moeda(totais.requisicao)
         txt_deposito_global.value = formatar_moeda(totais.deposito_global)
+        txt_total_geral.value = formatar_moeda(totais.total_geral)
         txt_turno.value = f"Turno #{turno_atual.id} · aberto em {turno_atual.aberto_em}"
         page.update()
 
@@ -534,9 +538,13 @@ def main(page: ft.Page):
             input_desc.value = ""
             input_valor.error_text = None
 
+            if mobile:
+                page.close_keyboard()
+
             mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {estado_tipo['valor']}")
             recarregar_listas()
-            desfocar_campos(input_valor, input_desc)
+            if not mobile:
+                page.run_task(input_valor.focus)
         except Exception:
             mostrar_snackbar("Erro ao lançar. Tente novamente.", ft.Colors.RED_800)
         finally:
@@ -768,35 +776,74 @@ def main(page: ft.Page):
     # ── Totais ─────────────────────────────────────────────────────────────
     linha_totais_secundarios = ft.Row(
         controls=[
-            ft.Column(
-                [ft.Text("PIX", size=13, color=ft.Colors.GREY_400), txt_pix],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=2,
+            ft.Container(
+                content=ft.Column(
+                    [ft.Text("PIX", size=12, color=ft.Colors.GREY_400), txt_pix],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=2,
+                ),
+                bgcolor=ft.Colors.with_opacity(0.08, ft.Colors.BLUE_400),
+                border_radius=12,
+                padding=ft.Padding.only(left=16, right=16, top=10, bottom=10),
+                expand=1,
             ),
-            ft.Column(
-                [ft.Text("Cartões", size=13, color=ft.Colors.GREY_400), txt_cartoes],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=2,
+            ft.Container(
+                content=ft.Column(
+                    [ft.Text("Cartões", size=12, color=ft.Colors.GREY_400), txt_cartoes],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=2,
+                ),
+                bgcolor=ft.Colors.with_opacity(0.08, ft.Colors.ORANGE_400),
+                border_radius=12,
+                padding=ft.Padding.only(left=16, right=16, top=10, bottom=10),
+                expand=1,
             ),
         ],
-        alignment=ft.MainAxisAlignment.SPACE_AROUND,
+        spacing=8,
         width=largura_conteudo,
     )
 
     linha_totais_extras = ft.Row(
         controls=[
-            ft.Column(
-                [ft.Text("Requisição", size=13, color=ft.Colors.GREY_400), txt_requisicao],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=2,
+            ft.Container(
+                content=ft.Column(
+                    [ft.Text("Requisição", size=12, color=ft.Colors.GREY_400), txt_requisicao],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=2,
+                ),
+                bgcolor=ft.Colors.with_opacity(0.08, ft.Colors.PURPLE_400),
+                border_radius=12,
+                padding=ft.Padding.only(left=16, right=16, top=10, bottom=10),
+                expand=1,
             ),
-            ft.Column(
-                [ft.Text("Depósito Global", size=13, color=ft.Colors.GREY_400), txt_deposito_global],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=2,
+            ft.Container(
+                content=ft.Column(
+                    [ft.Text("Depósito Global", size=12, color=ft.Colors.GREY_400), txt_deposito_global],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=2,
+                ),
+                bgcolor=ft.Colors.with_opacity(0.08, ft.Colors.BROWN_400),
+                border_radius=12,
+                padding=ft.Padding.only(left=16, right=16, top=10, bottom=10),
+                expand=1,
             ),
         ],
-        alignment=ft.MainAxisAlignment.SPACE_AROUND,
+        spacing=8,
+        width=largura_conteudo,
+    )
+
+    linha_total_geral = ft.Container(
+        content=ft.Row(
+            [
+                ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=ft.Colors.GREEN_ACCENT_400, size=20),
+                ft.Text("Total Geral", size=14, color=ft.Colors.GREY_300, expand=True),
+                txt_total_geral,
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        ),
+        bgcolor=ft.Colors.with_opacity(0.12, ft.Colors.GREEN_ACCENT_400),
+        border_radius=12,
+        padding=ft.Padding.only(left=16, right=16, top=12, bottom=12),
         width=largura_conteudo,
     )
 
@@ -844,14 +891,29 @@ def main(page: ft.Page):
     )
 
     # ── Layout principal ───────────────────────────────────────────────────
+    card_fisico = ft.Container(
+        content=ft.Column(
+            [
+                ft.Text("💵 Físico na Carteira", size=13, color=ft.Colors.GREY_400),
+                txt_fisico,
+                txt_turno,
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=2,
+        ),
+        bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.GREEN_400),
+        border_radius=16,
+        padding=ft.Padding.only(left=20, right=20, top=16, bottom=16),
+        width=largura_conteudo,
+    )
+
     conteudo_principal = ft.Column(
         controls=[
             header,
-            txt_turno,
-            ft.Text("Físico na Carteira (Dinheiro):", size=16, color=ft.Colors.GREY_400),
-            txt_fisico,
+            card_fisico,
             linha_totais_secundarios,
             linha_totais_extras,
+            linha_total_geral,
             ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
             rotulo_forma_pagamento,
             seletor_tipo,
