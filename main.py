@@ -116,9 +116,50 @@ def main(page: ft.Page):
 
         page.run_task(fixar_retrato)
 
+    # ── Feedback tátil / compartilhamento nativo (com fallback seguro) ──────
+    def _registrar_servico(ctrl):
+        try:
+            if hasattr(page, "services"):
+                page.services.append(ctrl)
+            elif hasattr(page, "overlay"):
+                page.overlay.append(ctrl)
+        except Exception:
+            pass
+
+    haptic_feedback = None
+    compartilhar_servico = None
+    if mobile:
+        try:
+            haptic_feedback = ft.HapticFeedback()
+            _registrar_servico(haptic_feedback)
+        except Exception:
+            haptic_feedback = None
+
+    # Share funciona em mobile e também em navegadores modernos (Web Share API),
+    # por isso é registrado independente de `mobile` — com fallback para clipboard.
+    try:
+        compartilhar_servico = ft.Share()
+        _registrar_servico(compartilhar_servico)
+    except Exception:
+        compartilhar_servico = None
+
+    def vibrar(intensidade="light"):
+        if haptic_feedback is None:
+            return
+        async def _vibrar_async():
+            try:
+                metodo = getattr(haptic_feedback, f"{intensidade}_impact", None)
+                if metodo:
+                    await metodo()
+                else:
+                    await haptic_feedback.vibrate()
+            except Exception:
+                pass
+        page.run_task(_vibrar_async)
+
     conn = db.conectar()
     db.inicializar_banco(conn)
-    turno_atual = db.obter_ou_criar_turno_aberto(conn)
+    turno_atual = None
 
     pin_configurado = os.environ.get("CAIXA_PIN", "").strip()
     autenticado = not pin_configurado
@@ -143,19 +184,20 @@ def main(page: ft.Page):
 
     def aplicar_largura():
         w = largura_conteudo
-        seletor_col.width = w
-        input_valor.width = w
-        input_desc.width = w
-        row_botoes_rapidos.width = w
-        col_agrupada.width = w
-        col_historico.width = w
-        btn_lancar.width = w
-        if mobile:
-            rodape_lancar.width = w
-        hero_card.width = w
-        total_geral_card.width = w
-        stats_grid.width = w
-        txt_turno.width = w
+        if turno_atual is not None:
+            seletor_col.width = w
+            input_valor.width = w
+            input_desc.width = w
+            row_botoes_rapidos.width = w
+            col_agrupada.width = w
+            col_historico.width = w
+            btn_lancar.width = w
+            if mobile:
+                rodape_lancar.width = w
+            hero_card.width = w
+            total_geral_card.width = w
+            stats_grid.width = w
+            txt_turno.width = w
         page.update()
 
     def mostrar_snackbar(mensagem: str, cor=ft.Colors.GREEN_700):
@@ -202,12 +244,14 @@ def main(page: ft.Page):
         db.TIPO_REQUISICAO:      C_PURPLE,
         db.TIPO_SODEXO:          C_TEAL,
         db.TIPO_DEPOSITO_GLOBAL: C_BROWN,
+        db.TIPO_DESPESA:         C_RED,
         "Master Crédito":        C_RED,
         "Master Débito":         C_ORANGE,
         "Visa Crédito":          C_INDIGO,
         "Visa Débito":           C_INDIGO2,
         "Elo Crédito":           C_AMBER,
         "Elo Débito":            C_AMBER2,
+        "Alelo Multibenefícios": C_PURPLE,
     }
 
     ICONES = {
@@ -216,6 +260,7 @@ def main(page: ft.Page):
         db.TIPO_REQUISICAO:      ft.Icons.RECEIPT_LONG,
         db.TIPO_SODEXO:          ft.Icons.LUNCH_DINING,
         db.TIPO_DEPOSITO_GLOBAL: ft.Icons.ACCOUNT_BALANCE,
+        db.TIPO_DESPESA:         ft.Icons.MONEY_OFF,
     }
 
     def cor_tipo(tipo: str) -> str:
@@ -322,6 +367,7 @@ def main(page: ft.Page):
     stat_cart_card, txt_cartoes, lbl_cart = _stat_card("Cartões", C_ORANGE)
     stat_req_card, txt_requisicao, lbl_req = _stat_card("Requisição", C_PURPLE)
     stat_dep_card, txt_deposito_global, lbl_dep = _stat_card("Depósito Global", C_BROWN)
+    stat_desp_card, txt_despesas, lbl_desp = _stat_card("Despesas", C_RED)
 
     stats_grid = ft.Column(
         spacing=10,
@@ -329,6 +375,7 @@ def main(page: ft.Page):
         controls=[
             ft.Row(spacing=10, controls=[stat_pix_card, stat_cart_card]),
             ft.Row(spacing=10, controls=[stat_req_card, stat_dep_card]),
+            ft.Row(spacing=10, controls=[stat_desp_card]),
         ],
     )
 
@@ -387,15 +434,18 @@ def main(page: ft.Page):
 
     def atualizar_painel():
         nonlocal turno_atual
-        turno_atual = db.obter_ou_criar_turno_aberto(conn)
+        if turno_atual is None:
+            return
+
         totais = db.obter_totais(conn, turno_atual.id)
         txt_fisico.value        = formatar_moeda(totais.fisico)
         txt_pix.value           = formatar_moeda(totais.pix)
         txt_cartoes.value       = formatar_moeda(totais.cartoes)
         txt_requisicao.value    = formatar_moeda(totais.requisicao)
         txt_deposito_global.value = formatar_moeda(totais.deposito_global)
+        txt_despesas.value        = formatar_moeda(totais.despesas)
         txt_total_geral.value   = formatar_moeda(totais.total_geral)
-        txt_turno.value         = f"Turno #{turno_atual.id} · aberto em {turno_atual.aberto_em}"
+        txt_turno.value         = f"Turno #{turno_atual.id} · Operador(a): {turno_atual.operador} · {turno_atual.aberto_em}"
         if mobile:
             txt_rodape_resumo.value = f"Total geral · {formatar_moeda(totais.total_geral)}"
         page.update()
@@ -458,6 +508,7 @@ def main(page: ft.Page):
             principais = [
                 db.TIPO_DINHEIRO, db.TIPO_PIX,
                 db.TIPO_REQUISICAO, db.TIPO_DEPOSITO_GLOBAL,
+                db.TIPO_DESPESA,
             ]
             for i in range(0, len(principais), 2):
                 seletor_col.controls.append(_linha(principais[i:i+2]))
@@ -632,14 +683,16 @@ def main(page: ft.Page):
         )
 
     def carregar_lista_agrupada():
+        if turno_atual is None: return
         col_agrupada.controls.clear()
         for tipo, valor_total in db.listar_agrupado(conn, turno_atual.id):
             col_agrupada.controls.append(_list_tile_agrupado(tipo, valor_total))
         page.update()
 
     def carregar_historico():
+        if turno_atual is None: return
         col_historico.controls.clear()
-        for row in db.listar_historico(conn, turno_atual.id):
+        for row in db.listar_historico(conn, turno_atual.id, limite=5):
             cor   = cor_tipo(row["tipo"])
             icone = icone_tipo(row["tipo"])
             desc_texto = f" — {row['descricao']}" if row["descricao"] else ""
@@ -655,6 +708,7 @@ def main(page: ft.Page):
                     if db.deletar_lancamento(conn, lancamento_id, turno_atual.id):
                         fechar_dialogo(dlg_excluir)
                         mostrar_snackbar("Lançamento removido.", ft.Colors.ORANGE_800)
+                        vibrar("light")
                         atualizar_painel()
                         carregar_lista_agrupada()
                         carregar_historico()
@@ -803,6 +857,7 @@ def main(page: ft.Page):
         page.update()
 
     def recarregar_listas():
+        if turno_atual is None: return
         garantir_conexao()
         atualizar_painel()
         carregar_lista_agrupada()
@@ -837,12 +892,12 @@ def main(page: ft.Page):
             color=ft.Colors.with_opacity(0.35, "#3b82f6"),
             offset=ft.Offset(0, 4),
         ),
-        on_click=None,  # definido abaixo
+        on_click=None,
         animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
     )
 
     def acao_lancar(e=None):
-        if btn_lancar.opacity == 0.5:
+        if btn_lancar.opacity == 0.5 or turno_atual is None:
             return
         valor_float = validar_valor(input_valor.value or "")
         if valor_float is None:
@@ -863,6 +918,7 @@ def main(page: ft.Page):
             input_desc.value  = ""
             input_valor.error_text = None
             mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {estado_tipo['valor']}")
+            vibrar("light")
             salvar_ultimo_tipo(estado_tipo["valor"])
             recarregar_listas()
             desfocar_campos(input_valor, input_desc)
@@ -893,12 +949,15 @@ def main(page: ft.Page):
                 ], spacing=4)
             )
         return ft.Column(
-            width=min(300, largura_conteudo),
-            tight=True, spacing=8,
-            scroll=ft.ScrollMode.AUTO, height=480,
+            width=min(400, largura_conteudo),
+            tight=True, spacing=6,
+            scroll=ft.ScrollMode.AUTO, height=620,
             controls=[
-                ft.Text(f"Turno #{turno_atual.id} · {turno_atual.aberto_em}",
+                ft.Text(f"Turno #{turno_atual.id} · Operador(a): {turno_atual.operador}",
+                        size=12, color=pal.text_ter, weight=ft.FontWeight.BOLD),
+                ft.Text(f"Aberto em: {turno_atual.aberto_em}",
                         size=12, color=pal.text_ter),
+                ft.Divider(height=4),
                 ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN),
                         ft.Text("Dinheiro (físico):", expand=True),
                         ft.Text(formatar_moeda(totais.fisico), weight=ft.FontWeight.BOLD)]),
@@ -918,7 +977,10 @@ def main(page: ft.Page):
                 ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=C_BROWN),
                         ft.Text("Depósito Global:", expand=True),
                         ft.Text(formatar_moeda(totais.deposito_global), weight=ft.FontWeight.BOLD)]),
-                ft.Divider(height=20),
+                ft.Row([ft.Icon(ft.Icons.MONEY_OFF, color=C_RED),
+                        ft.Text("Despesas:", expand=True),
+                        ft.Text(formatar_moeda(totais.despesas), weight=ft.FontWeight.BOLD)]),
+                ft.Divider(height=6),
                 ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=C_GREEN),
                         ft.Text("Total Geral:", expand=True, weight=ft.FontWeight.BOLD, size=18),
                         ft.Text(formatar_moeda(totais.total_geral),
@@ -927,6 +989,7 @@ def main(page: ft.Page):
         )
 
     def acao_fechar_caixa(e=None):
+        if turno_atual is None: return
         fechar_bottom_sheet()
         garantir_conexao()
         totais        = db.obter_totais(conn, turno_atual.id)
@@ -938,22 +1001,49 @@ def main(page: ft.Page):
         )
 
         def copiar_resumo(x):
-            page.set_clipboard(resumo)
-            mostrar_snackbar("Resumo copiado para a área de transferência")
+            async def _copiar_async():
+                try:
+                    await ft.Clipboard().set(resumo)
+                    mostrar_snackbar("Resumo copiado para a área de transferência")
+                except Exception:
+                    mostrar_snackbar("Não foi possível copiar o resumo")
+
+            page.run_task(_copiar_async)
+
+        def compartilhar_resumo(x):
+            async def _compartilhar_async():
+                try:
+                    if compartilhar_servico is None:
+                        raise RuntimeError("Compartilhamento nativo indisponível")
+                    await compartilhar_servico.share(text=resumo)
+                except Exception:
+                    try:
+                        await ft.Clipboard().set(resumo)
+                        mostrar_snackbar("Compartilhar indisponível; resumo copiado")
+                    except Exception:
+                        mostrar_snackbar("Não foi possível compartilhar o resumo")
+
+            page.run_task(_compartilhar_async)
 
         def encerrar_turno(x):
             nonlocal turno_atual
             try:
                 garantir_conexao()
                 db.fechar_turno(conn, turno_atual.id, totais)
-                turno_atual = db.obter_ou_criar_turno_aberto(conn)
+                turno_atual = None
                 fechar_dialogo(dlg)
-                mostrar_snackbar("Turno encerrado. Novo turno iniciado.")
-                recarregar_listas()
-            except Exception:
-                mostrar_snackbar("Erro ao encerrar o turno.", ft.Colors.RED_800)
+                mostrar_snackbar("Turno encerrado com sucesso. Caixa Fechado.")
+                vibrar("medium")
+                montar_interface()
+            except Exception as ex:
+                mostrar_snackbar(f"Erro: {ex}", ft.Colors.RED_800)
 
         dlg.actions = [
+            ft.TextButton(
+                content=ft.Row([ft.Icon(ft.Icons.IOS_SHARE, size=16), ft.Text("Compartilhar")],
+                               tight=True),
+                on_click=compartilhar_resumo,
+            ),
             ft.TextButton(
                 content=ft.Row([ft.Icon(ft.Icons.CONTENT_COPY, size=16), ft.Text("Copiar resumo")],
                                tight=True),
@@ -973,7 +1063,7 @@ def main(page: ft.Page):
             return
         itens = [
             ft.ListTile(
-                title=ft.Text(f"Turno #{t['id']} · {formatar_moeda(t['total_geral'])}"),
+                title=ft.Text(f"Turno #{t['id']} · {t['operador']} · {formatar_moeda(t['total_geral'])}"),
                 subtitle=ft.Text(f"{t['aberto_em']} → {t['fechado_em']}"),
             )
             for t in turnos
@@ -989,6 +1079,7 @@ def main(page: ft.Page):
         abrir_dialogo(dlg_hist)
 
     def acao_zerar_tudo(e=None):
+        if turno_atual is None: return
         fechar_bottom_sheet()
         dlg_confirmar = ft.AlertDialog(
             title=ft.Text("Aviso Importante"),
@@ -1005,6 +1096,7 @@ def main(page: ft.Page):
                 db.zerar_turno(conn, turno_atual.id)
                 fechar_dialogo(dlg_confirmar)
                 mostrar_snackbar(f"Turno zerado. Backup: {os.path.basename(caminho_backup)}")
+                vibrar("heavy")
                 recarregar_listas()
             except Exception:
                 mostrar_snackbar("Erro ao zerar. Nada foi apagado.", ft.Colors.RED_800)
@@ -1023,6 +1115,42 @@ def main(page: ft.Page):
     )
     bottom_div_1 = ft.Divider(height=8, color=pal.border)
     bottom_div_2 = ft.Divider(height=8, color=pal.border)
+    def acao_sair_operador(e=None):
+        fechar_bottom_sheet()
+        dlg_sair = ft.AlertDialog(
+            title=ft.Text("Sair do Operador?"),
+            content=ft.Text(
+                "O turno continuará aberto.\n"
+                "Na próxima vez que abrir o app será pedido o nome do operador."
+            ),
+        )
+
+        def confirmar_sair(x):
+            nonlocal turno_atual
+            fechar_dialogo(dlg_sair)
+            # Marca o operador como "Não informado" no banco
+            # para que na próxima abertura do app peça identificação
+            try:
+                garantir_conexao()
+                conn.execute(
+                    "UPDATE turnos SET operador = ? WHERE id = ?",
+                    ("Não informado", turno_atual.id),
+                )
+                conn.commit()
+                turno_atual.operador = "Não informado"
+            except Exception:
+                pass
+            mostrar_snackbar("Operador desconectado. Até logo!")
+            # Força nova identificação imediatamente
+            turno_atual = None
+            solicitar_identificacao(novo_turno=False)
+
+        dlg_sair.actions = [
+            ft.TextButton("Sair", on_click=confirmar_sair),
+            ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_sair)),
+        ]
+        abrir_dialogo(dlg_sair)
+
     bottom_sheet_content = ft.Container(
         padding=20,
         bgcolor=pal.sheet_bg,
@@ -1047,6 +1175,12 @@ def main(page: ft.Page):
                     leading=ft.Icon(ft.Icons.DELETE_FOREVER, color=C_RED),
                     title=ft.Text("Limpar / Zerar Tudo", size=15, color=C_RED),
                     on_click=acao_zerar_tudo,
+                ),
+                ft.Divider(height=4),
+                ft.ListTile(
+                    leading=ft.Icon(ft.Icons.LOGOUT, color=pal.text_ter),
+                    title=ft.Text("Sair do Operador", size=15, color=pal.text_ter),
+                    on_click=acao_sair_operador,
                 ),
             ],
         ),
@@ -1087,6 +1221,10 @@ def main(page: ft.Page):
                         content=ft.Text("Limpar / Zerar Tudo", color=C_RED),
                         on_click=_menu_handler(acao_zerar_tudo),
                     ),
+                    ft.CupertinoActionSheetAction(
+                        content=ft.Text("Sair do Operador"),
+                        on_click=_menu_handler(acao_sair_operador),
+                    ),
                 ],
             )
             page.show_dialog(ft.CupertinoBottomSheet(sheet))
@@ -1104,63 +1242,13 @@ def main(page: ft.Page):
         pal = criar_paleta(tema_escuro())
         page.bgcolor = pal.bg
 
-        txt_fisico_label.color = pal.text_sec
-        txt_turno.color = pal.text_sec
-
-        for card, lbl in (
-            (stat_pix_card, lbl_pix),
-            (stat_cart_card, lbl_cart),
-            (stat_req_card, lbl_req),
-            (stat_dep_card, lbl_dep),
-        ):
-            card.bgcolor = pal.surface
-            lbl.color = pal.text_ter
-
-        txt_total_geral_label.color = pal.text_pri
-        txt_header_titulo.color = pal.text_pri
-        btn_tema.icon_color = pal.text_sec
-        btn_menu.icon_color = pal.text_sec
-
-        txt_sec_forma.color = pal.text_ter
-        txt_sec_totais.color = pal.text_pri
-        txt_sec_historico.color = pal.text_pri
-
-        for div in (div_top, div_mid, div_bot):
-            div.bgcolor = pal.border
-
-        txt_bottom_titulo.color = pal.text_pri
-        bottom_div_1.color = pal.border
-        bottom_div_2.color = pal.border
-        bottom_sheet_content.bgcolor = pal.sheet_bg
-        if mobile:
-            rodape_lancar.bgcolor = pal.bg
-            rodape_lancar.border = ft.Border(
-                top=ft.BorderSide(1, pal.border),
-            )
-            txt_rodape_resumo.color = pal.text_sec
-
-        op = 0.16 if tema_escuro() else 0.11
-        hero_card.gradient = ft.LinearGradient(
-            begin=ft.Alignment(-1, -1),
-            end=ft.Alignment(1, 1),
-            colors=[
-                ft.Colors.with_opacity(op, C_GREEN),
-                ft.Colors.with_opacity(op * 0.4, C_GREEN),
-                ft.Colors.with_opacity(op * 0.5, C_BLUE),
-            ],
-        )
-
-        montar_botoes_rapidos()
-        reconstruir_seletor()
-        recarregar_listas()
-        page.update()
+        # Redesenha a tela toda para garantir que todos os elementos
+        # (seja caixa fechado ou aberto) recebam as novas cores.
+        montar_interface()
 
     def alternar_tema(e):
         page.theme_mode = (
             ft.ThemeMode.LIGHT if page.theme_mode == ft.ThemeMode.DARK else ft.ThemeMode.DARK
-        )
-        btn_tema.icon = (
-            ft.Icons.LIGHT_MODE if page.theme_mode == ft.ThemeMode.DARK else ft.Icons.DARK_MODE
         )
         try:
             page.client_storage.set(
@@ -1232,110 +1320,280 @@ def main(page: ft.Page):
     )
 
     # ══════════════════════════════════════════════════════════════════
-    # LAYOUT PRINCIPAL
+    # LAYOUT PRINCIPAL E TELA DE CAIXA FECHADO
     # ══════════════════════════════════════════════════════════════════
-    controles_scroll = [
-        header,
-        hero_card,
-        stats_grid,
-        total_geral_card,
-        div_top,
-        txt_sec_forma,
-        seletor_col,
-        input_valor,
-        row_botoes_rapidos,
-        input_desc,
-        div_mid,
-        txt_sec_totais,
-        col_agrupada,
-        div_bot,
-        txt_sec_historico,
-        col_historico,
-    ]
-
-    if not mobile:
-        controles_scroll.insert(
-            controles_scroll.index(input_desc) + 1,
-            btn_lancar,
-        )
-
-    area_scroll = ft.Column(
-        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-        spacing=10,
-        controls=controles_scroll,
-        scroll=ft.ScrollMode.AUTO if mobile else None,
-        expand=mobile,
-    )
-
-    rodape_lancar = ft.Container(
-        content=ft.Column(
-            spacing=8,
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            controls=[txt_rodape_resumo, btn_lancar],
-        ),
-        width=largura_conteudo,
-        padding=ft.Padding.only(left=0, right=0, top=8, bottom=8),
-        bgcolor=pal.bg,
-        border=ft.Border(top=ft.BorderSide(1, pal.border)),
-        visible=mobile,
-    )
-
-    conteudo_principal = (
-        ft.Column(
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=0,
-            expand=True,
-            controls=[area_scroll, rodape_lancar],
-        )
-        if mobile
-        else area_scroll
-    )
 
     def montar_interface():
         page.controls.clear()
+
+        # ATUALIZA O ÍCONE DO BOTÃO DE TEMA DEPENDENDO DO MODO
+        icone_tema_atual = ft.Icons.LIGHT_MODE if tema_escuro() else ft.Icons.DARK_MODE
+
+        # ==========================================
+        # 1. RENDERIZA: TELA DE CAIXA FECHADO
+        # ==========================================
+        if turno_atual is None:
+            btn_tema_fechado = ft.IconButton(
+                icon=icone_tema_atual,
+                icon_color=pal.text_sec,
+                on_click=alternar_tema,
+            )
+
+            topo = ft.Row([btn_tema_fechado], alignment=ft.MainAxisAlignment.END, width=largura_conteudo)
+
+            tela_fechado = ft.Column(
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=20,
+                expand=True,
+                controls=[
+                    topo,
+                    ft.Container(height=40),
+                    ft.Icon(ft.Icons.LOCK_OUTLINE, size=80, color=pal.text_ter),
+                    ft.Text("Caixa Fechado", size=26, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                    ft.Text("Nenhum turno em andamento no momento.", size=14, color=pal.text_sec),
+                    ft.Container(height=20),
+                    ft.Container(
+                        content=ft.Row(
+                            tight=True,
+                            spacing=8,
+                            alignment=ft.MainAxisAlignment.CENTER,
+                            controls=[
+                                ft.Icon(ft.Icons.PLAY_ARROW, color=ft.Colors.WHITE, size=20),
+                                ft.Text("Abrir Novo Turno", color=ft.Colors.WHITE, size=15,
+                                        weight=ft.FontWeight.W_600),
+                            ],
+                        ),
+                        bgcolor=C_GREEN,
+                        border_radius=12,
+                        padding=ft.Padding(24, 16, 24, 16),
+                        on_click=lambda e: solicitar_identificacao(novo_turno=True),
+                        animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
+                    ),
+                    ft.Container(expand=True)
+                ]
+            )
+
+            if mobile:
+                page.add(ft.SafeArea(tela_fechado))
+            else:
+                page.add(tela_fechado)
+
+            aplicar_largura()
+            page.update()
+            return
+
+        # ==========================================
+        # 2. RENDERIZA: TELA DE CAIXA ABERTO (NORMAL)
+        # ==========================================
+        btn_tema.icon = icone_tema_atual
+
+        # Atualiza a paleta nos controles do Caixa Aberto
+        txt_fisico_label.color = pal.text_sec
+        txt_turno.color = pal.text_sec
+        for card, lbl in (
+            (stat_pix_card, lbl_pix),
+            (stat_cart_card, lbl_cart),
+            (stat_req_card, lbl_req),
+            (stat_dep_card, lbl_dep),
+            (stat_desp_card, lbl_desp),
+        ):
+            card.bgcolor = pal.surface
+            lbl.color = pal.text_ter
+        txt_total_geral_label.color = pal.text_pri
+        txt_header_titulo.color = pal.text_pri
+        btn_tema.icon_color = pal.text_sec
+        btn_menu.icon_color = pal.text_sec
+        txt_sec_forma.color = pal.text_ter
+        txt_sec_totais.color = pal.text_pri
+        txt_sec_historico.color = pal.text_pri
+        for div in (div_top, div_mid, div_bot):
+            div.bgcolor = pal.border
+        txt_bottom_titulo.color = pal.text_pri
+        bottom_div_1.color = pal.border
+        bottom_div_2.color = pal.border
+        bottom_sheet_content.bgcolor = pal.sheet_bg
+        if mobile:
+            rodape_lancar.bgcolor = pal.bg
+            rodape_lancar.border = ft.Border(top=ft.BorderSide(1, pal.border))
+            txt_rodape_resumo.color = pal.text_sec
+
+        op = 0.16 if tema_escuro() else 0.11
+        hero_card.gradient = ft.LinearGradient(
+            begin=ft.Alignment(-1, -1),
+            end=ft.Alignment(1, 1),
+            colors=[
+                ft.Colors.with_opacity(op, C_GREEN),
+                ft.Colors.with_opacity(op * 0.4, C_GREEN),
+                ft.Colors.with_opacity(op * 0.5, C_BLUE),
+            ],
+        )
+
+        controles_scroll = [
+            header,
+            hero_card,
+            stats_grid,
+            total_geral_card,
+            div_top,
+            txt_sec_forma,
+            seletor_col,
+            input_valor,
+            row_botoes_rapidos,
+            input_desc,
+            div_mid,
+            txt_sec_totais,
+            col_agrupada,
+            div_bot,
+            txt_sec_historico,
+            col_historico,
+        ]
+
+        if not mobile:
+            if btn_lancar not in controles_scroll:
+                controles_scroll.insert(
+                    controles_scroll.index(input_desc) + 1,
+                    btn_lancar,
+                )
+
+        area_scroll = ft.Column(
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=10,
+            controls=controles_scroll,
+            scroll=ft.ScrollMode.AUTO if mobile else None,
+            expand=mobile,
+        )
+
+        rodape_lancar = ft.Container(
+            content=ft.Column(
+                spacing=8,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[txt_rodape_resumo, btn_lancar],
+            ),
+            width=largura_conteudo,
+            padding=ft.Padding.only(left=0, right=0, top=8, bottom=8),
+            bgcolor=pal.bg,
+            border=ft.Border(top=ft.BorderSide(1, pal.border)),
+            visible=mobile,
+        )
+
+        conteudo_principal = (
+            ft.Column(
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=0,
+                expand=True,
+                controls=[area_scroll, rodape_lancar],
+            )
+            if mobile
+            else area_scroll
+        )
+
         if mobile:
             raiz = ft.SafeArea(ft.Column(controls=[conteudo_principal], expand=True))
         else:
             raiz = conteudo_principal
+
         page.add(raiz)
         aplicar_largura()
+        reconstruir_seletor()
+        montar_botoes_rapidos()
         recarregar_listas()
 
-    def solicitar_pin():
+    # ══════════════════════════════════════════════════════════════════
+    # FLUXO DE IDENTIFICAÇÃO (LOGIN / ABRIR TURNO)
+    # ══════════════════════════════════════════════════════════════════
+
+    def solicitar_identificacao(novo_turno=False):
+        campo_nome = ft.TextField(
+            label="Seu Nome (Operador)",
+            width=260,
+            autofocus=True,
+            on_submit=lambda e: page.run_task(validar_acesso_async)
+        )
+
+        # Se não for um novo turno (ex: abrir o app), só pede o PIN se ele estiver configurado.
+        tem_pin = bool(pin_configurado) and not novo_turno
         campo_pin = ft.TextField(
             label="PIN de acesso",
             password=True,
             can_reveal_password=True,
             width=260,
-            on_submit=lambda e: validar_pin(),
+            visible=tem_pin,
+            on_submit=lambda e: page.run_task(validar_acesso_async)
         )
         texto_erro = ft.Text("", color=ft.Colors.RED_400, size=12)
 
-        def validar_pin():
-            if campo_pin.value == pin_configurado:
-                nonlocal autenticado
+        async def validar_acesso_async():
+            import asyncio
+            await asyncio.sleep(0.05)
+            validar_acesso()
+
+        def validar_acesso():
+            if not tem_pin or campo_pin.value == pin_configurado:
+                nonlocal turno_atual, autenticado
                 autenticado = True
-                fechar_dialogo(dlg_pin)
+
+                nome_digitado = (campo_nome.value or "").strip() or "Não informado"
+
+                if novo_turno:
+                    # USUÁRIO CLICOU EM "ABRIR NOVO TURNO" NA TELA DE CAIXA FECHADO
+                    turno_atual = db.abrir_novo_turno(conn, nome_digitado)
+                else:
+                    # USUÁRIO ACABOU DE ABRIR O APLICATIVO
+                    turno_existente = db.obter_turno_aberto(conn)
+                    if turno_existente:
+                        # Se achou um turno, atualiza o nome apenas se estava "Não informado"
+                        if turno_existente.operador == "Não informado" and nome_digitado != "Não informado":
+                            conn.execute("UPDATE turnos SET operador = ? WHERE id = ?", (nome_digitado, turno_existente.id))
+                            conn.commit()
+                            turno_existente.operador = nome_digitado
+                        turno_atual = turno_existente
+                    else:
+                        # Abriu o app e NÃO tem turno rolando.
+                        # Fica None para renderizar a tela "Caixa Fechado".
+                        turno_atual = None
+
+                fechar_dialogo(dlg_acesso)
                 montar_interface()
             else:
                 texto_erro.value = "PIN incorreto"
                 page.update()
 
-        dlg_pin = ft.AlertDialog(
-            title=ft.Text("Acesso ao Caixa"),
-            content=ft.Column([campo_pin, texto_erro], tight=True, spacing=8),
+        conteudos = [campo_nome]
+        if tem_pin:
+            conteudos.append(campo_pin)
+        conteudos.append(texto_erro)
+
+        dlg_acesso = ft.AlertDialog(
+            title=ft.Text("Identificação" if not novo_turno else "Abrir Novo Turno"),
+            content=ft.Column(conteudos, tight=True, spacing=8),
             modal=True,
         )
-        dlg_pin.actions = [ft.TextButton("Entrar", on_click=lambda x: validar_pin())]
-        abrir_dialogo(dlg_pin)
-        page.run_task(campo_pin.focus)
+        dlg_acesso.actions = [
+            ft.TextButton(
+                "Entrar" if not novo_turno else "Abrir Turno",
+                on_click=lambda x: page.run_task(validar_acesso_async)
+            )
+        ]
+
+        # Se for abrir um novo turno e quiser cancelar a tela de diálogo
+        if novo_turno:
+            dlg_acesso.actions.append(
+                ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_acesso))
+            )
+
+        abrir_dialogo(dlg_acesso)
 
     page.on_resized = lambda e: atualizar_largura()
 
-    if autenticado:
+    # Se já existe turno aberto, entra direto sem pedir identificação.
+    # Só pede identificação se não há turno rodando (caixa fechado)
+    # ou se o usuário clicou em "Sair do Operador".
+    _turno_existente = db.obter_turno_aberto(conn)
+    if _turno_existente:
+        turno_atual = _turno_existente
         montar_interface()
     else:
-        solicitar_pin()
+        solicitar_identificacao(novo_turno=False)
 
 
 if __name__ == "__main__":

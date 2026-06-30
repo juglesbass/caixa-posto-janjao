@@ -13,6 +13,7 @@ TIPO_PIX = "Pix"
 TIPO_REQUISICAO = "Requisição"
 TIPO_SODEXO = "Sodexo"
 TIPO_DEPOSITO_GLOBAL = "Depósito Global"
+TIPO_DESPESA = "Despesas"
 
 LISTA_CARTOES = [
     "Master Crédito",
@@ -22,23 +23,20 @@ LISTA_CARTOES = [
     "Elo Crédito",
     "Elo Débito",
     TIPO_SODEXO,
+    "Alelo Multibenefícios",
 ]
 
-# OBS: TIPO_SODEXO já está dentro de LISTA_CARTOES, então não é repetido aqui.
-# (No código original, "Sodexo" era adicionado duas vezes na lista do
-# dropdown, o que pode causar erro/comportamento estranho no componente
-# de seleção quando há duas opções com o mesmo valor.)
 TIPOS_DROPDOWN = [
     TIPO_DINHEIRO,
     TIPO_PIX,
     TIPO_REQUISICAO,
     *LISTA_CARTOES,
     TIPO_DEPOSITO_GLOBAL,
+    TIPO_DESPESA,
 ]
 
 
 def _diretorio_dados_app() -> str | None:
-    """Diretório persistente em apps empacotados (iOS/Android/desktop)."""
     return os.environ.get("FLET_APP_STORAGE_DATA") or None
 
 
@@ -59,7 +57,6 @@ def caminho_backups() -> str:
 
 
 def formatar_moeda(valor: float) -> str:
-    """Formata um valor float no padrão monetário brasileiro: R$ 1.234,56"""
     texto = f"{valor:,.2f}"
     texto = texto.replace(",", "_").replace(".", ",").replace("_", ".")
     return f"R$ {texto}"
@@ -73,25 +70,31 @@ class Totais:
     requisicao: float
     dinheiro: float
     deposito_global: float = 0.0
+    despesas: float = 0.0
 
     @property
     def total_geral(self) -> float:
-        # Depósito Global soma no total geral como categoria independente
-        return self.fisico + self.pix + self.cartoes + self.requisicao + self.deposito_global
+        return (
+            self.fisico
+            + self.pix
+            + self.cartoes
+            + self.requisicao
+            + self.deposito_global
+            + self.despesas
+        )
 
 
 @dataclass
 class Turno:
     id: int
     aberto_em: str
+    operador: str = "Não informado"
     fechado_em: Optional[str] = None
 
 
 def conectar() -> sqlite3.Connection:
     conn = sqlite3.connect(caminho_banco(), check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    # WAL melhora a concorrência quando há mais de uma aba/sessão acessando
-    # o mesmo arquivo de banco ao mesmo tempo.
     try:
         conn.execute("PRAGMA journal_mode=WAL")
     except sqlite3.Error:
@@ -119,6 +122,7 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             aberto_em TEXT NOT NULL,
             fechado_em TEXT,
+            operador TEXT,
             fisico REAL,
             pix REAL,
             cartoes REAL,
@@ -134,10 +138,6 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
         cursor.execute("ALTER TABLE lancamentos ADD COLUMN turno_id INTEGER")
         colunas_lanc.add("turno_id")
 
-    # ── Migração: bancos antigos guardavam "valor" como REAL (float em
-    # reais). A partir de agora, os valores são guardados como inteiros em
-    # centavos ("valor_centavos"), o que elimina erros de arredondamento
-    # que se acumulam com somas repetidas de ponto flutuante.
     if "valor_centavos" not in colunas_lanc:
         cursor.execute("ALTER TABLE lancamentos ADD COLUMN valor_centavos INTEGER")
         if "valor" in colunas_lanc:
@@ -150,27 +150,44 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
             )
         colunas_lanc.add("valor_centavos")
 
-    turno = obter_ou_criar_turno_aberto(conn)
-    cursor.execute(
-        "UPDATE lancamentos SET turno_id = ? WHERE turno_id IS NULL",
-        (turno.id,),
-    )
+    colunas_turnos = {linha[1] for linha in cursor.execute("PRAGMA table_info(turnos)")}
+    if "operador" not in colunas_turnos:
+        cursor.execute("ALTER TABLE turnos ADD COLUMN operador TEXT")
+
+    turno = obter_turno_aberto(conn)
+    if turno:
+        cursor.execute(
+            "UPDATE lancamentos SET turno_id = ? WHERE turno_id IS NULL",
+            (turno.id,),
+        )
     conn.commit()
 
 
-def obter_ou_criar_turno_aberto(conn: sqlite3.Connection) -> Turno:
+# MODIFICAÇÃO PRINCIPAL 1: Apenas verifica se há turno, sem forçar criação.
+def obter_turno_aberto(conn: sqlite3.Connection) -> Optional[Turno]:
     cursor = conn.cursor()
     row = cursor.execute(
-        "SELECT id, aberto_em, fechado_em FROM turnos WHERE fechado_em IS NULL ORDER BY id DESC LIMIT 1"
+        "SELECT id, aberto_em, fechado_em, operador FROM turnos WHERE fechado_em IS NULL ORDER BY id DESC LIMIT 1"
     ).fetchone()
-    if row:
-        return Turno(id=row["id"], aberto_em=row["aberto_em"], fechado_em=row["fechado_em"])
 
+    if row:
+        return Turno(
+            id=row["id"],
+            aberto_em=row["aberto_em"],
+            operador=row["operador"] or "Não informado",
+            fechado_em=row["fechado_em"]
+        )
+    return None
+
+
+# MODIFICAÇÃO PRINCIPAL 2: Função dedicada para criar turno.
+def abrir_novo_turno(conn: sqlite3.Connection, operador: str) -> Turno:
+    cursor = conn.cursor()
     agora = datetime.now().strftime("%d/%m/%Y %H:%M")
-    cursor.execute("INSERT INTO turnos (aberto_em) VALUES (?)", (agora,))
+    cursor.execute("INSERT INTO turnos (aberto_em, operador) VALUES (?, ?)", (agora, operador))
     conn.commit()
     turno_id = cursor.lastrowid
-    return Turno(id=turno_id, aberto_em=agora)
+    return Turno(id=turno_id, aberto_em=agora, operador=operador)
 
 
 def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
@@ -185,6 +202,7 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
     pix = totais_centavos.get(TIPO_PIX, 0) / 100.0
     requisicao = totais_centavos.get(TIPO_REQUISICAO, 0) / 100.0
     deposito_global = totais_centavos.get(TIPO_DEPOSITO_GLOBAL, 0) / 100.0
+    despesas = totais_centavos.get(TIPO_DESPESA, 0) / 100.0
     total_cartoes = sum(totais_centavos.get(cartao, 0) for cartao in LISTA_CARTOES) / 100.0
     fisico = dinheiro
 
@@ -195,13 +213,11 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
         requisicao=requisicao,
         dinheiro=dinheiro,
         deposito_global=deposito_global,
+        despesas=despesas,
     )
 
 
 def obter_detalhe_cartoes(conn: sqlite3.Connection, turno_id: int) -> dict[str, float]:
-    """Retorna o valor lançado em cada bandeira de cartão (e Sodexo),
-    na mesma ordem de LISTA_CARTOES, incluindo bandeiras com valor zero
-    (pra bater fácil com uma planilha/papel de fechamento que lista todas)."""
     cursor = conn.cursor()
     cursor.execute(
         "SELECT tipo, SUM(valor_centavos) FROM lancamentos WHERE turno_id = ? GROUP BY tipo",
@@ -217,11 +233,13 @@ def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str,
     )
     return (
         f"⛽ *Fechamento de Turno - Posto Janjão*\n"
+        f"👤 Operador: {turno.operador}\n"
         f"🕐 Turno aberto em: {turno.aberto_em}\n\n"
         f"💵 Dinheiro (físico): {formatar_moeda(totais.fisico)}\n"
         f"📱 PIX: {formatar_moeda(totais.pix)}\n"
         f"📋 Requisição: {formatar_moeda(totais.requisicao)}\n"
-        f"🔒 Depósito Global: {formatar_moeda(totais.deposito_global)}\n\n"
+        f"🔒 Depósito Global: {formatar_moeda(totais.deposito_global)}\n"
+        f"🛒 Despesas: {formatar_moeda(totais.despesas)}\n\n"
         f"💳 Cartões e Sodexo por bandeira:\n"
         f"{linhas_cartoes}\n"
         f"   Total de Cartões (+ Sodexo): {formatar_moeda(totais.cartoes)}\n\n"
@@ -254,7 +272,6 @@ def atualizar_lancamento(
     valor: float,
     descricao: str,
 ) -> bool:
-    """Atualiza um lançamento existente (tipo, valor, descrição) sem apagar e recriar."""
     valor_centavos = int(round(valor * 100))
     cursor = conn.cursor()
     cursor.execute(
@@ -285,7 +302,8 @@ def zerar_turno(conn: sqlite3.Connection, turno_id: int) -> None:
     conn.commit()
 
 
-def fechar_turno(conn: sqlite3.Connection, turno_id: int, totais: Totais) -> Turno:
+# MODIFICAÇÃO PRINCIPAL 3: Apenas fecha, sem retornar um turno novo.
+def fechar_turno(conn: sqlite3.Connection, turno_id: int, totais: Totais) -> None:
     agora = datetime.now().strftime("%d/%m/%Y %H:%M")
     cursor = conn.cursor()
     cursor.execute(
@@ -305,7 +323,6 @@ def fechar_turno(conn: sqlite3.Connection, turno_id: int, totais: Totais) -> Tur
         ),
     )
     conn.commit()
-    return obter_ou_criar_turno_aberto(conn)
 
 
 def listar_agrupado(conn: sqlite3.Connection, turno_id: int) -> list[tuple[str, float]]:
@@ -339,7 +356,7 @@ def listar_turnos_fechados(conn: sqlite3.Connection, limite: int = 20) -> list[s
     cursor = conn.cursor()
     return cursor.execute(
         """
-        SELECT id, aberto_em, fechado_em, fisico, pix, cartoes, requisicao, total_geral
+        SELECT id, aberto_em, fechado_em, operador, fisico, pix, cartoes, requisicao, total_geral
         FROM turnos
         WHERE fechado_em IS NOT NULL
         ORDER BY id DESC
