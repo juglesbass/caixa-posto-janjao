@@ -1534,26 +1534,37 @@ def main(page: ft.Page):
 
                 nome_digitado = (campo_nome.value or "").strip() or "Não informado"
 
-                if novo_turno:
-                    # USUÁRIO CLICOU EM "ABRIR NOVO TURNO" NA TELA DE CAIXA FECHADO
-                    turno_atual = db.abrir_novo_turno(conn, nome_digitado)
-                else:
-                    # USUÁRIO ACABOU DE ABRIR O APLICATIVO
-                    turno_existente = db.obter_turno_aberto(conn)
-                    if turno_existente:
-                        # Se achou um turno, atualiza o nome apenas se estava "Não informado"
-                        if turno_existente.operador == "Não informado" and nome_digitado != "Não informado":
-                            conn.execute("UPDATE turnos SET operador = ? WHERE id = ?", (nome_digitado, turno_existente.id))
-                            conn.commit()
-                            turno_existente.operador = nome_digitado
-                        turno_atual = turno_existente
-                    else:
-                        # Abriu o app e NÃO tem turno rolando.
-                        # Fica None para renderizar a tela "Caixa Fechado".
-                        turno_atual = None
-
+                # Fecha o diálogo ANTES de tudo
                 fechar_dialogo(dlg_acesso)
-                montar_interface()
+
+                # AQUI ESTÁ O SEGREDO: Usamos o page.run_task para montar a interface
+                # num ciclo separado, dando tempo ao iOS respirar.
+                async def montagem_segura():
+                    nonlocal turno_atual
+                    import asyncio
+                    await asyncio.sleep(0.2)  # Atraso de 200ms para evitar o blackout
+
+                    if novo_turno:
+                        # USUÁRIO CLICOU EM "ABRIR NOVO TURNO" NA TELA DE CAIXA FECHADO
+                        turno_atual = db.abrir_novo_turno(conn, nome_digitado)
+                    else:
+                        # USUÁRIO ACABOU DE ABRIR O APLICATIVO
+                        turno_existente = db.obter_turno_aberto(conn)
+                        if turno_existente:
+                            # Se achou um turno, atualiza o nome apenas se estava "Não informado"
+                            if turno_existente.operador == "Não informado" and nome_digitado != "Não informado":
+                                conn.execute("UPDATE turnos SET operador = ? WHERE id = ?", (nome_digitado, turno_existente.id))
+                                conn.commit()
+                                turno_existente.operador = nome_digitado
+                            turno_atual = turno_existente
+                        else:
+                            # Abriu o app e NÃO tem turno rolando.
+                            # Fica None para renderizar a tela "Caixa Fechado".
+                            turno_atual = None
+
+                    montar_interface()
+
+                page.run_task(montagem_segura)
             else:
                 texto_erro.value = "PIN incorreto"
                 page.update()
