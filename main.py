@@ -949,6 +949,10 @@ def main(page: ft.Page):
         return max(280, min(640, disponivel - 220))
 
     def montar_conteudo_resumo(totais, detalhe_cartoes):
+        # Fontes maiores para leitura confortável no balcão/posto
+        tamanho_fonte_itens = 14
+        tamanho_fonte_titulo = 16
+
         linhas_bandeiras = []
         for bandeira, valor in detalhe_cartoes.items():
             cor   = cor_tipo(bandeira)
@@ -956,42 +960,45 @@ def main(page: ft.Page):
             linhas_bandeiras.append(
                 ft.Row([
                     ft.Container(width=18),
-                    ft.Icon(icone, color=cor, size=14),
-                    ft.Text(bandeira, size=12, expand=True, color=cor),
-                    ft.Text(formatar_moeda(valor), size=12, color=cor),
+                    ft.Icon(icone, color=cor, size=16),
+                    ft.Text(
+                        bandeira, size=tamanho_fonte_itens, expand=True, color=cor,
+                        max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
+                    ),
+                    ft.Text(formatar_moeda(valor), size=tamanho_fonte_itens, color=cor),
                 ], spacing=4)
             )
         return ft.Column(
-            tight=True, spacing=6,
+            tight=True, spacing=8,
             scroll=ft.ScrollMode.AUTO, height=_altura_resumo(),
             controls=[
                 ft.Text(f"Turno #{turno_atual.id} · Operador(a): {turno_atual.operador}",
-                        size=12, color=pal.text_ter, weight=ft.FontWeight.BOLD),
+                        size=13, color=pal.text_ter, weight=ft.FontWeight.BOLD),
                 ft.Text(f"Aberto em: {turno_atual.aberto_em}",
-                        size=12, color=pal.text_ter),
+                        size=13, color=pal.text_ter),
                 ft.Divider(height=4),
-                ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN),
-                        ft.Text("Dinheiro (físico):", expand=True),
-                        ft.Text(formatar_moeda(totais.fisico), weight=ft.FontWeight.BOLD)]),
-                ft.Row([ft.Icon(ft.Icons.PIX, color=C_BLUE),
-                        ft.Text("Total PIX:", expand=True),
-                        ft.Text(formatar_moeda(totais.pix), weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN, size=20),
+                        ft.Text("Dinheiro (físico):", size=tamanho_fonte_itens, expand=True),
+                        ft.Text(formatar_moeda(totais.fisico), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Icon(ft.Icons.PIX, color=C_BLUE, size=20),
+                        ft.Text("Total PIX:", size=tamanho_fonte_itens, expand=True),
+                        ft.Text(formatar_moeda(totais.pix), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
                 ft.Divider(height=1),
-                ft.Text("Cartões por bandeira:", size=13, color=pal.text_sec, weight=ft.FontWeight.BOLD),
+                ft.Text("Cartões por bandeira:", size=tamanho_fonte_titulo, color=pal.text_sec, weight=ft.FontWeight.BOLD),
                 *linhas_bandeiras,
-                ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE),
-                        ft.Text("Total Cartões (+ Sodexo):", expand=True, size=13),
-                        ft.Text(formatar_moeda(totais.cartoes), weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE, size=20),
+                        ft.Text("Total Cartões (+ Sodexo):", expand=True, size=tamanho_fonte_itens),
+                        ft.Text(formatar_moeda(totais.cartoes), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
                 ft.Divider(height=1),
-                ft.Row([ft.Icon(ft.Icons.RECEIPT_LONG, color=C_PURPLE),
-                        ft.Text("Requisição:", expand=True),
-                        ft.Text(formatar_moeda(totais.requisicao), weight=ft.FontWeight.BOLD)]),
-                ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=C_BROWN),
-                        ft.Text("Depósito Global:", expand=True),
-                        ft.Text(formatar_moeda(totais.deposito_global), weight=ft.FontWeight.BOLD)]),
-                ft.Row([ft.Icon(ft.Icons.MONEY_OFF, color=C_RED),
-                        ft.Text("Despesas:", expand=True),
-                        ft.Text(formatar_moeda(totais.despesas), weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Icon(ft.Icons.RECEIPT_LONG, color=C_PURPLE, size=20),
+                        ft.Text("Requisição:", size=tamanho_fonte_itens, expand=True),
+                        ft.Text(formatar_moeda(totais.requisicao), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=C_BROWN, size=20),
+                        ft.Text("Depósito Global:", size=tamanho_fonte_itens, expand=True),
+                        ft.Text(formatar_moeda(totais.deposito_global), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Icon(ft.Icons.MONEY_OFF, color=C_RED, size=20),
+                        ft.Text("Despesas:", size=tamanho_fonte_itens, expand=True),
+                        ft.Text(formatar_moeda(totais.despesas), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
                 ft.Divider(height=6),
                 ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=C_GREEN),
                         ft.Text("Total Geral:", expand=True, weight=ft.FontWeight.BOLD, size=18),
