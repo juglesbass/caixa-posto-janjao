@@ -161,6 +161,12 @@ def main(page: ft.Page):
     db.inicializar_banco(conn)
     turno_atual = None
 
+    # Rodapé fixo com o botão "Lançar" (mobile). Só existe quando o
+    # Caixa está Aberto; começa como None para evitar UnboundLocalError
+    # quando funções como aplicar_largura()/aplicar_paleta_ui() rodam
+    # em qualquer estado (inclusive Caixa Fechado).
+    rodape_lancar = None
+
     pin_configurado = os.environ.get("CAIXA_PIN", "").strip()
     autenticado = not pin_configurado
     largura_conteudo = 380
@@ -192,7 +198,7 @@ def main(page: ft.Page):
             col_agrupada.width = w
             col_historico.width = w
             btn_lancar.width = w
-            if mobile:
+            if mobile and rodape_lancar is not None:
                 rodape_lancar.width = w
             hero_card.width = w
             total_geral_card.width = w
@@ -1324,6 +1330,7 @@ def main(page: ft.Page):
     # ══════════════════════════════════════════════════════════════════
 
     def montar_interface():
+        nonlocal rodape_lancar
         page.controls.clear()
 
         # ATUALIZA O ÍCONE DO BOTÃO DE TEMA DEPENDENDO DO MODO
@@ -1379,6 +1386,10 @@ def main(page: ft.Page):
             else:
                 page.add(tela_fechado)
 
+            # Caixa Fechado não tem rodapé de lançamento; garante que a
+            # referência não fique "presa" a um Container antigo/descartado.
+            rodape_lancar = None
+
             aplicar_largura()
             page.update()
             return
@@ -1413,7 +1424,7 @@ def main(page: ft.Page):
         bottom_div_1.color = pal.border
         bottom_div_2.color = pal.border
         bottom_sheet_content.bgcolor = pal.sheet_bg
-        if mobile:
+        if mobile and rodape_lancar is not None:
             rodape_lancar.bgcolor = pal.bg
             rodape_lancar.border = ft.Border(top=ft.BorderSide(1, pal.border))
             txt_rodape_resumo.color = pal.text_sec
