@@ -688,11 +688,41 @@ def main(page: ft.Page):
             padding=ft.Padding.only(left=14, right=14, top=11, bottom=11),
         )
 
+    # Ordem fixa do grupo "Formas de Pagamento" dentro de Totais por Tipo
+    _ORDEM_FORMAS_PAGAMENTO = [
+        db.TIPO_DINHEIRO,
+        db.TIPO_PIX,
+        db.TIPO_REQUISICAO,
+        db.TIPO_DESPESA,
+        db.TIPO_DEPOSITO_GLOBAL,
+    ]
+
+    def _cabecalho_grupo_agrupado(titulo: str):
+        return ft.Text(
+            titulo, size=13, color=pal.text_ter, weight=ft.FontWeight.W_600,
+            width=largura_conteudo,
+        )
+
     def carregar_lista_agrupada():
         if turno_atual is None: return
         col_agrupada.controls.clear()
-        for tipo, valor_total in db.listar_agrupado(conn, turno_atual.id):
-            col_agrupada.controls.append(_list_tile_agrupado(tipo, valor_total))
+        agrupado = dict(db.listar_agrupado(conn, turno_atual.id))
+
+        itens_formas = [(t, agrupado[t]) for t in _ORDEM_FORMAS_PAGAMENTO if t in agrupado]
+        itens_cartoes = [(t, agrupado[t]) for t in db.LISTA_CARTOES if t in agrupado]
+
+        if itens_formas:
+            col_agrupada.controls.append(_cabecalho_grupo_agrupado("Formas de Pagamento"))
+            for tipo, valor_total in itens_formas:
+                col_agrupada.controls.append(_list_tile_agrupado(tipo, valor_total))
+
+        if itens_cartoes:
+            if itens_formas:
+                col_agrupada.controls.append(ft.Container(height=6))
+            col_agrupada.controls.append(_cabecalho_grupo_agrupado("Cartões"))
+            for tipo, valor_total in itens_cartoes:
+                col_agrupada.controls.append(_list_tile_agrupado(tipo, valor_total))
+
         page.update()
 
     def carregar_historico():
