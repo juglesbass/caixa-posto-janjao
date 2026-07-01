@@ -59,6 +59,18 @@ FILTRO_VALOR_MONETARIO = ft.InputFilter(
 )
 
 
+def borda_all(largura, cor) -> ft.Border:
+    """Borda uniforme nos 4 lados. Só reduz repetição no código-fonte —
+    monta o mesmo objeto ft.Border(left=..., right=..., top=..., bottom=...)
+    de sempre, então não muda nada visualmente nem em performance."""
+    return ft.Border(
+        left=ft.BorderSide(largura, cor),
+        right=ft.BorderSide(largura, cor),
+        top=ft.BorderSide(largura, cor),
+        bottom=ft.BorderSide(largura, cor),
+    )
+
+
 def _plataforma_mobile(page: ft.Page) -> bool:
     if os.environ.get("FLET_PLATFORM", "") in ("ios", "android"):
         return True
@@ -284,12 +296,7 @@ def main(page: ft.Page):
             content=content,
             bgcolor=bgcolor,
             border_radius=radius,
-            border=ft.Border(
-                left=ft.BorderSide(1, border_color),
-                right=ft.BorderSide(1, border_color),
-                top=ft.BorderSide(1, border_color),
-                bottom=ft.BorderSide(1, border_color),
-            ),
+            border=borda_all(1, border_color),
             padding=padding,
         )
 
@@ -358,12 +365,7 @@ def main(page: ft.Page):
             ),
             bgcolor=pal.surface,
             border_radius=RADIUS_SM,
-            border=ft.Border(
-                left=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
-                right=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
-                top=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
-                bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
-            ),
+            border=borda_all(1, ft.Colors.with_opacity(0.18, cor)),
             padding=ft.Padding.only(left=14, right=14, top=13, bottom=13),
             expand=True,
         )
@@ -410,12 +412,7 @@ def main(page: ft.Page):
                 ft.Colors.with_opacity(0.08, C_GREEN),
             ],
         ),
-        border=ft.Border(
-            left=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
-            right=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
-            top=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
-            bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
-        ),
+        border=borda_all(1, ft.Colors.with_opacity(0.30, C_GREEN)),
         padding=ft.Padding.only(left=16, right=16, top=13, bottom=13),
         content=ft.Row(
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -462,54 +459,54 @@ def main(page: ft.Page):
     def criar_seletor_tipo(valor_inicial: str):
         estado = {"valor": valor_inicial}
         seletor_col = ft.Column(spacing=8, width=largura_conteudo)
+        # tipo -> (container, icone_ctrl, texto_ctrl) do chip já montado,
+        # para poder repintar em vez de recriar a cada seleção.
+        registro_chips = {}
+
+        def _estilo(tipo: str, selecionado: bool):
+            cor = cor_tipo(tipo)
+            return {
+                "bgcolor": cor if selecionado else ft.Colors.with_opacity(0.12, cor),
+                "border": borda_all(
+                    1.5 if selecionado else 1,
+                    cor if selecionado else ft.Colors.with_opacity(0.35, cor),
+                ),
+                "cor_conteudo": ft.Colors.WHITE if selecionado else cor,
+                "peso_texto": ft.FontWeight.W_600 if selecionado else ft.FontWeight.W_500,
+            }
 
         def _chip(tipo: str):
-            cor = cor_tipo(tipo)
-            icone = icone_tipo(tipo)
             selecionado = tipo == estado["valor"]
+            estilo = _estilo(tipo, selecionado)
 
-            return ft.Container(
+            icone_ctrl = ft.Icon(icone_tipo(tipo), size=14, color=estilo["cor_conteudo"])
+            texto_ctrl = ft.Text(
+                tipo, size=12, color=estilo["cor_conteudo"], weight=estilo["peso_texto"]
+            )
+            container = ft.Container(
                 content=ft.Row(
                     spacing=6,
                     tight=True,
                     alignment=ft.MainAxisAlignment.CENTER,
-                    controls=[
-                        ft.Icon(
-                            icone,
-                            size=14,
-                            color=ft.Colors.WHITE if selecionado else cor,
-                        ),
-                        ft.Text(
-                            tipo,
-                            size=12,
-                            color=ft.Colors.WHITE if selecionado else cor,
-                            weight=ft.FontWeight.W_600 if selecionado else ft.FontWeight.W_500,
-                        ),
-                    ],
+                    controls=[icone_ctrl, texto_ctrl],
                 ),
-                bgcolor=cor if selecionado else ft.Colors.with_opacity(0.12, cor),
+                bgcolor=estilo["bgcolor"],
                 border_radius=RADIUS_SM,
-                border=ft.Border(
-                    left=ft.BorderSide(1.5 if selecionado else 1,
-                                       cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
-                    right=ft.BorderSide(1.5 if selecionado else 1,
-                                        cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
-                    top=ft.BorderSide(1.5 if selecionado else 1,
-                                      cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
-                    bottom=ft.BorderSide(1.5 if selecionado else 1,
-                                         cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
-                ),
+                border=estilo["border"],
                 height=46,
                 expand=True,
                 alignment=ft.Alignment(0, 0),
                 on_click=lambda e, t=tipo: selecionar(t),
                 animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             )
+            registro_chips[tipo] = (container, icone_ctrl, texto_ctrl)
+            return container
 
         def _linha(tipos):
             return ft.Row(spacing=8, controls=[_chip(t) for t in tipos])
 
         def construir():
+            registro_chips.clear()
             seletor_col.controls.clear()
             principais = [
                 db.TIPO_DINHEIRO, db.TIPO_PIX,
@@ -526,10 +523,28 @@ def main(page: ft.Page):
             for i in range(0, len(db.LISTA_CARTOES), 2):
                 seletor_col.controls.append(_linha(db.LISTA_CARTOES[i:i+2]))
 
+        def _repintar_chip(tipo: str, selecionado: bool):
+            registrado = registro_chips.get(tipo)
+            if registrado is None:
+                return
+            container, icone_ctrl, texto_ctrl = registrado
+            estilo = _estilo(tipo, selecionado)
+            container.bgcolor = estilo["bgcolor"]
+            container.border = estilo["border"]
+            icone_ctrl.color = estilo["cor_conteudo"]
+            texto_ctrl.color = estilo["cor_conteudo"]
+            texto_ctrl.weight = estilo["peso_texto"]
+
         def selecionar(tipo):
+            anterior = estado["valor"]
+            if tipo == anterior:
+                return
             estado["valor"] = tipo
             salvar_ultimo_tipo(tipo)
-            construir()
+            # Repinta só os 2 chips afetados (o que perdeu a seleção e o
+            # que ganhou), em vez de reconstruir os ~13 chips do seletor.
+            _repintar_chip(anterior, False)
+            _repintar_chip(tipo, True)
             page.update()
 
         construir()
@@ -610,10 +625,7 @@ def main(page: ft.Page):
             content=ft.Text(label, size=14, color=cor_texto, weight=ft.FontWeight.W_500),
             bgcolor=cor_bg,
             border_radius=100,
-            border=ft.Border(
-                left=ft.BorderSide(1, cor_borda), right=ft.BorderSide(1, cor_borda),
-                top=ft.BorderSide(1, cor_borda),  bottom=ft.BorderSide(1, cor_borda),
-            ),
+            border=borda_all(1, cor_borda),
             padding=ft.Padding.only(left=16, right=16, top=9, bottom=9),
             on_click=on_click,
             animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
@@ -679,12 +691,7 @@ def main(page: ft.Page):
             ),
             bgcolor=pal.surface,
             border_radius=RADIUS_SM,
-            border=ft.Border(
-                left=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
-                right=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
-                top=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
-                bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
-            ),
+            border=borda_all(1, ft.Colors.with_opacity(0.16, cor)),
             padding=ft.Padding.only(left=14, right=14, top=11, bottom=11),
         )
 
@@ -881,12 +888,7 @@ def main(page: ft.Page):
                     ),
                     bgcolor=pal.surface,
                     border_radius=RADIUS_SM,
-                    border=ft.Border(
-                        left=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
-                        right=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
-                        top=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
-                        bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
-                    ),
+                    border=borda_all(1, ft.Colors.with_opacity(0.14, cor)),
                     padding=ft.Padding.only(left=12, right=4, top=10, bottom=10),
                 )
             )
