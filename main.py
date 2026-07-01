@@ -1072,7 +1072,21 @@ def main(page: ft.Page):
             ),
         )
 
-        if ios:
+        if not mobile:
+            # No desktop, um bottom sheet ocupando a largura toda da janela
+            # fica estranho — usamos um AlertDialog centralizado com
+            # largura fixa, mantendo o mesmo conteúdo e as mesmas ações.
+            dlg_resumo = ft.AlertDialog(
+                title=ft.Text("Resumo do Turno"),
+                content=ft.Container(
+                    content=conteudo_resumo,
+                    width=450,
+                    height=600,
+                ),
+                actions=[btn_copiar, btn_encerrar, btn_fechar],
+            )
+            abrir_dialogo(dlg_resumo)
+        elif ios:
             page.show_dialog(ft.CupertinoBottomSheet(painel_resumo))
         else:
             page.show_dialog(ft.BottomSheet(open=False, content=painel_resumo))
