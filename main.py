@@ -941,6 +941,16 @@ def main(page: ft.Page):
     # ══════════════════════════════════════════════════════════════════
     # RESUMO / FECHAR CAIXA
     # ══════════════════════════════════════════════════════════════════
+    def _altura_resumo() -> int:
+        # Calcula quanto espaço vertical sobra para o conteúdo rolável do
+        # resumo, reservando espaço para o título e para a barra de ações
+        # (que no mobile ocupa duas linhas). Sem isso, uma altura fixa
+        # (ex: 620px) podia ser maior que a tela do iOS e "empurrar" os
+        # botões Encerrar turno/Fechar para fora da área visível do diálogo.
+        disponivel = int(page.height or 700)
+        reservado = 300 if mobile else 220
+        return max(260, min(560, disponivel - reservado))
+
     def montar_conteudo_resumo(totais, detalhe_cartoes):
         linhas_bandeiras = []
         for bandeira, valor in detalhe_cartoes.items():
@@ -957,7 +967,7 @@ def main(page: ft.Page):
         return ft.Column(
             width=min(400, largura_conteudo),
             tight=True, spacing=6,
-            scroll=ft.ScrollMode.AUTO, height=620,
+            scroll=ft.ScrollMode.AUTO, height=_altura_resumo(),
             controls=[
                 ft.Text(f"Turno #{turno_atual.id} · Operador(a): {turno_atual.operador}",
                         size=12, color=pal.text_ter, weight=ft.FontWeight.BOLD),
@@ -1044,20 +1054,39 @@ def main(page: ft.Page):
             except Exception as ex:
                 mostrar_snackbar(f"Erro: {ex}", ft.Colors.RED_800)
 
-        dlg.actions = [
-            ft.TextButton(
-                content=ft.Row([ft.Icon(ft.Icons.IOS_SHARE, size=16), ft.Text("Compartilhar")],
-                               tight=True),
-                on_click=compartilhar_resumo,
-            ),
-            ft.TextButton(
-                content=ft.Row([ft.Icon(ft.Icons.CONTENT_COPY, size=16), ft.Text("Copiar resumo")],
-                               tight=True),
-                on_click=copiar_resumo,
-            ),
-            ft.TextButton("Encerrar turno", on_click=encerrar_turno),
-            ft.TextButton("Fechar", on_click=lambda x: fechar_dialogo(dlg)),
-        ]
+        btn_compartilhar = ft.TextButton(
+            content=ft.Row([ft.Icon(ft.Icons.IOS_SHARE, size=16), ft.Text("Compartilhar")],
+                           tight=True),
+            on_click=compartilhar_resumo,
+        )
+        btn_copiar = ft.TextButton(
+            content=ft.Row([ft.Icon(ft.Icons.CONTENT_COPY, size=16), ft.Text("Copiar resumo")],
+                           tight=True),
+            on_click=copiar_resumo,
+        )
+        btn_encerrar = ft.TextButton("Encerrar turno", on_click=encerrar_turno)
+        btn_fechar = ft.TextButton("Fechar", on_click=lambda x: fechar_dialogo(dlg))
+
+        if mobile:
+            # No mobile, 4 botões numa Row só podem estourar a largura do
+            # diálogo e ficar cortados (sem quebra automática de linha).
+            # Empilhar em duas linhas garante que todos fiquem visíveis
+            # independente da largura da tela.
+            dlg.actions = [
+                ft.Column(
+                    tight=True,
+                    spacing=2,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Row([btn_compartilhar, btn_copiar],
+                               alignment=ft.MainAxisAlignment.CENTER, spacing=0),
+                        ft.Row([btn_encerrar, btn_fechar],
+                               alignment=ft.MainAxisAlignment.CENTER, spacing=0),
+                    ],
+                )
+            ]
+        else:
+            dlg.actions = [btn_compartilhar, btn_copiar, btn_encerrar, btn_fechar]
         abrir_dialogo(dlg)
 
     def acao_historico_turnos(e=None):
