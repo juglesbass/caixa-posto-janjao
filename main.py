@@ -943,12 +943,10 @@ def main(page: ft.Page):
     # ══════════════════════════════════════════════════════════════════
     def _altura_resumo() -> int:
         # Calcula quanto espaço vertical sobra para o conteúdo rolável do
-        # resumo, reservando espaço para o título do diálogo. Os botões de
-        # ação agora ficam DENTRO da área rolável (ver montar_conteudo_resumo),
-        # então nunca ficam cortados fora da tela — o usuário só rola até o fim.
+        # resumo dentro do bottom sheet, reservando espaço para o título,
+        # a barra de arrastar e os botões de ação no rodapé do sheet.
         disponivel = int(page.height or 700)
-        reservado = 180 if mobile else 220
-        return max(280, min(560, disponivel - reservado))
+        return max(280, min(640, disponivel - 220))
 
     def montar_conteudo_resumo(totais, detalhe_cartoes):
         linhas_bandeiras = []
@@ -964,7 +962,6 @@ def main(page: ft.Page):
                 ], spacing=4)
             )
         return ft.Column(
-            width=min(400, largura_conteudo),
             tight=True, spacing=6,
             scroll=ft.ScrollMode.AUTO, height=_altura_resumo(),
             controls=[
@@ -1011,10 +1008,9 @@ def main(page: ft.Page):
         detalhe_cart  = db.obter_detalhe_cartoes(conn, turno_atual.id)
         resumo        = db.montar_resumo_texto(totais, turno_atual, detalhe_cart)
         conteudo_resumo = montar_conteudo_resumo(totais, detalhe_cart)
-        dlg = ft.AlertDialog(
-            title=ft.Text("Resumo do Turno"),
-            content=conteudo_resumo,
-        )
+
+        def fechar_resumo():
+            page.pop_dialog()
 
         def copiar_resumo(x):
             async def _copiar_async():
@@ -1032,7 +1028,7 @@ def main(page: ft.Page):
                 garantir_conexao()
                 db.fechar_turno(conn, turno_atual.id, totais)
                 turno_atual = None
-                fechar_dialogo(dlg)
+                fechar_resumo()
                 mostrar_snackbar("Turno encerrado com sucesso. Caixa Fechado.")
                 vibrar("medium")
                 montar_interface()
@@ -1045,23 +1041,41 @@ def main(page: ft.Page):
             on_click=copiar_resumo,
         )
         btn_encerrar = ft.TextButton("Encerrar turno", on_click=encerrar_turno)
-        btn_fechar = ft.TextButton("Fechar", on_click=lambda x: fechar_dialogo(dlg))
+        btn_fechar = ft.TextButton("Fechar", on_click=lambda x: fechar_resumo())
 
-        if mobile:
-            # Em vez de depender da barra de "actions" do diálogo (que no
-            # iOS pode ficar espremida/cortada fora da tela em telas
-            # pequenas), os botões vão DENTRO da área que já tem scroll.
-            # Assim, o pior caso é o usuário rolar até o fim — nunca some.
-            conteudo_resumo.controls.extend([
-                ft.Divider(height=10),
-                ft.Row([btn_copiar, btn_encerrar, btn_fechar],
-                       alignment=ft.MainAxisAlignment.CENTER,
-                       wrap=True, spacing=4, run_spacing=4),
-            ])
-            dlg.actions = []
+        # Um AlertDialog do Material tem uma largura máxima interna que não
+        # estica, mesmo definindo a largura do conteúdo — por isso ficava
+        # estreito no iOS. Um bottom sheet, como o menu "Gerenciar Turno",
+        # ocupa a largura toda da tela por padrão, então trocamos para esse
+        # padrão aqui também.
+        painel_resumo = ft.Container(
+            padding=ft.Padding(20, 12, 20, 20 if not ios else 30),
+            bgcolor=pal.sheet_bg,
+            content=ft.Column(
+                tight=True,
+                spacing=10,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    ft.Container(
+                        width=36, height=4, border_radius=2,
+                        bgcolor=pal.border_strong,
+                    ),
+                    ft.Text("Resumo do Turno", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                    conteudo_resumo,
+                    ft.Divider(height=1),
+                    ft.Row(
+                        [btn_copiar, btn_encerrar, btn_fechar],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        wrap=True, spacing=4, run_spacing=4,
+                    ),
+                ],
+            ),
+        )
+
+        if ios:
+            page.show_dialog(ft.CupertinoBottomSheet(painel_resumo))
         else:
-            dlg.actions = [btn_copiar, btn_encerrar, btn_fechar]
-        abrir_dialogo(dlg)
+            page.show_dialog(ft.BottomSheet(open=False, content=painel_resumo))
 
     def acao_historico_turnos(e=None):
         fechar_bottom_sheet()
