@@ -1489,6 +1489,7 @@ def main(page: ft.Page):
             input_valor,
             row_botoes_rapidos,
             input_desc,
+            btn_lancar,
             div_mid,
             txt_sec_totais,
             col_agrupada,
@@ -1497,44 +1498,23 @@ def main(page: ft.Page):
             col_historico,
         ]
 
-        if not mobile:
-            if btn_lancar not in controles_scroll:
-                controles_scroll.insert(
-                    controles_scroll.index(input_desc) + 1,
-                    btn_lancar,
-                )
-
         area_scroll = ft.Column(
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=10,
             controls=controles_scroll,
-            scroll=ft.ScrollMode.AUTO if mobile else None,
+            scroll=ft.ScrollMode.AUTO,
             expand=mobile,
         )
 
-        rodape_lancar = ft.Container(
-            content=ft.Column(
-                spacing=8,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                controls=[txt_rodape_resumo, btn_lancar],
-            ),
-            width=largura_conteudo,
-            padding=ft.Padding.only(left=0, right=0, top=8, bottom=8),
-            bgcolor=pal.bg,
-            border=ft.Border(top=ft.BorderSide(1, pal.border)),
-            visible=mobile,
-        )
+        # O rodapé fixo (sticky footer) foi removido: em algumas versões
+        # do Flet no iOS os Columns aninhados com expand=True não recebiam
+        # altura da viewport corretamente, fazendo o botão "cair" para
+        # depois de Totais/Histórico em vez de ficar fixo embaixo. O botão
+        # agora fica sempre dentro do fluxo de rolagem, logo após a
+        # descrição — visível sem precisar rolar até o fim da tela.
+        rodape_lancar = None
 
-        conteudo_principal = (
-            ft.Column(
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=0,
-                expand=True,
-                controls=[area_scroll, rodape_lancar],
-            )
-            if mobile
-            else area_scroll
-        )
+        conteudo_principal = area_scroll
 
         if mobile:
             raiz = ft.SafeArea(ft.Column(controls=[conteudo_principal], expand=True))
