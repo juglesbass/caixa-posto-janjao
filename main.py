@@ -943,13 +943,12 @@ def main(page: ft.Page):
     # ══════════════════════════════════════════════════════════════════
     def _altura_resumo() -> int:
         # Calcula quanto espaço vertical sobra para o conteúdo rolável do
-        # resumo, reservando espaço para o título e para a barra de ações
-        # (que no mobile ocupa duas linhas). Sem isso, uma altura fixa
-        # (ex: 620px) podia ser maior que a tela do iOS e "empurrar" os
-        # botões Encerrar turno/Fechar para fora da área visível do diálogo.
+        # resumo, reservando espaço para o título do diálogo. Os botões de
+        # ação agora ficam DENTRO da área rolável (ver montar_conteudo_resumo),
+        # então nunca ficam cortados fora da tela — o usuário só rola até o fim.
         disponivel = int(page.height or 700)
-        reservado = 300 if mobile else 220
-        return max(260, min(560, disponivel - reservado))
+        reservado = 180 if mobile else 220
+        return max(280, min(560, disponivel - reservado))
 
     def montar_conteudo_resumo(totais, detalhe_cartoes):
         linhas_bandeiras = []
@@ -1011,9 +1010,10 @@ def main(page: ft.Page):
         totais        = db.obter_totais(conn, turno_atual.id)
         detalhe_cart  = db.obter_detalhe_cartoes(conn, turno_atual.id)
         resumo        = db.montar_resumo_texto(totais, turno_atual, detalhe_cart)
+        conteudo_resumo = montar_conteudo_resumo(totais, detalhe_cart)
         dlg = ft.AlertDialog(
             title=ft.Text("Resumo do Turno"),
-            content=montar_conteudo_resumo(totais, detalhe_cart),
+            content=conteudo_resumo,
         )
 
         def copiar_resumo(x):
@@ -1025,21 +1025,6 @@ def main(page: ft.Page):
                     mostrar_snackbar("Não foi possível copiar o resumo")
 
             page.run_task(_copiar_async)
-
-        def compartilhar_resumo(x):
-            async def _compartilhar_async():
-                try:
-                    if compartilhar_servico is None:
-                        raise RuntimeError("Compartilhamento nativo indisponível")
-                    await compartilhar_servico.share(text=resumo)
-                except Exception:
-                    try:
-                        await ft.Clipboard().set(resumo)
-                        mostrar_snackbar("Compartilhar indisponível; resumo copiado")
-                    except Exception:
-                        mostrar_snackbar("Não foi possível compartilhar o resumo")
-
-            page.run_task(_compartilhar_async)
 
         def encerrar_turno(x):
             nonlocal turno_atual
@@ -1054,11 +1039,6 @@ def main(page: ft.Page):
             except Exception as ex:
                 mostrar_snackbar(f"Erro: {ex}", ft.Colors.RED_800)
 
-        btn_compartilhar = ft.TextButton(
-            content=ft.Row([ft.Icon(ft.Icons.IOS_SHARE, size=16), ft.Text("Compartilhar")],
-                           tight=True),
-            on_click=compartilhar_resumo,
-        )
         btn_copiar = ft.TextButton(
             content=ft.Row([ft.Icon(ft.Icons.CONTENT_COPY, size=16), ft.Text("Copiar resumo")],
                            tight=True),
@@ -1068,25 +1048,19 @@ def main(page: ft.Page):
         btn_fechar = ft.TextButton("Fechar", on_click=lambda x: fechar_dialogo(dlg))
 
         if mobile:
-            # No mobile, 4 botões numa Row só podem estourar a largura do
-            # diálogo e ficar cortados (sem quebra automática de linha).
-            # Empilhar em duas linhas garante que todos fiquem visíveis
-            # independente da largura da tela.
-            dlg.actions = [
-                ft.Column(
-                    tight=True,
-                    spacing=2,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    controls=[
-                        ft.Row([btn_compartilhar, btn_copiar],
-                               alignment=ft.MainAxisAlignment.CENTER, spacing=0),
-                        ft.Row([btn_encerrar, btn_fechar],
-                               alignment=ft.MainAxisAlignment.CENTER, spacing=0),
-                    ],
-                )
-            ]
+            # Em vez de depender da barra de "actions" do diálogo (que no
+            # iOS pode ficar espremida/cortada fora da tela em telas
+            # pequenas), os botões vão DENTRO da área que já tem scroll.
+            # Assim, o pior caso é o usuário rolar até o fim — nunca some.
+            conteudo_resumo.controls.extend([
+                ft.Divider(height=10),
+                ft.Row([btn_copiar, btn_encerrar, btn_fechar],
+                       alignment=ft.MainAxisAlignment.CENTER,
+                       wrap=True, spacing=4, run_spacing=4),
+            ])
+            dlg.actions = []
         else:
-            dlg.actions = [btn_compartilhar, btn_copiar, btn_encerrar, btn_fechar]
+            dlg.actions = [btn_copiar, btn_encerrar, btn_fechar]
         abrir_dialogo(dlg)
 
     def acao_historico_turnos(e=None):
@@ -1543,24 +1517,50 @@ def main(page: ft.Page):
     # ══════════════════════════════════════════════════════════════════
 
     def solicitar_identificacao(novo_turno=False):
+        icone_topo = ft.Container(
+            content=ft.Icon(
+                ft.Icons.PLAY_ARROW_ROUNDED if novo_turno else ft.Icons.WAVING_HAND_ROUNDED,
+                color=C_GREEN,
+                size=30,
+            ),
+            width=60,
+            height=60,
+            bgcolor=ft.Colors.with_opacity(0.14, C_GREEN),
+            border_radius=30,
+            alignment=ft.Alignment(0, 0),
+        )
+
         campo_nome = ft.TextField(
-            label="Seu Nome (Operador)",
-            width=260,
+            label="Seu nome",
+            hint_text="Como podemos te chamar?",
+            prefix_icon=ft.Icons.PERSON_OUTLINE,
+            width=280,
             autofocus=True,
-            on_submit=lambda e: page.run_task(validar_acesso_async)
+            filled=True,
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border_color=pal.border,
+            focused_border_color=C_GREEN,
+            on_submit=lambda e: page.run_task(validar_acesso_async),
         )
 
         # Se não for um novo turno (ex: abrir o app), só pede o PIN se ele estiver configurado.
         tem_pin = bool(pin_configurado) and not novo_turno
         campo_pin = ft.TextField(
             label="PIN de acesso",
+            prefix_icon=ft.Icons.LOCK_OUTLINE,
             password=True,
             can_reveal_password=True,
-            width=260,
+            width=280,
             visible=tem_pin,
-            on_submit=lambda e: page.run_task(validar_acesso_async)
+            filled=True,
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border_color=pal.border,
+            focused_border_color=C_GREEN,
+            on_submit=lambda e: page.run_task(validar_acesso_async),
         )
-        texto_erro = ft.Text("", color=ft.Colors.RED_400, size=12)
+        texto_erro = ft.Text("", color=ft.Colors.RED_400, size=12, weight=ft.FontWeight.W_600)
 
         async def validar_acesso_async():
             import asyncio
@@ -1609,22 +1609,74 @@ def main(page: ft.Page):
                 texto_erro.value = "PIN incorreto"
                 page.update()
 
-        conteudos = [campo_nome]
+        conteudos = [
+            ft.Row([icone_topo], alignment=ft.MainAxisAlignment.CENTER),
+            ft.Container(height=2),
+            ft.Text(
+                "Abrir Novo Turno" if novo_turno else "Bem-vindo(a) de volta",
+                size=18,
+                weight=ft.FontWeight.BOLD,
+                color=pal.text_pri,
+                text_align=ft.TextAlign.CENTER,
+            ),
+            ft.Text(
+                "Informe seu nome para começar o turno."
+                if novo_turno
+                else "Informe seu nome para continuar de onde parou.",
+                size=13,
+                color=pal.text_ter,
+                text_align=ft.TextAlign.CENTER,
+            ),
+            ft.Container(height=10),
+            campo_nome,
+        ]
         if tem_pin:
             conteudos.append(campo_pin)
         conteudos.append(texto_erro)
 
         dlg_acesso = ft.AlertDialog(
-            title=ft.Text("Identificação" if not novo_turno else "Abrir Novo Turno"),
-            content=ft.Column(conteudos, tight=True, spacing=8),
+            content=ft.Container(
+                width=280,
+                content=ft.Column(
+                    conteudos,
+                    tight=True,
+                    spacing=10,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+            ),
             modal=True,
         )
-        dlg_acesso.actions = [
-            ft.TextButton(
-                "Entrar" if not novo_turno else "Abrir Turno",
-                on_click=lambda x: page.run_task(validar_acesso_async)
-            )
-        ]
+
+        btn_confirmar = ft.Container(
+            content=ft.Row(
+                tight=True,
+                spacing=8,
+                alignment=ft.MainAxisAlignment.CENTER,
+                controls=[
+                    ft.Icon(
+                        ft.Icons.PLAY_ARROW_ROUNDED if novo_turno else ft.Icons.LOGIN_ROUNDED,
+                        color=ft.Colors.WHITE,
+                        size=18,
+                    ),
+                    ft.Text(
+                        "Abrir Turno" if novo_turno else "Entrar",
+                        color=ft.Colors.WHITE,
+                        size=15,
+                        weight=ft.FontWeight.W_600,
+                    ),
+                ],
+            ),
+            bgcolor=C_GREEN,
+            border_radius=RADIUS_SM,
+            padding=ft.Padding(24, 14, 24, 14),
+            alignment=ft.Alignment(0, 0),
+            width=240,
+            on_click=lambda x: page.run_task(validar_acesso_async),
+            animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
+        )
+
+        dlg_acesso.actions = [btn_confirmar]
+        dlg_acesso.actions_alignment = ft.MainAxisAlignment.CENTER
 
         # Se for abrir um novo turno e quiser cancelar a tela de diálogo
         if novo_turno:
