@@ -958,7 +958,7 @@ def main(page: ft.Page):
                 ft.Text("Detalhe de Cartões e Vouchers", size=tamanho_fonte_titulo, color=pal.text_pri, weight=ft.FontWeight.BOLD),
                 caixa_cartoes,
                 ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE, size=20),
-                        ft.Text("Total Cartões (+ Sodexo):", expand=True, size=tamanho_fonte_itens, color=pal.text_sec),
+                        ft.Text("Total Cartões:", expand=True, size=tamanho_fonte_itens, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.cartoes), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
                 
                 ft.Divider(height=1, color=pal.border),
@@ -998,8 +998,18 @@ def main(page: ft.Page):
         resumo        = db.montar_resumo_texto(totais, turno_atual, detalhe_cart)
         conteudo_resumo = montar_conteudo_resumo(totais, detalhe_cart)
 
-        def fechar_resumo():
-            page.pop_dialog()
+        # Referências específicas para o painel de resumo atual
+        dlg_resumo = None
+        sheet_resumo = None
+
+        def fechar_resumo(x=None):
+            # Em vez de pedir pro sistema fechar o último aberto (que pode causar confusão),
+            # nós fechamos exatamente as referências atreladas a este botão.
+            if dlg_resumo:
+                dlg_resumo.open = False
+            if sheet_resumo:
+                sheet_resumo.open = False
+            page.update()
 
         def copiar_resumo(x):
             async def _copiar_async():
@@ -1030,7 +1040,7 @@ def main(page: ft.Page):
             on_click=copiar_resumo,
         )
         btn_encerrar = ft.TextButton("Encerrar turno", on_click=encerrar_turno)
-        btn_fechar = ft.TextButton("Fechar", on_click=lambda x: fechar_resumo())
+        btn_fechar = ft.TextButton("Fechar", on_click=fechar_resumo)
 
         painel_resumo = ft.Container(
             padding=ft.Padding(20, 12, 20, 30),
@@ -1066,9 +1076,10 @@ def main(page: ft.Page):
                 ),
                 actions=[btn_copiar, btn_encerrar, btn_fechar],
             )
-            abrir_dialogo(dlg_resumo)
+            page.show_dialog(dlg_resumo)
         else:
-            page.show_dialog(ft.CupertinoBottomSheet(painel_resumo))
+            sheet_resumo = ft.CupertinoBottomSheet(painel_resumo)
+            page.show_dialog(sheet_resumo)
 
     def acao_historico_turnos(e=None):
         fechar_bottom_sheet()
