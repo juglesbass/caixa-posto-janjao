@@ -1088,7 +1088,7 @@ def main(page: ft.Page):
         # ocupa a largura toda da tela por padrão, então trocamos para esse
         # padrão aqui também.
         painel_resumo = ft.Container(
-            padding=ft.Padding(20, 12, 20, 20 if not ios else 30),
+            padding=ft.Padding(20, 12, 20, 30),
             bgcolor=pal.sheet_bg,
             content=ft.Column(
                 tight=True,
@@ -1125,10 +1125,12 @@ def main(page: ft.Page):
                 actions=[btn_copiar, btn_encerrar, btn_fechar],
             )
             abrir_dialogo(dlg_resumo)
-        elif ios:
-            page.show_dialog(ft.CupertinoBottomSheet(painel_resumo))
         else:
-            page.show_dialog(ft.BottomSheet(open=False, content=painel_resumo))
+            # Mesmo componente pro iOS e pro Android, pra abrir do mesmo
+            # jeito nos dois — CupertinoBottomSheet não é exclusivo de
+            # iPhone, é só um estilo visual que funciona em qualquer
+            # plataforma, e já respeita a área segura nativamente.
+            page.show_dialog(ft.CupertinoBottomSheet(painel_resumo))
 
     def acao_historico_turnos(e=None):
         fechar_bottom_sheet()
