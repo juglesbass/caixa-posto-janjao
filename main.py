@@ -457,14 +457,18 @@ def main(page: ft.Page):
     # SELETOR DE TIPO — chips estilo iOS
     # ══════════════════════════════════════════════════════════════════
     def criar_seletor_tipo(valor_inicial: str):
-        estado = {"valor": valor_inicial}
+        estado = {
+            "valor": valor_inicial,
+            "mostrar_bandeiras": valor_inicial in db.LISTA_CARTOES,
+        }
         seletor_col = ft.Column(spacing=8, width=largura_conteudo)
         # tipo -> (container, icone_ctrl, texto_ctrl) do chip já montado,
         # para poder repintar em vez de recriar a cada seleção.
+        # "__cartao__" é a chave especial do chip guarda-chuva "Cartão".
         registro_chips = {}
 
-        def _estilo(tipo: str, selecionado: bool):
-            cor = cor_tipo(tipo)
+        def _estilo(chave: str, selecionado: bool):
+            cor = cor_tipo(chave)
             return {
                 "bgcolor": cor if selecionado else ft.Colors.with_opacity(0.12, cor),
                 "border": borda_all(
@@ -475,13 +479,11 @@ def main(page: ft.Page):
                 "peso_texto": ft.FontWeight.W_600 if selecionado else ft.FontWeight.W_500,
             }
 
-        def _chip(tipo: str):
-            selecionado = tipo == estado["valor"]
-            estilo = _estilo(tipo, selecionado)
-
-            icone_ctrl = ft.Icon(icone_tipo(tipo), size=14, color=estilo["cor_conteudo"])
+        def _montar_chip(chave: str, rotulo: str, selecionado: bool, ao_clicar):
+            estilo = _estilo(chave, selecionado)
+            icone_ctrl = ft.Icon(icone_tipo(chave), size=14, color=estilo["cor_conteudo"])
             texto_ctrl = ft.Text(
-                tipo, size=12, color=estilo["cor_conteudo"], weight=estilo["peso_texto"]
+                rotulo, size=12, color=estilo["cor_conteudo"], weight=estilo["peso_texto"]
             )
             container = ft.Container(
                 content=ft.Row(
@@ -496,11 +498,21 @@ def main(page: ft.Page):
                 height=46,
                 expand=True,
                 alignment=ft.Alignment(0, 0),
-                on_click=lambda e, t=tipo: selecionar(t),
+                on_click=ao_clicar,
                 animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             )
-            registro_chips[tipo] = (container, icone_ctrl, texto_ctrl)
+            registro_chips[chave] = (container, icone_ctrl, texto_ctrl)
             return container
+
+        def _chip(tipo: str):
+            selecionado = tipo == estado["valor"]
+            return _montar_chip(
+                tipo, tipo, selecionado, lambda e, t=tipo: selecionar(t)
+            )
+
+        def _chip_cartao():
+            selecionado = estado["valor"] in db.LISTA_CARTOES
+            return _montar_chip("__cartao__", "Cartão", selecionado, _alternar_cartao)
 
         def _linha(tipos):
             return ft.Row(spacing=8, controls=[_chip(t) for t in tipos])
@@ -508,27 +520,29 @@ def main(page: ft.Page):
         def construir():
             registro_chips.clear()
             seletor_col.controls.clear()
-            principais = [
-                db.TIPO_DINHEIRO, db.TIPO_PIX,
-                db.TIPO_REQUISICAO, db.TIPO_DEPOSITO_GLOBAL,
-                db.TIPO_DESPESA,
-            ]
-            for i in range(0, len(principais), 2):
-                seletor_col.controls.append(_linha(principais[i:i+2]))
 
+            # 6 categorias principais (era 13 chips soltos antes) — as
+            # bandeiras de cartão só aparecem quando "Cartão" é tocado.
+            seletor_col.controls.append(_linha([db.TIPO_DINHEIRO, db.TIPO_PIX]))
+            seletor_col.controls.append(_linha([db.TIPO_REQUISICAO, db.TIPO_DEPOSITO_GLOBAL]))
             seletor_col.controls.append(
-                ft.Text("Cartões", size=13, color=pal.text_ter,
-                        weight=ft.FontWeight.W_600)
+                ft.Row(spacing=8, controls=[_chip(db.TIPO_DESPESA), _chip_cartao()])
             )
-            for i in range(0, len(db.LISTA_CARTOES), 2):
-                seletor_col.controls.append(_linha(db.LISTA_CARTOES[i:i+2]))
 
-        def _repintar_chip(tipo: str, selecionado: bool):
-            registrado = registro_chips.get(tipo)
+            if estado["mostrar_bandeiras"]:
+                seletor_col.controls.append(
+                    ft.Text("Escolha a bandeira", size=12, color=pal.text_ter,
+                            weight=ft.FontWeight.W_600)
+                )
+                for i in range(0, len(db.LISTA_CARTOES), 2):
+                    seletor_col.controls.append(_linha(db.LISTA_CARTOES[i:i + 2]))
+
+        def _repintar_chip(chave: str, selecionado: bool):
+            registrado = registro_chips.get(chave)
             if registrado is None:
                 return
             container, icone_ctrl, texto_ctrl = registrado
-            estilo = _estilo(tipo, selecionado)
+            estilo = _estilo(chave, selecionado)
             container.bgcolor = estilo["bgcolor"]
             container.border = estilo["border"]
             icone_ctrl.color = estilo["cor_conteudo"]
@@ -541,11 +555,35 @@ def main(page: ft.Page):
                 return
             estado["valor"] = tipo
             salvar_ultimo_tipo(tipo)
-            # Repinta só os 2 chips afetados (o que perdeu a seleção e o
-            # que ganhou), em vez de reconstruir os ~13 chips do seletor.
+
+            anterior_e_cartao = anterior in db.LISTA_CARTOES
+            novo_e_cartao = tipo in db.LISTA_CARTOES
+
+            if anterior_e_cartao != novo_e_cartao:
+                # Mudança estrutural: a grade de bandeiras precisa
+                # aparecer/desaparecer, então reconstrói a lista inteira.
+                estado["mostrar_bandeiras"] = novo_e_cartao
+                construir()
+                page.update()
+                return
+
+            # Mesma "modalidade" (os dois cartão, ou os dois não-cartão):
+            # só repinta os 2 chips afetados, sem reconstruir a lista.
             _repintar_chip(anterior, False)
             _repintar_chip(tipo, True)
             page.update()
+
+        def _alternar_cartao(e=None):
+            if estado["valor"] in db.LISTA_CARTOES:
+                # Já está numa bandeira: só mostra/esconde a grade,
+                # sem perder a seleção atual.
+                estado["mostrar_bandeiras"] = not estado["mostrar_bandeiras"]
+                construir()
+                page.update()
+            else:
+                # Ainda não tinha bandeira escolhida: seleciona a primeira
+                # por padrão e revela a grade de bandeiras.
+                selecionar(db.LISTA_CARTOES[0])
 
         construir()
         return seletor_col, estado, selecionar, construir
