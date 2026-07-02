@@ -60,9 +60,7 @@ FILTRO_VALOR_MONETARIO = ft.InputFilter(
 
 
 def borda_all(largura, cor) -> ft.Border:
-    """Borda uniforme nos 4 lados. Só reduz repetição no código-fonte —
-    monta o mesmo objeto ft.Border(left=..., right=..., top=..., bottom=...)
-    de sempre, então não muda nada visualmente nem em performance."""
+    """Borda uniforme nos 4 lados."""
     return ft.Border(
         left=ft.BorderSide(largura, cor),
         right=ft.BorderSide(largura, cor),
@@ -147,8 +145,6 @@ def main(page: ft.Page):
         except Exception:
             haptic_feedback = None
 
-    # Share funciona em mobile e também em navegadores modernos (Web Share API),
-    # por isso é registrado independente de `mobile` — com fallback para clipboard.
     try:
         compartilhar_servico = ft.Share()
         _registrar_servico(compartilhar_servico)
@@ -173,10 +169,6 @@ def main(page: ft.Page):
     db.inicializar_banco(conn)
     turno_atual = None
 
-    # Rodapé fixo com o botão "Lançar" (mobile). Só existe quando o
-    # Caixa está Aberto; começa como None para evitar UnboundLocalError
-    # quando funções como aplicar_largura()/aplicar_paleta_ui() rodam
-    # em qualquer estado (inclusive Caixa Fechado).
     rodape_lancar = None
 
     pin_configurado = os.environ.get("CAIXA_PIN", "").strip()
@@ -207,15 +199,13 @@ def main(page: ft.Page):
             input_valor.width = w
             input_desc.width = w
             row_botoes_rapidos.width = w
-            col_agrupada.width = w
             col_historico.width = w
             btn_lancar.width = w
             if mobile and rodape_lancar is not None:
                 rodape_lancar.width = w
-            hero_card.width = w
+            info_turno_card.width = w
             total_geral_card.width = w
             stats_grid.width = w
-            txt_turno.width = w
         page.update()
 
     def mostrar_snackbar(mensagem: str, cor=ft.Colors.GREEN_700):
@@ -290,7 +280,6 @@ def main(page: ft.Page):
     def formatar_moeda(valor: float) -> str:
         return db.formatar_moeda(valor)
 
-    # ── Helper: container vidro ─────────────────────────────────────────────
     def glass_container(content, padding=16, radius=RADIUS_SM, border_color=pal.border, bgcolor=pal.surface):
         return ft.Container(
             content=content,
@@ -301,59 +290,39 @@ def main(page: ft.Page):
         )
 
     # ══════════════════════════════════════════════════════════════════
-    # HERO — Dinheiro físico
+    # INFORMAÇÕES DO TURNO
     # ══════════════════════════════════════════════════════════════════
-    txt_fisico_label = ft.Text(
-        "💵  Físico na Carteira",
-        size=13,
-        color=pal.text_sec,
-        weight=ft.FontWeight.W_500,
-    )
-    txt_fisico = ft.Text(
-        "R$ 0,00",
-        size=52,
-        weight=ft.FontWeight.BOLD,
-        color=C_GREEN,
-        font_family="SF Pro Display",
-    )
-    txt_turno = ft.Text(
-        "",
-        size=13,
-        color=pal.text_sec,
-        width=largura_conteudo,
-    )
+    txt_operador_nome = ft.Text("", size=18, weight=ft.FontWeight.BOLD, color=C_BLUE)
+    txt_turno_data = ft.Text("", size=13)
 
-    hero_card = ft.Container(
+    info_turno_card = ft.Container(
         width=largura_conteudo,
         border_radius=RADIUS,
-        border=ft.Border(
-            left=ft.BorderSide(1, ft.Colors.with_opacity(0.22, C_GREEN)),
-            right=ft.BorderSide(1, ft.Colors.with_opacity(0.22, C_GREEN)),
-            top=ft.BorderSide(1, ft.Colors.with_opacity(0.35, C_GREEN)),
-            bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.12, C_GREEN)),
-        ),
-        gradient=ft.LinearGradient(
-            begin=ft.Alignment(-1, -1),
-            end=ft.Alignment(1, 1),
-            colors=[
-                ft.Colors.with_opacity(0.16, C_GREEN),
-                ft.Colors.with_opacity(0.06, C_GREEN),
-                ft.Colors.with_opacity(0.08, C_BLUE),
-            ],
-        ),
-        padding=ft.Padding.only(left=20, right=20, top=22, bottom=18),
-        content=ft.Column(
-            spacing=4,
+        bgcolor=ft.Colors.with_opacity(0.10, C_BLUE),
+        border=borda_all(1, ft.Colors.with_opacity(0.20, C_BLUE)),
+        padding=ft.Padding.only(left=20, right=20, top=16, bottom=16),
+        content=ft.Row(
+            spacing=15,
             controls=[
-                txt_fisico_label,
-                txt_fisico,
-                txt_turno,
-            ],
-        ),
+                ft.Container(
+                    content=ft.Icon(ft.Icons.PERSON, color=C_BLUE, size=24),
+                    bgcolor=ft.Colors.with_opacity(0.15, C_BLUE),
+                    padding=12,
+                    border_radius=50,
+                ),
+                ft.Column(
+                    spacing=2,
+                    controls=[
+                        txt_operador_nome,
+                        txt_turno_data,
+                    ]
+                )
+            ]
+        )
     )
 
     # ══════════════════════════════════════════════════════════════════
-    # STATS GRID — PIX / Cartões / Requisição / Depósito
+    # STATS GRID — Dinheiro / PIX / Cartões / Requisição / Depósito Global
     # ══════════════════════════════════════════════════════════════════
     def _stat_card(label: str, cor: str):
         lbl = ft.Text(label.upper(), size=12, color=pal.text_ter, weight=ft.FontWeight.W_600)
@@ -371,6 +340,7 @@ def main(page: ft.Page):
         )
         return card, txt, lbl
 
+    stat_din_card, txt_dinheiro, lbl_din = _stat_card("Dinheiro", C_GREEN)
     stat_pix_card, txt_pix, lbl_pix = _stat_card("PIX", C_BLUE)
     stat_cart_card, txt_cartoes, lbl_cart = _stat_card("Cartões", C_ORANGE)
     stat_req_card, txt_requisicao, lbl_req = _stat_card("Requisição", C_PURPLE)
@@ -381,9 +351,9 @@ def main(page: ft.Page):
         spacing=10,
         width=largura_conteudo,
         controls=[
-            ft.Row(spacing=10, controls=[stat_pix_card, stat_cart_card]),
-            ft.Row(spacing=10, controls=[stat_req_card, stat_dep_card]),
-            ft.Row(spacing=10, controls=[stat_desp_card]),
+            ft.Row(spacing=10, controls=[stat_din_card, stat_pix_card]),
+            ft.Row(spacing=10, controls=[stat_cart_card, stat_req_card]),
+            ft.Row(spacing=10, controls=[stat_dep_card, stat_desp_card]),
         ],
     )
 
@@ -441,14 +411,17 @@ def main(page: ft.Page):
             return
 
         totais = db.obter_totais(conn, turno_atual.id)
-        txt_fisico.value        = formatar_moeda(totais.fisico)
+        txt_dinheiro.value      = formatar_moeda(totais.fisico)
         txt_pix.value           = formatar_moeda(totais.pix)
         txt_cartoes.value       = formatar_moeda(totais.cartoes)
         txt_requisicao.value    = formatar_moeda(totais.requisicao)
         txt_deposito_global.value = formatar_moeda(totais.deposito_global)
         txt_despesas.value        = formatar_moeda(totais.despesas)
         txt_total_geral.value   = formatar_moeda(totais.total_geral)
-        txt_turno.value         = f"Turno #{turno_atual.id} · Operador(a): {turno_atual.operador} · {turno_atual.aberto_em}"
+        
+        txt_operador_nome.value = f"Operador(a): {turno_atual.operador}"
+        txt_turno_data.value    = f"Turno #{turno_atual.id} · Aberto em: {turno_atual.aberto_em}"
+        
         if mobile:
             txt_rodape_resumo.value = f"Total geral · {formatar_moeda(totais.total_geral)}"
         page.update()
@@ -462,9 +435,6 @@ def main(page: ft.Page):
             "mostrar_bandeiras": valor_inicial in db.LISTA_CARTOES,
         }
         seletor_col = ft.Column(spacing=8, width=largura_conteudo)
-        # tipo -> (container, icone_ctrl, texto_ctrl) do chip já montado,
-        # para poder repintar em vez de recriar a cada seleção.
-        # "__cartao__" é a chave especial do chip guarda-chuva "Cartão".
         registro_chips = {}
 
         def _estilo(chave: str, selecionado: bool):
@@ -521,8 +491,6 @@ def main(page: ft.Page):
             registro_chips.clear()
             seletor_col.controls.clear()
 
-            # 6 categorias principais (era 13 chips soltos antes) — as
-            # bandeiras de cartão só aparecem quando "Cartão" é tocado.
             seletor_col.controls.append(_linha([db.TIPO_DINHEIRO, db.TIPO_PIX]))
             seletor_col.controls.append(_linha([db.TIPO_REQUISICAO, db.TIPO_DEPOSITO_GLOBAL]))
             seletor_col.controls.append(
@@ -560,29 +528,21 @@ def main(page: ft.Page):
             novo_e_cartao = tipo in db.LISTA_CARTOES
 
             if anterior_e_cartao != novo_e_cartao:
-                # Mudança estrutural: a grade de bandeiras precisa
-                # aparecer/desaparecer, então reconstrói a lista inteira.
                 estado["mostrar_bandeiras"] = novo_e_cartao
                 construir()
                 page.update()
                 return
 
-            # Mesma "modalidade" (os dois cartão, ou os dois não-cartão):
-            # só repinta os 2 chips afetados, sem reconstruir a lista.
             _repintar_chip(anterior, False)
             _repintar_chip(tipo, True)
             page.update()
 
         def _alternar_cartao(e=None):
             if estado["valor"] in db.LISTA_CARTOES:
-                # Já está numa bandeira: só mostra/esconde a grade,
-                # sem perder a seleção atual.
                 estado["mostrar_bandeiras"] = not estado["mostrar_bandeiras"]
                 construir()
                 page.update()
             else:
-                # Ainda não tinha bandeira escolhida: seleciona a primeira
-                # por padrão e revela a grade de bandeiras.
                 selecionar(db.LISTA_CARTOES[0])
 
         construir()
@@ -698,77 +658,9 @@ def main(page: ft.Page):
     montar_botoes_rapidos()
 
     # ══════════════════════════════════════════════════════════════════
-    # LISTAS (Column — evita scroll duplo no iOS)
+    # LISTA HISTÓRICO (Column — evita scroll duplo no iOS)
     # ══════════════════════════════════════════════════════════════════
-    col_agrupada = ft.Column(spacing=6, width=largura_conteudo)
     col_historico = ft.Column(spacing=6, width=largura_conteudo)
-
-    def _list_tile_agrupado(tipo, valor_total):
-        cor   = cor_tipo(tipo)
-        icone = icone_tipo(tipo)
-        return ft.Container(
-            content=ft.Row(
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                controls=[
-                    ft.Row(
-                        spacing=10,
-                        controls=[
-                            ft.Container(
-                                content=ft.Icon(icone, color=cor, size=17),
-                                bgcolor=ft.Colors.with_opacity(0.14, cor),
-                                border_radius=9,
-                                padding=7,
-                            ),
-                            ft.Text(tipo, size=14, color=cor, weight=ft.FontWeight.W_600),
-                        ],
-                    ),
-                    ft.Text(formatar_moeda(valor_total), size=15, color=cor,
-                            weight=ft.FontWeight.BOLD),
-                ],
-            ),
-            bgcolor=pal.surface,
-            border_radius=RADIUS_SM,
-            border=borda_all(1, ft.Colors.with_opacity(0.16, cor)),
-            padding=ft.Padding.only(left=14, right=14, top=11, bottom=11),
-        )
-
-    # Ordem fixa do grupo "Formas de Pagamento" dentro de Totais por Tipo
-    _ORDEM_FORMAS_PAGAMENTO = [
-        db.TIPO_DINHEIRO,
-        db.TIPO_PIX,
-        db.TIPO_REQUISICAO,
-        db.TIPO_DESPESA,
-        db.TIPO_DEPOSITO_GLOBAL,
-    ]
-
-    def _cabecalho_grupo_agrupado(titulo: str):
-        return ft.Text(
-            titulo, size=13, color=pal.text_ter, weight=ft.FontWeight.W_600,
-            width=largura_conteudo,
-        )
-
-    def carregar_lista_agrupada():
-        if turno_atual is None: return
-        col_agrupada.controls.clear()
-        agrupado = dict(db.listar_agrupado(conn, turno_atual.id))
-
-        itens_formas = [(t, agrupado[t]) for t in _ORDEM_FORMAS_PAGAMENTO if t in agrupado]
-        itens_cartoes = [(t, agrupado[t]) for t in db.LISTA_CARTOES if t in agrupado]
-
-        if itens_formas:
-            col_agrupada.controls.append(_cabecalho_grupo_agrupado("Formas de Pagamento"))
-            for tipo, valor_total in itens_formas:
-                col_agrupada.controls.append(_list_tile_agrupado(tipo, valor_total))
-
-        if itens_cartoes:
-            if itens_formas:
-                col_agrupada.controls.append(ft.Container(height=6))
-            col_agrupada.controls.append(_cabecalho_grupo_agrupado("Cartões"))
-            for tipo, valor_total in itens_cartoes:
-                col_agrupada.controls.append(_list_tile_agrupado(tipo, valor_total))
-
-        page.update()
 
     def carregar_historico():
         if turno_atual is None: return
@@ -791,7 +683,6 @@ def main(page: ft.Page):
                         mostrar_snackbar("Lançamento removido.", ft.Colors.ORANGE_800)
                         vibrar("light")
                         atualizar_painel()
-                        carregar_lista_agrupada()
                         carregar_historico()
                     else:
                         mostrar_snackbar("Não foi possível apagar.", ft.Colors.RED_800)
@@ -936,7 +827,6 @@ def main(page: ft.Page):
         if turno_atual is None: return
         garantir_conexao()
         atualizar_painel()
-        carregar_lista_agrupada()
         carregar_historico()
 
     # ══════════════════════════════════════════════════════════════════
@@ -1012,14 +902,10 @@ def main(page: ft.Page):
     # RESUMO / FECHAR CAIXA
     # ══════════════════════════════════════════════════════════════════
     def _altura_resumo() -> int:
-        # Calcula quanto espaço vertical sobra para o conteúdo rolável do
-        # resumo dentro do bottom sheet, reservando espaço para o título,
-        # a barra de arrastar e os botões de ação no rodapé do sheet.
         disponivel = int(page.height or 700)
         return max(280, min(640, disponivel - 220))
 
     def montar_conteudo_resumo(totais, detalhe_cartoes):
-        # Fontes maiores para leitura confortável no balcão/posto
         tamanho_fonte_itens = 14
         tamanho_fonte_titulo = 16
 
@@ -1120,11 +1006,6 @@ def main(page: ft.Page):
         btn_encerrar = ft.TextButton("Encerrar turno", on_click=encerrar_turno)
         btn_fechar = ft.TextButton("Fechar", on_click=lambda x: fechar_resumo())
 
-        # Um AlertDialog do Material tem uma largura máxima interna que não
-        # estica, mesmo definindo a largura do conteúdo — por isso ficava
-        # estreito no iOS. Um bottom sheet, como o menu "Gerenciar Turno",
-        # ocupa a largura toda da tela por padrão, então trocamos para esse
-        # padrão aqui também.
         painel_resumo = ft.Container(
             padding=ft.Padding(20, 12, 20, 30),
             bgcolor=pal.sheet_bg,
@@ -1150,9 +1031,6 @@ def main(page: ft.Page):
         )
 
         if not mobile:
-            # No desktop, um bottom sheet ocupando a largura toda da janela
-            # fica estranho — usamos um AlertDialog centralizado com
-            # largura fixa, mantendo o mesmo conteúdo e as mesmas ações.
             dlg_resumo = ft.AlertDialog(
                 title=ft.Text("Resumo do Turno"),
                 content=ft.Container(
@@ -1164,10 +1042,6 @@ def main(page: ft.Page):
             )
             abrir_dialogo(dlg_resumo)
         else:
-            # Mesmo componente pro iOS e pro Android, pra abrir do mesmo
-            # jeito nos dois — CupertinoBottomSheet não é exclusivo de
-            # iPhone, é só um estilo visual que funciona em qualquer
-            # plataforma, e já respeita a área segura nativamente.
             page.show_dialog(ft.CupertinoBottomSheet(painel_resumo))
 
     def acao_historico_turnos(e=None):
@@ -1244,8 +1118,6 @@ def main(page: ft.Page):
         def confirmar_sair(x):
             nonlocal turno_atual
             fechar_dialogo(dlg_sair)
-            # Marca o operador como "Não informado" no banco
-            # para que na próxima abertura do app peça identificação
             try:
                 garantir_conexao()
                 conn.execute(
@@ -1257,7 +1129,6 @@ def main(page: ft.Page):
             except Exception:
                 pass
             mostrar_snackbar("Operador desconectado. Até logo!")
-            # Força nova identificação imediatamente
             turno_atual = None
             solicitar_identificacao(novo_turno=False)
 
@@ -1357,9 +1228,6 @@ def main(page: ft.Page):
         nonlocal pal
         pal = criar_paleta(tema_escuro())
         page.bgcolor = pal.bg
-
-        # Redesenha a tela toda para garantir que todos os elementos
-        # (seja caixa fechado ou aberto) recebam as novas cores.
         montar_interface()
 
     def alternar_tema(e):
@@ -1410,16 +1278,6 @@ def main(page: ft.Page):
     div_mid = _divider()
     div_bot = _divider()
 
-    txt_sec_forma = ft.Text(
-        "Forma de Pagamento", size=13, color=pal.text_ter, weight=ft.FontWeight.W_600
-    )
-    txt_sec_totais = ft.Text(
-        "Totais por Tipo",
-        size=18,
-        weight=ft.FontWeight.BOLD,
-        color=pal.text_pri,
-        width=largura_conteudo,
-    )
     txt_sec_historico = ft.Text(
         "Histórico Recente",
         size=18,
@@ -1443,7 +1301,6 @@ def main(page: ft.Page):
         nonlocal rodape_lancar
         page.controls.clear()
 
-        # ATUALIZA O ÍCONE DO BOTÃO DE TEMA DEPENDENDO DO MODO
         icone_tema_atual = ft.Icons.LIGHT_MODE if tema_escuro() else ft.Icons.DARK_MODE
 
         # ==========================================
@@ -1496,8 +1353,6 @@ def main(page: ft.Page):
             else:
                 page.add(tela_fechado)
 
-            # Caixa Fechado não tem rodapé de lançamento; garante que a
-            # referência não fique "presa" a um Container antigo/descartado.
             rodape_lancar = None
 
             aplicar_largura()
@@ -1509,10 +1364,11 @@ def main(page: ft.Page):
         # ==========================================
         btn_tema.icon = icone_tema_atual
 
-        # Atualiza a paleta nos controles do Caixa Aberto
-        txt_fisico_label.color = pal.text_sec
-        txt_turno.color = pal.text_sec
+        txt_turno_data.color = pal.text_sec
+        txt_operador_nome.color = pal.text_pri
+        
         for card, lbl in (
+            (stat_din_card, lbl_din),
             (stat_pix_card, lbl_pix),
             (stat_cart_card, lbl_cart),
             (stat_req_card, lbl_req),
@@ -1521,12 +1377,11 @@ def main(page: ft.Page):
         ):
             card.bgcolor = pal.surface
             lbl.color = pal.text_ter
+            
         txt_total_geral_label.color = pal.text_pri
         txt_header_titulo.color = pal.text_pri
         btn_tema.icon_color = pal.text_sec
         btn_menu.icon_color = pal.text_sec
-        txt_sec_forma.color = pal.text_ter
-        txt_sec_totais.color = pal.text_pri
         txt_sec_historico.color = pal.text_pri
         for div in (div_top, div_mid, div_bot):
             div.bgcolor = pal.border
@@ -1539,33 +1394,18 @@ def main(page: ft.Page):
             rodape_lancar.border = ft.Border(top=ft.BorderSide(1, pal.border))
             txt_rodape_resumo.color = pal.text_sec
 
-        op = 0.16 if tema_escuro() else 0.11
-        hero_card.gradient = ft.LinearGradient(
-            begin=ft.Alignment(-1, -1),
-            end=ft.Alignment(1, 1),
-            colors=[
-                ft.Colors.with_opacity(op, C_GREEN),
-                ft.Colors.with_opacity(op * 0.4, C_GREEN),
-                ft.Colors.with_opacity(op * 0.5, C_BLUE),
-            ],
-        )
-
         controles_scroll = [
             header,
-            hero_card,
+            info_turno_card,
             stats_grid,
             total_geral_card,
             div_top,
-            txt_sec_forma,
             seletor_col,
             input_valor,
             row_botoes_rapidos,
             input_desc,
             btn_lancar,
             div_mid,
-            txt_sec_totais,
-            col_agrupada,
-            div_bot,
             txt_sec_historico,
             col_historico,
         ]
@@ -1578,12 +1418,6 @@ def main(page: ft.Page):
             expand=mobile,
         )
 
-        # O rodapé fixo (sticky footer) foi removido: em algumas versões
-        # do Flet no iOS os Columns aninhados com expand=True não recebiam
-        # altura da viewport corretamente, fazendo o botão "cair" para
-        # depois de Totais/Histórico em vez de ficar fixo embaixo. O botão
-        # agora fica sempre dentro do fluxo de rolagem, logo após a
-        # descrição — visível sem precisar rolar até o fim da tela.
         rodape_lancar = None
 
         conteudo_principal = area_scroll
@@ -1631,7 +1465,6 @@ def main(page: ft.Page):
             on_submit=lambda e: page.run_task(validar_acesso_async),
         )
 
-        # Se não for um novo turno (ex: abrir o app), só pede o PIN se ele estiver configurado.
         tem_pin = bool(pin_configurado) and not novo_turno
         campo_pin = ft.TextField(
             label="PIN de acesso",
@@ -1661,32 +1494,24 @@ def main(page: ft.Page):
 
                 nome_digitado = (campo_nome.value or "").strip() or "Não informado"
 
-                # Fecha o diálogo ANTES de tudo
                 fechar_dialogo(dlg_acesso)
 
-                # AQUI ESTÁ O SEGREDO: Usamos o page.run_task para montar a interface
-                # num ciclo separado, dando tempo ao iOS respirar.
                 async def montagem_segura():
                     nonlocal turno_atual
                     import asyncio
-                    await asyncio.sleep(0.2)  # Atraso de 200ms para evitar o blackout
+                    await asyncio.sleep(0.2)
 
                     if novo_turno:
-                        # USUÁRIO CLICOU EM "ABRIR NOVO TURNO" NA TELA DE CAIXA FECHADO
                         turno_atual = db.abrir_novo_turno(conn, nome_digitado)
                     else:
-                        # USUÁRIO ACABOU DE ABRIR O APLICATIVO
                         turno_existente = db.obter_turno_aberto(conn)
                         if turno_existente:
-                            # Se achou um turno, atualiza o nome apenas se estava "Não informado"
                             if turno_existente.operador == "Não informado" and nome_digitado != "Não informado":
                                 conn.execute("UPDATE turnos SET operador = ? WHERE id = ?", (nome_digitado, turno_existente.id))
                                 conn.commit()
                                 turno_existente.operador = nome_digitado
                             turno_atual = turno_existente
                         else:
-                            # Abriu o app e NÃO tem turno rolando.
-                            # Fica None para renderizar a tela "Caixa Fechado".
                             turno_atual = None
 
                     montar_interface()
@@ -1765,7 +1590,6 @@ def main(page: ft.Page):
         dlg_acesso.actions = [btn_confirmar]
         dlg_acesso.actions_alignment = ft.MainAxisAlignment.CENTER
 
-        # Se for abrir um novo turno e quiser cancelar a tela de diálogo
         if novo_turno:
             dlg_acesso.actions.append(
                 ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_acesso))
@@ -1775,9 +1599,6 @@ def main(page: ft.Page):
 
     page.on_resized = lambda e: atualizar_largura()
 
-    # Se já existe turno aberto, entra direto sem pedir identificação.
-    # Só pede identificação se não há turno rodando (caixa fechado)
-    # ou se o usuário clicou em "Sair do Operador".
     _turno_existente = db.obter_turno_aberto(conn)
     if _turno_existente:
         turno_atual = _turno_existente
