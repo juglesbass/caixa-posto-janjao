@@ -126,7 +126,6 @@ def main(page: ft.Page):
 
         page.run_task(fixar_retrato)
 
-    # ── Feedback tátil / compartilhamento nativo (com fallback seguro) ──────
     def _registrar_servico(ctrl):
         try:
             if hasattr(page, "services"):
@@ -175,7 +174,6 @@ def main(page: ft.Page):
     autenticado = not pin_configurado
     largura_conteudo = 380
 
-    # ── Conexão viva ────────────────────────────────────────────────────────
     def garantir_conexao():
         nonlocal conn
         try:
@@ -245,7 +243,6 @@ def main(page: ft.Page):
         if tipo in db.TIPOS_DROPDOWN:
             storage_set("caixa_ultimo_tipo", tipo)
 
-    # ── Mapa de cores / ícones por tipo ────────────────────────────────────
     CORES = {
         db.TIPO_DINHEIRO:        C_GREEN,
         db.TIPO_PIX:             C_BLUE,
@@ -907,59 +904,88 @@ def main(page: ft.Page):
 
     def montar_conteudo_resumo(totais, detalhe_cartoes):
         tamanho_fonte_itens = 14
-        tamanho_fonte_titulo = 16
+        tamanho_fonte_titulo = 15
 
         linhas_bandeiras = []
         for bandeira, valor in detalhe_cartoes.items():
             cor   = cor_tipo(bandeira)
             icone = icone_tipo(bandeira)
+            
+            cor_valor = pal.text_pri if valor > 0 else pal.text_ter
+            peso_valor = ft.FontWeight.W_600 if valor > 0 else ft.FontWeight.NORMAL
+
             linhas_bandeiras.append(
                 ft.Row([
-                    ft.Container(width=18),
                     ft.Icon(icone, color=cor, size=16),
                     ft.Text(
-                        bandeira, size=tamanho_fonte_itens, expand=True, color=cor,
+                        bandeira, size=13, expand=True, color=pal.text_sec,
                         max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
                     ),
-                    ft.Text(formatar_moeda(valor), size=tamanho_fonte_itens, color=cor),
-                ], spacing=4)
+                    ft.Text(formatar_moeda(valor), size=13, color=cor_valor, weight=peso_valor),
+                ], spacing=8)
             )
+
+        caixa_cartoes = ft.Container(
+            content=ft.Column(linhas_bandeiras, spacing=8),
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border=borda_all(1, pal.border),
+            padding=12,
+        )
+
         return ft.Column(
-            tight=True, spacing=8,
+            tight=True, spacing=12,
             scroll=ft.ScrollMode.AUTO, height=_altura_resumo(),
             controls=[
-                ft.Text(f"Turno #{turno_atual.id} · Operador(a): {turno_atual.operador}",
-                        size=13, color=pal.text_ter, weight=ft.FontWeight.BOLD),
-                ft.Text(f"Aberto em: {turno_atual.aberto_em}",
-                        size=13, color=pal.text_ter),
-                ft.Divider(height=4),
+                ft.Column(spacing=2, controls=[
+                    ft.Text(f"Turno #{turno_atual.id} · Operador(a): {turno_atual.operador}",
+                            size=13, color=pal.text_pri, weight=ft.FontWeight.BOLD),
+                    ft.Text(f"Aberto em: {turno_atual.aberto_em}",
+                            size=13, color=pal.text_ter),
+                ]),
+                
+                ft.Divider(height=1, color=pal.border),
+                
                 ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN, size=20),
-                        ft.Text("Dinheiro (físico):", size=tamanho_fonte_itens, expand=True),
-                        ft.Text(formatar_moeda(totais.fisico), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
+                        ft.Text("Dinheiro (físico):", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.fisico), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
                 ft.Row([ft.Icon(ft.Icons.PIX, color=C_BLUE, size=20),
-                        ft.Text("Total PIX:", size=tamanho_fonte_itens, expand=True),
-                        ft.Text(formatar_moeda(totais.pix), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
-                ft.Divider(height=1),
-                ft.Text("Cartões por bandeira:", size=tamanho_fonte_titulo, color=pal.text_sec, weight=ft.FontWeight.BOLD),
-                *linhas_bandeiras,
+                        ft.Text("Total PIX:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.pix), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+                
+                ft.Divider(height=1, color=pal.border),
+                
+                ft.Text("Detalhe de Cartões e Vouchers", size=tamanho_fonte_titulo, color=pal.text_pri, weight=ft.FontWeight.BOLD),
+                caixa_cartoes,
                 ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE, size=20),
-                        ft.Text("Total Cartões (+ Sodexo):", expand=True, size=tamanho_fonte_itens),
-                        ft.Text(formatar_moeda(totais.cartoes), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
-                ft.Divider(height=1),
+                        ft.Text("Total Cartões (+ Sodexo):", expand=True, size=tamanho_fonte_itens, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.cartoes), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+                
+                ft.Divider(height=1, color=pal.border),
+                
                 ft.Row([ft.Icon(ft.Icons.RECEIPT_LONG, color=C_PURPLE, size=20),
-                        ft.Text("Requisição:", size=tamanho_fonte_itens, expand=True),
-                        ft.Text(formatar_moeda(totais.requisicao), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
+                        ft.Text("Requisição:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.requisicao), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
                 ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=C_BROWN, size=20),
-                        ft.Text("Depósito Global:", size=tamanho_fonte_itens, expand=True),
-                        ft.Text(formatar_moeda(totais.deposito_global), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
+                        ft.Text("Depósito Global:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.deposito_global), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
                 ft.Row([ft.Icon(ft.Icons.MONEY_OFF, color=C_RED, size=20),
-                        ft.Text("Despesas:", size=tamanho_fonte_itens, expand=True),
-                        ft.Text(formatar_moeda(totais.despesas), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
-                ft.Divider(height=6),
-                ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=C_GREEN),
-                        ft.Text("Total Geral:", expand=True, weight=ft.FontWeight.BOLD, size=18),
-                        ft.Text(formatar_moeda(totais.total_geral),
-                                weight=ft.FontWeight.BOLD, size=18, color=C_GREEN)]),
+                        ft.Text("Despesas:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.despesas), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+                
+                ft.Divider(height=6, color=pal.border),
+                
+                ft.Container(
+                    bgcolor=ft.Colors.with_opacity(0.10, C_GREEN),
+                    border_radius=RADIUS_SM,
+                    padding=12,
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=C_GREEN, size=24),
+                        ft.Text("TOTAL GERAL:", expand=True, weight=ft.FontWeight.BOLD, size=16, color=pal.text_pri),
+                        ft.Text(formatar_moeda(totais.total_geral), weight=ft.FontWeight.BOLD, size=20, color=C_GREEN)
+                    ])
+                ),
+                ft.Container(height=10),
             ],
         )
 
