@@ -204,9 +204,6 @@ def main(page: ft.Page):
             info_turno_card.width = w
             total_geral_card.width = w
             stats_grid.width = w
-            seletor_abas_row.width = w
-            col_lancar.width = w
-            col_resumo.width = w
         page.update()
 
     def mostrar_snackbar(mensagem: str, cor=ft.Colors.GREEN_700):
@@ -1334,95 +1331,6 @@ def main(page: ft.Page):
     )
 
     # ══════════════════════════════════════════════════════════════════
-    # ABAS — Lançar / Resumo
-    # ══════════════════════════════════════════════════════════════════
-    # Separa a tela em duas: "Lançar" tem só o formulário de lançamento
-    # (a ação mais frequente do turno), sem nada de estatística no meio
-    # do caminho; "Resumo" reúne operador/turno, totais e histórico.
-    def criar_seletor_abas():
-        estado_aba = {"valor": "lancar"}
-        registro_abas = {}
-
-        def _estilo_aba(selecionado: bool):
-            return {
-                "bgcolor": C_BLUE if selecionado else "transparent",
-                "cor_conteudo": ft.Colors.WHITE if selecionado else pal.text_sec,
-                "peso_texto": ft.FontWeight.W_600 if selecionado else ft.FontWeight.W_500,
-            }
-
-        def _aba(chave: str, rotulo: str, icone):
-            selecionado = estado_aba["valor"] == chave
-            estilo = _estilo_aba(selecionado)
-            icone_ctrl = ft.Icon(icone, size=16, color=estilo["cor_conteudo"])
-            texto_ctrl = ft.Text(
-                rotulo, size=14, color=estilo["cor_conteudo"], weight=estilo["peso_texto"]
-            )
-            container = ft.Container(
-                content=ft.Row(
-                    spacing=6, tight=True, alignment=ft.MainAxisAlignment.CENTER,
-                    controls=[icone_ctrl, texto_ctrl],
-                ),
-                bgcolor=estilo["bgcolor"],
-                border_radius=RADIUS_SM,
-                height=42,
-                expand=True,
-                alignment=ft.Alignment(0, 0),
-                on_click=lambda e, c=chave: selecionar_aba(c),
-                animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
-            )
-            registro_abas[chave] = (container, icone_ctrl, texto_ctrl)
-            return container
-
-        seletor_abas_row = ft.Container(
-            width=largura_conteudo,
-            bgcolor=pal.surface,
-            border_radius=RADIUS_SM,
-            border=borda_all(1, pal.border),
-            padding=4,
-            content=ft.Row(
-                spacing=4,
-                controls=[
-                    _aba("lancar", "Lançar", ft.Icons.ADD_SHOPPING_CART),
-                    _aba("resumo", "Resumo", ft.Icons.ASSESSMENT),
-                ],
-            ),
-        )
-
-        def repintar_abas():
-            for chave, (container, icone_ctrl, texto_ctrl) in registro_abas.items():
-                estilo = _estilo_aba(chave == estado_aba["valor"])
-                container.bgcolor = estilo["bgcolor"]
-                icone_ctrl.color = estilo["cor_conteudo"]
-                texto_ctrl.color = estilo["cor_conteudo"]
-                texto_ctrl.weight = estilo["peso_texto"]
-
-        def selecionar_aba(chave: str):
-            if estado_aba["valor"] == chave:
-                return
-            estado_aba["valor"] = chave
-            repintar_abas()
-            col_lancar.visible = (chave == "lancar")
-            col_resumo.visible = (chave == "resumo")
-            page.update()
-
-        return seletor_abas_row, estado_aba, selecionar_aba, repintar_abas
-
-    seletor_abas_row, estado_aba, selecionar_aba, repintar_abas = criar_seletor_abas()
-
-    col_lancar = ft.Column(
-        spacing=10,
-        width=largura_conteudo,
-        visible=True,
-        controls=[seletor_col, input_valor, row_botoes_rapidos, input_desc, btn_lancar],
-    )
-    col_resumo = ft.Column(
-        spacing=10,
-        width=largura_conteudo,
-        visible=False,
-        controls=[info_turno_card, stats_grid, total_geral_card, div_mid, txt_sec_historico, col_historico],
-    )
-
-    # ══════════════════════════════════════════════════════════════════
     # LAYOUT PRINCIPAL E TELA DE CAIXA FECHADO
     # ══════════════════════════════════════════════════════════════════
 
@@ -1518,9 +1426,6 @@ def main(page: ft.Page):
         bottom_div_1.color = pal.border
         bottom_div_2.color = pal.border
         bottom_sheet_content.bgcolor = pal.sheet_bg
-        seletor_abas_row.bgcolor = pal.surface
-        seletor_abas_row.border = borda_all(1, pal.border)
-        repintar_abas()
         if mobile and rodape_lancar is not None:
             rodape_lancar.bgcolor = pal.bg
             rodape_lancar.border = ft.Border(top=ft.BorderSide(1, pal.border))
@@ -1528,9 +1433,18 @@ def main(page: ft.Page):
 
         controles_scroll = [
             header,
-            seletor_abas_row,
-            col_lancar,
-            col_resumo,
+            info_turno_card,
+            stats_grid,
+            total_geral_card,
+            div_top,
+            seletor_col,
+            input_valor,
+            row_botoes_rapidos,
+            input_desc,
+            btn_lancar,
+            div_mid,
+            txt_sec_historico,
+            col_historico,
         ]
 
         area_scroll = ft.Column(
