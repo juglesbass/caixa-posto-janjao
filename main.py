@@ -59,18 +59,6 @@ FILTRO_VALOR_MONETARIO = ft.InputFilter(
 )
 
 
-def borda_all(largura, cor) -> ft.Border:
-    """Borda uniforme nos 4 lados. Só reduz repetição no código-fonte —
-    monta o mesmo objeto ft.Border(left=..., right=..., top=..., bottom=...)
-    de sempre, então não muda nada visualmente nem em performance."""
-    return ft.Border(
-        left=ft.BorderSide(largura, cor),
-        right=ft.BorderSide(largura, cor),
-        top=ft.BorderSide(largura, cor),
-        bottom=ft.BorderSide(largura, cor),
-    )
-
-
 def _plataforma_mobile(page: ft.Page) -> bool:
     if os.environ.get("FLET_PLATFORM", "") in ("ios", "android"):
         return True
@@ -206,14 +194,18 @@ def main(page: ft.Page):
             seletor_col.width = w
             input_valor.width = w
             input_desc.width = w
+            seletor_combustivel_col.width = w
+            input_litros.width = w
             row_botoes_rapidos.width = w
             col_agrupada.width = w
+            col_litros.width = w
             col_historico.width = w
             btn_lancar.width = w
             if mobile and rodape_lancar is not None:
                 rodape_lancar.width = w
             hero_card.width = w
             total_geral_card.width = w
+            total_litros_card.width = w
             stats_grid.width = w
             txt_turno.width = w
         page.update()
@@ -287,6 +279,35 @@ def main(page: ft.Page):
     def icone_tipo(tipo: str):
         return ICONES.get(tipo, ft.Icons.CREDIT_CARD)
 
+    # ── Mapa de cores / ícones por combustível ──────────────────────────────
+    NENHUM_COMBUSTIVEL = "Nenhum"
+
+    CORES_COMB = {
+        db.COMB_GASOLINA_COMUM:     C_ORANGE,
+        db.COMB_GASOLINA_ADITIVADA: C_RED,
+        db.COMB_ETANOL:             C_GREEN,
+        db.COMB_DIESEL_S10:         C_BROWN,
+    }
+    ICONES_COMB = {
+        db.COMB_GASOLINA_COMUM:     ft.Icons.LOCAL_GAS_STATION,
+        db.COMB_GASOLINA_ADITIVADA: ft.Icons.LOCAL_GAS_STATION,
+        db.COMB_ETANOL:             ft.Icons.ECO,
+        db.COMB_DIESEL_S10:         ft.Icons.LOCAL_SHIPPING,
+    }
+
+    def cor_combustivel(comb: str) -> str:
+        if comb == NENHUM_COMBUSTIVEL:
+            return pal.text_ter
+        return CORES_COMB.get(comb, C_BLUE)
+
+    def icone_combustivel(comb: str):
+        if comb == NENHUM_COMBUSTIVEL:
+            return ft.Icons.BLOCK
+        return ICONES_COMB.get(comb, ft.Icons.LOCAL_GAS_STATION)
+
+    def formatar_litros(litros: float) -> str:
+        return f"{litros:.2f}".replace(".", ",") + " L"
+
     def formatar_moeda(valor: float) -> str:
         return db.formatar_moeda(valor)
 
@@ -296,7 +317,12 @@ def main(page: ft.Page):
             content=content,
             bgcolor=bgcolor,
             border_radius=radius,
-            border=borda_all(1, border_color),
+            border=ft.Border(
+                left=ft.BorderSide(1, border_color),
+                right=ft.BorderSide(1, border_color),
+                top=ft.BorderSide(1, border_color),
+                bottom=ft.BorderSide(1, border_color),
+            ),
             padding=padding,
         )
 
@@ -365,7 +391,12 @@ def main(page: ft.Page):
             ),
             bgcolor=pal.surface,
             border_radius=RADIUS_SM,
-            border=borda_all(1, ft.Colors.with_opacity(0.18, cor)),
+            border=ft.Border(
+                left=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
+                right=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
+                top=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
+                bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
+            ),
             padding=ft.Padding.only(left=14, right=14, top=13, bottom=13),
             expand=True,
         )
@@ -412,7 +443,12 @@ def main(page: ft.Page):
                 ft.Colors.with_opacity(0.08, C_GREEN),
             ],
         ),
-        border=borda_all(1, ft.Colors.with_opacity(0.30, C_GREEN)),
+        border=ft.Border(
+            left=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
+            right=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
+            top=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
+            bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
+        ),
         padding=ft.Padding.only(left=16, right=16, top=13, bottom=13),
         content=ft.Row(
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -435,6 +471,59 @@ def main(page: ft.Page):
         ),
     )
 
+    # ══════════════════════════════════════════════════════════════════
+    # TOTAL DE LITROS (combustível abastecido)
+    # ══════════════════════════════════════════════════════════════════
+    txt_total_litros = ft.Text(
+        "0,00 L",
+        size=22,
+        weight=ft.FontWeight.BOLD,
+        color=C_BLUE,
+    )
+
+    txt_total_litros_label = ft.Text(
+        "Total de Litros", size=15, weight=ft.FontWeight.W_600, color=pal.text_pri
+    )
+
+    total_litros_card = ft.Container(
+        width=largura_conteudo,
+        border_radius=RADIUS_SM,
+        gradient=ft.LinearGradient(
+            begin=ft.Alignment(-1, 0),
+            end=ft.Alignment(1, 0),
+            colors=[
+                ft.Colors.with_opacity(0.20, C_BLUE),
+                ft.Colors.with_opacity(0.08, C_BLUE),
+            ],
+        ),
+        border=ft.Border(
+            left=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_BLUE)),
+            right=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_BLUE)),
+            top=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_BLUE)),
+            bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_BLUE)),
+        ),
+        padding=ft.Padding.only(left=16, right=16, top=13, bottom=13),
+        content=ft.Row(
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[
+                ft.Row(
+                    spacing=10,
+                    controls=[
+                        ft.Container(
+                            content=ft.Icon(ft.Icons.LOCAL_GAS_STATION, color=C_BLUE, size=20),
+                            bgcolor=ft.Colors.with_opacity(0.20, C_BLUE),
+                            border_radius=10,
+                            padding=7,
+                        ),
+                        txt_total_litros_label,
+                    ],
+                ),
+                txt_total_litros,
+            ],
+        ),
+    )
+
     def atualizar_painel():
         nonlocal turno_atual
         if turno_atual is None:
@@ -449,6 +538,10 @@ def main(page: ft.Page):
         txt_despesas.value        = formatar_moeda(totais.despesas)
         txt_total_geral.value   = formatar_moeda(totais.total_geral)
         txt_turno.value         = f"Turno #{turno_atual.id} · Operador(a): {turno_atual.operador} · {turno_atual.aberto_em}"
+
+        detalhe_litros = db.obter_totais_combustivel(conn, turno_atual.id)
+        txt_total_litros.value = formatar_litros(sum(detalhe_litros.values()))
+
         if mobile:
             txt_rodape_resumo.value = f"Total geral · {formatar_moeda(totais.total_geral)}"
         page.update()
@@ -459,54 +552,54 @@ def main(page: ft.Page):
     def criar_seletor_tipo(valor_inicial: str):
         estado = {"valor": valor_inicial}
         seletor_col = ft.Column(spacing=8, width=largura_conteudo)
-        # tipo -> (container, icone_ctrl, texto_ctrl) do chip já montado,
-        # para poder repintar em vez de recriar a cada seleção.
-        registro_chips = {}
-
-        def _estilo(tipo: str, selecionado: bool):
-            cor = cor_tipo(tipo)
-            return {
-                "bgcolor": cor if selecionado else ft.Colors.with_opacity(0.12, cor),
-                "border": borda_all(
-                    1.5 if selecionado else 1,
-                    cor if selecionado else ft.Colors.with_opacity(0.35, cor),
-                ),
-                "cor_conteudo": ft.Colors.WHITE if selecionado else cor,
-                "peso_texto": ft.FontWeight.W_600 if selecionado else ft.FontWeight.W_500,
-            }
 
         def _chip(tipo: str):
+            cor = cor_tipo(tipo)
+            icone = icone_tipo(tipo)
             selecionado = tipo == estado["valor"]
-            estilo = _estilo(tipo, selecionado)
 
-            icone_ctrl = ft.Icon(icone_tipo(tipo), size=14, color=estilo["cor_conteudo"])
-            texto_ctrl = ft.Text(
-                tipo, size=12, color=estilo["cor_conteudo"], weight=estilo["peso_texto"]
-            )
-            container = ft.Container(
+            return ft.Container(
                 content=ft.Row(
                     spacing=6,
                     tight=True,
                     alignment=ft.MainAxisAlignment.CENTER,
-                    controls=[icone_ctrl, texto_ctrl],
+                    controls=[
+                        ft.Icon(
+                            icone,
+                            size=14,
+                            color=ft.Colors.WHITE if selecionado else cor,
+                        ),
+                        ft.Text(
+                            tipo,
+                            size=12,
+                            color=ft.Colors.WHITE if selecionado else cor,
+                            weight=ft.FontWeight.W_600 if selecionado else ft.FontWeight.W_500,
+                        ),
+                    ],
                 ),
-                bgcolor=estilo["bgcolor"],
+                bgcolor=cor if selecionado else ft.Colors.with_opacity(0.12, cor),
                 border_radius=RADIUS_SM,
-                border=estilo["border"],
+                border=ft.Border(
+                    left=ft.BorderSide(1.5 if selecionado else 1,
+                                       cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
+                    right=ft.BorderSide(1.5 if selecionado else 1,
+                                        cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
+                    top=ft.BorderSide(1.5 if selecionado else 1,
+                                      cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
+                    bottom=ft.BorderSide(1.5 if selecionado else 1,
+                                         cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
+                ),
                 height=46,
                 expand=True,
                 alignment=ft.Alignment(0, 0),
                 on_click=lambda e, t=tipo: selecionar(t),
                 animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             )
-            registro_chips[tipo] = (container, icone_ctrl, texto_ctrl)
-            return container
 
         def _linha(tipos):
             return ft.Row(spacing=8, controls=[_chip(t) for t in tipos])
 
         def construir():
-            registro_chips.clear()
             seletor_col.controls.clear()
             principais = [
                 db.TIPO_DINHEIRO, db.TIPO_PIX,
@@ -523,28 +616,10 @@ def main(page: ft.Page):
             for i in range(0, len(db.LISTA_CARTOES), 2):
                 seletor_col.controls.append(_linha(db.LISTA_CARTOES[i:i+2]))
 
-        def _repintar_chip(tipo: str, selecionado: bool):
-            registrado = registro_chips.get(tipo)
-            if registrado is None:
-                return
-            container, icone_ctrl, texto_ctrl = registrado
-            estilo = _estilo(tipo, selecionado)
-            container.bgcolor = estilo["bgcolor"]
-            container.border = estilo["border"]
-            icone_ctrl.color = estilo["cor_conteudo"]
-            texto_ctrl.color = estilo["cor_conteudo"]
-            texto_ctrl.weight = estilo["peso_texto"]
-
         def selecionar(tipo):
-            anterior = estado["valor"]
-            if tipo == anterior:
-                return
             estado["valor"] = tipo
             salvar_ultimo_tipo(tipo)
-            # Repinta só os 2 chips afetados (o que perdeu a seleção e o
-            # que ganhou), em vez de reconstruir os ~13 chips do seletor.
-            _repintar_chip(anterior, False)
-            _repintar_chip(tipo, True)
+            construir()
             page.update()
 
         construir()
@@ -552,6 +627,81 @@ def main(page: ft.Page):
 
     tipo_inicial = carregar_ultimo_tipo()
     seletor_col, estado_tipo, selecionar_tipo, reconstruir_seletor = criar_seletor_tipo(tipo_inicial)
+
+    # ══════════════════════════════════════════════════════════════════
+    # SELETOR DE COMBUSTÍVEL (opcional — não se aplica a Despesas/Depósito)
+    # ══════════════════════════════════════════════════════════════════
+    def criar_seletor_combustivel(valor_inicial: str = NENHUM_COMBUSTIVEL):
+        estado = {"valor": valor_inicial}
+        seletor_col_comb = ft.Column(spacing=8, width=largura_conteudo)
+
+        def _chip(opcao: str):
+            cor = cor_combustivel(opcao)
+            icone = icone_combustivel(opcao)
+            selecionado = opcao == estado["valor"]
+
+            return ft.Container(
+                content=ft.Row(
+                    spacing=6,
+                    tight=True,
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    controls=[
+                        ft.Icon(
+                            icone,
+                            size=14,
+                            color=ft.Colors.WHITE if selecionado else cor,
+                        ),
+                        ft.Text(
+                            opcao,
+                            size=12,
+                            color=ft.Colors.WHITE if selecionado else cor,
+                            weight=ft.FontWeight.W_600 if selecionado else ft.FontWeight.W_500,
+                        ),
+                    ],
+                ),
+                bgcolor=cor if selecionado else ft.Colors.with_opacity(0.12, cor),
+                border_radius=RADIUS_SM,
+                border=ft.Border(
+                    left=ft.BorderSide(1.5 if selecionado else 1,
+                                       cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
+                    right=ft.BorderSide(1.5 if selecionado else 1,
+                                        cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
+                    top=ft.BorderSide(1.5 if selecionado else 1,
+                                      cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
+                    bottom=ft.BorderSide(1.5 if selecionado else 1,
+                                         cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
+                ),
+                height=42,
+                expand=True,
+                alignment=ft.Alignment(0, 0),
+                on_click=lambda e, o=opcao: selecionar(o),
+                animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+            )
+
+        def _linha(opcoes):
+            return ft.Row(spacing=8, controls=[_chip(o) for o in opcoes])
+
+        def construir():
+            seletor_col_comb.controls.clear()
+            todas = [NENHUM_COMBUSTIVEL, *db.LISTA_COMBUSTIVEIS]
+            for i in range(0, len(todas), 2):
+                seletor_col_comb.controls.append(_linha(todas[i:i+2]))
+
+        def selecionar(opcao):
+            estado["valor"] = opcao
+            construir()
+            page.update()
+            if opcao == NENHUM_COMBUSTIVEL:
+                input_litros.value = ""
+                input_litros.error_text = None
+                page.update()
+
+        construir()
+        return seletor_col_comb, estado, selecionar, construir
+
+    seletor_combustivel_col, estado_combustivel, selecionar_combustivel, reconstruir_seletor_combustivel = (
+        criar_seletor_combustivel()
+    )
 
     # ══════════════════════════════════════════════════════════════════
     # INPUTS
@@ -563,7 +713,7 @@ def main(page: ft.Page):
     )
 
     def ao_tocar_fora(e):
-        desfocar_campos(input_valor, input_desc)
+        desfocar_campos(input_valor, input_desc, input_litros)
 
     input_valor = ft.TextField(
         label="Valor (Ex: 50.00 ou 50,00)",
@@ -584,6 +734,18 @@ def main(page: ft.Page):
         on_tap_outside=ao_tocar_fora,
     )
 
+    input_litros = ft.TextField(
+        label="Litros (Ex: 40.5) — opcional",
+        width=largura_conteudo,
+        suffix=ft.Text(" L"),
+        keyboard_type=_keyboard_valor,
+        adaptive=adaptive_ui,
+        autocorrect=False,
+        enable_suggestions=False,
+        input_filter=FILTRO_VALOR_MONETARIO,
+        on_tap_outside=ao_tocar_fora,
+    )
+
     _blur_token = 0
 
     def desfocar_campos(*campos):
@@ -597,7 +759,7 @@ def main(page: ft.Page):
         input_valor.value = val
         if desc:
             input_desc.value = desc
-        desfocar_campos(input_valor, input_desc)
+        desfocar_campos(input_valor, input_desc, input_litros)
         page.update()
 
     def validar_valor(texto: str):
@@ -625,7 +787,10 @@ def main(page: ft.Page):
             content=ft.Text(label, size=14, color=cor_texto, weight=ft.FontWeight.W_500),
             bgcolor=cor_bg,
             border_radius=100,
-            border=borda_all(1, cor_borda),
+            border=ft.Border(
+                left=ft.BorderSide(1, cor_borda), right=ft.BorderSide(1, cor_borda),
+                top=ft.BorderSide(1, cor_borda),  bottom=ft.BorderSide(1, cor_borda),
+            ),
             padding=ft.Padding.only(left=16, right=16, top=9, bottom=9),
             on_click=on_click,
             animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
@@ -636,7 +801,7 @@ def main(page: ft.Page):
         input_desc.value = "Completou"
         input_valor.value = ""
         input_valor.error_text = None
-        desfocar_campos(input_valor, input_desc)
+        desfocar_campos(input_valor, input_desc, input_litros)
         page.update()
 
     def montar_botoes_rapidos():
@@ -663,6 +828,7 @@ def main(page: ft.Page):
     # LISTAS (Column — evita scroll duplo no iOS)
     # ══════════════════════════════════════════════════════════════════
     col_agrupada = ft.Column(spacing=6, width=largura_conteudo)
+    col_litros = ft.Column(spacing=6, width=largura_conteudo)
     col_historico = ft.Column(spacing=6, width=largura_conteudo)
 
     def _list_tile_agrupado(tipo, valor_total):
@@ -691,45 +857,63 @@ def main(page: ft.Page):
             ),
             bgcolor=pal.surface,
             border_radius=RADIUS_SM,
-            border=borda_all(1, ft.Colors.with_opacity(0.16, cor)),
+            border=ft.Border(
+                left=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
+                right=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
+                top=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
+                bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
+            ),
             padding=ft.Padding.only(left=14, right=14, top=11, bottom=11),
         )
 
-    # Ordem fixa do grupo "Formas de Pagamento" dentro de Totais por Tipo
-    _ORDEM_FORMAS_PAGAMENTO = [
-        db.TIPO_DINHEIRO,
-        db.TIPO_PIX,
-        db.TIPO_REQUISICAO,
-        db.TIPO_DESPESA,
-        db.TIPO_DEPOSITO_GLOBAL,
-    ]
-
-    def _cabecalho_grupo_agrupado(titulo: str):
-        return ft.Text(
-            titulo, size=13, color=pal.text_ter, weight=ft.FontWeight.W_600,
-            width=largura_conteudo,
+    def _list_tile_litros(combustivel, total_litros):
+        cor   = cor_combustivel(combustivel)
+        icone = icone_combustivel(combustivel)
+        return ft.Container(
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    ft.Row(
+                        spacing=10,
+                        controls=[
+                            ft.Container(
+                                content=ft.Icon(icone, color=cor, size=17),
+                                bgcolor=ft.Colors.with_opacity(0.14, cor),
+                                border_radius=9,
+                                padding=7,
+                            ),
+                            ft.Text(combustivel, size=14, color=cor, weight=ft.FontWeight.W_600),
+                        ],
+                    ),
+                    ft.Text(formatar_litros(total_litros), size=15, color=cor,
+                            weight=ft.FontWeight.BOLD),
+                ],
+            ),
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border=ft.Border(
+                left=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
+                right=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
+                top=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
+                bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
+            ),
+            padding=ft.Padding.only(left=14, right=14, top=11, bottom=11),
         )
+
+    def carregar_lista_litros():
+        if turno_atual is None: return
+        col_litros.controls.clear()
+        detalhe_litros = db.obter_totais_combustivel(conn, turno_atual.id)
+        for combustivel, total_litros in detalhe_litros.items():
+            col_litros.controls.append(_list_tile_litros(combustivel, total_litros))
+        page.update()
 
     def carregar_lista_agrupada():
         if turno_atual is None: return
         col_agrupada.controls.clear()
-        agrupado = dict(db.listar_agrupado(conn, turno_atual.id))
-
-        itens_formas = [(t, agrupado[t]) for t in _ORDEM_FORMAS_PAGAMENTO if t in agrupado]
-        itens_cartoes = [(t, agrupado[t]) for t in db.LISTA_CARTOES if t in agrupado]
-
-        if itens_formas:
-            col_agrupada.controls.append(_cabecalho_grupo_agrupado("Formas de Pagamento"))
-            for tipo, valor_total in itens_formas:
-                col_agrupada.controls.append(_list_tile_agrupado(tipo, valor_total))
-
-        if itens_cartoes:
-            if itens_formas:
-                col_agrupada.controls.append(ft.Container(height=6))
-            col_agrupada.controls.append(_cabecalho_grupo_agrupado("Cartões"))
-            for tipo, valor_total in itens_cartoes:
-                col_agrupada.controls.append(_list_tile_agrupado(tipo, valor_total))
-
+        for tipo, valor_total in db.listar_agrupado(conn, turno_atual.id):
+            col_agrupada.controls.append(_list_tile_agrupado(tipo, valor_total))
         page.update()
 
     def carregar_historico():
@@ -739,6 +923,11 @@ def main(page: ft.Page):
             cor   = cor_tipo(row["tipo"])
             icone = icone_tipo(row["tipo"])
             desc_texto = f" — {row['descricao']}" if row["descricao"] else ""
+            litros_texto = (
+                f" · {formatar_litros(row['litros'])} {row['combustivel']}"
+                if row["litros"] and row["combustivel"]
+                else ""
+            )
 
             def confirmar_exclusao(e, rid=row["id"], tipo=row["tipo"], valor=row["valor"]):
                 dlg_excluir = ft.AlertDialog(
@@ -770,12 +959,19 @@ def main(page: ft.Page):
                 tipo=row["tipo"],
                 valor=row["valor"],
                 descricao=row["descricao"],
+                combustivel=row["combustivel"],
+                litros=row["litros"],
             ):
                 seletor_edit, estado_edit, _sel_edit, _rec_edit = criar_seletor_tipo(tipo)
                 seletor_edit.width = min(300, largura_conteudo)
 
+                seletor_comb_edit, estado_comb_edit, _sel_comb_edit, _rec_comb_edit = (
+                    criar_seletor_combustivel(combustivel or NENHUM_COMBUSTIVEL)
+                )
+                seletor_comb_edit.width = min(300, largura_conteudo)
+
                 def ao_tocar_fora_edicao(e):
-                    desfocar_campos(campo_valor_edit, campo_desc_edit)
+                    desfocar_campos(campo_valor_edit, campo_desc_edit, campo_litros_edit)
 
                 campo_valor_edit = ft.TextField(
                     label="Valor",
@@ -795,6 +991,17 @@ def main(page: ft.Page):
                     adaptive=adaptive_ui,
                     on_tap_outside=ao_tocar_fora_edicao,
                 )
+                campo_litros_edit = ft.TextField(
+                    label="Litros (opcional)",
+                    value=f"{litros:.2f}".replace(".", ",") if litros else "",
+                    suffix=ft.Text(" L"),
+                    width=min(300, largura_conteudo),
+                    adaptive=adaptive_ui,
+                    autocorrect=False,
+                    enable_suggestions=False,
+                    input_filter=FILTRO_VALOR_MONETARIO,
+                    on_tap_outside=ao_tocar_fora_edicao,
+                )
                 dlg_editar = ft.AlertDialog(
                     title=ft.Text("Editar lançamento"),
                     content=ft.Column(
@@ -803,9 +1010,12 @@ def main(page: ft.Page):
                             seletor_edit,
                             campo_valor_edit,
                             campo_desc_edit,
+                            ft.Text("Combustível (opcional)", size=12, color=pal.text_sec),
+                            seletor_comb_edit,
+                            campo_litros_edit,
                         ],
                         tight=True, spacing=10,
-                        scroll=ft.ScrollMode.AUTO, height=420,
+                        scroll=ft.ScrollMode.AUTO, height=560,
                     ),
                 )
 
@@ -815,11 +1025,29 @@ def main(page: ft.Page):
                         campo_valor_edit.error_text = "Informe um valor maior que zero"
                         page.update()
                         return
+
+                    comb_sel = estado_comb_edit["valor"]
+                    litros_texto = (campo_litros_edit.value or "").strip()
+                    combustivel_final = None
+                    litros_final = None
+                    if comb_sel != NENHUM_COMBUSTIVEL or litros_texto:
+                        if comb_sel == NENHUM_COMBUSTIVEL:
+                            campo_litros_edit.error_text = "Selecione o combustível"
+                            page.update()
+                            return
+                        litros_final = validar_valor(litros_texto)
+                        if litros_final is None:
+                            campo_litros_edit.error_text = "Informe os litros abastecidos"
+                            page.update()
+                            return
+                        combustivel_final = comb_sel
+
                     try:
                         garantir_conexao()
                         ok = db.atualizar_lancamento(
                             conn, lancamento_id, turno_atual.id,
                             estado_edit["valor"], novo_valor, campo_desc_edit.value or "",
+                            combustivel=combustivel_final, litros=litros_final,
                         )
                         if ok:
                             fechar_dialogo(dlg_editar)
@@ -860,7 +1088,7 @@ def main(page: ft.Page):
                                                 f"{formatar_moeda(row['valor'])} · {row['tipo']}{desc_texto}",
                                                 color=cor, size=13, weight=ft.FontWeight.W_600,
                                             ),
-                                            ft.Text(row["data"], color=pal.text_ter, size=11),
+                                            ft.Text(f"{row['data']}{litros_texto}", color=pal.text_ter, size=11),
                                         ],
                                     ),
                                 ],
@@ -888,7 +1116,12 @@ def main(page: ft.Page):
                     ),
                     bgcolor=pal.surface,
                     border_radius=RADIUS_SM,
-                    border=borda_all(1, ft.Colors.with_opacity(0.14, cor)),
+                    border=ft.Border(
+                        left=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
+                        right=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
+                        top=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
+                        bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
+                    ),
                     padding=ft.Padding.only(left=12, right=4, top=10, bottom=10),
                 )
             )
@@ -899,6 +1132,7 @@ def main(page: ft.Page):
         garantir_conexao()
         atualizar_painel()
         carregar_lista_agrupada()
+        carregar_lista_litros()
         carregar_historico()
 
     # ══════════════════════════════════════════════════════════════════
@@ -943,6 +1177,26 @@ def main(page: ft.Page):
             page.update()
             return
 
+        # Combustível/litros são opcionais (não fazem sentido em Despesas,
+        # Depósito Global etc.), mas se um dos dois foi preenchido, exige
+        # os dois juntos para não gerar litros "órfãos" sem saber de qual
+        # combustível, ou vice-versa.
+        comb_selecionado = estado_combustivel["valor"]
+        litros_texto = (input_litros.value or "").strip()
+        combustivel_final = None
+        litros_final = None
+        if comb_selecionado != NENHUM_COMBUSTIVEL or litros_texto:
+            if comb_selecionado == NENHUM_COMBUSTIVEL:
+                input_litros.error_text = "Selecione o combustível"
+                page.update()
+                return
+            litros_final = validar_valor(litros_texto)
+            if litros_final is None:
+                input_litros.error_text = "Informe os litros abastecidos"
+                page.update()
+                return
+            combustivel_final = comb_selecionado
+
         btn_lancar.opacity = 0.5
         page.update()
 
@@ -951,15 +1205,22 @@ def main(page: ft.Page):
             db.inserir_lancamento(
                 conn, turno_atual.id,
                 estado_tipo["valor"], valor_float, input_desc.value or "",
+                combustivel=combustivel_final, litros=litros_final,
             )
             input_valor.value = ""
             input_desc.value  = ""
+            input_litros.value = ""
             input_valor.error_text = None
-            mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {estado_tipo['valor']}")
+            input_litros.error_text = None
+            selecionar_combustivel(NENHUM_COMBUSTIVEL)
+            mensagem = f"{formatar_moeda(valor_float)} lançado em {estado_tipo['valor']}"
+            if litros_final is not None:
+                mensagem += f" · {formatar_litros(litros_final)} de {combustivel_final}"
+            mostrar_snackbar(mensagem)
             vibrar("light")
             salvar_ultimo_tipo(estado_tipo["valor"])
             recarregar_listas()
-            desfocar_campos(input_valor, input_desc)
+            desfocar_campos(input_valor, input_desc, input_litros)
         except Exception:
             mostrar_snackbar("Erro ao lançar. Tente novamente.", ft.Colors.RED_800)
         finally:
@@ -969,6 +1230,8 @@ def main(page: ft.Page):
     btn_lancar.on_click = acao_lancar
     input_valor.on_submit = acao_lancar
     input_desc.on_submit  = acao_lancar
+    input_litros.on_submit = acao_lancar
+
 
     # ══════════════════════════════════════════════════════════════════
     # RESUMO / FECHAR CAIXA
@@ -980,11 +1243,7 @@ def main(page: ft.Page):
         disponivel = int(page.height or 700)
         return max(280, min(640, disponivel - 220))
 
-    def montar_conteudo_resumo(totais, detalhe_cartoes):
-        # Fontes maiores para leitura confortável no balcão/posto
-        tamanho_fonte_itens = 14
-        tamanho_fonte_titulo = 16
-
+    def montar_conteudo_resumo(totais, detalhe_cartoes, detalhe_combustivel):
         linhas_bandeiras = []
         for bandeira, valor in detalhe_cartoes.items():
             cor   = cor_tipo(bandeira)
@@ -992,45 +1251,68 @@ def main(page: ft.Page):
             linhas_bandeiras.append(
                 ft.Row([
                     ft.Container(width=18),
-                    ft.Icon(icone, color=cor, size=16),
-                    ft.Text(
-                        bandeira, size=tamanho_fonte_itens, expand=True, color=cor,
-                        max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
-                    ),
-                    ft.Text(formatar_moeda(valor), size=tamanho_fonte_itens, color=cor),
+                    ft.Icon(icone, color=cor, size=14),
+                    ft.Text(bandeira, size=12, expand=True, color=cor),
+                    ft.Text(formatar_moeda(valor), size=12, color=cor),
                 ], spacing=4)
             )
+
+        linhas_combustivel = []
+        for combustivel, litros in detalhe_combustivel.items():
+            cor   = cor_combustivel(combustivel)
+            icone = icone_combustivel(combustivel)
+            linhas_combustivel.append(
+                ft.Row([
+                    ft.Container(width=18),
+                    ft.Icon(icone, color=cor, size=14),
+                    ft.Text(combustivel, size=12, expand=True, color=cor),
+                    ft.Text(formatar_litros(litros), size=12, color=cor),
+                ], spacing=4)
+            )
+        total_litros = sum(detalhe_combustivel.values())
+        bloco_litros = []
+        if linhas_combustivel:
+            bloco_litros = [
+                ft.Divider(height=1),
+                ft.Text("Litros por combustível:", size=13, color=pal.text_sec, weight=ft.FontWeight.BOLD),
+                *linhas_combustivel,
+                ft.Row([ft.Icon(ft.Icons.LOCAL_GAS_STATION, color=C_BLUE),
+                        ft.Text("Total de Litros:", expand=True, size=13),
+                        ft.Text(formatar_litros(total_litros), weight=ft.FontWeight.BOLD)]),
+            ]
+
         return ft.Column(
-            tight=True, spacing=8,
+            tight=True, spacing=6,
             scroll=ft.ScrollMode.AUTO, height=_altura_resumo(),
             controls=[
                 ft.Text(f"Turno #{turno_atual.id} · Operador(a): {turno_atual.operador}",
-                        size=13, color=pal.text_ter, weight=ft.FontWeight.BOLD),
+                        size=12, color=pal.text_ter, weight=ft.FontWeight.BOLD),
                 ft.Text(f"Aberto em: {turno_atual.aberto_em}",
-                        size=13, color=pal.text_ter),
+                        size=12, color=pal.text_ter),
                 ft.Divider(height=4),
-                ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN, size=20),
-                        ft.Text("Dinheiro (físico):", size=tamanho_fonte_itens, expand=True),
-                        ft.Text(formatar_moeda(totais.fisico), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
-                ft.Row([ft.Icon(ft.Icons.PIX, color=C_BLUE, size=20),
-                        ft.Text("Total PIX:", size=tamanho_fonte_itens, expand=True),
-                        ft.Text(formatar_moeda(totais.pix), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN),
+                        ft.Text("Dinheiro (físico):", expand=True),
+                        ft.Text(formatar_moeda(totais.fisico), weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Icon(ft.Icons.PIX, color=C_BLUE),
+                        ft.Text("Total PIX:", expand=True),
+                        ft.Text(formatar_moeda(totais.pix), weight=ft.FontWeight.BOLD)]),
                 ft.Divider(height=1),
-                ft.Text("Cartões por bandeira:", size=tamanho_fonte_titulo, color=pal.text_sec, weight=ft.FontWeight.BOLD),
+                ft.Text("Cartões por bandeira:", size=13, color=pal.text_sec, weight=ft.FontWeight.BOLD),
                 *linhas_bandeiras,
-                ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE, size=20),
-                        ft.Text("Total Cartões (+ Sodexo):", expand=True, size=tamanho_fonte_itens),
-                        ft.Text(formatar_moeda(totais.cartoes), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE),
+                        ft.Text("Total Cartões (+ Sodexo):", expand=True, size=13),
+                        ft.Text(formatar_moeda(totais.cartoes), weight=ft.FontWeight.BOLD)]),
                 ft.Divider(height=1),
-                ft.Row([ft.Icon(ft.Icons.RECEIPT_LONG, color=C_PURPLE, size=20),
-                        ft.Text("Requisição:", size=tamanho_fonte_itens, expand=True),
-                        ft.Text(formatar_moeda(totais.requisicao), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
-                ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=C_BROWN, size=20),
-                        ft.Text("Depósito Global:", size=tamanho_fonte_itens, expand=True),
-                        ft.Text(formatar_moeda(totais.deposito_global), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
-                ft.Row([ft.Icon(ft.Icons.MONEY_OFF, color=C_RED, size=20),
-                        ft.Text("Despesas:", size=tamanho_fonte_itens, expand=True),
-                        ft.Text(formatar_moeda(totais.despesas), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Icon(ft.Icons.RECEIPT_LONG, color=C_PURPLE),
+                        ft.Text("Requisição:", expand=True),
+                        ft.Text(formatar_moeda(totais.requisicao), weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=C_BROWN),
+                        ft.Text("Depósito Global:", expand=True),
+                        ft.Text(formatar_moeda(totais.deposito_global), weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Icon(ft.Icons.MONEY_OFF, color=C_RED),
+                        ft.Text("Despesas:", expand=True),
+                        ft.Text(formatar_moeda(totais.despesas), weight=ft.FontWeight.BOLD)]),
+                *bloco_litros,
                 ft.Divider(height=6),
                 ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=C_GREEN),
                         ft.Text("Total Geral:", expand=True, weight=ft.FontWeight.BOLD, size=18),
@@ -1045,8 +1327,9 @@ def main(page: ft.Page):
         garantir_conexao()
         totais        = db.obter_totais(conn, turno_atual.id)
         detalhe_cart  = db.obter_detalhe_cartoes(conn, turno_atual.id)
-        resumo        = db.montar_resumo_texto(totais, turno_atual, detalhe_cart)
-        conteudo_resumo = montar_conteudo_resumo(totais, detalhe_cart)
+        detalhe_comb  = db.obter_totais_combustivel(conn, turno_atual.id)
+        resumo        = db.montar_resumo_texto(totais, turno_atual, detalhe_cart, detalhe_comb)
+        conteudo_resumo = montar_conteudo_resumo(totais, detalhe_cart, detalhe_comb)
 
         def fechar_resumo():
             page.pop_dialog()
@@ -1373,8 +1656,18 @@ def main(page: ft.Page):
     txt_sec_forma = ft.Text(
         "Forma de Pagamento", size=13, color=pal.text_ter, weight=ft.FontWeight.W_600
     )
+    txt_sec_combustivel = ft.Text(
+        "Combustível (opcional)", size=13, color=pal.text_ter, weight=ft.FontWeight.W_600
+    )
     txt_sec_totais = ft.Text(
         "Totais por Tipo",
+        size=18,
+        weight=ft.FontWeight.BOLD,
+        color=pal.text_pri,
+        width=largura_conteudo,
+    )
+    txt_sec_litros = ft.Text(
+        "Litros por Combustível",
         size=18,
         weight=ft.FontWeight.BOLD,
         color=pal.text_pri,
@@ -1482,11 +1775,14 @@ def main(page: ft.Page):
             card.bgcolor = pal.surface
             lbl.color = pal.text_ter
         txt_total_geral_label.color = pal.text_pri
+        txt_total_litros_label.color = pal.text_pri
         txt_header_titulo.color = pal.text_pri
         btn_tema.icon_color = pal.text_sec
         btn_menu.icon_color = pal.text_sec
         txt_sec_forma.color = pal.text_ter
+        txt_sec_combustivel.color = pal.text_ter
         txt_sec_totais.color = pal.text_pri
+        txt_sec_litros.color = pal.text_pri
         txt_sec_historico.color = pal.text_pri
         for div in (div_top, div_mid, div_bot):
             div.bgcolor = pal.border
@@ -1515,38 +1811,64 @@ def main(page: ft.Page):
             hero_card,
             stats_grid,
             total_geral_card,
+            total_litros_card,
             div_top,
             txt_sec_forma,
             seletor_col,
             input_valor,
             row_botoes_rapidos,
             input_desc,
-            btn_lancar,
+            txt_sec_combustivel,
+            seletor_combustivel_col,
+            input_litros,
             div_mid,
             txt_sec_totais,
             col_agrupada,
+            txt_sec_litros,
+            col_litros,
             div_bot,
             txt_sec_historico,
             col_historico,
         ]
 
+        if not mobile:
+            if btn_lancar not in controles_scroll:
+                controles_scroll.insert(
+                    controles_scroll.index(input_desc) + 1,
+                    btn_lancar,
+                )
+
         area_scroll = ft.Column(
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=10,
             controls=controles_scroll,
-            scroll=ft.ScrollMode.AUTO,
+            scroll=ft.ScrollMode.AUTO if mobile else None,
             expand=mobile,
         )
 
-        # O rodapé fixo (sticky footer) foi removido: em algumas versões
-        # do Flet no iOS os Columns aninhados com expand=True não recebiam
-        # altura da viewport corretamente, fazendo o botão "cair" para
-        # depois de Totais/Histórico em vez de ficar fixo embaixo. O botão
-        # agora fica sempre dentro do fluxo de rolagem, logo após a
-        # descrição — visível sem precisar rolar até o fim da tela.
-        rodape_lancar = None
+        rodape_lancar = ft.Container(
+            content=ft.Column(
+                spacing=8,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[txt_rodape_resumo, btn_lancar],
+            ),
+            width=largura_conteudo,
+            padding=ft.Padding.only(left=0, right=0, top=8, bottom=8),
+            bgcolor=pal.bg,
+            border=ft.Border(top=ft.BorderSide(1, pal.border)),
+            visible=mobile,
+        )
 
-        conteudo_principal = area_scroll
+        conteudo_principal = (
+            ft.Column(
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=0,
+                expand=True,
+                controls=[area_scroll, rodape_lancar],
+            )
+            if mobile
+            else area_scroll
+        )
 
         if mobile:
             raiz = ft.SafeArea(ft.Column(controls=[conteudo_principal], expand=True))
@@ -1556,6 +1878,7 @@ def main(page: ft.Page):
         page.add(raiz)
         aplicar_largura()
         reconstruir_seletor()
+        reconstruir_seletor_combustivel()
         montar_botoes_rapidos()
         recarregar_listas()
 
