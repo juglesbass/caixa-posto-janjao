@@ -15,6 +15,20 @@ TIPO_SODEXO = "Sodexo"
 TIPO_DEPOSITO_GLOBAL = "Depósito Global"
 TIPO_DESPESA = "Despesas"
 
+# ── Combustíveis (para o resumo de litros abastecidos) ─────────────────────
+# Lista fácil de ajustar: só editar os itens abaixo.
+COMB_GASOLINA_COMUM = "Gasolina Comum"
+COMB_GASOLINA_ADITIVADA = "Gasolina Aditivada"
+COMB_ETANOL = "Etanol"
+COMB_DIESEL_S10 = "Diesel S10"
+
+LISTA_COMBUSTIVEIS = [
+    COMB_GASOLINA_COMUM,
+    COMB_GASOLINA_ADITIVADA,
+    COMB_ETANOL,
+    COMB_DIESEL_S10,
+]
+
 LISTA_CARTOES = [
     "Master Crédito",
     "Master Débito",
@@ -150,6 +164,14 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
             )
         colunas_lanc.add("valor_centavos")
 
+    if "combustivel" not in colunas_lanc:
+        cursor.execute("ALTER TABLE lancamentos ADD COLUMN combustivel TEXT")
+        colunas_lanc.add("combustivel")
+
+    if "litros" not in colunas_lanc:
+        cursor.execute("ALTER TABLE lancamentos ADD COLUMN litros REAL")
+        colunas_lanc.add("litros")
+
     colunas_turnos = {linha[1] for linha in cursor.execute("PRAGMA table_info(turnos)")}
     if "operador" not in colunas_turnos:
         cursor.execute("ALTER TABLE turnos ADD COLUMN operador TEXT")
@@ -227,10 +249,51 @@ def obter_detalhe_cartoes(conn: sqlite3.Connection, turno_id: int) -> dict[str, 
     return {cartao: totais_centavos.get(cartao, 0) / 100.0 for cartao in LISTA_CARTOES}
 
 
-def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str, float]) -> str:
+def obter_totais_combustivel(conn: sqlite3.Connection, turno_id: int) -> dict[str, float]:
+    """Soma os litros lançados por tipo de combustível no turno.
+    Lançamentos sem combustível/litros informados (ex: Despesas, Depósito
+    Global) simplesmente não entram na soma."""
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT combustivel, SUM(litros)
+        FROM lancamentos
+        WHERE turno_id = ? AND combustivel IS NOT NULL AND litros IS NOT NULL
+        GROUP BY combustivel
+        """,
+        (turno_id,),
+    )
+    return {combustivel: (litros or 0.0) for combustivel, litros in cursor.fetchall() if combustivel}
+
+
+def _formatar_litros(litros: float) -> str:
+    return f"{litros:.2f}".replace(".", ",") + " L"
+
+
+def montar_resumo_texto(
+    totais: Totais,
+    turno: Turno,
+    detalhe_cartoes: dict[str, float],
+    detalhe_combustivel: dict[str, float] | None = None,
+) -> str:
     linhas_cartoes = "\n".join(
         f"   • {bandeira}: {formatar_moeda(valor)}" for bandeira, valor in detalhe_cartoes.items()
     )
+
+    detalhe_combustivel = detalhe_combustivel or {}
+    total_litros = sum(detalhe_combustivel.values())
+    bloco_combustivel = ""
+    if detalhe_combustivel:
+        linhas_combustivel = "\n".join(
+            f"   • {combustivel}: {_formatar_litros(litros)}"
+            for combustivel, litros in detalhe_combustivel.items()
+        )
+        bloco_combustivel = (
+            f"⛽ Litros abastecidos:\n"
+            f"{linhas_combustivel}\n"
+            f"   Total de Litros: {_formatar_litros(total_litros)}\n\n"
+        )
+
     return (
         f"⛽ *Fechamento de Turno - Posto Janjão*\n"
         f"👤 Operador: {turno.operador}\n"
@@ -243,6 +306,7 @@ def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str,
         f"💳 Cartões e Sodexo por bandeira:\n"
         f"{linhas_cartoes}\n"
         f"   Total de Cartões (+ Sodexo): {formatar_moeda(totais.cartoes)}\n\n"
+        f"{bloco_combustivel}"
         f"✅ Total Geral: {formatar_moeda(totais.total_geral)}"
     )
 
@@ -253,13 +317,19 @@ def inserir_lancamento(
     tipo: str,
     valor: float,
     descricao: str,
+    combustivel: str | None = None,
+    litros: float | None = None,
 ) -> None:
     data_atual = datetime.now().strftime("%H:%M - %d/%m")
     valor_centavos = int(round(valor * 100))
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO lancamentos (tipo, valor_centavos, descricao, data, turno_id) VALUES (?, ?, ?, ?, ?)",
-        (tipo, valor_centavos, descricao, data_atual, turno_id),
+        """
+        INSERT INTO lancamentos
+            (tipo, valor_centavos, descricao, data, turno_id, combustivel, litros)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (tipo, valor_centavos, descricao, data_atual, turno_id, combustivel, litros),
     )
     conn.commit()
 
@@ -271,16 +341,18 @@ def atualizar_lancamento(
     tipo: str,
     valor: float,
     descricao: str,
+    combustivel: str | None = None,
+    litros: float | None = None,
 ) -> bool:
     valor_centavos = int(round(valor * 100))
     cursor = conn.cursor()
     cursor.execute(
         """
         UPDATE lancamentos
-        SET tipo = ?, valor_centavos = ?, descricao = ?
+        SET tipo = ?, valor_centavos = ?, descricao = ?, combustivel = ?, litros = ?
         WHERE id = ? AND turno_id = ?
         """,
-        (tipo, valor_centavos, descricao, lancamento_id, turno_id),
+        (tipo, valor_centavos, descricao, combustivel, litros, lancamento_id, turno_id),
     )
     conn.commit()
     return cursor.rowcount > 0
@@ -342,7 +414,7 @@ def listar_historico(conn: sqlite3.Connection, turno_id: int, limite: int = 30) 
     cursor = conn.cursor()
     return cursor.execute(
         """
-        SELECT id, tipo, valor_centavos / 100.0 AS valor, descricao, data
+        SELECT id, tipo, valor_centavos / 100.0 AS valor, descricao, data, combustivel, litros
         FROM lancamentos
         WHERE turno_id = ?
         ORDER BY id DESC
@@ -374,7 +446,7 @@ def exportar_turno_csv(conn: sqlite3.Connection, turno_id: int) -> str:
     cursor = conn.cursor()
     linhas = cursor.execute(
         """
-        SELECT id, tipo, valor_centavos / 100.0 AS valor, descricao, data
+        SELECT id, tipo, valor_centavos / 100.0 AS valor, descricao, data, combustivel, litros
         FROM lancamentos
         WHERE turno_id = ?
         ORDER BY id
@@ -384,8 +456,11 @@ def exportar_turno_csv(conn: sqlite3.Connection, turno_id: int) -> str:
 
     with open(caminho, "w", newline="", encoding="utf-8") as arquivo:
         escritor = csv.writer(arquivo)
-        escritor.writerow(["id", "tipo", "valor", "descricao", "data"])
+        escritor.writerow(["id", "tipo", "valor", "descricao", "data", "combustivel", "litros"])
         for linha in linhas:
-            escritor.writerow([linha["id"], linha["tipo"], linha["valor"], linha["descricao"], linha["data"]])
+            escritor.writerow([
+                linha["id"], linha["tipo"], linha["valor"], linha["descricao"], linha["data"],
+                linha["combustivel"], linha["litros"],
+            ])
 
     return caminho
