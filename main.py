@@ -53,10 +53,10 @@ FILTRO_VALOR_MONETARIO = ft.InputFilter(
 
 def borda_all(largura, cor) -> ft.Border:
     return ft.Border(
-        left=ft.BorderSide(largura, cor),
-        right=ft.BorderSide(largura, cor),
-        top=ft.BorderSide(largura, cor),
-        bottom=ft.BorderSide(largura, cor),
+        left=ft.BorderSide(width=largura, color=cor),
+        right=ft.BorderSide(width=largura, color=cor),
+        top=ft.BorderSide(width=largura, color=cor),
+        bottom=ft.BorderSide(width=largura, color=cor),
     )
 
 def _plataforma_mobile(page: ft.Page) -> bool:
@@ -101,9 +101,9 @@ def main(page: ft.Page):
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     
     page.padding = (
-        ft.padding.only(left=16, right=16, top=8, bottom=0 if mobile else 16)
+        ft.Padding(left=16, right=16, top=8, bottom=0 if mobile else 16)
         if mobile
-        else ft.padding.only(left=20, right=20, top=54, bottom=20)
+        else ft.Padding(left=20, right=20, top=54, bottom=20)
     )
 
     if mobile:
@@ -271,7 +271,7 @@ def main(page: ft.Page):
             border_radius=radius,
             border=borda_all(1, border_color),
             padding=padding,
-            blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+            blur=ft.Blur(sigma_x=10, sigma_y=10, tile_mode=ft.BlurTileMode.MIRROR),
         )
 
     # ══════════════════════════════════════════════════════════════════
@@ -285,13 +285,13 @@ def main(page: ft.Page):
         border_radius=RADIUS,
         bgcolor=ft.Colors.with_opacity(0.10, C_BLUE),
         border=borda_all(1, ft.Colors.with_opacity(0.20, C_BLUE)),
-        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+        blur=ft.Blur(sigma_x=10, sigma_y=10, tile_mode=ft.BlurTileMode.MIRROR),
         shadow=ft.BoxShadow(
             spread_radius=0, blur_radius=15,
             color=ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
-            offset=ft.Offset(0, 4),
+            offset=ft.Offset(x=0, y=4),
         ),
-        padding=ft.padding.only(left=20, right=20, top=16, bottom=16),
+        padding=ft.Padding(left=20, right=20, top=16, bottom=16),
         content=ft.Row(
             spacing=15,
             controls=[
@@ -326,16 +326,16 @@ def main(page: ft.Page):
             bgcolor=pal.surface,
             border_radius=RADIUS_SM,
             border=borda_all(1, ft.Colors.with_opacity(0.18, cor)),
-            padding=ft.padding.only(left=14, right=14, top=13, bottom=13),
+            padding=ft.Padding(left=14, right=14, top=13, bottom=13),
             expand=True,
-            blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+            blur=ft.Blur(sigma_x=10, sigma_y=10, tile_mode=ft.BlurTileMode.MIRROR),
             shadow=ft.BoxShadow(
                 spread_radius=0, blur_radius=10,
                 color=ft.Colors.with_opacity(0.05, ft.Colors.BLACK),
-                offset=ft.Offset(0, 2),
+                offset=ft.Offset(x=0, y=2),
             ),
             scale=ft.transform.Scale(1),
-            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+            animate_scale=ft.Animation(duration=150, curve=ft.AnimationCurve.EASE_OUT),
         )
         def hover_card(e):
             e.control.scale = 1.02 if e.data == "true" else 1.0
@@ -387,13 +387,13 @@ def main(page: ft.Page):
             ],
         ),
         border=borda_all(1, ft.Colors.with_opacity(0.30, C_GREEN)),
-        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+        blur=ft.Blur(sigma_x=10, sigma_y=10, tile_mode=ft.BlurTileMode.MIRROR),
         shadow=ft.BoxShadow(
             spread_radius=0, blur_radius=15,
             color=ft.Colors.with_opacity(0.15, C_GREEN),
-            offset=ft.Offset(0, 4),
+            offset=ft.Offset(x=0, y=4),
         ),
-        padding=ft.padding.only(left=16, right=16, top=13, bottom=13),
+        padding=ft.Padding(left=16, right=16, top=13, bottom=13),
         content=ft.Row(
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -481,8 +481,8 @@ def main(page: ft.Page):
                 alignment=ft.Alignment(0, 0),
                 on_click=ao_clicar,
                 scale=ft.transform.Scale(1),
-                animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
-                animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+                animate_scale=ft.Animation(duration=150, curve=ft.AnimationCurve.EASE_OUT),
+                animate=ft.Animation(duration=150, curve=ft.AnimationCurve.EASE_OUT),
             )
             
             def hover_chip(e):
@@ -644,11 +644,11 @@ def main(page: ft.Page):
             bgcolor=cor_bg,
             border_radius=100,
             border=borda_all(1, cor_borda),
-            padding=ft.padding.only(left=16, right=16, top=9, bottom=9),
+            padding=ft.Padding(left=16, right=16, top=9, bottom=9),
             scale=ft.transform.Scale(1),
-            animate_scale=ft.Animation(200, ft.AnimationCurve.BOUNCE_OUT),
+            animate_scale=ft.Animation(duration=200, curve=ft.AnimationCurve.BOUNCE_OUT),
             on_click=on_click,
-            animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
+            animate=ft.Animation(duration=120, curve=ft.AnimationCurve.EASE_OUT),
         )
 
         def animar_hover(e):
@@ -847,8 +847,8 @@ def main(page: ft.Page):
                     bgcolor=pal.surface,
                     border_radius=RADIUS_SM,
                     border=borda_all(1, ft.Colors.with_opacity(0.14, cor)),
-                    blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
-                    padding=ft.padding.only(left=12, right=4, top=10, bottom=10),
+                    blur=ft.Blur(sigma_x=10, sigma_y=10, tile_mode=ft.BlurTileMode.MIRROR),
+                    padding=ft.Padding(left=12, right=4, top=10, bottom=10),
                 )
             )
         page.update()
@@ -886,11 +886,11 @@ def main(page: ft.Page):
             blur_radius=20,
             spread_radius=0,
             color=ft.Colors.with_opacity(0.35, "#3b82f6"),
-            offset=ft.Offset(0, 4),
+            offset=ft.Offset(x=0, y=4),
         ),
         scale=ft.transform.Scale(1),
-        animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
-        animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
+        animate_scale=ft.Animation(duration=150, curve=ft.AnimationCurve.EASE_OUT),
+        animate=ft.Animation(duration=120, curve=ft.AnimationCurve.EASE_OUT),
     )
 
     def animar_hover_lancar(e):
@@ -1081,7 +1081,7 @@ def main(page: ft.Page):
         btn_fechar = ft.TextButton("Fechar", on_click=fechar_resumo)
 
         painel_resumo = ft.Container(
-            padding=ft.padding.only(left=20, top=12, right=20, bottom=30),
+            padding=ft.Padding(left=20, top=12, right=20, bottom=30),
             bgcolor=pal.sheet_bg,
             content=ft.Column(
                 tight=True,
@@ -1411,11 +1411,11 @@ def main(page: ft.Page):
                         ),
                         bgcolor=C_GREEN,
                         border_radius=12,
-                        padding=ft.padding.only(left=24, top=16, right=24, bottom=16),
+                        padding=ft.Padding(left=24, top=16, right=24, bottom=16),
                         on_click=lambda e: solicitar_identificacao(novo_turno=True),
                         scale=ft.transform.Scale(1),
-                        animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
-                        animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
+                        animate_scale=ft.Animation(duration=150, curve=ft.AnimationCurve.EASE_OUT),
+                        animate=ft.Animation(duration=120, curve=ft.AnimationCurve.EASE_OUT),
                     ),
                     ft.Container(expand=True)
                 ]
@@ -1466,7 +1466,7 @@ def main(page: ft.Page):
         bottom_sheet_content.bgcolor = pal.sheet_bg
         if mobile and rodape_lancar is not None:
             rodape_lancar.bgcolor = pal.bg
-            rodape_lancar.border = ft.Border(top=ft.BorderSide(1, pal.border))
+            rodape_lancar.border = ft.Border(top=ft.BorderSide(width=1, color=pal.border))
             txt_rodape_resumo.color = pal.text_sec
 
         controles_scroll = [
@@ -1655,13 +1655,13 @@ def main(page: ft.Page):
             ),
             bgcolor=C_GREEN,
             border_radius=RADIUS_SM,
-            padding=ft.padding.only(left=24, top=14, right=24, bottom=14),
+            padding=ft.Padding(left=24, top=14, right=24, bottom=14),
             alignment=ft.Alignment(0, 0),
             width=240,
             on_click=lambda x: page.run_task(validar_acesso_async),
             scale=ft.transform.Scale(1),
-            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
-            animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
+            animate_scale=ft.Animation(duration=150, curve=ft.AnimationCurve.EASE_OUT),
+            animate=ft.Animation(duration=120, curve=ft.AnimationCurve.EASE_OUT),
         )
         def hover_confirmar(e):
             e.control.scale = 1.05 if e.data == "true" else 1.0
