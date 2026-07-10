@@ -319,7 +319,7 @@ def main(page: ft.Page):
     )
 
     # ══════════════════════════════════════════════════════════════════
-    # STATS GRID — Dinheiro / PIX / Cartões / Requisição / Depósito Global
+    # STATS GRID
     # ══════════════════════════════════════════════════════════════════
     def _stat_card(label: str, cor: str):
         lbl = ft.Text(label.upper(), size=12, color=pal.text_ter, weight=ft.FontWeight.W_600)
@@ -411,6 +411,7 @@ def main(page: ft.Page):
         txt_dinheiro.value      = formatar_moeda(totais.fisico)
         txt_pix.value           = formatar_moeda(totais.pix)
         txt_cartoes.value       = formatar_moeda(totais.cartoes)
+        lbl_cart.value          = f"CARTÕES ({totais.qtd_cartoes})"
         txt_requisicao.value    = formatar_moeda(totais.requisicao)
         txt_deposito_global.value = formatar_moeda(totais.deposito_global)
         txt_despesas.value        = formatar_moeda(totais.despesas)
@@ -424,7 +425,7 @@ def main(page: ft.Page):
         page.update()
 
     # ══════════════════════════════════════════════════════════════════
-    # SELETOR DE TIPO — chips estilo iOS
+    # SELETOR DE TIPO
     # ══════════════════════════════════════════════════════════════════
     def criar_seletor_tipo(valor_inicial: str):
         estado = {
@@ -655,7 +656,7 @@ def main(page: ft.Page):
     montar_botoes_rapidos()
 
     # ══════════════════════════════════════════════════════════════════
-    # LISTA HISTÓRICO (Column — evita scroll duplo no iOS)
+    # LISTA HISTÓRICO
     # ══════════════════════════════════════════════════════════════════
     col_historico = ft.Column(spacing=6, width=largura_conteudo)
 
@@ -907,18 +908,20 @@ def main(page: ft.Page):
         tamanho_fonte_titulo = 15
 
         linhas_bandeiras = []
-        for bandeira, valor in detalhe_cartoes.items():
+        for bandeira, (valor, qtd) in detalhe_cartoes.items():
             cor   = cor_tipo(bandeira)
             icone = icone_tipo(bandeira)
             
             cor_valor = pal.text_pri if valor > 0 else pal.text_ter
             peso_valor = ft.FontWeight.W_600 if valor > 0 else ft.FontWeight.NORMAL
 
+            texto_bandeira = f"{bandeira} ({qtd} un)" if qtd > 0 else bandeira
+
             linhas_bandeiras.append(
                 ft.Row([
                     ft.Icon(icone, color=cor, size=16),
                     ft.Text(
-                        bandeira, size=13, expand=True, color=pal.text_sec,
+                        texto_bandeira, size=13, expand=True, color=pal.text_sec,
                         max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
                     ),
                     ft.Text(formatar_moeda(valor), size=13, color=cor_valor, weight=peso_valor),
@@ -958,7 +961,7 @@ def main(page: ft.Page):
                 ft.Text("Detalhe de Cartões e Vouchers", size=tamanho_fonte_titulo, color=pal.text_pri, weight=ft.FontWeight.BOLD),
                 caixa_cartoes,
                 ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE, size=20),
-                        ft.Text("Total Cartões:", expand=True, size=tamanho_fonte_itens, color=pal.text_sec),
+                        ft.Text(f"Total Cartões ({totais.qtd_cartoes} un):", expand=True, size=tamanho_fonte_itens, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.cartoes), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
                 
                 ft.Divider(height=1, color=pal.border),
@@ -998,13 +1001,10 @@ def main(page: ft.Page):
         resumo        = db.montar_resumo_texto(totais, turno_atual, detalhe_cart)
         conteudo_resumo = montar_conteudo_resumo(totais, detalhe_cart)
 
-        # Referências específicas para o painel de resumo atual
         dlg_resumo = None
         sheet_resumo = None
 
         def fechar_resumo(x=None):
-            # Em vez de pedir pro sistema fechar o último aberto (que pode causar confusão),
-            # nós fechamos exatamente as referências atreladas a este botão.
             if dlg_resumo:
                 dlg_resumo.open = False
             if sheet_resumo:
@@ -1307,7 +1307,6 @@ def main(page: ft.Page):
         width=largura_conteudo,
     )
 
-    # ── Separador fino ──────────────────────────────────────────────────────
     def _divider():
         return ft.Container(height=1, bgcolor=pal.border, width=largura_conteudo)
 
@@ -1340,9 +1339,6 @@ def main(page: ft.Page):
 
         icone_tema_atual = ft.Icons.LIGHT_MODE if tema_escuro() else ft.Icons.DARK_MODE
 
-        # ==========================================
-        # 1. RENDERIZA: TELA DE CAIXA FECHADO
-        # ==========================================
         if turno_atual is None:
             btn_tema_fechado = ft.IconButton(
                 icon=icone_tema_atual,
@@ -1396,9 +1392,6 @@ def main(page: ft.Page):
             page.update()
             return
 
-        # ==========================================
-        # 2. RENDERIZA: TELA DE CAIXA ABERTO (NORMAL)
-        # ==========================================
         btn_tema.icon = icone_tema_atual
 
         txt_turno_data.color = pal.text_sec
