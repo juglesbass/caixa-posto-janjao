@@ -40,44 +40,27 @@ def _diretorio_seguro() -> str:
     # Tenta pegar a pasta oficial do Flet primeiro
     data_dir = os.environ.get("FLET_APP_STORAGE_DATA")
     if data_dir:
-<<<<<<< HEAD
         os.makedirs(data_dir, exist_ok=True)
         return data_dir
 
-=======
-        return data_dir
-        
->>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
     # Salvação para o iOS compilado: Procura a pasta Documents autorizada
     home = os.environ.get("HOME")
     if home:
         docs = os.path.join(home, "Documents")
-<<<<<<< HEAD
         if os.path.isdir(docs):
             return docs
 
     # Fallback robusto: pasta ao lado do próprio script, independente de
     # onde o processo foi iniciado (evita depender do cwd do processo).
     return os.path.dirname(os.path.abspath(__file__))
-=======
-        if os.path.exists(docs):
-            return docs
-            
-    # Fallback para quando estiver testando no Mac/Linux
-    return "."
->>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
 
 
 def caminho_banco() -> str:
     if custom := os.environ.get("CAIXA_DB_PATH"):
         return custom
-<<<<<<< HEAD
     pasta = _diretorio_seguro()
     os.makedirs(pasta, exist_ok=True)
     return os.path.join(pasta, "meu_caixa.db")
-=======
-    return os.path.join(_diretorio_seguro(), "meu_caixa.db")
->>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
 
 
 def caminho_backups() -> str:
@@ -228,11 +211,7 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
         (turno_id,),
     )
     resultados = cursor.fetchall()
-<<<<<<< HEAD
 
-=======
-    
->>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
     totais_centavos = {linha[0]: (linha[1] or 0) for linha in resultados}
     totais_qtd = {linha[0]: linha[2] for linha in resultados}
 
@@ -241,17 +220,10 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
     requisicao = totais_centavos.get(TIPO_REQUISICAO, 0) / 100.0
     deposito_global = totais_centavos.get(TIPO_DEPOSITO_GLOBAL, 0) / 100.0
     despesas = totais_centavos.get(TIPO_DESPESA, 0) / 100.0
-<<<<<<< HEAD
 
     total_cartoes = sum(totais_centavos.get(cartao, 0) for cartao in LISTA_CARTOES) / 100.0
     qtd_cartoes = sum(totais_qtd.get(cartao, 0) for cartao in LISTA_CARTOES)
 
-=======
-    
-    total_cartoes = sum(totais_centavos.get(cartao, 0) for cartao in LISTA_CARTOES) / 100.0
-    qtd_cartoes = sum(totais_qtd.get(cartao, 0) for cartao in LISTA_CARTOES)
-    
->>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
     fisico = dinheiro
 
     return Totais(
@@ -273,17 +245,10 @@ def obter_detalhe_cartoes(conn: sqlite3.Connection, turno_id: int) -> dict[str, 
         (turno_id,),
     )
     resultados = cursor.fetchall()
-<<<<<<< HEAD
 
     totais_centavos = {linha[0]: (linha[1] or 0) for linha in resultados}
     totais_qtd = {linha[0]: linha[2] for linha in resultados}
 
-=======
-    
-    totais_centavos = {linha[0]: (linha[1] or 0) for linha in resultados}
-    totais_qtd = {linha[0]: linha[2] for linha in resultados}
-    
->>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
     return {
         cartao: (
             totais_centavos.get(cartao, 0) / 100.0,
