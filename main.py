@@ -13,7 +13,11 @@ def criar_paleta(escuro: bool) -> SimpleNamespace:
             surface=ft.Colors.with_opacity(0.06, ft.Colors.WHITE),
             border=ft.Colors.with_opacity(0.11, ft.Colors.WHITE),
             border_strong=ft.Colors.with_opacity(0.35, ft.Colors.WHITE),
+<<<<<<< HEAD
             text_pri="#e2e8f0",
+=======
+            text_pri="#e2e8f0", 
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
             text_sec=ft.Colors.with_opacity(0.80, "#e2e8f0"),
             text_ter=ft.Colors.with_opacity(0.65, "#e2e8f0"),
             sheet_bg=ft.Colors.with_opacity(0.97, "#1c1c1e"),
@@ -290,7 +294,11 @@ def main(page: ft.Page):
             color=ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
             offset=ft.Offset(0, 4),
         ),
+<<<<<<< HEAD
         padding=ft.Padding(left=20, right=20, top=16, bottom=16),
+=======
+        padding=ft.Padding.only(left=20, right=20, top=16, bottom=16),
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
         content=ft.Row(
             spacing=15,
             controls=[
@@ -325,7 +333,11 @@ def main(page: ft.Page):
             bgcolor=pal.surface,
             border_radius=RADIUS_SM,
             border=borda_all(1, ft.Colors.with_opacity(0.18, cor)),
+<<<<<<< HEAD
             padding=ft.Padding(left=14, right=14, top=13, bottom=13),
+=======
+            padding=ft.Padding.only(left=14, right=14, top=13, bottom=13),
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
             expand=True,
             blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
             shadow=ft.BoxShadow(
@@ -333,14 +345,22 @@ def main(page: ft.Page):
                 color=ft.Colors.with_opacity(0.05, ft.Colors.BLACK),
                 offset=ft.Offset(0, 2),
             ),
+<<<<<<< HEAD
             scale=ft.Scale(scale=1),
+=======
+            scale=ft.transform.Scale(1),
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
             animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
         )
         def hover_card(e):
             e.control.scale = 1.02 if e.data == "true" else 1.0
             e.control.update()
         card.on_hover = hover_card
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
         return card, txt, lbl
 
     stat_din_card, txt_dinheiro, lbl_din = _stat_card("Dinheiro", C_GREEN)
@@ -428,10 +448,17 @@ def main(page: ft.Page):
         txt_deposito_global.value = formatar_moeda(totais.deposito_global)
         txt_despesas.value        = formatar_moeda(totais.despesas)
         txt_total_geral.value   = formatar_moeda(totais.total_geral)
+<<<<<<< HEAD
 
         txt_operador_nome.value = f"Operador(a): {turno_atual.operador}"
         txt_turno_data.value    = f"Turno #{turno_atual.id} · Aberto em: {turno_atual.aberto_em}"
 
+=======
+        
+        txt_operador_nome.value = f"Operador(a): {turno_atual.operador}"
+        txt_turno_data.value    = f"Turno #{turno_atual.id} · Aberto em: {turno_atual.aberto_em}"
+        
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
         if mobile:
             txt_rodape_resumo.value = f"Total geral · {formatar_moeda(totais.total_geral)}"
         page.update()
@@ -479,10 +506,32 @@ def main(page: ft.Page):
                 expand=True,
                 alignment=ft.Alignment(0, 0),
                 on_click=ao_clicar,
+<<<<<<< HEAD
                 scale=ft.Scale(scale=1),
+=======
+                scale=ft.transform.Scale(1),
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
                 animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
                 animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             )
+            
+            def hover_chip(e):
+                e.control.scale = 1.05 if e.data == "true" else 1.0
+                e.control.update()
+                
+            container.on_hover = hover_chip
+            registro_chips[chave] = (container, icone_ctrl, texto_ctrl)
+            return container
+
+        def _chip(tipo: str):
+            selecionado = tipo == estado["valor"]
+            return _montar_chip(
+                tipo, tipo, selecionado, lambda e, t=tipo: selecionar(t)
+            )
+
+        def _chip_cartao():
+            selecionado = estado["valor"] in db.LISTA_CARTOES
+            return _montar_chip("__cartao__", "Cartão", selecionado, _alternar_cartao)
 
             def hover_chip(e):
                 e.control.scale = 1.05 if e.data == "true" else 1.0
@@ -637,14 +686,23 @@ def main(page: ft.Page):
         cor_borda = ft.Colors.with_opacity(0.35, C_GREEN) if is_completou else pal.border_strong
         cor_texto = C_GREEN if is_completou else pal.text_sec
         cor_bg    = ft.Colors.with_opacity(0.10, C_GREEN) if is_completou else pal.surface
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
         container = ft.Container(
             content=ft.Text(label, size=14, color=cor_texto, weight=ft.FontWeight.W_500),
             bgcolor=cor_bg,
             border_radius=100,
             border=borda_all(1, cor_borda),
+<<<<<<< HEAD
             padding=ft.Padding(left=16, right=16, top=9, bottom=9),
             scale=ft.Scale(scale=1),
+=======
+            padding=ft.Padding.only(left=16, right=16, top=9, bottom=9),
+            scale=ft.transform.Scale(1),
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
             animate_scale=ft.Animation(200, ft.AnimationCurve.BOUNCE_OUT),
             on_click=on_click,
             animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
@@ -847,7 +905,11 @@ def main(page: ft.Page):
                     border_radius=RADIUS_SM,
                     border=borda_all(1, ft.Colors.with_opacity(0.14, cor)),
                     blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+<<<<<<< HEAD
                     padding=ft.Padding(left=12, right=4, top=10, bottom=10),
+=======
+                    padding=ft.Padding.only(left=12, right=4, top=10, bottom=10),
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
                 )
             )
         page.update()
@@ -887,7 +949,11 @@ def main(page: ft.Page):
             color=ft.Colors.with_opacity(0.35, "#3b82f6"),
             offset=ft.Offset(0, 4),
         ),
+<<<<<<< HEAD
         scale=ft.Scale(scale=1),
+=======
+        scale=ft.transform.Scale(1),
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
         animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
         animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
     )
@@ -896,7 +962,11 @@ def main(page: ft.Page):
         if btn_lancar.opacity != 0.5:
             e.control.scale = 1.02 if e.data == "true" else 1.0
             e.control.update()
+<<<<<<< HEAD
 
+=======
+            
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
     btn_lancar.on_hover = animar_hover_lancar
 
     def acao_lancar(e=None):
@@ -951,7 +1021,11 @@ def main(page: ft.Page):
         for bandeira, (valor, qtd) in detalhe_cartoes.items():
             cor   = cor_tipo(bandeira)
             icone = icone_tipo(bandeira)
+<<<<<<< HEAD
 
+=======
+            
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
             cor_valor = pal.text_pri if valor > 0 else pal.text_ter
             peso_valor = ft.FontWeight.W_600 if valor > 0 else ft.FontWeight.NORMAL
 
@@ -983,26 +1057,44 @@ def main(page: ft.Page):
                     ft.Text(f"Aberto em: {turno_atual.aberto_em}",
                             size=13, color=pal.text_ter),
                 ]),
+<<<<<<< HEAD
 
                 ft.Divider(height=1, color=pal.border),
 
+=======
+                
+                ft.Divider(height=1, color=pal.border),
+                
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
                 ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN, size=20),
                         ft.Text("Dinheiro (físico):", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.fisico), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
                 ft.Row([ft.Icon(ft.Icons.PIX, color=C_BLUE, size=20),
                         ft.Text("Total PIX:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.pix), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+<<<<<<< HEAD
 
                 ft.Divider(height=1, color=pal.border),
 
+=======
+                
+                ft.Divider(height=1, color=pal.border),
+                
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
                 ft.Text("Detalhe de Cartões e Vouchers", size=tamanho_fonte_titulo, color=pal.text_pri, weight=ft.FontWeight.BOLD),
                 caixa_cartoes,
                 ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE, size=20),
                         ft.Text(f"Total Cartões ({totais.qtd_cartoes} un):", expand=True, size=tamanho_fonte_itens, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.cartoes), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+<<<<<<< HEAD
 
                 ft.Divider(height=1, color=pal.border),
 
+=======
+                
+                ft.Divider(height=1, color=pal.border),
+                
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
                 ft.Row([ft.Icon(ft.Icons.RECEIPT_LONG, color=C_PURPLE, size=20),
                         ft.Text("Requisição:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.requisicao), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
@@ -1012,9 +1104,15 @@ def main(page: ft.Page):
                 ft.Row([ft.Icon(ft.Icons.MONEY_OFF, color=C_RED, size=20),
                         ft.Text("Despesas:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.despesas), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+<<<<<<< HEAD
 
                 ft.Divider(height=6, color=pal.border),
 
+=======
+                
+                ft.Divider(height=6, color=pal.border),
+                
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
                 ft.Container(
                     bgcolor=ft.Colors.with_opacity(0.10, C_GREEN),
                     border_radius=RADIUS_SM,
@@ -1412,7 +1510,11 @@ def main(page: ft.Page):
                         border_radius=12,
                         padding=ft.Padding(24, 16, 24, 16),
                         on_click=lambda e: solicitar_identificacao(novo_turno=True),
+<<<<<<< HEAD
                         scale=ft.Scale(scale=1),
+=======
+                        scale=ft.transform.Scale(1),
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
                         animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
                         animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
                     ),
@@ -1440,7 +1542,11 @@ def main(page: ft.Page):
 
         txt_turno_data.color = pal.text_sec
         txt_operador_nome.color = pal.text_pri
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
         for card, lbl in (
             (stat_din_card, lbl_din),
             (stat_pix_card, lbl_pix),
@@ -1451,7 +1557,11 @@ def main(page: ft.Page):
         ):
             card.bgcolor = pal.surface
             lbl.color = pal.text_ter
+<<<<<<< HEAD
 
+=======
+            
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
         txt_total_geral_label.color = pal.text_pri
         txt_header_titulo.color = pal.text_pri
         btn_tema.icon_color = pal.text_sec
@@ -1658,7 +1768,11 @@ def main(page: ft.Page):
             alignment=ft.Alignment(0, 0),
             width=240,
             on_click=lambda x: page.run_task(validar_acesso_async),
+<<<<<<< HEAD
             scale=ft.Scale(scale=1),
+=======
+            scale=ft.transform.Scale(1),
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
             animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
         )
@@ -1706,9 +1820,16 @@ def main_seguro(page: ft.Page):
 
 if __name__ == "__main__":
     if _app_mobile():
+<<<<<<< HEAD
         # No celular, usamos ft.run(...)
+=======
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
         ft.run(main_seguro)
     else:
         # No computador, definimos a porta e o view
         porta = int(os.environ.get("PORT", 5000))
+<<<<<<< HEAD
         ft.run(main_seguro, port=porta, host="0.0.0.0")
+=======
+        ft.run(main_seguro, view=ft.AppView.WEB_BROWSER, port=porta, host="0.0.0.0")
+>>>>>>> 771492ad4e90d677f8fea2603d721ac62b866edc
