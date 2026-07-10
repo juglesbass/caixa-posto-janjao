@@ -13,7 +13,6 @@ def criar_paleta(escuro: bool) -> SimpleNamespace:
             surface=ft.Colors.with_opacity(0.06, ft.Colors.WHITE),
             border=ft.Colors.with_opacity(0.11, ft.Colors.WHITE),
             border_strong=ft.Colors.with_opacity(0.35, ft.Colors.WHITE),
-            # Fonte cinza clara para reduzir cansaço visual noturno
             text_pri="#e2e8f0", 
             text_sec=ft.Colors.with_opacity(0.80, "#e2e8f0"),
             text_ter=ft.Colors.with_opacity(0.65, "#e2e8f0"),
@@ -285,8 +284,8 @@ def main(page: ft.Page):
         border_radius=RADIUS,
         bgcolor=ft.Colors.with_opacity(0.10, C_BLUE),
         border=borda_all(1, ft.Colors.with_opacity(0.20, C_BLUE)),
-        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR), # Efeito Glass
-        shadow=ft.BoxShadow( # Sombra Suave
+        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+        shadow=ft.BoxShadow(
             spread_radius=0, blur_radius=15,
             color=ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
             offset=ft.Offset(0, 4),
@@ -328,8 +327,8 @@ def main(page: ft.Page):
             border=borda_all(1, ft.Colors.with_opacity(0.18, cor)),
             padding=ft.Padding.only(left=14, right=14, top=13, bottom=13),
             expand=True,
-            blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR), # Efeito Glass
-            shadow=ft.BoxShadow( # Sombra flutuante menor
+            blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+            shadow=ft.BoxShadow(
                 spread_radius=0, blur_radius=10,
                 color=ft.Colors.with_opacity(0.05, ft.Colors.BLACK),
                 offset=ft.Offset(0, 2),
@@ -337,7 +336,6 @@ def main(page: ft.Page):
             scale=ft.transform.Scale(1),
             animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
         )
-        # Animação ao passar o mouse por cima
         def hover_card(e):
             e.control.scale = 1.02 if e.data == "true" else 1.0
             e.control.update()
@@ -388,8 +386,8 @@ def main(page: ft.Page):
             ],
         ),
         border=borda_all(1, ft.Colors.with_opacity(0.30, C_GREEN)),
-        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR), # Efeito Glass
-        shadow=ft.BoxShadow( # Sombra colorida linda!
+        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+        shadow=ft.BoxShadow(
             spread_radius=0, blur_radius=15,
             color=ft.Colors.with_opacity(0.15, C_GREEN),
             offset=ft.Offset(0, 4),
@@ -486,7 +484,6 @@ def main(page: ft.Page):
                 animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             )
             
-            # Animação ao passar o mouse
             def hover_chip(e):
                 e.control.scale = 1.05 if e.data == "true" else 1.0
                 e.control.update()
@@ -849,7 +846,7 @@ def main(page: ft.Page):
                     bgcolor=pal.surface,
                     border_radius=RADIUS_SM,
                     border=borda_all(1, ft.Colors.with_opacity(0.14, cor)),
-                    blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR), # Efeito Glass
+                    blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
                     padding=ft.Padding.only(left=12, right=4, top=10, bottom=10),
                 )
             )
@@ -884,7 +881,7 @@ def main(page: ft.Page):
         height=56,
         width=largura_conteudo,
         alignment=ft.Alignment(0, 0),
-        shadow=ft.BoxShadow( # Sombra Glow
+        shadow=ft.BoxShadow(
             blur_radius=20,
             spread_radius=0,
             color=ft.Colors.with_opacity(0.35, "#3b82f6"),
@@ -1423,7 +1420,6 @@ def main(page: ft.Page):
                 ]
             )
 
-            # Animação do botão "Abrir Novo Turno"
             def hover_btn_abrir(e):
                 e.control.scale = 1.05 if e.data == "true" else 1.0
                 e.control.update()
@@ -1666,7 +1662,6 @@ def main(page: ft.Page):
             animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
         )
-        # Animação no botão entrar
         def hover_confirmar(e):
             e.control.scale = 1.05 if e.data == "true" else 1.0
             e.control.update()
@@ -1691,9 +1686,27 @@ def main(page: ft.Page):
     else:
         solicitar_identificacao(novo_turno=False)
 
+# ---------------------------------------------------------
+# ESCUDO ANTI-TELA PRETA (Para debug em iOS Sandboxed)
+# ---------------------------------------------------------
+def main_seguro(page: ft.Page):
+    try:
+        main(page)
+    except Exception as e:
+        import traceback
+        page.clean()
+        page.bgcolor = ft.Colors.WHITE
+        page.scroll = ft.ScrollMode.AUTO
+        page.add(
+            ft.Text("ERRO FATAL NO APLICATIVO", color=ft.Colors.RED_900, size=20, weight="bold"),
+            ft.Text(str(e), color=ft.Colors.RED_700, size=16),
+            ft.Text(traceback.format_exc(), color=ft.Colors.BLACK, selectable=True, size=12)
+        )
+        page.update()
+
 if __name__ == "__main__":
     if _app_mobile():
-        ft.run(main)
+        ft.run(main_seguro)
     else:
         porta = int(os.environ.get("PORT", 5000))
-        ft.run(main, view=ft.AppView.WEB_BROWSER, port=porta, host="0.0.0.0")
+        ft.run(main_seguro, view=ft.AppView.WEB_BROWSER, port=porta, host="0.0.0.0")
