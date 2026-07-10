@@ -36,24 +36,35 @@ TIPOS_DROPDOWN = [
 ]
 
 
-def _diretorio_dados_app() -> str | None:
-    return os.environ.get("FLET_APP_STORAGE_DATA") or None
+def _diretorio_seguro() -> str:
+    # Tenta pegar a pasta oficial do Flet primeiro
+    data_dir = os.environ.get("FLET_APP_STORAGE_DATA")
+    if data_dir:
+        return data_dir
+        
+    # Salvação para o iOS compilado: Procura a pasta Documents autorizada
+    home = os.environ.get("HOME")
+    if home:
+        docs = os.path.join(home, "Documents")
+        if os.path.exists(docs):
+            return docs
+            
+    # Fallback para quando estiver testando no Mac/Linux
+    return "."
 
 
 def caminho_banco() -> str:
     if custom := os.environ.get("CAIXA_DB_PATH"):
         return custom
-    if data_dir := _diretorio_dados_app():
-        return os.path.join(data_dir, "meu_caixa.db")
-    return "meu_caixa.db"
+    return os.path.join(_diretorio_seguro(), "meu_caixa.db")
 
 
 def caminho_backups() -> str:
     if custom := os.environ.get("CAIXA_BACKUP_DIR"):
         return custom
-    if data_dir := _diretorio_dados_app():
-        return os.path.join(data_dir, "backups")
-    return "backups"
+    pasta = os.path.join(_diretorio_seguro(), "backups")
+    os.makedirs(pasta, exist_ok=True)
+    return pasta
 
 
 def formatar_moeda(valor: float) -> str:
