@@ -1,14 +1,10 @@
 import os
 from types import SimpleNamespace
-
 import flet as ft
-
 import db
-
 
 def _app_mobile() -> bool:
     return os.environ.get("FLET_PLATFORM", "") in ("ios", "android")
-
 
 def criar_paleta(escuro: bool) -> SimpleNamespace:
     if escuro:
@@ -17,9 +13,9 @@ def criar_paleta(escuro: bool) -> SimpleNamespace:
             surface=ft.Colors.with_opacity(0.06, ft.Colors.WHITE),
             border=ft.Colors.with_opacity(0.11, ft.Colors.WHITE),
             border_strong=ft.Colors.with_opacity(0.35, ft.Colors.WHITE),
-            text_pri="#f2f2f7",
-            text_sec=ft.Colors.with_opacity(0.80, "#f2f2f7"),
-            text_ter=ft.Colors.with_opacity(0.65, "#f2f2f7"),
+            text_pri="#e2e8f0",
+            text_sec=ft.Colors.with_opacity(0.80, "#e2e8f0"),
+            text_ter=ft.Colors.with_opacity(0.65, "#e2e8f0"),
             sheet_bg=ft.Colors.with_opacity(0.97, "#1c1c1e"),
         )
     return SimpleNamespace(
@@ -33,10 +29,7 @@ def criar_paleta(escuro: bool) -> SimpleNamespace:
         sheet_bg=ft.Colors.WHITE,
     )
 
-
 # ── Acentos (funcionam em ambos os temas) ──────────────────────────────────
-
-# Acento por categoria
 C_GREEN   = "#34d399"
 C_BLUE    = "#60a5fa"
 C_PURPLE  = "#a78bfa"
@@ -58,6 +51,13 @@ FILTRO_VALOR_MONETARIO = ft.InputFilter(
     replacement_string="",
 )
 
+def borda_all(largura, cor) -> ft.Border:
+    return ft.Border(
+        left=ft.BorderSide(largura, cor),
+        right=ft.BorderSide(largura, cor),
+        top=ft.BorderSide(largura, cor),
+        bottom=ft.BorderSide(largura, cor),
+    )
 
 def _plataforma_mobile(page: ft.Page) -> bool:
     if os.environ.get("FLET_PLATFORM", "") in ("ios", "android"):
@@ -67,12 +67,10 @@ def _plataforma_mobile(page: ft.Page) -> bool:
         return plat.is_mobile()
     return False
 
-
 def _plataforma_ios(page: ft.Page) -> bool:
     if os.environ.get("FLET_PLATFORM", "") == "ios":
         return True
     return getattr(page, "platform", None) == ft.PagePlatform.IOS
-
 
 def main(page: ft.Page):
     mobile = _plataforma_mobile(page)
@@ -102,9 +100,9 @@ def main(page: ft.Page):
     page.scroll = ft.ScrollMode.HIDDEN if mobile else ft.ScrollMode.AUTO
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.padding = (
-        ft.Padding.only(left=16, right=16, top=8, bottom=0 if mobile else 16)
+        ft.Padding(left=16, right=16, top=8, bottom=0 if mobile else 16)
         if mobile
-        else ft.Padding.only(left=20, right=20, top=54, bottom=20)
+        else ft.Padding(left=20, right=20, top=54, bottom=20)
     )
 
     if mobile:
@@ -113,10 +111,8 @@ def main(page: ft.Page):
                 await page.set_allowed_device_orientations([ft.DeviceOrientation.PORTRAIT_UP])
             except Exception:
                 pass
-
         page.run_task(fixar_retrato)
 
-    # ── Feedback tátil / compartilhamento nativo (com fallback seguro) ──────
     def _registrar_servico(ctrl):
         try:
             if hasattr(page, "services"):
@@ -135,8 +131,6 @@ def main(page: ft.Page):
         except Exception:
             haptic_feedback = None
 
-    # Share funciona em mobile e também em navegadores modernos (Web Share API),
-    # por isso é registrado independente de `mobile` — com fallback para clipboard.
     try:
         compartilhar_servico = ft.Share()
         _registrar_servico(compartilhar_servico)
@@ -161,17 +155,11 @@ def main(page: ft.Page):
     db.inicializar_banco(conn)
     turno_atual = None
 
-    # Rodapé fixo com o botão "Lançar" (mobile). Só existe quando o
-    # Caixa está Aberto; começa como None para evitar UnboundLocalError
-    # quando funções como aplicar_largura()/aplicar_paleta_ui() rodam
-    # em qualquer estado (inclusive Caixa Fechado).
     rodape_lancar = None
-
     pin_configurado = os.environ.get("CAIXA_PIN", "").strip()
     autenticado = not pin_configurado
     largura_conteudo = 380
 
-    # ── Conexão viva ────────────────────────────────────────────────────────
     def garantir_conexao():
         nonlocal conn
         try:
@@ -195,15 +183,13 @@ def main(page: ft.Page):
             input_valor.width = w
             input_desc.width = w
             row_botoes_rapidos.width = w
-            col_agrupada.width = w
             col_historico.width = w
             btn_lancar.width = w
             if mobile and rodape_lancar is not None:
                 rodape_lancar.width = w
-            hero_card.width = w
+            info_turno_card.width = w
             total_geral_card.width = w
             stats_grid.width = w
-            txt_turno.width = w
         page.update()
 
     def mostrar_snackbar(mensagem: str, cor=ft.Colors.GREEN_700):
@@ -243,7 +229,6 @@ def main(page: ft.Page):
         if tipo in db.TIPOS_DROPDOWN:
             storage_set("caixa_ultimo_tipo", tipo)
 
-    # ── Mapa de cores / ícones por tipo ────────────────────────────────────
     CORES = {
         db.TIPO_DINHEIRO:        C_GREEN,
         db.TIPO_PIX:             C_BLUE,
@@ -278,75 +263,56 @@ def main(page: ft.Page):
     def formatar_moeda(valor: float) -> str:
         return db.formatar_moeda(valor)
 
-    # ── Helper: container vidro ─────────────────────────────────────────────
     def glass_container(content, padding=16, radius=RADIUS_SM, border_color=pal.border, bgcolor=pal.surface):
         return ft.Container(
             content=content,
             bgcolor=bgcolor,
             border_radius=radius,
-            border=ft.Border(
-                left=ft.BorderSide(1, border_color),
-                right=ft.BorderSide(1, border_color),
-                top=ft.BorderSide(1, border_color),
-                bottom=ft.BorderSide(1, border_color),
-            ),
+            border=borda_all(1, border_color),
             padding=padding,
+            blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
         )
 
     # ══════════════════════════════════════════════════════════════════
-    # HERO — Dinheiro físico
+    # INFORMAÇÕES DO TURNO
     # ══════════════════════════════════════════════════════════════════
-    txt_fisico_label = ft.Text(
-        "💵  Físico na Carteira",
-        size=13,
-        color=pal.text_sec,
-        weight=ft.FontWeight.W_500,
-    )
-    txt_fisico = ft.Text(
-        "R$ 0,00",
-        size=52,
-        weight=ft.FontWeight.BOLD,
-        color=C_GREEN,
-        font_family="SF Pro Display",
-    )
-    txt_turno = ft.Text(
-        "",
-        size=13,
-        color=pal.text_sec,
-        width=largura_conteudo,
-    )
+    txt_operador_nome = ft.Text("", size=18, weight=ft.FontWeight.BOLD, color=C_BLUE)
+    txt_turno_data = ft.Text("", size=13)
 
-    hero_card = ft.Container(
+    info_turno_card = ft.Container(
         width=largura_conteudo,
         border_radius=RADIUS,
-        border=ft.Border(
-            left=ft.BorderSide(1, ft.Colors.with_opacity(0.22, C_GREEN)),
-            right=ft.BorderSide(1, ft.Colors.with_opacity(0.22, C_GREEN)),
-            top=ft.BorderSide(1, ft.Colors.with_opacity(0.35, C_GREEN)),
-            bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.12, C_GREEN)),
+        bgcolor=ft.Colors.with_opacity(0.10, C_BLUE),
+        border=borda_all(1, ft.Colors.with_opacity(0.20, C_BLUE)),
+        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+        shadow=ft.BoxShadow(
+            spread_radius=0, blur_radius=15,
+            color=ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
+            offset=ft.Offset(0, 4),
         ),
-        gradient=ft.LinearGradient(
-            begin=ft.Alignment(-1, -1),
-            end=ft.Alignment(1, 1),
-            colors=[
-                ft.Colors.with_opacity(0.16, C_GREEN),
-                ft.Colors.with_opacity(0.06, C_GREEN),
-                ft.Colors.with_opacity(0.08, C_BLUE),
-            ],
-        ),
-        padding=ft.Padding.only(left=20, right=20, top=22, bottom=18),
-        content=ft.Column(
-            spacing=4,
+        padding=ft.Padding(left=20, right=20, top=16, bottom=16),
+        content=ft.Row(
+            spacing=15,
             controls=[
-                txt_fisico_label,
-                txt_fisico,
-                txt_turno,
-            ],
-        ),
+                ft.Container(
+                    content=ft.Icon(ft.Icons.PERSON, color=C_BLUE, size=24),
+                    bgcolor=ft.Colors.with_opacity(0.15, C_BLUE),
+                    padding=12,
+                    border_radius=50,
+                ),
+                ft.Column(
+                    spacing=2,
+                    controls=[
+                        txt_operador_nome,
+                        txt_turno_data,
+                    ]
+                )
+            ]
+        )
     )
 
     # ══════════════════════════════════════════════════════════════════
-    # STATS GRID — PIX / Cartões / Requisição / Depósito
+    # STATS GRID
     # ══════════════════════════════════════════════════════════════════
     def _stat_card(label: str, cor: str):
         lbl = ft.Text(label.upper(), size=12, color=pal.text_ter, weight=ft.FontWeight.W_600)
@@ -358,17 +324,26 @@ def main(page: ft.Page):
             ),
             bgcolor=pal.surface,
             border_radius=RADIUS_SM,
-            border=ft.Border(
-                left=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
-                right=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
-                top=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
-                bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.18, cor)),
-            ),
-            padding=ft.Padding.only(left=14, right=14, top=13, bottom=13),
+            border=borda_all(1, ft.Colors.with_opacity(0.18, cor)),
+            padding=ft.Padding(left=14, right=14, top=13, bottom=13),
             expand=True,
+            blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+            shadow=ft.BoxShadow(
+                spread_radius=0, blur_radius=10,
+                color=ft.Colors.with_opacity(0.05, ft.Colors.BLACK),
+                offset=ft.Offset(0, 2),
+            ),
+            scale=ft.Scale(scale=1),
+            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
         )
+        def hover_card(e):
+            e.control.scale = 1.02 if e.data == "true" else 1.0
+            e.control.update()
+        card.on_hover = hover_card
+
         return card, txt, lbl
 
+    stat_din_card, txt_dinheiro, lbl_din = _stat_card("Dinheiro", C_GREEN)
     stat_pix_card, txt_pix, lbl_pix = _stat_card("PIX", C_BLUE)
     stat_cart_card, txt_cartoes, lbl_cart = _stat_card("Cartões", C_ORANGE)
     stat_req_card, txt_requisicao, lbl_req = _stat_card("Requisição", C_PURPLE)
@@ -379,9 +354,9 @@ def main(page: ft.Page):
         spacing=10,
         width=largura_conteudo,
         controls=[
-            ft.Row(spacing=10, controls=[stat_pix_card, stat_cart_card]),
-            ft.Row(spacing=10, controls=[stat_req_card, stat_dep_card]),
-            ft.Row(spacing=10, controls=[stat_desp_card]),
+            ft.Row(spacing=10, controls=[stat_din_card, stat_pix_card]),
+            ft.Row(spacing=10, controls=[stat_cart_card, stat_req_card]),
+            ft.Row(spacing=10, controls=[stat_dep_card, stat_desp_card]),
         ],
     )
 
@@ -410,13 +385,14 @@ def main(page: ft.Page):
                 ft.Colors.with_opacity(0.08, C_GREEN),
             ],
         ),
-        border=ft.Border(
-            left=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
-            right=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
-            top=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
-            bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.30, C_GREEN)),
+        border=borda_all(1, ft.Colors.with_opacity(0.30, C_GREEN)),
+        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+        shadow=ft.BoxShadow(
+            spread_radius=0, blur_radius=15,
+            color=ft.Colors.with_opacity(0.15, C_GREEN),
+            offset=ft.Offset(0, 4),
         ),
-        padding=ft.Padding.only(left=16, right=16, top=13, bottom=13),
+        padding=ft.Padding(left=16, right=16, top=13, bottom=13),
         content=ft.Row(
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -444,93 +420,148 @@ def main(page: ft.Page):
             return
 
         totais = db.obter_totais(conn, turno_atual.id)
-        txt_fisico.value        = formatar_moeda(totais.fisico)
+        txt_dinheiro.value      = formatar_moeda(totais.fisico)
         txt_pix.value           = formatar_moeda(totais.pix)
         txt_cartoes.value       = formatar_moeda(totais.cartoes)
+        lbl_cart.value          = f"CARTÕES ({totais.qtd_cartoes})"
         txt_requisicao.value    = formatar_moeda(totais.requisicao)
         txt_deposito_global.value = formatar_moeda(totais.deposito_global)
         txt_despesas.value        = formatar_moeda(totais.despesas)
         txt_total_geral.value   = formatar_moeda(totais.total_geral)
-        txt_turno.value         = f"Turno #{turno_atual.id} · Operador(a): {turno_atual.operador} · {turno_atual.aberto_em}"
+
+        txt_operador_nome.value = f"Operador(a): {turno_atual.operador}"
+        txt_turno_data.value    = f"Turno #{turno_atual.id} · Aberto em: {turno_atual.aberto_em}"
+
         if mobile:
             txt_rodape_resumo.value = f"Total geral · {formatar_moeda(totais.total_geral)}"
         page.update()
 
     # ══════════════════════════════════════════════════════════════════
-    # SELETOR DE TIPO — chips estilo iOS
+    # SELETOR DE TIPO
     # ══════════════════════════════════════════════════════════════════
     def criar_seletor_tipo(valor_inicial: str):
-        estado = {"valor": valor_inicial}
+        estado = {
+            "valor": valor_inicial,
+            "mostrar_bandeiras": valor_inicial in db.LISTA_CARTOES,
+        }
         seletor_col = ft.Column(spacing=8, width=largura_conteudo)
+        registro_chips = {}
 
-        def _chip(tipo: str):
-            cor = cor_tipo(tipo)
-            icone = icone_tipo(tipo)
-            selecionado = tipo == estado["valor"]
+        def _estilo(chave: str, selecionado: bool):
+            cor = cor_tipo(chave)
+            return {
+                "bgcolor": cor if selecionado else ft.Colors.with_opacity(0.12, cor),
+                "border": borda_all(
+                    1.5 if selecionado else 1,
+                    cor if selecionado else ft.Colors.with_opacity(0.35, cor),
+                ),
+                "cor_conteudo": ft.Colors.WHITE if selecionado else cor,
+                "peso_texto": ft.FontWeight.W_600 if selecionado else ft.FontWeight.W_500,
+            }
 
-            return ft.Container(
+        def _montar_chip(chave: str, rotulo: str, selecionado: bool, ao_clicar):
+            estilo = _estilo(chave, selecionado)
+            icone_ctrl = ft.Icon(icone_tipo(chave), size=14, color=estilo["cor_conteudo"])
+            texto_ctrl = ft.Text(
+                rotulo, size=12, color=estilo["cor_conteudo"], weight=estilo["peso_texto"]
+            )
+            container = ft.Container(
                 content=ft.Row(
                     spacing=6,
                     tight=True,
                     alignment=ft.MainAxisAlignment.CENTER,
-                    controls=[
-                        ft.Icon(
-                            icone,
-                            size=14,
-                            color=ft.Colors.WHITE if selecionado else cor,
-                        ),
-                        ft.Text(
-                            tipo,
-                            size=12,
-                            color=ft.Colors.WHITE if selecionado else cor,
-                            weight=ft.FontWeight.W_600 if selecionado else ft.FontWeight.W_500,
-                        ),
-                    ],
+                    controls=[icone_ctrl, texto_ctrl],
                 ),
-                bgcolor=cor if selecionado else ft.Colors.with_opacity(0.12, cor),
+                bgcolor=estilo["bgcolor"],
                 border_radius=RADIUS_SM,
-                border=ft.Border(
-                    left=ft.BorderSide(1.5 if selecionado else 1,
-                                       cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
-                    right=ft.BorderSide(1.5 if selecionado else 1,
-                                        cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
-                    top=ft.BorderSide(1.5 if selecionado else 1,
-                                      cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
-                    bottom=ft.BorderSide(1.5 if selecionado else 1,
-                                         cor if selecionado else ft.Colors.with_opacity(0.35, cor)),
-                ),
+                border=estilo["border"],
                 height=46,
                 expand=True,
                 alignment=ft.Alignment(0, 0),
-                on_click=lambda e, t=tipo: selecionar(t),
+                on_click=ao_clicar,
+                scale=ft.Scale(scale=1),
+                animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
                 animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             )
+
+            def hover_chip(e):
+                e.control.scale = 1.05 if e.data == "true" else 1.0
+                e.control.update()
+
+            container.on_hover = hover_chip
+            registro_chips[chave] = (container, icone_ctrl, texto_ctrl)
+            return container
+
+        def _chip(tipo: str):
+            selecionado = tipo == estado["valor"]
+            return _montar_chip(
+                tipo, tipo, selecionado, lambda e, t=tipo: selecionar(t)
+            )
+
+        def _chip_cartao():
+            selecionado = estado["valor"] in db.LISTA_CARTOES
+            return _montar_chip("__cartao__", "Cartão", selecionado, _alternar_cartao)
 
         def _linha(tipos):
             return ft.Row(spacing=8, controls=[_chip(t) for t in tipos])
 
         def construir():
+            registro_chips.clear()
             seletor_col.controls.clear()
-            principais = [
-                db.TIPO_DINHEIRO, db.TIPO_PIX,
-                db.TIPO_REQUISICAO, db.TIPO_DEPOSITO_GLOBAL,
-                db.TIPO_DESPESA,
-            ]
-            for i in range(0, len(principais), 2):
-                seletor_col.controls.append(_linha(principais[i:i+2]))
 
+            seletor_col.controls.append(_linha([db.TIPO_DINHEIRO, db.TIPO_PIX]))
+            seletor_col.controls.append(_linha([db.TIPO_REQUISICAO, db.TIPO_DEPOSITO_GLOBAL]))
             seletor_col.controls.append(
-                ft.Text("Cartões", size=13, color=pal.text_ter,
-                        weight=ft.FontWeight.W_600)
+                ft.Row(spacing=8, controls=[_chip(db.TIPO_DESPESA), _chip_cartao()])
             )
-            for i in range(0, len(db.LISTA_CARTOES), 2):
-                seletor_col.controls.append(_linha(db.LISTA_CARTOES[i:i+2]))
+
+            if estado["mostrar_bandeiras"]:
+                seletor_col.controls.append(
+                    ft.Text("Escolha a bandeira", size=12, color=pal.text_ter,
+                            weight=ft.FontWeight.W_600)
+                )
+                for i in range(0, len(db.LISTA_CARTOES), 2):
+                    seletor_col.controls.append(_linha(db.LISTA_CARTOES[i:i + 2]))
+
+        def _repintar_chip(chave: str, selecionado: bool):
+            registrado = registro_chips.get(chave)
+            if registrado is None:
+                return
+            container, icone_ctrl, texto_ctrl = registrado
+            estilo = _estilo(chave, selecionado)
+            container.bgcolor = estilo["bgcolor"]
+            container.border = estilo["border"]
+            icone_ctrl.color = estilo["cor_conteudo"]
+            texto_ctrl.color = estilo["cor_conteudo"]
+            texto_ctrl.weight = estilo["peso_texto"]
 
         def selecionar(tipo):
+            anterior = estado["valor"]
+            if tipo == anterior:
+                return
             estado["valor"] = tipo
             salvar_ultimo_tipo(tipo)
-            construir()
+
+            anterior_e_cartao = anterior in db.LISTA_CARTOES
+            novo_e_cartao = tipo in db.LISTA_CARTOES
+
+            if anterior_e_cartao != novo_e_cartao:
+                estado["mostrar_bandeiras"] = novo_e_cartao
+                construir()
+                page.update()
+                return
+
+            _repintar_chip(anterior, False)
+            _repintar_chip(tipo, True)
             page.update()
+
+        def _alternar_cartao(e=None):
+            if estado["valor"] in db.LISTA_CARTOES:
+                estado["mostrar_bandeiras"] = not estado["mostrar_bandeiras"]
+                construir()
+                page.update()
+            else:
+                selecionar(db.LISTA_CARTOES[0])
 
         construir()
         return seletor_col, estado, selecionar, construir
@@ -606,18 +637,25 @@ def main(page: ft.Page):
         cor_borda = ft.Colors.with_opacity(0.35, C_GREEN) if is_completou else pal.border_strong
         cor_texto = C_GREEN if is_completou else pal.text_sec
         cor_bg    = ft.Colors.with_opacity(0.10, C_GREEN) if is_completou else pal.surface
-        return ft.Container(
+
+        container = ft.Container(
             content=ft.Text(label, size=14, color=cor_texto, weight=ft.FontWeight.W_500),
             bgcolor=cor_bg,
             border_radius=100,
-            border=ft.Border(
-                left=ft.BorderSide(1, cor_borda), right=ft.BorderSide(1, cor_borda),
-                top=ft.BorderSide(1, cor_borda),  bottom=ft.BorderSide(1, cor_borda),
-            ),
-            padding=ft.Padding.only(left=16, right=16, top=9, bottom=9),
+            border=borda_all(1, cor_borda),
+            padding=ft.Padding(left=16, right=16, top=9, bottom=9),
+            scale=ft.Scale(scale=1),
+            animate_scale=ft.Animation(200, ft.AnimationCurve.BOUNCE_OUT),
             on_click=on_click,
             animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
         )
+
+        def animar_hover(e):
+            e.control.scale = 1.05 if e.data == "true" else 1.0
+            e.control.update()
+
+        container.on_hover = animar_hover
+        return container
 
     def acao_completou(e):
         selecionar_tipo(db.TIPO_DINHEIRO)
@@ -648,52 +686,9 @@ def main(page: ft.Page):
     montar_botoes_rapidos()
 
     # ══════════════════════════════════════════════════════════════════
-    # LISTAS (Column — evita scroll duplo no iOS)
+    # LISTA HISTÓRICO
     # ══════════════════════════════════════════════════════════════════
-    col_agrupada = ft.Column(spacing=6, width=largura_conteudo)
     col_historico = ft.Column(spacing=6, width=largura_conteudo)
-
-    def _list_tile_agrupado(tipo, valor_total):
-        cor   = cor_tipo(tipo)
-        icone = icone_tipo(tipo)
-        return ft.Container(
-            content=ft.Row(
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                controls=[
-                    ft.Row(
-                        spacing=10,
-                        controls=[
-                            ft.Container(
-                                content=ft.Icon(icone, color=cor, size=17),
-                                bgcolor=ft.Colors.with_opacity(0.14, cor),
-                                border_radius=9,
-                                padding=7,
-                            ),
-                            ft.Text(tipo, size=14, color=cor, weight=ft.FontWeight.W_600),
-                        ],
-                    ),
-                    ft.Text(formatar_moeda(valor_total), size=15, color=cor,
-                            weight=ft.FontWeight.BOLD),
-                ],
-            ),
-            bgcolor=pal.surface,
-            border_radius=RADIUS_SM,
-            border=ft.Border(
-                left=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
-                right=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
-                top=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
-                bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.16, cor)),
-            ),
-            padding=ft.Padding.only(left=14, right=14, top=11, bottom=11),
-        )
-
-    def carregar_lista_agrupada():
-        if turno_atual is None: return
-        col_agrupada.controls.clear()
-        for tipo, valor_total in db.listar_agrupado(conn, turno_atual.id):
-            col_agrupada.controls.append(_list_tile_agrupado(tipo, valor_total))
-        page.update()
 
     def carregar_historico():
         if turno_atual is None: return
@@ -716,7 +711,6 @@ def main(page: ft.Page):
                         mostrar_snackbar("Lançamento removido.", ft.Colors.ORANGE_800)
                         vibrar("light")
                         atualizar_painel()
-                        carregar_lista_agrupada()
                         carregar_historico()
                     else:
                         mostrar_snackbar("Não foi possível apagar.", ft.Colors.RED_800)
@@ -851,13 +845,9 @@ def main(page: ft.Page):
                     ),
                     bgcolor=pal.surface,
                     border_radius=RADIUS_SM,
-                    border=ft.Border(
-                        left=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
-                        right=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
-                        top=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
-                        bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.14, cor)),
-                    ),
-                    padding=ft.Padding.only(left=12, right=4, top=10, bottom=10),
+                    border=borda_all(1, ft.Colors.with_opacity(0.14, cor)),
+                    blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+                    padding=ft.Padding(left=12, right=4, top=10, bottom=10),
                 )
             )
         page.update()
@@ -866,7 +856,6 @@ def main(page: ft.Page):
         if turno_atual is None: return
         garantir_conexao()
         atualizar_painel()
-        carregar_lista_agrupada()
         carregar_historico()
 
     # ══════════════════════════════════════════════════════════════════
@@ -898,9 +887,17 @@ def main(page: ft.Page):
             color=ft.Colors.with_opacity(0.35, "#3b82f6"),
             offset=ft.Offset(0, 4),
         ),
-        on_click=None,
+        scale=ft.Scale(scale=1),
+        animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
         animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
     )
+
+    def animar_hover_lancar(e):
+        if btn_lancar.opacity != 0.5:
+            e.control.scale = 1.02 if e.data == "true" else 1.0
+            e.control.update()
+
+    btn_lancar.on_hover = animar_hover_lancar
 
     def acao_lancar(e=None):
         if btn_lancar.opacity == 0.5 or turno_atual is None:
@@ -932,6 +929,7 @@ def main(page: ft.Page):
             mostrar_snackbar("Erro ao lançar. Tente novamente.", ft.Colors.RED_800)
         finally:
             btn_lancar.opacity = 1.0
+            btn_lancar.scale = 1.0
             page.update()
 
     btn_lancar.on_click = acao_lancar
@@ -942,61 +940,92 @@ def main(page: ft.Page):
     # RESUMO / FECHAR CAIXA
     # ══════════════════════════════════════════════════════════════════
     def _altura_resumo() -> int:
-        # Calcula quanto espaço vertical sobra para o conteúdo rolável do
-        # resumo dentro do bottom sheet, reservando espaço para o título,
-        # a barra de arrastar e os botões de ação no rodapé do sheet.
         disponivel = int(page.height or 700)
         return max(280, min(640, disponivel - 220))
 
     def montar_conteudo_resumo(totais, detalhe_cartoes):
+        tamanho_fonte_itens = 14
+        tamanho_fonte_titulo = 15
+
         linhas_bandeiras = []
-        for bandeira, valor in detalhe_cartoes.items():
+        for bandeira, (valor, qtd) in detalhe_cartoes.items():
             cor   = cor_tipo(bandeira)
             icone = icone_tipo(bandeira)
+
+            cor_valor = pal.text_pri if valor > 0 else pal.text_ter
+            peso_valor = ft.FontWeight.W_600 if valor > 0 else ft.FontWeight.NORMAL
+
+            texto_bandeira = f"{bandeira} ({qtd} un)" if qtd > 0 else bandeira
+
             linhas_bandeiras.append(
                 ft.Row([
-                    ft.Container(width=18),
-                    ft.Icon(icone, color=cor, size=14),
-                    ft.Text(bandeira, size=12, expand=True, color=cor),
-                    ft.Text(formatar_moeda(valor), size=12, color=cor),
-                ], spacing=4)
+                    ft.Icon(icone, color=cor, size=16),
+                    ft.Text(
+                        texto_bandeira, size=13, expand=True, color=pal.text_sec,
+                        max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
+                    ),
+                    ft.Text(formatar_moeda(valor), size=13, color=cor_valor, weight=peso_valor),
+                ], spacing=8)
             )
+
+        caixa_cartoes = glass_container(
+            content=ft.Column(linhas_bandeiras, spacing=8),
+            padding=12,
+        )
+
         return ft.Column(
-            tight=True, spacing=6,
+            tight=True, spacing=12,
             scroll=ft.ScrollMode.AUTO, height=_altura_resumo(),
             controls=[
-                ft.Text(f"Turno #{turno_atual.id} · Operador(a): {turno_atual.operador}",
-                        size=12, color=pal.text_ter, weight=ft.FontWeight.BOLD),
-                ft.Text(f"Aberto em: {turno_atual.aberto_em}",
-                        size=12, color=pal.text_ter),
-                ft.Divider(height=4),
-                ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN),
-                        ft.Text("Dinheiro (físico):", expand=True),
-                        ft.Text(formatar_moeda(totais.fisico), weight=ft.FontWeight.BOLD)]),
-                ft.Row([ft.Icon(ft.Icons.PIX, color=C_BLUE),
-                        ft.Text("Total PIX:", expand=True),
-                        ft.Text(formatar_moeda(totais.pix), weight=ft.FontWeight.BOLD)]),
-                ft.Divider(height=1),
-                ft.Text("Cartões por bandeira:", size=13, color=pal.text_sec, weight=ft.FontWeight.BOLD),
-                *linhas_bandeiras,
-                ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE),
-                        ft.Text("Total Cartões (+ Sodexo):", expand=True, size=13),
-                        ft.Text(formatar_moeda(totais.cartoes), weight=ft.FontWeight.BOLD)]),
-                ft.Divider(height=1),
-                ft.Row([ft.Icon(ft.Icons.RECEIPT_LONG, color=C_PURPLE),
-                        ft.Text("Requisição:", expand=True),
-                        ft.Text(formatar_moeda(totais.requisicao), weight=ft.FontWeight.BOLD)]),
-                ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=C_BROWN),
-                        ft.Text("Depósito Global:", expand=True),
-                        ft.Text(formatar_moeda(totais.deposito_global), weight=ft.FontWeight.BOLD)]),
-                ft.Row([ft.Icon(ft.Icons.MONEY_OFF, color=C_RED),
-                        ft.Text("Despesas:", expand=True),
-                        ft.Text(formatar_moeda(totais.despesas), weight=ft.FontWeight.BOLD)]),
-                ft.Divider(height=6),
-                ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=C_GREEN),
-                        ft.Text("Total Geral:", expand=True, weight=ft.FontWeight.BOLD, size=18),
-                        ft.Text(formatar_moeda(totais.total_geral),
-                                weight=ft.FontWeight.BOLD, size=18, color=C_GREEN)]),
+                ft.Column(spacing=2, controls=[
+                    ft.Text(f"Turno #{turno_atual.id} · Operador(a): {turno_atual.operador}",
+                            size=13, color=pal.text_pri, weight=ft.FontWeight.BOLD),
+                    ft.Text(f"Aberto em: {turno_atual.aberto_em}",
+                            size=13, color=pal.text_ter),
+                ]),
+
+                ft.Divider(height=1, color=pal.border),
+
+                ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN, size=20),
+                        ft.Text("Dinheiro (físico):", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.fisico), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+                ft.Row([ft.Icon(ft.Icons.PIX, color=C_BLUE, size=20),
+                        ft.Text("Total PIX:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.pix), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+
+                ft.Divider(height=1, color=pal.border),
+
+                ft.Text("Detalhe de Cartões e Vouchers", size=tamanho_fonte_titulo, color=pal.text_pri, weight=ft.FontWeight.BOLD),
+                caixa_cartoes,
+                ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE, size=20),
+                        ft.Text(f"Total Cartões ({totais.qtd_cartoes} un):", expand=True, size=tamanho_fonte_itens, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.cartoes), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+
+                ft.Divider(height=1, color=pal.border),
+
+                ft.Row([ft.Icon(ft.Icons.RECEIPT_LONG, color=C_PURPLE, size=20),
+                        ft.Text("Requisição:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.requisicao), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+                ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=C_BROWN, size=20),
+                        ft.Text("Depósito Global:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.deposito_global), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+                ft.Row([ft.Icon(ft.Icons.MONEY_OFF, color=C_RED, size=20),
+                        ft.Text("Despesas:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.despesas), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+
+                ft.Divider(height=6, color=pal.border),
+
+                ft.Container(
+                    bgcolor=ft.Colors.with_opacity(0.10, C_GREEN),
+                    border_radius=RADIUS_SM,
+                    padding=12,
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=C_GREEN, size=24),
+                        ft.Text("TOTAL GERAL:", expand=True, weight=ft.FontWeight.BOLD, size=16, color=pal.text_pri),
+                        ft.Text(formatar_moeda(totais.total_geral), weight=ft.FontWeight.BOLD, size=20, color=C_GREEN)
+                    ])
+                ),
+                ft.Container(height=10),
             ],
         )
 
@@ -1009,8 +1038,15 @@ def main(page: ft.Page):
         resumo        = db.montar_resumo_texto(totais, turno_atual, detalhe_cart)
         conteudo_resumo = montar_conteudo_resumo(totais, detalhe_cart)
 
-        def fechar_resumo():
-            page.pop_dialog()
+        dlg_resumo = None
+        sheet_resumo = None
+
+        def fechar_resumo(x=None):
+            if dlg_resumo:
+                dlg_resumo.open = False
+            if sheet_resumo:
+                sheet_resumo.open = False
+            page.update()
 
         def copiar_resumo(x):
             async def _copiar_async():
@@ -1041,15 +1077,10 @@ def main(page: ft.Page):
             on_click=copiar_resumo,
         )
         btn_encerrar = ft.TextButton("Encerrar turno", on_click=encerrar_turno)
-        btn_fechar = ft.TextButton("Fechar", on_click=lambda x: fechar_resumo())
+        btn_fechar = ft.TextButton("Fechar", on_click=fechar_resumo)
 
-        # Um AlertDialog do Material tem uma largura máxima interna que não
-        # estica, mesmo definindo a largura do conteúdo — por isso ficava
-        # estreito no iOS. Um bottom sheet, como o menu "Gerenciar Turno",
-        # ocupa a largura toda da tela por padrão, então trocamos para esse
-        # padrão aqui também.
         painel_resumo = ft.Container(
-            padding=ft.Padding(20, 12, 20, 20 if not ios else 30),
+            padding=ft.Padding(20, 12, 20, 30),
             bgcolor=pal.sheet_bg,
             content=ft.Column(
                 tight=True,
@@ -1073,9 +1104,6 @@ def main(page: ft.Page):
         )
 
         if not mobile:
-            # No desktop, um bottom sheet ocupando a largura toda da janela
-            # fica estranho — usamos um AlertDialog centralizado com
-            # largura fixa, mantendo o mesmo conteúdo e as mesmas ações.
             dlg_resumo = ft.AlertDialog(
                 title=ft.Text("Resumo do Turno"),
                 content=ft.Container(
@@ -1085,11 +1113,10 @@ def main(page: ft.Page):
                 ),
                 actions=[btn_copiar, btn_encerrar, btn_fechar],
             )
-            abrir_dialogo(dlg_resumo)
-        elif ios:
-            page.show_dialog(ft.CupertinoBottomSheet(painel_resumo))
+            page.show_dialog(dlg_resumo)
         else:
-            page.show_dialog(ft.BottomSheet(open=False, content=painel_resumo))
+            sheet_resumo = ft.CupertinoBottomSheet(painel_resumo)
+            page.show_dialog(sheet_resumo)
 
     def acao_historico_turnos(e=None):
         fechar_bottom_sheet()
@@ -1165,8 +1192,6 @@ def main(page: ft.Page):
         def confirmar_sair(x):
             nonlocal turno_atual
             fechar_dialogo(dlg_sair)
-            # Marca o operador como "Não informado" no banco
-            # para que na próxima abertura do app peça identificação
             try:
                 garantir_conexao()
                 conn.execute(
@@ -1178,7 +1203,6 @@ def main(page: ft.Page):
             except Exception:
                 pass
             mostrar_snackbar("Operador desconectado. Até logo!")
-            # Força nova identificação imediatamente
             turno_atual = None
             solicitar_identificacao(novo_turno=False)
 
@@ -1278,9 +1302,6 @@ def main(page: ft.Page):
         nonlocal pal
         pal = criar_paleta(tema_escuro())
         page.bgcolor = pal.bg
-
-        # Redesenha a tela toda para garantir que todos os elementos
-        # (seja caixa fechado ou aberto) recebam as novas cores.
         montar_interface()
 
     def alternar_tema(e):
@@ -1323,7 +1344,6 @@ def main(page: ft.Page):
         width=largura_conteudo,
     )
 
-    # ── Separador fino ──────────────────────────────────────────────────────
     def _divider():
         return ft.Container(height=1, bgcolor=pal.border, width=largura_conteudo)
 
@@ -1331,16 +1351,6 @@ def main(page: ft.Page):
     div_mid = _divider()
     div_bot = _divider()
 
-    txt_sec_forma = ft.Text(
-        "Forma de Pagamento", size=13, color=pal.text_ter, weight=ft.FontWeight.W_600
-    )
-    txt_sec_totais = ft.Text(
-        "Totais por Tipo",
-        size=18,
-        weight=ft.FontWeight.BOLD,
-        color=pal.text_pri,
-        width=largura_conteudo,
-    )
     txt_sec_historico = ft.Text(
         "Histórico Recente",
         size=18,
@@ -1364,12 +1374,8 @@ def main(page: ft.Page):
         nonlocal rodape_lancar
         page.controls.clear()
 
-        # ATUALIZA O ÍCONE DO BOTÃO DE TEMA DEPENDENDO DO MODO
         icone_tema_atual = ft.Icons.LIGHT_MODE if tema_escuro() else ft.Icons.DARK_MODE
 
-        # ==========================================
-        # 1. RENDERIZA: TELA DE CAIXA FECHADO
-        # ==========================================
         if turno_atual is None:
             btn_tema_fechado = ft.IconButton(
                 icon=icone_tema_atual,
@@ -1406,34 +1412,37 @@ def main(page: ft.Page):
                         border_radius=12,
                         padding=ft.Padding(24, 16, 24, 16),
                         on_click=lambda e: solicitar_identificacao(novo_turno=True),
+                        scale=ft.Scale(scale=1),
+                        animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
                         animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
                     ),
                     ft.Container(expand=True)
                 ]
             )
 
+            def hover_btn_abrir(e):
+                e.control.scale = 1.05 if e.data == "true" else 1.0
+                e.control.update()
+            tela_fechado.controls[6].on_hover = hover_btn_abrir
+
             if mobile:
                 page.add(ft.SafeArea(tela_fechado))
             else:
                 page.add(tela_fechado)
 
-            # Caixa Fechado não tem rodapé de lançamento; garante que a
-            # referência não fique "presa" a um Container antigo/descartado.
             rodape_lancar = None
 
             aplicar_largura()
             page.update()
             return
 
-        # ==========================================
-        # 2. RENDERIZA: TELA DE CAIXA ABERTO (NORMAL)
-        # ==========================================
         btn_tema.icon = icone_tema_atual
 
-        # Atualiza a paleta nos controles do Caixa Aberto
-        txt_fisico_label.color = pal.text_sec
-        txt_turno.color = pal.text_sec
+        txt_turno_data.color = pal.text_sec
+        txt_operador_nome.color = pal.text_pri
+
         for card, lbl in (
+            (stat_din_card, lbl_din),
             (stat_pix_card, lbl_pix),
             (stat_cart_card, lbl_cart),
             (stat_req_card, lbl_req),
@@ -1442,12 +1451,11 @@ def main(page: ft.Page):
         ):
             card.bgcolor = pal.surface
             lbl.color = pal.text_ter
+
         txt_total_geral_label.color = pal.text_pri
         txt_header_titulo.color = pal.text_pri
         btn_tema.icon_color = pal.text_sec
         btn_menu.icon_color = pal.text_sec
-        txt_sec_forma.color = pal.text_ter
-        txt_sec_totais.color = pal.text_pri
         txt_sec_historico.color = pal.text_pri
         for div in (div_top, div_mid, div_bot):
             div.bgcolor = pal.border
@@ -1460,74 +1468,33 @@ def main(page: ft.Page):
             rodape_lancar.border = ft.Border(top=ft.BorderSide(1, pal.border))
             txt_rodape_resumo.color = pal.text_sec
 
-        op = 0.16 if tema_escuro() else 0.11
-        hero_card.gradient = ft.LinearGradient(
-            begin=ft.Alignment(-1, -1),
-            end=ft.Alignment(1, 1),
-            colors=[
-                ft.Colors.with_opacity(op, C_GREEN),
-                ft.Colors.with_opacity(op * 0.4, C_GREEN),
-                ft.Colors.with_opacity(op * 0.5, C_BLUE),
-            ],
-        )
-
         controles_scroll = [
             header,
-            hero_card,
+            info_turno_card,
             stats_grid,
             total_geral_card,
             div_top,
-            txt_sec_forma,
             seletor_col,
             input_valor,
             row_botoes_rapidos,
             input_desc,
+            btn_lancar,
             div_mid,
-            txt_sec_totais,
-            col_agrupada,
-            div_bot,
             txt_sec_historico,
             col_historico,
         ]
-
-        if not mobile:
-            if btn_lancar not in controles_scroll:
-                controles_scroll.insert(
-                    controles_scroll.index(input_desc) + 1,
-                    btn_lancar,
-                )
 
         area_scroll = ft.Column(
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=10,
             controls=controles_scroll,
-            scroll=ft.ScrollMode.AUTO if mobile else None,
+            scroll=ft.ScrollMode.AUTO,
             expand=mobile,
         )
 
-        rodape_lancar = ft.Container(
-            content=ft.Column(
-                spacing=8,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                controls=[txt_rodape_resumo, btn_lancar],
-            ),
-            width=largura_conteudo,
-            padding=ft.Padding.only(left=0, right=0, top=8, bottom=8),
-            bgcolor=pal.bg,
-            border=ft.Border(top=ft.BorderSide(1, pal.border)),
-            visible=mobile,
-        )
+        rodape_lancar = None
 
-        conteudo_principal = (
-            ft.Column(
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=0,
-                expand=True,
-                controls=[area_scroll, rodape_lancar],
-            )
-            if mobile
-            else area_scroll
-        )
+        conteudo_principal = area_scroll
 
         if mobile:
             raiz = ft.SafeArea(ft.Column(controls=[conteudo_principal], expand=True))
@@ -1572,7 +1539,6 @@ def main(page: ft.Page):
             on_submit=lambda e: page.run_task(validar_acesso_async),
         )
 
-        # Se não for um novo turno (ex: abrir o app), só pede o PIN se ele estiver configurado.
         tem_pin = bool(pin_configurado) and not novo_turno
         campo_pin = ft.TextField(
             label="PIN de acesso",
@@ -1602,32 +1568,24 @@ def main(page: ft.Page):
 
                 nome_digitado = (campo_nome.value or "").strip() or "Não informado"
 
-                # Fecha o diálogo ANTES de tudo
                 fechar_dialogo(dlg_acesso)
 
-                # AQUI ESTÁ O SEGREDO: Usamos o page.run_task para montar a interface
-                # num ciclo separado, dando tempo ao iOS respirar.
                 async def montagem_segura():
                     nonlocal turno_atual
                     import asyncio
-                    await asyncio.sleep(0.2)  # Atraso de 200ms para evitar o blackout
+                    await asyncio.sleep(0.2)
 
                     if novo_turno:
-                        # USUÁRIO CLICOU EM "ABRIR NOVO TURNO" NA TELA DE CAIXA FECHADO
                         turno_atual = db.abrir_novo_turno(conn, nome_digitado)
                     else:
-                        # USUÁRIO ACABOU DE ABRIR O APLICATIVO
                         turno_existente = db.obter_turno_aberto(conn)
                         if turno_existente:
-                            # Se achou um turno, atualiza o nome apenas se estava "Não informado"
                             if turno_existente.operador == "Não informado" and nome_digitado != "Não informado":
                                 conn.execute("UPDATE turnos SET operador = ? WHERE id = ?", (nome_digitado, turno_existente.id))
                                 conn.commit()
                                 turno_existente.operador = nome_digitado
                             turno_atual = turno_existente
                         else:
-                            # Abriu o app e NÃO tem turno rolando.
-                            # Fica None para renderizar a tela "Caixa Fechado".
                             turno_atual = None
 
                     montar_interface()
@@ -1700,13 +1658,18 @@ def main(page: ft.Page):
             alignment=ft.Alignment(0, 0),
             width=240,
             on_click=lambda x: page.run_task(validar_acesso_async),
+            scale=ft.Scale(scale=1),
+            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
         )
+        def hover_confirmar(e):
+            e.control.scale = 1.05 if e.data == "true" else 1.0
+            e.control.update()
+        btn_confirmar.on_hover = hover_confirmar
 
         dlg_acesso.actions = [btn_confirmar]
         dlg_acesso.actions_alignment = ft.MainAxisAlignment.CENTER
 
-        # Se for abrir um novo turno e quiser cancelar a tela de diálogo
         if novo_turno:
             dlg_acesso.actions.append(
                 ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_acesso))
@@ -1716,9 +1679,6 @@ def main(page: ft.Page):
 
     page.on_resized = lambda e: atualizar_largura()
 
-    # Se já existe turno aberto, entra direto sem pedir identificação.
-    # Só pede identificação se não há turno rodando (caixa fechado)
-    # ou se o usuário clicou em "Sair do Operador".
     _turno_existente = db.obter_turno_aberto(conn)
     if _turno_existente:
         turno_atual = _turno_existente
@@ -1726,10 +1686,29 @@ def main(page: ft.Page):
     else:
         solicitar_identificacao(novo_turno=False)
 
+# ---------------------------------------------------------
+# ESCUDO ANTI-TELA PRETA (Para debug em iOS Sandboxed)
+# ---------------------------------------------------------
+def main_seguro(page: ft.Page):
+    try:
+        main(page)
+    except Exception as e:
+        import traceback
+        page.clean()
+        page.bgcolor = ft.Colors.WHITE
+        page.scroll = ft.ScrollMode.AUTO
+        page.add(
+            ft.Text("ERRO FATAL NO APLICATIVO", color=ft.Colors.RED_900, size=20, weight="bold"),
+            ft.Text(str(e), color=ft.Colors.RED_700, size=16),
+            ft.Text(traceback.format_exc(), color=ft.Colors.BLACK, selectable=True, size=12)
+        )
+        page.update()
 
 if __name__ == "__main__":
     if _app_mobile():
-        ft.run(main)
+        # No celular, usamos ft.run(...)
+        ft.run(main_seguro)
     else:
+        # No computador, definimos a porta e o view
         porta = int(os.environ.get("PORT", 5000))
-        ft.run(main, view=ft.AppView.WEB_BROWSER, port=porta, host="0.0.0.0")
+        ft.run(main_seguro, port=porta, host="0.0.0.0")
