@@ -71,6 +71,7 @@ class Totais:
     dinheiro: float
     deposito_global: float = 0.0
     despesas: float = 0.0
+    qtd_cartoes: int = 0
 
     @property
     def total_geral(self) -> float:
@@ -163,7 +164,6 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-# MODIFICAÇÃO PRINCIPAL 1: Apenas verifica se há turno, sem forçar criação.
 def obter_turno_aberto(conn: sqlite3.Connection) -> Optional[Turno]:
     cursor = conn.cursor()
     row = cursor.execute(
@@ -180,7 +180,6 @@ def obter_turno_aberto(conn: sqlite3.Connection) -> Optional[Turno]:
     return None
 
 
-# MODIFICAÇÃO PRINCIPAL 2: Função dedicada para criar turno.
 def abrir_novo_turno(conn: sqlite3.Connection, operador: str) -> Turno:
     cursor = conn.cursor()
     agora = datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -193,17 +192,23 @@ def abrir_novo_turno(conn: sqlite3.Connection, operador: str) -> Turno:
 def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT tipo, SUM(valor_centavos) FROM lancamentos WHERE turno_id = ? GROUP BY tipo",
+        "SELECT tipo, SUM(valor_centavos), COUNT(*) FROM lancamentos WHERE turno_id = ? GROUP BY tipo",
         (turno_id,),
     )
-    totais_centavos = {tipo: (centavos or 0) for tipo, centavos in cursor.fetchall()}
+    resultados = cursor.fetchall()
+    
+    totais_centavos = {linha[0]: (linha[1] or 0) for linha in resultados}
+    totais_qtd = {linha[0]: linha[2] for linha in resultados}
 
     dinheiro = totais_centavos.get(TIPO_DINHEIRO, 0) / 100.0
     pix = totais_centavos.get(TIPO_PIX, 0) / 100.0
     requisicao = totais_centavos.get(TIPO_REQUISICAO, 0) / 100.0
     deposito_global = totais_centavos.get(TIPO_DEPOSITO_GLOBAL, 0) / 100.0
     despesas = totais_centavos.get(TIPO_DESPESA, 0) / 100.0
+    
     total_cartoes = sum(totais_centavos.get(cartao, 0) for cartao in LISTA_CARTOES) / 100.0
+    qtd_cartoes = sum(totais_qtd.get(cartao, 0) for cartao in LISTA_CARTOES)
+    
     fisico = dinheiro
 
     return Totais(
@@ -214,22 +219,33 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
         dinheiro=dinheiro,
         deposito_global=deposito_global,
         despesas=despesas,
+        qtd_cartoes=qtd_cartoes,
     )
 
 
-def obter_detalhe_cartoes(conn: sqlite3.Connection, turno_id: int) -> dict[str, float]:
+def obter_detalhe_cartoes(conn: sqlite3.Connection, turno_id: int) -> dict[str, tuple[float, int]]:
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT tipo, SUM(valor_centavos) FROM lancamentos WHERE turno_id = ? GROUP BY tipo",
+        "SELECT tipo, SUM(valor_centavos), COUNT(*) FROM lancamentos WHERE turno_id = ? GROUP BY tipo",
         (turno_id,),
     )
-    totais_centavos = {tipo: (centavos or 0) for tipo, centavos in cursor.fetchall()}
-    return {cartao: totais_centavos.get(cartao, 0) / 100.0 for cartao in LISTA_CARTOES}
+    resultados = cursor.fetchall()
+    
+    totais_centavos = {linha[0]: (linha[1] or 0) for linha in resultados}
+    totais_qtd = {linha[0]: linha[2] for linha in resultados}
+    
+    return {
+        cartao: (
+            totais_centavos.get(cartao, 0) / 100.0,
+            totais_qtd.get(cartao, 0)
+        )
+        for cartao in LISTA_CARTOES
+    }
 
 
-def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str, float]) -> str:
+def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str, tuple[float, int]]) -> str:
     linhas_cartoes = "\n".join(
-        f"   • {bandeira}: {formatar_moeda(valor)}" for bandeira, valor in detalhe_cartoes.items()
+        f"   • {bandeira} ({qtd} un): {formatar_moeda(valor)}" for bandeira, (valor, qtd) in detalhe_cartoes.items()
     )
     return (
         f"⛽ *Fechamento de Turno - Posto Janjão*\n"
@@ -242,7 +258,7 @@ def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str,
         f"🛒 Despesas: {formatar_moeda(totais.despesas)}\n\n"
         f"💳 Cartões e Sodexo por bandeira:\n"
         f"{linhas_cartoes}\n"
-        f"   Total de Cartões (+ Sodexo): {formatar_moeda(totais.cartoes)}\n\n"
+        f"   Total de Cartões (+ Sodexo): {formatar_moeda(totais.cartoes)} ({totais.qtd_cartoes} comprovantes)\n\n"
         f"✅ Total Geral: {formatar_moeda(totais.total_geral)}"
     )
 
@@ -302,7 +318,6 @@ def zerar_turno(conn: sqlite3.Connection, turno_id: int) -> None:
     conn.commit()
 
 
-# MODIFICAÇÃO PRINCIPAL 3: Apenas fecha, sem retornar um turno novo.
 def fechar_turno(conn: sqlite3.Connection, turno_id: int, totais: Totais) -> None:
     agora = datetime.now().strftime("%d/%m/%Y %H:%M")
     cursor = conn.cursor()
