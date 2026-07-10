@@ -53,10 +53,10 @@ FILTRO_VALOR_MONETARIO = ft.InputFilter(
 
 def borda_all(largura, cor) -> ft.Border:
     return ft.Border(
-        left=ft.BorderSide(width=largura, color=cor),
-        right=ft.BorderSide(width=largura, color=cor),
-        top=ft.BorderSide(width=largura, color=cor),
-        bottom=ft.BorderSide(width=largura, color=cor),
+        left=ft.BorderSide(largura, cor),
+        right=ft.BorderSide(largura, cor),
+        top=ft.BorderSide(largura, cor),
+        bottom=ft.BorderSide(largura, cor),
     )
 
 def _plataforma_mobile(page: ft.Page) -> bool:
@@ -99,7 +99,6 @@ def main(page: ft.Page):
     page.vertical_alignment = ft.MainAxisAlignment.START
     page.scroll = ft.ScrollMode.HIDDEN if mobile else ft.ScrollMode.AUTO
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-    
     page.padding = (
         ft.Padding(left=16, right=16, top=8, bottom=0 if mobile else 16)
         if mobile
@@ -193,20 +192,32 @@ def main(page: ft.Page):
             stats_grid.width = w
         page.update()
 
+    def abrir_dialogo(dlg):
+        # page.show_dialog() só existe em versões mais novas do Flet.
+        # Em versões mais antigas, caímos para o padrão overlay + open=True.
+        try:
+            page.show_dialog(dlg)
+        except AttributeError:
+            if dlg not in page.overlay:
+                page.overlay.append(dlg)
+            dlg.open = True
+            page.update()
+
+    def fechar_dialogo(dlg):
+        try:
+            page.pop_dialog()
+        except AttributeError:
+            dlg.open = False
+            page.update()
+
     def mostrar_snackbar(mensagem: str, cor=ft.Colors.GREEN_700):
-        page.show_dialog(
+        abrir_dialogo(
             ft.SnackBar(
                 content=ft.Text(mensagem, color=ft.Colors.WHITE),
                 bgcolor=cor,
                 duration=2500,
             )
         )
-
-    def abrir_dialogo(dlg):
-        page.show_dialog(dlg)
-
-    def fechar_dialogo(dlg):
-        page.pop_dialog()
 
     def storage_get(chave: str, padrao=None):
         try:
@@ -271,7 +282,7 @@ def main(page: ft.Page):
             border_radius=radius,
             border=borda_all(1, border_color),
             padding=padding,
-            blur=ft.Blur(sigma_x=10, sigma_y=10, tile_mode=ft.BlurTileMode.MIRROR),
+            blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
         )
 
     # ══════════════════════════════════════════════════════════════════
@@ -285,11 +296,11 @@ def main(page: ft.Page):
         border_radius=RADIUS,
         bgcolor=ft.Colors.with_opacity(0.10, C_BLUE),
         border=borda_all(1, ft.Colors.with_opacity(0.20, C_BLUE)),
-        blur=ft.Blur(sigma_x=10, sigma_y=10, tile_mode=ft.BlurTileMode.MIRROR),
+        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
         shadow=ft.BoxShadow(
             spread_radius=0, blur_radius=15,
             color=ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
-            offset=ft.Offset(x=0, y=4),
+            offset=ft.Offset(0, 4),
         ),
         padding=ft.Padding(left=20, right=20, top=16, bottom=16),
         content=ft.Row(
@@ -328,14 +339,14 @@ def main(page: ft.Page):
             border=borda_all(1, ft.Colors.with_opacity(0.18, cor)),
             padding=ft.Padding(left=14, right=14, top=13, bottom=13),
             expand=True,
-            blur=ft.Blur(sigma_x=10, sigma_y=10, tile_mode=ft.BlurTileMode.MIRROR),
+            blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
             shadow=ft.BoxShadow(
                 spread_radius=0, blur_radius=10,
                 color=ft.Colors.with_opacity(0.05, ft.Colors.BLACK),
-                offset=ft.Offset(x=0, y=2),
+                offset=ft.Offset(0, 2),
             ),
-            scale=ft.transform.Scale(1),
-            animate_scale=ft.Animation(duration=150, curve=ft.AnimationCurve.EASE_OUT),
+            scale=ft.Scale(scale=1),
+            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
         )
         def hover_card(e):
             e.control.scale = 1.02 if e.data == "true" else 1.0
@@ -387,11 +398,11 @@ def main(page: ft.Page):
             ],
         ),
         border=borda_all(1, ft.Colors.with_opacity(0.30, C_GREEN)),
-        blur=ft.Blur(sigma_x=10, sigma_y=10, tile_mode=ft.BlurTileMode.MIRROR),
+        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
         shadow=ft.BoxShadow(
             spread_radius=0, blur_radius=15,
             color=ft.Colors.with_opacity(0.15, C_GREEN),
-            offset=ft.Offset(x=0, y=4),
+            offset=ft.Offset(0, 4),
         ),
         padding=ft.Padding(left=16, right=16, top=13, bottom=13),
         content=ft.Row(
@@ -462,9 +473,9 @@ def main(page: ft.Page):
 
         def _montar_chip(chave: str, rotulo: str, selecionado: bool, ao_clicar):
             estilo = _estilo(chave, selecionado)
-            icone_ctrl = ft.Icon(icone_tipo(chave), size=14, color=estilo["cor_conteudo"])
+            icone_ctrl = ft.Icon(icone_tipo(chave), size=16, color=estilo["cor_conteudo"])
             texto_ctrl = ft.Text(
-                rotulo, size=12, color=estilo["cor_conteudo"], weight=estilo["peso_texto"]
+                rotulo, size=14, color=estilo["cor_conteudo"], weight=estilo["peso_texto"]
             )
             container = ft.Container(
                 content=ft.Row(
@@ -476,19 +487,19 @@ def main(page: ft.Page):
                 bgcolor=estilo["bgcolor"],
                 border_radius=RADIUS_SM,
                 border=estilo["border"],
-                height=46,
+                height=50,
                 expand=True,
                 alignment=ft.Alignment(0, 0),
                 on_click=ao_clicar,
-                scale=ft.transform.Scale(1),
-                animate_scale=ft.Animation(duration=150, curve=ft.AnimationCurve.EASE_OUT),
-                animate=ft.Animation(duration=150, curve=ft.AnimationCurve.EASE_OUT),
+                scale=ft.Scale(scale=1),
+                animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+                animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             )
-            
+
             def hover_chip(e):
                 e.control.scale = 1.05 if e.data == "true" else 1.0
                 e.control.update()
-                
+
             container.on_hover = hover_chip
             registro_chips[chave] = (container, icone_ctrl, texto_ctrl)
             return container
@@ -645,10 +656,10 @@ def main(page: ft.Page):
             border_radius=100,
             border=borda_all(1, cor_borda),
             padding=ft.Padding(left=16, right=16, top=9, bottom=9),
-            scale=ft.transform.Scale(1),
-            animate_scale=ft.Animation(duration=200, curve=ft.AnimationCurve.BOUNCE_OUT),
+            scale=ft.Scale(scale=1),
+            animate_scale=ft.Animation(200, ft.AnimationCurve.BOUNCE_OUT),
             on_click=on_click,
-            animate=ft.Animation(duration=120, curve=ft.AnimationCurve.EASE_OUT),
+            animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
         )
 
         def animar_hover(e):
@@ -847,7 +858,7 @@ def main(page: ft.Page):
                     bgcolor=pal.surface,
                     border_radius=RADIUS_SM,
                     border=borda_all(1, ft.Colors.with_opacity(0.14, cor)),
-                    blur=ft.Blur(sigma_x=10, sigma_y=10, tile_mode=ft.BlurTileMode.MIRROR),
+                    blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
                     padding=ft.Padding(left=12, right=4, top=10, bottom=10),
                 )
             )
@@ -886,11 +897,11 @@ def main(page: ft.Page):
             blur_radius=20,
             spread_radius=0,
             color=ft.Colors.with_opacity(0.35, "#3b82f6"),
-            offset=ft.Offset(x=0, y=4),
+            offset=ft.Offset(0, 4),
         ),
-        scale=ft.transform.Scale(1),
-        animate_scale=ft.Animation(duration=150, curve=ft.AnimationCurve.EASE_OUT),
-        animate=ft.Animation(duration=120, curve=ft.AnimationCurve.EASE_OUT),
+        scale=ft.Scale(scale=1),
+        animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+        animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
     )
 
     def animar_hover_lancar(e):
@@ -1081,7 +1092,7 @@ def main(page: ft.Page):
         btn_fechar = ft.TextButton("Fechar", on_click=fechar_resumo)
 
         painel_resumo = ft.Container(
-            padding=ft.Padding(left=20, top=12, right=20, bottom=30),
+            padding=ft.Padding(20, 12, 20, 30),
             bgcolor=pal.sheet_bg,
             content=ft.Column(
                 tight=True,
@@ -1114,10 +1125,10 @@ def main(page: ft.Page):
                 ),
                 actions=[btn_copiar, btn_encerrar, btn_fechar],
             )
-            page.show_dialog(dlg_resumo)
+            abrir_dialogo(dlg_resumo)
         else:
             sheet_resumo = ft.CupertinoBottomSheet(painel_resumo)
-            page.show_dialog(sheet_resumo)
+            abrir_dialogo(sheet_resumo)
 
     def acao_historico_turnos(e=None):
         fechar_bottom_sheet()
@@ -1253,8 +1264,17 @@ def main(page: ft.Page):
         content=bottom_sheet_content,
     )
 
+    _menu_aberto = None
+
     def fechar_menu():
-        page.pop_dialog()
+        nonlocal _menu_aberto
+        try:
+            page.pop_dialog()
+        except AttributeError:
+            if _menu_aberto is not None:
+                _menu_aberto.open = False
+                page.update()
+        _menu_aberto = None
 
     def _menu_handler(callback):
         def handler(e):
@@ -1263,6 +1283,7 @@ def main(page: ft.Page):
         return handler
 
     def abrir_bottom_sheet(e):
+        nonlocal _menu_aberto
         if ios:
             sheet = ft.CupertinoActionSheet(
                 title=ft.Text("Gerenciar Turno"),
@@ -1289,9 +1310,11 @@ def main(page: ft.Page):
                     ),
                 ],
             )
-            page.show_dialog(ft.CupertinoBottomSheet(sheet))
+            _menu_aberto = ft.CupertinoBottomSheet(sheet)
+            abrir_dialogo(_menu_aberto)
         else:
-            page.show_dialog(bottom_sheet)
+            _menu_aberto = bottom_sheet
+            abrir_dialogo(_menu_aberto)
 
     def fechar_bottom_sheet():
         fechar_menu()
@@ -1411,11 +1434,11 @@ def main(page: ft.Page):
                         ),
                         bgcolor=C_GREEN,
                         border_radius=12,
-                        padding=ft.Padding(left=24, top=16, right=24, bottom=16),
+                        padding=ft.Padding(24, 16, 24, 16),
                         on_click=lambda e: solicitar_identificacao(novo_turno=True),
-                        scale=ft.transform.Scale(1),
-                        animate_scale=ft.Animation(duration=150, curve=ft.AnimationCurve.EASE_OUT),
-                        animate=ft.Animation(duration=120, curve=ft.AnimationCurve.EASE_OUT),
+                        scale=ft.Scale(scale=1),
+                        animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+                        animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
                     ),
                     ft.Container(expand=True)
                 ]
@@ -1466,7 +1489,7 @@ def main(page: ft.Page):
         bottom_sheet_content.bgcolor = pal.sheet_bg
         if mobile and rodape_lancar is not None:
             rodape_lancar.bgcolor = pal.bg
-            rodape_lancar.border = ft.Border(top=ft.BorderSide(width=1, color=pal.border))
+            rodape_lancar.border = ft.Border(top=ft.BorderSide(1, pal.border))
             txt_rodape_resumo.color = pal.text_sec
 
         controles_scroll = [
@@ -1655,13 +1678,13 @@ def main(page: ft.Page):
             ),
             bgcolor=C_GREEN,
             border_radius=RADIUS_SM,
-            padding=ft.Padding(left=24, top=14, right=24, bottom=14),
+            padding=ft.Padding(24, 14, 24, 14),
             alignment=ft.Alignment(0, 0),
             width=240,
             on_click=lambda x: page.run_task(validar_acesso_async),
-            scale=ft.transform.Scale(1),
-            animate_scale=ft.Animation(duration=150, curve=ft.AnimationCurve.EASE_OUT),
-            animate=ft.Animation(duration=120, curve=ft.AnimationCurve.EASE_OUT),
+            scale=ft.Scale(scale=1),
+            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+            animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
         )
         def hover_confirmar(e):
             e.control.scale = 1.05 if e.data == "true" else 1.0
@@ -1707,7 +1730,9 @@ def main_seguro(page: ft.Page):
 
 if __name__ == "__main__":
     if _app_mobile():
-        ft.app(target=main_seguro)
+        # No celular, usamos ft.run(main=...)
+        ft.run(main=main_seguro)
     else:
+        # No computador, definimos a porta e o view
         porta = int(os.environ.get("PORT", 5000))
-        ft.app(target=main_seguro, port=porta, host="0.0.0.0")
+        ft.run(main=main_seguro, port=porta, host="0.0.0.0")
