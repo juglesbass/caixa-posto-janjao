@@ -1,14 +1,10 @@
 import os
 from types import SimpleNamespace
-
 import flet as ft
-
 import db
-
 
 def _app_mobile() -> bool:
     return os.environ.get("FLET_PLATFORM", "") in ("ios", "android")
-
 
 def criar_paleta(escuro: bool) -> SimpleNamespace:
     if escuro:
@@ -17,9 +13,10 @@ def criar_paleta(escuro: bool) -> SimpleNamespace:
             surface=ft.Colors.with_opacity(0.06, ft.Colors.WHITE),
             border=ft.Colors.with_opacity(0.11, ft.Colors.WHITE),
             border_strong=ft.Colors.with_opacity(0.35, ft.Colors.WHITE),
-            text_pri="#f2f2f7",
-            text_sec=ft.Colors.with_opacity(0.80, "#f2f2f7"),
-            text_ter=ft.Colors.with_opacity(0.65, "#f2f2f7"),
+            # Fonte cinza clara para reduzir cansaço visual noturno
+            text_pri="#e2e8f0", 
+            text_sec=ft.Colors.with_opacity(0.80, "#e2e8f0"),
+            text_ter=ft.Colors.with_opacity(0.65, "#e2e8f0"),
             sheet_bg=ft.Colors.with_opacity(0.97, "#1c1c1e"),
         )
     return SimpleNamespace(
@@ -33,10 +30,7 @@ def criar_paleta(escuro: bool) -> SimpleNamespace:
         sheet_bg=ft.Colors.WHITE,
     )
 
-
 # ── Acentos (funcionam em ambos os temas) ──────────────────────────────────
-
-# Acento por categoria
 C_GREEN   = "#34d399"
 C_BLUE    = "#60a5fa"
 C_PURPLE  = "#a78bfa"
@@ -58,16 +52,13 @@ FILTRO_VALOR_MONETARIO = ft.InputFilter(
     replacement_string="",
 )
 
-
 def borda_all(largura, cor) -> ft.Border:
-    """Borda uniforme nos 4 lados."""
     return ft.Border(
         left=ft.BorderSide(largura, cor),
         right=ft.BorderSide(largura, cor),
         top=ft.BorderSide(largura, cor),
         bottom=ft.BorderSide(largura, cor),
     )
-
 
 def _plataforma_mobile(page: ft.Page) -> bool:
     if os.environ.get("FLET_PLATFORM", "") in ("ios", "android"):
@@ -77,12 +68,10 @@ def _plataforma_mobile(page: ft.Page) -> bool:
         return plat.is_mobile()
     return False
 
-
 def _plataforma_ios(page: ft.Page) -> bool:
     if os.environ.get("FLET_PLATFORM", "") == "ios":
         return True
     return getattr(page, "platform", None) == ft.PagePlatform.IOS
-
 
 def main(page: ft.Page):
     mobile = _plataforma_mobile(page)
@@ -123,7 +112,6 @@ def main(page: ft.Page):
                 await page.set_allowed_device_orientations([ft.DeviceOrientation.PORTRAIT_UP])
             except Exception:
                 pass
-
         page.run_task(fixar_retrato)
 
     def _registrar_servico(ctrl):
@@ -169,7 +157,6 @@ def main(page: ft.Page):
     turno_atual = None
 
     rodape_lancar = None
-
     pin_configurado = os.environ.get("CAIXA_PIN", "").strip()
     autenticado = not pin_configurado
     largura_conteudo = 380
@@ -284,6 +271,7 @@ def main(page: ft.Page):
             border_radius=radius,
             border=borda_all(1, border_color),
             padding=padding,
+            blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
         )
 
     # ══════════════════════════════════════════════════════════════════
@@ -297,6 +285,12 @@ def main(page: ft.Page):
         border_radius=RADIUS,
         bgcolor=ft.Colors.with_opacity(0.10, C_BLUE),
         border=borda_all(1, ft.Colors.with_opacity(0.20, C_BLUE)),
+        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR), # Efeito Glass
+        shadow=ft.BoxShadow( # Sombra Suave
+            spread_radius=0, blur_radius=15,
+            color=ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
+            offset=ft.Offset(0, 4),
+        ),
         padding=ft.Padding.only(left=20, right=20, top=16, bottom=16),
         content=ft.Row(
             spacing=15,
@@ -334,7 +328,21 @@ def main(page: ft.Page):
             border=borda_all(1, ft.Colors.with_opacity(0.18, cor)),
             padding=ft.Padding.only(left=14, right=14, top=13, bottom=13),
             expand=True,
+            blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR), # Efeito Glass
+            shadow=ft.BoxShadow( # Sombra flutuante menor
+                spread_radius=0, blur_radius=10,
+                color=ft.Colors.with_opacity(0.05, ft.Colors.BLACK),
+                offset=ft.Offset(0, 2),
+            ),
+            scale=ft.transform.Scale(1),
+            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
         )
+        # Animação ao passar o mouse por cima
+        def hover_card(e):
+            e.control.scale = 1.02 if e.data == "true" else 1.0
+            e.control.update()
+        card.on_hover = hover_card
+        
         return card, txt, lbl
 
     stat_din_card, txt_dinheiro, lbl_din = _stat_card("Dinheiro", C_GREEN)
@@ -380,6 +388,12 @@ def main(page: ft.Page):
             ],
         ),
         border=borda_all(1, ft.Colors.with_opacity(0.30, C_GREEN)),
+        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR), # Efeito Glass
+        shadow=ft.BoxShadow( # Sombra colorida linda!
+            spread_radius=0, blur_radius=15,
+            color=ft.Colors.with_opacity(0.15, C_GREEN),
+            offset=ft.Offset(0, 4),
+        ),
         padding=ft.Padding.only(left=16, right=16, top=13, bottom=13),
         content=ft.Row(
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -467,8 +481,17 @@ def main(page: ft.Page):
                 expand=True,
                 alignment=ft.Alignment(0, 0),
                 on_click=ao_clicar,
+                scale=ft.transform.Scale(1),
+                animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
                 animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             )
+            
+            # Animação ao passar o mouse
+            def hover_chip(e):
+                e.control.scale = 1.05 if e.data == "true" else 1.0
+                e.control.update()
+                
+            container.on_hover = hover_chip
             registro_chips[chave] = (container, icone_ctrl, texto_ctrl)
             return container
 
@@ -617,15 +640,25 @@ def main(page: ft.Page):
         cor_borda = ft.Colors.with_opacity(0.35, C_GREEN) if is_completou else pal.border_strong
         cor_texto = C_GREEN if is_completou else pal.text_sec
         cor_bg    = ft.Colors.with_opacity(0.10, C_GREEN) if is_completou else pal.surface
-        return ft.Container(
+        
+        container = ft.Container(
             content=ft.Text(label, size=14, color=cor_texto, weight=ft.FontWeight.W_500),
             bgcolor=cor_bg,
             border_radius=100,
             border=borda_all(1, cor_borda),
             padding=ft.Padding.only(left=16, right=16, top=9, bottom=9),
+            scale=ft.transform.Scale(1),
+            animate_scale=ft.Animation(200, ft.AnimationCurve.BOUNCE_OUT),
             on_click=on_click,
             animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
         )
+
+        def animar_hover(e):
+            e.control.scale = 1.05 if e.data == "true" else 1.0
+            e.control.update()
+
+        container.on_hover = animar_hover
+        return container
 
     def acao_completou(e):
         selecionar_tipo(db.TIPO_DINHEIRO)
@@ -816,6 +849,7 @@ def main(page: ft.Page):
                     bgcolor=pal.surface,
                     border_radius=RADIUS_SM,
                     border=borda_all(1, ft.Colors.with_opacity(0.14, cor)),
+                    blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR), # Efeito Glass
                     padding=ft.Padding.only(left=12, right=4, top=10, bottom=10),
                 )
             )
@@ -850,15 +884,23 @@ def main(page: ft.Page):
         height=56,
         width=largura_conteudo,
         alignment=ft.Alignment(0, 0),
-        shadow=ft.BoxShadow(
+        shadow=ft.BoxShadow( # Sombra Glow
             blur_radius=20,
             spread_radius=0,
             color=ft.Colors.with_opacity(0.35, "#3b82f6"),
             offset=ft.Offset(0, 4),
         ),
-        on_click=None,
+        scale=ft.transform.Scale(1),
+        animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
         animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
     )
+
+    def animar_hover_lancar(e):
+        if btn_lancar.opacity != 0.5:
+            e.control.scale = 1.02 if e.data == "true" else 1.0
+            e.control.update()
+            
+    btn_lancar.on_hover = animar_hover_lancar
 
     def acao_lancar(e=None):
         if btn_lancar.opacity == 0.5 or turno_atual is None:
@@ -890,6 +932,7 @@ def main(page: ft.Page):
             mostrar_snackbar("Erro ao lançar. Tente novamente.", ft.Colors.RED_800)
         finally:
             btn_lancar.opacity = 1.0
+            btn_lancar.scale = 1.0
             page.update()
 
     btn_lancar.on_click = acao_lancar
@@ -928,11 +971,8 @@ def main(page: ft.Page):
                 ], spacing=8)
             )
 
-        caixa_cartoes = ft.Container(
+        caixa_cartoes = glass_container(
             content=ft.Column(linhas_bandeiras, spacing=8),
-            bgcolor=pal.surface,
-            border_radius=RADIUS_SM,
-            border=borda_all(1, pal.border),
             padding=12,
         )
 
@@ -1375,11 +1415,19 @@ def main(page: ft.Page):
                         border_radius=12,
                         padding=ft.Padding(24, 16, 24, 16),
                         on_click=lambda e: solicitar_identificacao(novo_turno=True),
+                        scale=ft.transform.Scale(1),
+                        animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
                         animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
                     ),
                     ft.Container(expand=True)
                 ]
             )
+
+            # Animação do botão "Abrir Novo Turno"
+            def hover_btn_abrir(e):
+                e.control.scale = 1.05 if e.data == "true" else 1.0
+                e.control.update()
+            tela_fechado.controls[6].on_hover = hover_btn_abrir
 
             if mobile:
                 page.add(ft.SafeArea(tela_fechado))
@@ -1614,8 +1662,15 @@ def main(page: ft.Page):
             alignment=ft.Alignment(0, 0),
             width=240,
             on_click=lambda x: page.run_task(validar_acesso_async),
+            scale=ft.transform.Scale(1),
+            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
         )
+        # Animação no botão entrar
+        def hover_confirmar(e):
+            e.control.scale = 1.05 if e.data == "true" else 1.0
+            e.control.update()
+        btn_confirmar.on_hover = hover_confirmar
 
         dlg_acesso.actions = [btn_confirmar]
         dlg_acesso.actions_alignment = ft.MainAxisAlignment.CENTER
@@ -1635,7 +1690,6 @@ def main(page: ft.Page):
         montar_interface()
     else:
         solicitar_identificacao(novo_turno=False)
-
 
 if __name__ == "__main__":
     if _app_mobile():
