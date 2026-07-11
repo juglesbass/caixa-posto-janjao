@@ -13,7 +13,7 @@ def criar_paleta(escuro: bool) -> SimpleNamespace:
             surface=ft.Colors.with_opacity(0.06, ft.Colors.WHITE),
             border=ft.Colors.with_opacity(0.11, ft.Colors.WHITE),
             border_strong=ft.Colors.with_opacity(0.35, ft.Colors.WHITE),
-            text_pri="#e2e8f0",
+            text_pri="#e2e8f0", 
             text_sec=ft.Colors.with_opacity(0.80, "#e2e8f0"),
             text_ter=ft.Colors.with_opacity(0.65, "#e2e8f0"),
             sheet_bg=ft.Colors.with_opacity(0.97, "#1c1c1e"),
@@ -352,7 +352,7 @@ def main(page: ft.Page):
             e.control.scale = 1.02 if e.data == "true" else 1.0
             e.control.update()
         card.on_hover = hover_card
-
+        
         return card, txt, lbl
 
     stat_din_card, txt_dinheiro, lbl_din = _stat_card("Dinheiro", C_GREEN)
@@ -440,10 +440,10 @@ def main(page: ft.Page):
         txt_deposito_global.value = formatar_moeda(totais.deposito_global)
         txt_despesas.value        = formatar_moeda(totais.despesas)
         txt_total_geral.value   = formatar_moeda(totais.total_geral)
-
+        
         txt_operador_nome.value = f"Operador(a): {turno_atual.operador}"
         txt_turno_data.value    = f"Turno #{turno_atual.id} · Aberto em: {turno_atual.aberto_em}"
-
+        
         if mobile:
             txt_rodape_resumo.value = f"Total geral · {formatar_moeda(totais.total_geral)}"
         page.update()
@@ -495,11 +495,11 @@ def main(page: ft.Page):
                 animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
                 animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             )
-
+            
             def hover_chip(e):
                 e.control.scale = 1.05 if e.data == "true" else 1.0
                 e.control.update()
-
+                
             container.on_hover = hover_chip
             registro_chips[chave] = (container, icone_ctrl, texto_ctrl)
             return container
@@ -649,7 +649,7 @@ def main(page: ft.Page):
         cor_borda = ft.Colors.with_opacity(0.35, C_GREEN) if is_completou else pal.border_strong
         cor_texto = C_GREEN if is_completou else pal.text_sec
         cor_bg    = ft.Colors.with_opacity(0.10, C_GREEN) if is_completou else pal.surface
-
+        
         container = ft.Container(
             content=ft.Text(label, size=14, color=cor_texto, weight=ft.FontWeight.W_500),
             bgcolor=cor_bg,
@@ -908,7 +908,7 @@ def main(page: ft.Page):
         if btn_lancar.opacity != 0.5:
             e.control.scale = 1.02 if e.data == "true" else 1.0
             e.control.update()
-
+            
     btn_lancar.on_hover = animar_hover_lancar
 
     def acao_lancar(e=None):
@@ -953,17 +953,17 @@ def main(page: ft.Page):
     # ══════════════════════════════════════════════════════════════════
     def _altura_resumo() -> int:
         disponivel = int(page.height or 700)
-        return max(280, min(640, disponivel - 220))
+        return max(280, min(760, disponivel - 170))
 
     def montar_conteudo_resumo(totais, detalhe_cartoes):
-        tamanho_fonte_itens = 14
-        tamanho_fonte_titulo = 15
+        tamanho_fonte_itens = 15
+        tamanho_fonte_titulo = 16
 
         linhas_bandeiras = []
         for bandeira, (valor, qtd) in detalhe_cartoes.items():
             cor   = cor_tipo(bandeira)
             icone = icone_tipo(bandeira)
-
+            
             cor_valor = pal.text_pri if valor > 0 else pal.text_ter
             peso_valor = ft.FontWeight.W_600 if valor > 0 else ft.FontWeight.NORMAL
 
@@ -971,50 +971,41 @@ def main(page: ft.Page):
 
             linhas_bandeiras.append(
                 ft.Row([
-                    ft.Icon(icone, color=cor, size=16),
+                    ft.Icon(icone, color=cor, size=17),
                     ft.Text(
-                        texto_bandeira, size=13, expand=True, color=pal.text_sec,
+                        texto_bandeira, size=14, expand=True, color=pal.text_sec,
                         max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
                     ),
-                    ft.Text(formatar_moeda(valor), size=13, color=cor_valor, weight=peso_valor),
+                    ft.Text(formatar_moeda(valor), size=14, color=cor_valor, weight=peso_valor),
                 ], spacing=8)
             )
 
         caixa_cartoes = glass_container(
-            content=ft.Column(linhas_bandeiras, spacing=8),
+            content=ft.Column(linhas_bandeiras, spacing=7),
             padding=12,
         )
 
         return ft.Column(
-            tight=True, spacing=12,
+            tight=True, spacing=10,
             scroll=ft.ScrollMode.AUTO, height=_altura_resumo(),
             controls=[
                 ft.Column(spacing=2, controls=[
                     ft.Text(f"Turno #{turno_atual.id} · Operador(a): {turno_atual.operador}",
-                            size=13, color=pal.text_pri, weight=ft.FontWeight.BOLD),
+                            size=14, color=pal.text_pri, weight=ft.FontWeight.BOLD),
                     ft.Text(f"Aberto em: {turno_atual.aberto_em}",
-                            size=13, color=pal.text_ter),
+                            size=14, color=pal.text_ter),
                 ]),
-
+                
                 ft.Divider(height=1, color=pal.border),
-
-                ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN, size=20),
-                        ft.Text("Dinheiro (físico):", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
-                        ft.Text(formatar_moeda(totais.fisico), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
-                ft.Row([ft.Icon(ft.Icons.PIX, color=C_BLUE, size=20),
-                        ft.Text("Total PIX:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
-                        ft.Text(formatar_moeda(totais.pix), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
-
-                ft.Divider(height=1, color=pal.border),
-
+                
                 ft.Text("Detalhe de Cartões e Vouchers", size=tamanho_fonte_titulo, color=pal.text_pri, weight=ft.FontWeight.BOLD),
                 caixa_cartoes,
                 ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE, size=20),
                         ft.Text(f"Total Cartões ({totais.qtd_cartoes} un):", expand=True, size=tamanho_fonte_itens, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.cartoes), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
-
+                
                 ft.Divider(height=1, color=pal.border),
-
+                
                 ft.Row([ft.Icon(ft.Icons.RECEIPT_LONG, color=C_PURPLE, size=20),
                         ft.Text("Requisição:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.requisicao), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
@@ -1025,8 +1016,15 @@ def main(page: ft.Page):
                         ft.Text("Despesas:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.despesas), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
 
+                ft.Row([ft.Icon(ft.Icons.PIX, color=C_BLUE, size=20),
+                        ft.Text("Total PIX:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.pix), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+                ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN, size=20),
+                        ft.Text("Dinheiro:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.fisico), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+                
                 ft.Divider(height=6, color=pal.border),
-
+                
                 ft.Container(
                     bgcolor=ft.Colors.with_opacity(0.10, C_GREEN),
                     border_radius=RADIUS_SM,
@@ -1464,7 +1462,7 @@ def main(page: ft.Page):
 
         txt_turno_data.color = pal.text_sec
         txt_operador_nome.color = pal.text_pri
-
+        
         for card, lbl in (
             (stat_din_card, lbl_din),
             (stat_pix_card, lbl_pix),
@@ -1475,7 +1473,7 @@ def main(page: ft.Page):
         ):
             card.bgcolor = pal.surface
             lbl.color = pal.text_ter
-
+            
         txt_total_geral_label.color = pal.text_pri
         txt_header_titulo.color = pal.text_pri
         btn_tema.icon_color = pal.text_sec
