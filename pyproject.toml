@@ -1,11 +1,20 @@
 [project]
 name = "caixa-posto-janjao"
-version = "0.2.0"
+version = "0.2.1"
 description = "Caixa de turno para o Posto Janjão"
 requires-python = ">=3.11"
+authors = [
+    { name = "juglesbass", email = "juglesbass@example.com" }
+]
 dependencies = [
     "flet>=0.85.3",
 ]
+optional-dependencies = {
+    dev = [
+        "pytest>=7.4.0",
+        "pytest-cov>=4.1.0",
+    ]
+}
 
 [tool.flet]
 product = "Caixa - Posto Janjão"
@@ -28,3 +37,12 @@ artifact = "CaixaPostoJanjao"
 UIFileSharingEnabled = true
 LSSupportsOpeningDocumentsInPlace = true
 ITSAppUsesNonExemptEncryption = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --strict-markers"
+markers = [
+    "slow: marks tests as slow",
+    "integration: marks tests as integration tests",
+]
