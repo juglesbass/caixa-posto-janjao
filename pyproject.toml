@@ -9,12 +9,12 @@ authors = [
 dependencies = [
     "flet>=0.85.3",
 ]
-optional-dependencies = {
-    dev = [
-        "pytest>=7.4.0",
-        "pytest-cov>=4.1.0",
-    ]
-}
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+]
 
 [tool.flet]
 product = "Caixa - Posto Janjão"
@@ -42,7 +42,9 @@ ITSAppUsesNonExemptEncryption = false
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v --strict-markers"
-markers = [
-    "slow: marks tests as slow",
-    "integration: marks tests as integration tests",
-]
+
+[[tool.pytest.ini_options.markers]]
+"slow" = "marks tests as slow"
+
+[[tool.pytest.ini_options.markers]]
+"integration" = "marks tests as integration tests"
