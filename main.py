@@ -97,7 +97,7 @@ def main(page: ft.Page):
     pal = criar_paleta(tema_escuro())
     page.bgcolor = pal.bg
     page.vertical_alignment = ft.MainAxisAlignment.START
-    page.scroll = ft.ScrollMode.HIDDEN if mobile else ft.ScrollMode.AUTO
+    page.scroll = None if mobile else ft.ScrollMode.AUTO
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.padding = (
         ft.Padding(left=16, right=16, top=8, bottom=0 if mobile else 16)
@@ -951,13 +951,9 @@ def main(page: ft.Page):
     # ══════════════════════════════════════════════════════════════════
     # RESUMO / FECHAR CAIXA
     # ══════════════════════════════════════════════════════════════════
-    def _altura_resumo() -> int:
-        disponivel = int(page.height or 700)
-        return max(280, min(760, disponivel - 170))
-
     def montar_conteudo_resumo(totais, detalhe_cartoes):
-        tamanho_fonte_itens = 15
-        tamanho_fonte_titulo = 16
+        tamanho_fonte_itens = 17
+        tamanho_fonte_titulo = 18
 
         linhas_bandeiras = []
         for bandeira, (valor, qtd) in detalhe_cartoes.items():
@@ -971,55 +967,55 @@ def main(page: ft.Page):
 
             linhas_bandeiras.append(
                 ft.Row([
-                    ft.Icon(icone, color=cor, size=17),
+                    ft.Icon(icone, color=cor, size=19),
                     ft.Text(
-                        texto_bandeira, size=14, expand=True, color=pal.text_sec,
+                        texto_bandeira, size=16, expand=True, color=pal.text_sec,
                         max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
                     ),
-                    ft.Text(formatar_moeda(valor), size=14, color=cor_valor, weight=peso_valor),
-                ], spacing=8)
+                    ft.Text(formatar_moeda(valor), size=16, color=cor_valor, weight=peso_valor),
+                ], spacing=10)
             )
 
         caixa_cartoes = glass_container(
-            content=ft.Column(linhas_bandeiras, spacing=7),
-            padding=12,
+            content=ft.Column(linhas_bandeiras, spacing=10),
+            padding=14,
         )
 
         return ft.Column(
-            tight=True, spacing=10,
-            scroll=ft.ScrollMode.AUTO, height=_altura_resumo(),
+            tight=True, spacing=14,
+            scroll=ft.ScrollMode.AUTO, expand=True,
             controls=[
-                ft.Column(spacing=2, controls=[
+                ft.Column(spacing=3, controls=[
                     ft.Text(f"Turno #{turno_atual.id} · Operador(a): {turno_atual.operador}",
-                            size=14, color=pal.text_pri, weight=ft.FontWeight.BOLD),
+                            size=16, color=pal.text_pri, weight=ft.FontWeight.BOLD),
                     ft.Text(f"Aberto em: {turno_atual.aberto_em}",
-                            size=14, color=pal.text_ter),
+                            size=15, color=pal.text_ter),
                 ]),
                 
                 ft.Divider(height=1, color=pal.border),
                 
                 ft.Text("Detalhe de Cartões e Vouchers", size=tamanho_fonte_titulo, color=pal.text_pri, weight=ft.FontWeight.BOLD),
                 caixa_cartoes,
-                ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE, size=20),
+                ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE, size=22),
                         ft.Text(f"Total Cartões ({totais.qtd_cartoes} un):", expand=True, size=tamanho_fonte_itens, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.cartoes), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
                 
                 ft.Divider(height=1, color=pal.border),
                 
-                ft.Row([ft.Icon(ft.Icons.RECEIPT_LONG, color=C_PURPLE, size=20),
+                ft.Row([ft.Icon(ft.Icons.RECEIPT_LONG, color=C_PURPLE, size=22),
                         ft.Text("Requisição:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.requisicao), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
-                ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=C_BROWN, size=20),
+                ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=C_BROWN, size=22),
                         ft.Text("Depósito Global:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.deposito_global), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
-                ft.Row([ft.Icon(ft.Icons.MONEY_OFF, color=C_RED, size=20),
+                ft.Row([ft.Icon(ft.Icons.MONEY_OFF, color=C_RED, size=22),
                         ft.Text("Despesas:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.despesas), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
 
-                ft.Row([ft.Icon(ft.Icons.PIX, color=C_BLUE, size=20),
+                ft.Row([ft.Icon(ft.Icons.PIX, color=C_BLUE, size=22),
                         ft.Text("Total PIX:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.pix), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
-                ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN, size=20),
+                ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN, size=22),
                         ft.Text("Dinheiro:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.fisico), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
                 
@@ -1090,11 +1086,12 @@ def main(page: ft.Page):
         btn_fechar = ft.TextButton("Fechar", on_click=fechar_resumo)
 
         painel_resumo = ft.Container(
+            expand=True,
             padding=ft.Padding(20, 12, 20, 30),
             bgcolor=pal.sheet_bg,
             content=ft.Column(
-                tight=True,
-                spacing=10,
+                expand=True,
+                spacing=14,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
                     ft.Container(
