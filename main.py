@@ -97,7 +97,7 @@ def main(page: ft.Page):
     pal = criar_paleta(tema_escuro())
     page.bgcolor = pal.bg
     page.vertical_alignment = ft.MainAxisAlignment.START
-    page.scroll = None if mobile else ft.ScrollMode.AUTO
+    page.scroll = ft.ScrollMode.HIDDEN if mobile else ft.ScrollMode.AUTO
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.padding = (
         ft.Padding(left=16, right=16, top=8, bottom=0 if mobile else 16)
