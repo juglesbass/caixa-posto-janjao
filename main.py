@@ -1510,7 +1510,7 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=10,
             controls=controles_scroll,
-            scroll=ft.ScrollMode.AUTO,
+            scroll=ft.ScrollMode.HIDDEN if mobile else ft.ScrollMode.AUTO,
             expand=mobile,
         )
 
