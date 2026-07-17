@@ -871,6 +871,255 @@ def main(page: ft.Page):
         carregar_historico()
 
     # ══════════════════════════════════════════════════════════════════
+    # DETALHE DE BANDEIRA (lista completa de lançamentos por tipo/bandeira)
+    # ══════════════════════════════════════════════════════════════════
+    def abrir_detalhe_bandeira(tipo: str, rotulo: str = None):
+        if turno_atual is None:
+            return
+
+        nome_exibicao = rotulo or tipo
+        cor = cor_tipo(tipo)
+        icone = icone_tipo(tipo)
+
+        txt_total_detalhe = ft.Text("", size=13, color=pal.text_sec)
+        lista_detalhe = ft.Column(spacing=6)
+
+        dlg_detalhe = None
+        sheet_detalhe = None
+
+        def fechar_detalhe(x=None):
+            if dlg_detalhe:
+                dlg_detalhe.open = False
+            if sheet_detalhe:
+                sheet_detalhe.open = False
+            page.update()
+
+        def carregar_lista_detalhe():
+            garantir_conexao()
+            registros = db.listar_historico_por_tipo(conn, turno_atual.id, tipo, limite=500)
+            lista_detalhe.controls.clear()
+
+            total = sum(row["valor"] for row in registros)
+            txt_total_detalhe.value = f"Total: {formatar_moeda(total)} · {len(registros)} lançamento(s)"
+
+            if not registros:
+                lista_detalhe.controls.append(
+                    ft.Text("Nenhum lançamento para esta bandeira.", size=13, color=pal.text_ter)
+                )
+
+            for row in registros:
+                desc_texto = f" — {row['descricao']}" if row["descricao"] else ""
+
+                def confirmar_exclusao_detalhe(e, rid=row["id"], valor=row["valor"]):
+                    dlg_excluir = ft.AlertDialog(
+                        title=ft.Text("Apagar lançamento?"),
+                        content=ft.Text(f"Remover {formatar_moeda(valor)} · {nome_exibicao}?"),
+                    )
+
+                    def excluir_confirmado(x, lancamento_id=rid):
+                        garantir_conexao()
+                        if db.deletar_lancamento(conn, lancamento_id, turno_atual.id):
+                            fechar_dialogo(dlg_excluir)
+                            mostrar_snackbar("Lançamento removido.", ft.Colors.ORANGE_800)
+                            vibrar("light")
+                            recarregar_listas()
+                            carregar_lista_detalhe()
+                        else:
+                            mostrar_snackbar("Não foi possível apagar.", ft.Colors.RED_800)
+
+                    dlg_excluir.actions = [
+                        ft.TextButton("Apagar", on_click=excluir_confirmado),
+                        ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_excluir)),
+                    ]
+                    abrir_dialogo(dlg_excluir)
+
+                def abrir_edicao_detalhe(e, rid=row["id"], valor=row["valor"], descricao=row["descricao"]):
+                    seletor_edit, estado_edit, _sel_edit, _rec_edit = criar_seletor_tipo(tipo)
+                    seletor_edit.width = min(300, largura_conteudo)
+
+                    def ao_tocar_fora_edicao(e):
+                        desfocar_campos(campo_valor_edit, campo_desc_edit)
+
+                    campo_valor_edit = ft.TextField(
+                        label="Valor",
+                        value=f"{valor:.2f}".replace(".", ","),
+                        prefix=ft.Text("R$ "),
+                        width=min(300, largura_conteudo),
+                        adaptive=adaptive_ui,
+                        autocorrect=False,
+                        enable_suggestions=False,
+                        input_filter=FILTRO_VALOR_MONETARIO,
+                        on_tap_outside=ao_tocar_fora_edicao,
+                    )
+                    campo_desc_edit = ft.TextField(
+                        label="Descrição / Placa (Opcional)",
+                        value=descricao or "",
+                        width=min(300, largura_conteudo),
+                        adaptive=adaptive_ui,
+                        on_tap_outside=ao_tocar_fora_edicao,
+                    )
+                    dlg_editar = ft.AlertDialog(
+                        title=ft.Text("Editar lançamento"),
+                        content=ft.Column(
+                            [
+                                ft.Text("Forma de Pagamento", size=12, color=pal.text_sec),
+                                seletor_edit,
+                                campo_valor_edit,
+                                campo_desc_edit,
+                            ],
+                            tight=True, spacing=10,
+                            scroll=ft.ScrollMode.AUTO, height=420,
+                        ),
+                    )
+
+                    def salvar_edicao(x, lancamento_id=rid):
+                        novo_valor = validar_valor(campo_valor_edit.value or "")
+                        if novo_valor is None:
+                            campo_valor_edit.error_text = "Informe um valor maior que zero"
+                            page.update()
+                            return
+                        try:
+                            garantir_conexao()
+                            ok = db.atualizar_lancamento(
+                                conn, lancamento_id, turno_atual.id,
+                                estado_edit["valor"], novo_valor, campo_desc_edit.value or "",
+                            )
+                            if ok:
+                                fechar_dialogo(dlg_editar)
+                                mostrar_snackbar("Lançamento atualizado.")
+                                recarregar_listas()
+                                carregar_lista_detalhe()
+                            else:
+                                mostrar_snackbar("Não foi possível editar.", ft.Colors.RED_800)
+                        except Exception:
+                            mostrar_snackbar("Erro ao editar. Tente novamente.", ft.Colors.RED_800)
+
+                    dlg_editar.actions = [
+                        ft.TextButton("Salvar", on_click=salvar_edicao),
+                        ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_editar)),
+                    ]
+                    abrir_dialogo(dlg_editar)
+
+                lista_detalhe.controls.append(
+                    ft.Container(
+                        content=ft.Row(
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[
+                                ft.Row(
+                                    spacing=10,
+                                    expand=True,
+                                    controls=[
+                                        ft.Container(
+                                            content=ft.Icon(icone, color=cor, size=15),
+                                            bgcolor=ft.Colors.with_opacity(0.13, cor),
+                                            border_radius=8,
+                                            padding=6,
+                                        ),
+                                        ft.Column(
+                                            spacing=2,
+                                            expand=True,
+                                            controls=[
+                                                ft.Text(
+                                                    f"{formatar_moeda(row['valor'])}{desc_texto}",
+                                                    color=cor, size=13, weight=ft.FontWeight.W_600,
+                                                ),
+                                                ft.Text(row["data"], color=pal.text_ter, size=11),
+                                            ],
+                                        ),
+                                    ],
+                                ),
+                                ft.Row(
+                                    spacing=0,
+                                    controls=[
+                                        ft.IconButton(
+                                            icon=ft.Icons.EDIT_OUTLINED,
+                                            icon_color=C_BLUE,
+                                            icon_size=17,
+                                            tooltip="Editar",
+                                            on_click=abrir_edicao_detalhe,
+                                        ),
+                                        ft.IconButton(
+                                            icon=ft.Icons.DELETE_OUTLINE,
+                                            icon_color=C_RED,
+                                            icon_size=17,
+                                            tooltip="Apagar",
+                                            on_click=confirmar_exclusao_detalhe,
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        ),
+                        bgcolor=pal.surface,
+                        border_radius=RADIUS_SM,
+                        border=borda_all(1, ft.Colors.with_opacity(0.14, cor)),
+                        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+                        padding=ft.Padding(left=12, right=4, top=10, bottom=10),
+                    )
+                )
+            page.update()
+
+        carregar_lista_detalhe()
+
+        largura_detalhe = min(360, largura_conteudo)
+        btn_fechar_detalhe = ft.TextButton("Fechar", on_click=fechar_detalhe)
+
+        if not mobile:
+            dlg_detalhe = ft.AlertDialog(
+                title=ft.Row([ft.Icon(icone, color=cor, size=20), ft.Text(nome_exibicao)], spacing=8),
+                content=ft.Container(
+                    content=ft.Column(
+                        tight=True, spacing=10,
+                        scroll=ft.ScrollMode.AUTO,
+                        controls=[
+                            txt_total_detalhe,
+                            ft.Divider(height=1, color=pal.border),
+                            lista_detalhe,
+                        ],
+                    ),
+                    width=largura_detalhe,
+                    height=440,
+                ),
+                actions=[btn_fechar_detalhe],
+            )
+            abrir_dialogo(dlg_detalhe)
+        else:
+            painel_detalhe = ft.Container(
+                expand=True,
+                padding=ft.Padding(20, 12, 20, 30),
+                bgcolor=pal.sheet_bg,
+                content=ft.Column(
+                    expand=True,
+                    spacing=14,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Container(
+                            width=36, height=4, border_radius=2,
+                            bgcolor=pal.border_strong,
+                        ),
+                        ft.Row(
+                            [ft.Icon(icone, color=cor, size=20),
+                             ft.Text(nome_exibicao, size=17, weight=ft.FontWeight.BOLD, color=pal.text_pri)],
+                            spacing=8,
+                        ),
+                        txt_total_detalhe,
+                        ft.Divider(height=1, color=pal.border),
+                        ft.Container(
+                            content=ft.Column(
+                                controls=[lista_detalhe],
+                                scroll=ft.ScrollMode.AUTO,
+                                expand=True,
+                            ),
+                            expand=True,
+                        ),
+                        btn_fechar_detalhe,
+                    ],
+                ),
+            )
+            sheet_detalhe = ft.CupertinoBottomSheet(painel_detalhe)
+            abrir_dialogo(sheet_detalhe)
+
+    # ══════════════════════════════════════════════════════════════════
     # BOTÃO LANÇAR
     # ══════════════════════════════════════════════════════════════════
     btn_lancar = ft.Container(
@@ -966,15 +1215,49 @@ def main(page: ft.Page):
             texto_bandeira = f"{bandeira} ({qtd} un)" if qtd > 0 else bandeira
 
             linhas_bandeiras.append(
-                ft.Row([
-                    ft.Icon(icone, color=cor, size=19),
+                ft.Container(
+                    content=ft.Row([
+                        ft.Icon(icone, color=cor, size=19),
+                        ft.Text(
+                            texto_bandeira, size=16, expand=True, color=pal.text_sec,
+                            max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
+                        ),
+                        ft.Text(formatar_moeda(valor), size=16, color=cor_valor, weight=peso_valor),
+                        ft.Icon(ft.Icons.CHEVRON_RIGHT, color=pal.text_ter, size=18),
+                    ], spacing=10),
+                    border_radius=RADIUS_SM,
+                    padding=ft.Padding(left=4, right=4, top=6, bottom=6),
+                    ink=True,
+                    tooltip="Toque para ver e editar os lançamentos desta bandeira",
+                    on_click=lambda e, b=bandeira: abrir_detalhe_bandeira(b),
+                )
+            )
+
+        # Pix agora faz parte da categoria de Cartões/Vouchers, exibido como "Pag Pix"
+        cor_pix = cor_tipo(db.TIPO_PIX)
+        icone_pix = icone_tipo(db.TIPO_PIX)
+        cor_valor_pix = pal.text_pri if totais.pix > 0 else pal.text_ter
+        peso_valor_pix = ft.FontWeight.W_600 if totais.pix > 0 else ft.FontWeight.NORMAL
+        texto_pix = f"Pag Pix ({totais.qtd_pix} un)" if totais.qtd_pix > 0 else "Pag Pix"
+
+        linhas_bandeiras.append(
+            ft.Container(
+                content=ft.Row([
+                    ft.Icon(icone_pix, color=cor_pix, size=19),
                     ft.Text(
-                        texto_bandeira, size=16, expand=True, color=pal.text_sec,
+                        texto_pix, size=16, expand=True, color=pal.text_sec,
                         max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
                     ),
-                    ft.Text(formatar_moeda(valor), size=16, color=cor_valor, weight=peso_valor),
-                ], spacing=10)
+                    ft.Text(formatar_moeda(totais.pix), size=16, color=cor_valor_pix, weight=peso_valor_pix),
+                    ft.Icon(ft.Icons.CHEVRON_RIGHT, color=pal.text_ter, size=18),
+                ], spacing=10),
+                border_radius=RADIUS_SM,
+                padding=ft.Padding(left=4, right=4, top=6, bottom=6),
+                ink=True,
+                tooltip="Toque para ver e editar os lançamentos de Pix",
+                on_click=lambda e: abrir_detalhe_bandeira(db.TIPO_PIX, "Pag Pix"),
             )
+        )
 
         caixa_cartoes = glass_container(
             content=ft.Column(linhas_bandeiras, spacing=10),
@@ -994,11 +1277,11 @@ def main(page: ft.Page):
                 
                 ft.Divider(height=1, color=pal.border),
                 
-                ft.Text("Detalhe de Cartões e Vouchers", size=tamanho_fonte_titulo, color=pal.text_pri, weight=ft.FontWeight.BOLD),
+                ft.Text("Detalhe de Cartões, Vouchers e Pix", size=tamanho_fonte_titulo, color=pal.text_pri, weight=ft.FontWeight.BOLD),
                 caixa_cartoes,
                 ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE, size=22),
-                        ft.Text(f"Total Cartões ({totais.qtd_cartoes} un):", expand=True, size=tamanho_fonte_itens, color=pal.text_sec),
-                        ft.Text(formatar_moeda(totais.cartoes), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+                        ft.Text(f"Total Cartões + Pix ({totais.qtd_cartoes + totais.qtd_pix} un):", expand=True, size=tamanho_fonte_itens, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.cartoes + totais.pix), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
                 
                 ft.Divider(height=1, color=pal.border),
                 
@@ -1012,11 +1295,8 @@ def main(page: ft.Page):
                         ft.Text("Despesas:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.despesas), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
 
-                ft.Row([ft.Icon(ft.Icons.PIX, color=C_BLUE, size=22),
-                        ft.Text("Total PIX:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
-                        ft.Text(formatar_moeda(totais.pix), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
                 ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN, size=22),
-                        ft.Text("Dinheiro:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
+                        ft.Text("Sobra de Dinheiro:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.fisico), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
                 
                 ft.Divider(height=6, color=pal.border),
