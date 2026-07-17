@@ -87,6 +87,7 @@ class Totais:
     deposito_global: float = 0.0
     despesas: float = 0.0
     qtd_cartoes: int = 0
+    qtd_pix: int = 0
 
     @property
     def total_geral(self) -> float:
@@ -223,6 +224,7 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
 
     total_cartoes = sum(totais_centavos.get(cartao, 0) for cartao in LISTA_CARTOES) / 100.0
     qtd_cartoes = sum(totais_qtd.get(cartao, 0) for cartao in LISTA_CARTOES)
+    qtd_pix = totais_qtd.get(TIPO_PIX, 0)
 
     fisico = dinheiro
 
@@ -235,6 +237,7 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
         deposito_global=deposito_global,
         despesas=despesas,
         qtd_cartoes=qtd_cartoes,
+        qtd_pix=qtd_pix,
     )
 
 
@@ -262,18 +265,22 @@ def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str,
     linhas_cartoes = "\n".join(
         f"   • {bandeira} ({qtd} un): {formatar_moeda(valor)}" for bandeira, (valor, qtd) in detalhe_cartoes.items()
     )
+    linha_pix = f"   • Pag Pix ({totais.qtd_pix} un): {formatar_moeda(totais.pix)}"
+    total_cartoes_pix = totais.cartoes + totais.pix
+    qtd_cartoes_pix = totais.qtd_cartoes + totais.qtd_pix
+
     return (
         f"⛽ *Fechamento de Turno - Posto Janjão*\n"
         f"👤 Operador: {turno.operador}\n"
         f"🕐 Turno aberto em: {turno.aberto_em}\n\n"
-        f"💵 Dinheiro (físico): {formatar_moeda(totais.fisico)}\n"
-        f"📱 PIX: {formatar_moeda(totais.pix)}\n"
+        f"💵 Sobra de Dinheiro: {formatar_moeda(totais.fisico)}\n"
         f"📋 Requisição: {formatar_moeda(totais.requisicao)}\n"
         f"🔒 Depósito Global: {formatar_moeda(totais.deposito_global)}\n"
         f"🛒 Despesas: {formatar_moeda(totais.despesas)}\n\n"
-        f"💳 Cartões e Sodexo por bandeira:\n"
+        f"💳 Cartões, Vouchers e Pix por bandeira:\n"
         f"{linhas_cartoes}\n"
-        f"   Total de Cartões (+ Sodexo): {formatar_moeda(totais.cartoes)} ({totais.qtd_cartoes} comprovantes)\n\n"
+        f"{linha_pix}\n"
+        f"   Total de Cartões (+ Pix): {formatar_moeda(total_cartoes_pix)} ({qtd_cartoes_pix} comprovantes)\n\n"
         f"✅ Total Geral: {formatar_moeda(totais.total_geral)}"
     )
 
@@ -379,6 +386,27 @@ def listar_historico(conn: sqlite3.Connection, turno_id: int, limite: int = 30) 
         LIMIT ?
         """,
         (turno_id, limite),
+    ).fetchall()
+
+
+def listar_historico_por_tipo(
+    conn: sqlite3.Connection, turno_id: int, tipo: str, limite: int = 500
+) -> list[sqlite3.Row]:
+    """Lista todos os lançamentos de um turno filtrados por uma bandeira/tipo específico.
+
+    Usado pela tela de detalhe da bandeira no resumo do turno, para permitir
+    localizar e editar lançamentos antigos que já saíram do histórico recente.
+    """
+    cursor = conn.cursor()
+    return cursor.execute(
+        """
+        SELECT id, tipo, valor_centavos / 100.0 AS valor, descricao, data
+        FROM lancamentos
+        WHERE turno_id = ? AND tipo = ?
+        ORDER BY id DESC
+        LIMIT ?
+        """,
+        (turno_id, tipo, limite),
     ).fetchall()
 
 
