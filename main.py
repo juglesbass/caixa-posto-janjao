@@ -203,21 +203,41 @@ def main(page: ft.Page):
             dlg.open = True
             page.update()
 
+    def _remover_do_overlay(dlg):
+        try:
+            if dlg in page.overlay:
+                page.overlay.remove(dlg)
+                page.update()
+        except Exception:
+            pass
+
+    def _agendar_limpeza_overlay(dlg, atraso=0.4):
+        # Em versões antigas do Flet cada diálogo/snackbar criado fica
+        # acumulado para sempre em page.overlay (nunca é removido), o que
+        # deixa a página cada vez mais pesada ao longo do turno. Aqui damos
+        # um tempo pra animação de fechamento tocar e então removemos.
+        async def _tarefa():
+            import asyncio
+            await asyncio.sleep(atraso)
+            _remover_do_overlay(dlg)
+        page.run_task(_tarefa)
+
     def fechar_dialogo(dlg):
         try:
             page.pop_dialog()
         except AttributeError:
             dlg.open = False
             page.update()
+            _agendar_limpeza_overlay(dlg)
 
     def mostrar_snackbar(mensagem: str, cor=ft.Colors.GREEN_700):
-        abrir_dialogo(
-            ft.SnackBar(
-                content=ft.Text(mensagem, color=ft.Colors.WHITE),
-                bgcolor=cor,
-                duration=2500,
-            )
+        snack = ft.SnackBar(
+            content=ft.Text(mensagem, color=ft.Colors.WHITE),
+            bgcolor=cor,
+            duration=2500,
         )
+        abrir_dialogo(snack)
+        _agendar_limpeza_overlay(snack, atraso=3.2)
 
     def storage_get(chave: str, padrao=None):
         try:
@@ -275,6 +295,16 @@ def main(page: ft.Page):
     def formatar_moeda(valor: float) -> str:
         return db.formatar_moeda(valor)
 
+    def _blur_vidro():
+        # O efeito "vidro fosco" (BackdropFilter) obriga a GPU a reamostrar
+        # a camada de trás em TODO frame, mesmo quando atrás só existe uma
+        # cor sólida (é o caso aqui, já que os cards ficam empilhados numa
+        # coluna simples, sem nada texturizado por baixo) — ou seja, custa
+        # caro e quase não muda nada visualmente. Em Android de entrada isso
+        # pesa bastante durante a rolagem, então desativamos no mobile e
+        # mantemos no desktop/web, onde a GPU sobra.
+        return None if mobile else ft.Blur(10, 10, ft.BlurTileMode.MIRROR)
+
     def glass_container(content, padding=16, radius=RADIUS_SM, border_color=pal.border, bgcolor=pal.surface):
         return ft.Container(
             content=content,
@@ -282,7 +312,7 @@ def main(page: ft.Page):
             border_radius=radius,
             border=borda_all(1, border_color),
             padding=padding,
-            blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+            blur=_blur_vidro(),
         )
 
     # ══════════════════════════════════════════════════════════════════
@@ -296,7 +326,7 @@ def main(page: ft.Page):
         border_radius=RADIUS,
         bgcolor=ft.Colors.with_opacity(0.10, C_BLUE),
         border=borda_all(1, ft.Colors.with_opacity(0.20, C_BLUE)),
-        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+        blur=_blur_vidro(),
         shadow=ft.BoxShadow(
             spread_radius=0, blur_radius=15,
             color=ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
@@ -339,7 +369,7 @@ def main(page: ft.Page):
             border=borda_all(1, ft.Colors.with_opacity(0.18, cor)),
             padding=ft.Padding(left=14, right=14, top=13, bottom=13),
             expand=True,
-            blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+            blur=_blur_vidro(),
             shadow=ft.BoxShadow(
                 spread_radius=0, blur_radius=10,
                 color=ft.Colors.with_opacity(0.05, ft.Colors.BLACK),
@@ -398,7 +428,7 @@ def main(page: ft.Page):
             ],
         ),
         border=borda_all(1, ft.Colors.with_opacity(0.30, C_GREEN)),
-        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+        blur=_blur_vidro(),
         shadow=ft.BoxShadow(
             spread_radius=0, blur_radius=15,
             color=ft.Colors.with_opacity(0.15, C_GREEN),
@@ -446,7 +476,8 @@ def main(page: ft.Page):
         
         if mobile:
             txt_rodape_resumo.value = f"Total geral · {formatar_moeda(totais.total_geral)}"
-        page.update()
+        # Sem page.update() aqui de propósito: quem chama decide quando enviar
+        # ao cliente, pra não disparar várias idas e voltas pra uma única ação.
 
     # ══════════════════════════════════════════════════════════════════
     # SELETOR DE TIPO
@@ -722,8 +753,7 @@ def main(page: ft.Page):
                         fechar_dialogo(dlg_excluir)
                         mostrar_snackbar("Lançamento removido.", ft.Colors.ORANGE_800)
                         vibrar("light")
-                        atualizar_painel()
-                        carregar_historico()
+                        recarregar_listas()
                     else:
                         mostrar_snackbar("Não foi possível apagar.", ft.Colors.RED_800)
 
@@ -858,17 +888,18 @@ def main(page: ft.Page):
                     bgcolor=pal.surface,
                     border_radius=RADIUS_SM,
                     border=borda_all(1, ft.Colors.with_opacity(0.14, cor)),
-                    blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+                    blur=_blur_vidro(),
                     padding=ft.Padding(left=12, right=4, top=10, bottom=10),
                 )
             )
-        page.update()
+        # Sem page.update() aqui de propósito, ver recarregar_listas().
 
     def recarregar_listas():
         if turno_atual is None: return
         garantir_conexao()
         atualizar_painel()
         carregar_historico()
+        page.update()
 
     # ══════════════════════════════════════════════════════════════════
     # DETALHE DE BANDEIRA (lista completa de lançamentos por tipo/bandeira)
@@ -893,6 +924,10 @@ def main(page: ft.Page):
             if sheet_detalhe:
                 sheet_detalhe.open = False
             page.update()
+            if dlg_detalhe:
+                _agendar_limpeza_overlay(dlg_detalhe)
+            if sheet_detalhe:
+                _agendar_limpeza_overlay(sheet_detalhe)
 
         def carregar_lista_detalhe():
             garantir_conexao()
@@ -924,6 +959,7 @@ def main(page: ft.Page):
                             vibrar("light")
                             recarregar_listas()
                             carregar_lista_detalhe()
+                            page.update()
                         else:
                             mostrar_snackbar("Não foi possível apagar.", ft.Colors.RED_800)
 
@@ -989,6 +1025,7 @@ def main(page: ft.Page):
                                 mostrar_snackbar("Lançamento atualizado.")
                                 recarregar_listas()
                                 carregar_lista_detalhe()
+                                page.update()
                             else:
                                 mostrar_snackbar("Não foi possível editar.", ft.Colors.RED_800)
                         except Exception:
@@ -1053,11 +1090,13 @@ def main(page: ft.Page):
                         bgcolor=pal.surface,
                         border_radius=RADIUS_SM,
                         border=borda_all(1, ft.Colors.with_opacity(0.14, cor)),
-                        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
+                        blur=_blur_vidro(),
                         padding=ft.Padding(left=12, right=4, top=10, bottom=10),
                     )
                 )
-            page.update()
+            # Sem page.update() aqui: na primeira chamada o diálogo ainda nem
+            # foi aberto (abrir_dialogo cuida disso); nas reaberturas depois de
+            # editar/apagar, quem chama dispara o update uma única vez.
 
         carregar_lista_detalhe()
 
@@ -1184,7 +1223,12 @@ def main(page: ft.Page):
             mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {estado_tipo['valor']}")
             vibrar("light")
             salvar_ultimo_tipo(estado_tipo["valor"])
-            recarregar_listas()
+            # atualizar_painel/carregar_historico não fazem page.update() sozinhos
+            # aqui de propósito: a conexão já foi garantida acima e o update
+            # final do "finally" (que sempre roda) já cobre esse refresh,
+            # evitando uma ida e volta extra ao servidor a cada lançamento.
+            atualizar_painel()
+            carregar_historico()
             desfocar_campos(input_valor, input_desc)
         except Exception:
             mostrar_snackbar("Erro ao lançar. Tente novamente.", ft.Colors.RED_800)
@@ -1333,6 +1377,10 @@ def main(page: ft.Page):
             if sheet_resumo:
                 sheet_resumo.open = False
             page.update()
+            if dlg_resumo:
+                _agendar_limpeza_overlay(dlg_resumo)
+            if sheet_resumo:
+                _agendar_limpeza_overlay(sheet_resumo)
 
         def copiar_resumo(x):
             async def _copiar_async():
@@ -1549,6 +1597,7 @@ def main(page: ft.Page):
             if _menu_aberto is not None:
                 _menu_aberto.open = False
                 page.update()
+                _agendar_limpeza_overlay(_menu_aberto)
         _menu_aberto = None
 
     def _menu_handler(callback):
