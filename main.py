@@ -313,6 +313,16 @@ def main(page: ft.Page):
         # mantemos no desktop/web, onde a GPU sobra.
         return None if mobile else ft.Blur(10, 10, ft.BlurTileMode.MIRROR)
 
+    def _sombra(cor=ft.Colors.BLACK, blur=10, opacidade=0.05, offset_y=2):
+        return None if mobile else ft.BoxShadow(
+            spread_radius=0, blur_radius=blur,
+            color=ft.Colors.with_opacity(opacidade, cor),
+            offset=ft.Offset(0, offset_y),
+        )
+
+    def _animacao(duracao=150, curva=ft.AnimationCurve.EASE_OUT):
+        return None if mobile else ft.Animation(duracao, curva)
+
     def glass_container(content, padding=16, radius=RADIUS_SM, border_color=pal.border, bgcolor=pal.surface):
         return ft.Container(
             content=content,
@@ -335,11 +345,7 @@ def main(page: ft.Page):
         bgcolor=ft.Colors.with_opacity(0.10, C_BLUE),
         border=borda_all(1, ft.Colors.with_opacity(0.20, C_BLUE)),
         blur=_blur_vidro(),
-        shadow=ft.BoxShadow(
-            spread_radius=0, blur_radius=15,
-            color=ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
-            offset=ft.Offset(0, 4),
-        ),
+        shadow=_sombra(ft.Colors.BLACK, 15, 0.1, 4),
         padding=ft.Padding(left=20, right=20, top=16, bottom=16),
         content=ft.Row(
             spacing=15,
@@ -378,13 +384,9 @@ def main(page: ft.Page):
             padding=ft.Padding(left=14, right=14, top=13, bottom=13),
             expand=True,
             blur=_blur_vidro(),
-            shadow=ft.BoxShadow(
-                spread_radius=0, blur_radius=10,
-                color=ft.Colors.with_opacity(0.05, ft.Colors.BLACK),
-                offset=ft.Offset(0, 2),
-            ),
+            shadow=_sombra(ft.Colors.BLACK, 10, 0.05, 2),
             scale=ft.Scale(scale=1),
-            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+            animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
         )
         def hover_card(e):
             e.control.scale = 1.02 if e.data == "true" else 1.0
@@ -437,11 +439,7 @@ def main(page: ft.Page):
         ),
         border=borda_all(1, ft.Colors.with_opacity(0.30, C_GREEN)),
         blur=_blur_vidro(),
-        shadow=ft.BoxShadow(
-            spread_radius=0, blur_radius=15,
-            color=ft.Colors.with_opacity(0.15, C_GREEN),
-            offset=ft.Offset(0, 4),
-        ),
+        shadow=_sombra(C_GREEN, 15, 0.15, 4),
         padding=ft.Padding(left=16, right=16, top=13, bottom=13),
         content=ft.Row(
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -531,8 +529,8 @@ def main(page: ft.Page):
                 alignment=ft.Alignment(0, 0),
                 on_click=ao_clicar,
                 scale=ft.Scale(scale=1),
-                animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
-                animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+                animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
+                animate=_animacao(150, ft.AnimationCurve.EASE_OUT),
             )
             
             def hover_chip(e):
@@ -696,9 +694,9 @@ def main(page: ft.Page):
             border=borda_all(1, cor_borda),
             padding=ft.Padding(left=16, right=16, top=9, bottom=9),
             scale=ft.Scale(scale=1),
-            animate_scale=ft.Animation(200, ft.AnimationCurve.BOUNCE_OUT),
+            animate_scale=_animacao(200, ft.AnimationCurve.BOUNCE_OUT),
             on_click=on_click,
-            animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
+            animate=_animacao(120, ft.AnimationCurve.EASE_OUT),
         )
 
         def animar_hover(e):
@@ -1200,15 +1198,10 @@ def main(page: ft.Page):
         height=56,
         width=largura_conteudo,
         alignment=ft.Alignment(0, 0),
-        shadow=ft.BoxShadow(
-            blur_radius=20,
-            spread_radius=0,
-            color=ft.Colors.with_opacity(0.35, "#3b82f6"),
-            offset=ft.Offset(0, 4),
-        ),
+        shadow=_sombra("#3b82f6", 20, 0.35, 4),
         scale=ft.Scale(scale=1),
-        animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
-        animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
+        animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
+        animate=_animacao(120, ft.AnimationCurve.EASE_OUT),
     )
 
     def animar_hover_lancar(e):
@@ -1823,8 +1816,8 @@ def main(page: ft.Page):
                         padding=ft.Padding(24, 16, 24, 16),
                         on_click=lambda e: solicitar_identificacao(novo_turno=True),
                         scale=ft.Scale(scale=1),
-                        animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
-                        animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
+                        animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
+                        animate=_animacao(120, ft.AnimationCurve.EASE_OUT),
                     ),
                     ft.Container(expand=True)
                 ]
@@ -2069,8 +2062,8 @@ def main(page: ft.Page):
             width=240,
             on_click=lambda x: page.run_task(validar_acesso_async),
             scale=ft.Scale(scale=1),
-            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
-            animate=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
+            animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
+            animate=_animacao(120, ft.AnimationCurve.EASE_OUT),
         )
         def hover_confirmar(e):
             e.control.scale = 1.05 if e.data == "true" else 1.0
