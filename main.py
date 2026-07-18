@@ -4,6 +4,7 @@ import flet as ft
 import db
 
 def _app_mobile() -> bool:
+    """Verifica se o aplicativo está rodando nativamente no iOS ou Android."""
     return os.environ.get("FLET_PLATFORM", "") in ("ios", "android")
 
 def criar_paleta(escuro: bool) -> SimpleNamespace:
