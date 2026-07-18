@@ -193,15 +193,23 @@ def main(page: ft.Page):
         page.update()
 
     def abrir_dialogo(dlg):
-        # page.show_dialog() só existe em versões mais novas do Flet.
-        # Em versões mais antigas, caímos para o padrão overlay + open=True.
+        # page.show_dialog() só existe (e funciona) em versões mais novas do
+        # Flet. Se ela não existir OU falhar por qualquer outro motivo — por
+        # exemplo tentar abrir uma tela flutuante em cima de outra que já
+        # está aberta, algo mais instável no Android — caímos pro esquema
+        # antigo de overlay em vez de deixar o toque não fazer nada.
         try:
             page.show_dialog(dlg)
-        except AttributeError:
+            return
+        except Exception as erro:
+            print(f"[abrir_dialogo] show_dialog falhou, usando fallback: {erro}")
+        try:
             if dlg not in page.overlay:
                 page.overlay.append(dlg)
             dlg.open = True
             page.update()
+        except Exception as erro:
+            print(f"[abrir_dialogo] fallback também falhou: {erro}")
 
     def _remover_do_overlay(dlg):
         try:
@@ -904,7 +912,7 @@ def main(page: ft.Page):
     # ══════════════════════════════════════════════════════════════════
     # DETALHE DE BANDEIRA (lista completa de lançamentos por tipo/bandeira)
     # ══════════════════════════════════════════════════════════════════
-    def abrir_detalhe_bandeira(tipo: str, rotulo: str = None):
+    def abrir_detalhe_bandeira(tipo: str, rotulo: str = None, ao_fechar=None):
         if turno_atual is None:
             return
 
@@ -928,6 +936,17 @@ def main(page: ft.Page):
                 _agendar_limpeza_overlay(dlg_detalhe)
             if sheet_detalhe:
                 _agendar_limpeza_overlay(sheet_detalhe)
+
+            if ao_fechar is not None:
+                # Mesmo padrão usado pra abrir o detalhe: espera a animação
+                # de fechamento terminar antes de abrir a próxima tela
+                # flutuante, em vez de empilhar uma em cima da outra.
+                async def _reabrir_depois():
+                    import asyncio
+                    await asyncio.sleep(0.3)
+                    ao_fechar()
+
+                page.run_task(_reabrir_depois)
 
         def carregar_lista_detalhe():
             garantir_conexao()
@@ -1244,7 +1263,8 @@ def main(page: ft.Page):
     # ══════════════════════════════════════════════════════════════════
     # RESUMO / FECHAR CAIXA
     # ══════════════════════════════════════════════════════════════════
-    def montar_conteudo_resumo(totais, detalhe_cartoes):
+    def montar_conteudo_resumo(totais, detalhe_cartoes, ao_abrir_detalhe=None):
+        ao_abrir_detalhe = ao_abrir_detalhe or abrir_detalhe_bandeira
         tamanho_fonte_itens = 17
         tamanho_fonte_titulo = 18
 
@@ -1273,7 +1293,7 @@ def main(page: ft.Page):
                     padding=ft.Padding(left=4, right=4, top=6, bottom=6),
                     ink=True,
                     tooltip="Toque para ver e editar os lançamentos desta bandeira",
-                    on_click=lambda e, b=bandeira: abrir_detalhe_bandeira(b),
+                    on_click=lambda e, b=bandeira: ao_abrir_detalhe(b),
                 )
             )
 
@@ -1299,7 +1319,7 @@ def main(page: ft.Page):
                 padding=ft.Padding(left=4, right=4, top=6, bottom=6),
                 ink=True,
                 tooltip="Toque para ver e editar os lançamentos de Pix",
-                on_click=lambda e: abrir_detalhe_bandeira(db.TIPO_PIX, "Pag Pix"),
+                on_click=lambda e: ao_abrir_detalhe(db.TIPO_PIX, "Pag Pix"),
             )
         )
 
@@ -1324,8 +1344,8 @@ def main(page: ft.Page):
                 ft.Text("Detalhe de Cartões, Vouchers e Pix", size=tamanho_fonte_titulo, color=pal.text_pri, weight=ft.FontWeight.BOLD),
                 caixa_cartoes,
                 ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE, size=22),
-                        ft.Text(f"Total Cartões + Pix ({totais.qtd_cartoes + totais.qtd_pix} un):", expand=True, size=tamanho_fonte_itens, color=pal.text_sec),
-                        ft.Text(formatar_moeda(totais.cartoes + totais.pix), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
+                        ft.Text(f"Total Cartões ({totais.qtd_cartoes} un):", expand=True, size=tamanho_fonte_itens, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.cartoes), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
                 
                 ft.Divider(height=1, color=pal.border),
                 
@@ -1366,10 +1386,10 @@ def main(page: ft.Page):
         totais        = db.obter_totais(conn, turno_atual.id)
         detalhe_cart  = db.obter_detalhe_cartoes(conn, turno_atual.id)
         resumo        = db.montar_resumo_texto(totais, turno_atual, detalhe_cart)
-        conteudo_resumo = montar_conteudo_resumo(totais, detalhe_cart)
 
         dlg_resumo = None
         sheet_resumo = None
+        _em_andamento = {"valor": False}
 
         def fechar_resumo(x=None):
             if dlg_resumo:
@@ -1381,6 +1401,21 @@ def main(page: ft.Page):
                 _agendar_limpeza_overlay(dlg_resumo)
             if sheet_resumo:
                 _agendar_limpeza_overlay(sheet_resumo)
+
+        def abrir_detalhe_a_partir_do_resumo(tipo, rotulo=None):
+            # No Android, abrir uma tela flutuante (o detalhe da bandeira) em
+            # cima de outra que já está aberta (o resumo) é instável e às
+            # vezes simplesmente não faz nada. Por isso fechamos o resumo
+            # primeiro, damos um tempinho pra animação terminar, e só então
+            # abrimos o detalhe.
+            fechar_resumo()
+
+            async def _abrir_depois():
+                import asyncio
+                await asyncio.sleep(0.3)
+                abrir_detalhe_bandeira(tipo, rotulo, ao_fechar=acao_fechar_caixa)
+
+            page.run_task(_abrir_depois)
 
         def copiar_resumo(x):
             async def _copiar_async():
@@ -1394,16 +1429,32 @@ def main(page: ft.Page):
 
         def encerrar_turno(x):
             nonlocal turno_atual
+            if _em_andamento["valor"] or turno_atual is None:
+                return
+            _em_andamento["valor"] = True
             try:
                 garantir_conexao()
                 db.fechar_turno(conn, turno_atual.id, totais)
                 turno_atual = None
                 fechar_resumo()
-                mostrar_snackbar("Turno encerrado com sucesso. Caixa Fechado.")
-                vibrar("medium")
-                montar_interface()
+
+                async def _finalizar_encerramento():
+                    import asyncio
+                    # Espera a animação de fechar a tela do resumo terminar
+                    # antes de reconstruir a interface inteira — fazer as duas
+                    # coisas juntas de forma imediata é o que mais trava no
+                    # Android.
+                    await asyncio.sleep(0.35)
+                    mostrar_snackbar("Turno encerrado com sucesso. Caixa Fechado.")
+                    vibrar("medium")
+                    montar_interface()
+
+                page.run_task(_finalizar_encerramento)
             except Exception as ex:
+                _em_andamento["valor"] = False
                 mostrar_snackbar(f"Erro: {ex}", ft.Colors.RED_800)
+
+        conteudo_resumo = montar_conteudo_resumo(totais, detalhe_cart, abrir_detalhe_a_partir_do_resumo)
 
         btn_copiar = ft.TextButton(
             content=ft.Row([ft.Icon(ft.Icons.CONTENT_COPY, size=16), ft.Text("Copiar resumo")],
