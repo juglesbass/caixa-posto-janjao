@@ -194,11 +194,16 @@ def main(page: ft.Page):
         page.update()
 
     def abrir_dialogo(dlg):
-        # page.show_dialog() só existe (e funciona) em versões mais novas do
-        # Flet. Se ela não existir OU falhar por qualquer outro motivo — por
-        # exemplo tentar abrir uma tela flutuante em cima de outra que já
-        # está aberta, algo mais instável no Android — caímos pro esquema
-        # antigo de overlay em vez de deixar o toque não fazer nada.
+        # Em versões recentes do Flet (0.21+), page.open suporta empilhar overlays
+        # perfeitamente, inclusive no Android.
+        if hasattr(page, "open"):
+            try:
+                page.open(dlg)
+                return
+            except Exception as erro:
+                print(f"[abrir_dialogo] page.open falhou: {erro}")
+                
+        # Fallback para versões mais antigas
         try:
             page.show_dialog(dlg)
             return
@@ -1408,19 +1413,11 @@ def main(page: ft.Page):
                 _agendar_limpeza_overlay(sheet_resumo)
 
         def abrir_detalhe_a_partir_do_resumo(tipo, rotulo=None):
-            # No Android, abrir uma tela flutuante (o detalhe da bandeira) em
-            # cima de outra que já está aberta (o resumo) é instável e às
-            # vezes simplesmente não faz nada. Por isso fechamos o resumo
-            # primeiro, damos um tempinho pra animação terminar, e só então
-            # abrimos o detalhe.
-            fechar_resumo()
+            # Abrimos o detalhe diretamente por cima do resumo. 
+            # A instabilidade no Android ao empilhar overlays foi mitigada
+            # pelo uso de page.open() (ou fallback de overlay) no abrir_dialogo.
+            abrir_detalhe_bandeira(tipo, rotulo)
 
-            async def _abrir_depois():
-                import asyncio
-                await asyncio.sleep(0.3)
-                abrir_detalhe_bandeira(tipo, rotulo, ao_fechar=acao_fechar_caixa)
-
-            page.run_task(_abrir_depois)
 
         def copiar_resumo(x):
             async def _copiar_async():
