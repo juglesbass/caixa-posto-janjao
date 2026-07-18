@@ -266,8 +266,6 @@ def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str,
         f"   • {bandeira} ({qtd} un): {formatar_moeda(valor)}" for bandeira, (valor, qtd) in detalhe_cartoes.items()
     )
     linha_pix = f"   • Pag Pix ({totais.qtd_pix} un): {formatar_moeda(totais.pix)}"
-    total_cartoes_pix = totais.cartoes + totais.pix
-    qtd_cartoes_pix = totais.qtd_cartoes + totais.qtd_pix
 
     return (
         f"⛽ *Fechamento de Turno - Posto Janjão*\n"
@@ -280,9 +278,10 @@ def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str,
         f"💳 Cartões, Vouchers e Pix por bandeira:\n"
         f"{linhas_cartoes}\n"
         f"{linha_pix}\n"
-        f"   Total de Cartões (+ Pix): {formatar_moeda(total_cartoes_pix)} ({qtd_cartoes_pix} comprovantes)\n\n"
+        f"   Total de Cartões: {formatar_moeda(totais.cartoes)} ({totais.qtd_cartoes} comprovantes)\n\n"
         f"✅ Total Geral: {formatar_moeda(totais.total_geral)}"
     )
+
 
 
 def inserir_lancamento(
