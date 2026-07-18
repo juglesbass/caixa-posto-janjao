@@ -1276,19 +1276,24 @@ def main(page: ft.Page):
             cor_valor = pal.text_pri if valor > 0 else pal.text_ter
             peso_valor = ft.FontWeight.W_600 if valor > 0 else ft.FontWeight.NORMAL
 
-            texto_bandeira = f"{bandeira} ({qtd} un)" if qtd > 0 else bandeira
+            row_controls = [
+                ft.Icon(icone, color=cor, size=19),
+                ft.Text(
+                    bandeira, size=16, expand=True, color=pal.text_sec,
+                    max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
+                ),
+            ]
+            if qtd > 0:
+                row_controls.append(ft.Text(f"({qtd} un)", size=16, color=pal.text_sec))
+            
+            row_controls.extend([
+                ft.Text(formatar_moeda(valor), size=16, color=cor_valor, weight=peso_valor),
+                ft.Icon(ft.Icons.CHEVRON_RIGHT, color=pal.text_ter, size=18),
+            ])
 
             linhas_bandeiras.append(
                 ft.Container(
-                    content=ft.Row([
-                        ft.Icon(icone, color=cor, size=19),
-                        ft.Text(
-                            texto_bandeira, size=16, expand=True, color=pal.text_sec,
-                            max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
-                        ),
-                        ft.Text(formatar_moeda(valor), size=16, color=cor_valor, weight=peso_valor),
-                        ft.Icon(ft.Icons.CHEVRON_RIGHT, color=pal.text_ter, size=18),
-                    ], spacing=10),
+                    content=ft.Row(row_controls, spacing=10),
                     border_radius=RADIUS_SM,
                     padding=ft.Padding(left=4, right=4, top=6, bottom=6),
                     ink=True,
@@ -1302,19 +1307,25 @@ def main(page: ft.Page):
         icone_pix = icone_tipo(db.TIPO_PIX)
         cor_valor_pix = pal.text_pri if totais.pix > 0 else pal.text_ter
         peso_valor_pix = ft.FontWeight.W_600 if totais.pix > 0 else ft.FontWeight.NORMAL
-        texto_pix = f"Pag Pix ({totais.qtd_pix} un)" if totais.qtd_pix > 0 else "Pag Pix"
+        
+        row_controls_pix = [
+            ft.Icon(icone_pix, color=cor_pix, size=19),
+            ft.Text(
+                "Pag Pix", size=16, expand=True, color=pal.text_sec,
+                max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
+            ),
+        ]
+        if totais.qtd_pix > 0:
+            row_controls_pix.append(ft.Text(f"({totais.qtd_pix} un)", size=16, color=pal.text_sec))
+            
+        row_controls_pix.extend([
+            ft.Text(formatar_moeda(totais.pix), size=16, color=cor_valor_pix, weight=peso_valor_pix),
+            ft.Icon(ft.Icons.CHEVRON_RIGHT, color=pal.text_ter, size=18),
+        ])
 
         linhas_bandeiras.append(
             ft.Container(
-                content=ft.Row([
-                    ft.Icon(icone_pix, color=cor_pix, size=19),
-                    ft.Text(
-                        texto_pix, size=16, expand=True, color=pal.text_sec,
-                        max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
-                    ),
-                    ft.Text(formatar_moeda(totais.pix), size=16, color=cor_valor_pix, weight=peso_valor_pix),
-                    ft.Icon(ft.Icons.CHEVRON_RIGHT, color=pal.text_ter, size=18),
-                ], spacing=10),
+                content=ft.Row(row_controls_pix, spacing=10),
                 border_radius=RADIUS_SM,
                 padding=ft.Padding(left=4, right=4, top=6, bottom=6),
                 ink=True,
