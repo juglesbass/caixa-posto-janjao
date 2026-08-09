@@ -519,59 +519,41 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
     c = canvas.Canvas(caminho, pagesize=A4)
 
     def desenhar_marca_dagua_bomba(c, w, h):
-        """Desenha uma marca d'água elegante e sutil de bomba de combustível em vetor."""
+        """Desenha a marca d'água colorida com bico de combustível e gotas de gasolina douradas."""
         cx = w / 2.0
-        cy = (h / 2.0) - 20.0
-        
+        cy = (h / 2.0) - 10.0
+
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        caminho_img = os.path.join(base_dir, "assets", "bico_gold.jpg")
+        if not os.path.exists(caminho_img):
+            caminho_img = os.path.join(os.getcwd(), "assets", "bico_gold.jpg")
+
+        if os.path.exists(caminho_img):
+            try:
+                c.saveState()
+                c.setFillAlpha(0.26)
+                largura_img = 340
+                altura_img = 340
+                c.drawImage(
+                    caminho_img,
+                    cx - (largura_img / 2.0),
+                    cy - (altura_img / 2.0),
+                    width=largura_img,
+                    height=altura_img,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
+                c.restoreState()
+                return
+            except Exception:
+                pass
+
+        # Fallback vetorial caso a imagem não esteja presente
         c.saveState()
         c.setStrokeColor(colors.HexColor("#F1F5F9"))
         c.setFillColor(colors.HexColor("#F8FAFC"))
         c.setLineWidth(1.2)
-
-        # Corpo principal da bomba
         c.roundRect(cx - 70, cy - 110, 140, 220, 12, fill=1, stroke=1)
-        
-        # Borda interna de acabamento
-        c.setStrokeColor(colors.HexColor("#E2E8F0"))
-        c.setLineWidth(0.8)
-        c.roundRect(cx - 62, cy - 102, 124, 204, 8, fill=0, stroke=1)
-
-        # Topo / Luminoso da bomba
-        c.roundRect(cx - 50, cy + 110, 100, 24, 6, fill=1, stroke=1)
-        c.line(cx - 30, cy + 110, cx - 30, cy + 134)
-        c.line(cx + 30, cy + 110, cx + 30, cy + 134)
-
-        # Display do visor digital (Preço / Litros)
-        c.roundRect(cx - 50, cy + 25, 100, 65, 6, fill=1, stroke=1)
-        c.setStrokeColor(colors.HexColor("#CBD5E1"))
-        c.setLineWidth(1)
-        c.line(cx - 38, cy + 68, cx + 15, cy + 68)
-        c.line(cx - 38, cy + 50, cx + 15, cy + 50)
-        c.line(cx - 38, cy + 35, cx + 15, cy + 35)
-
-        # Botões seletores
-        c.circle(cx + 30, cy + 65, 4, fill=0, stroke=1)
-        c.circle(cx + 30, cy + 50, 4, fill=0, stroke=1)
-        c.circle(cx + 30, cy + 35, 4, fill=0, stroke=1)
-
-        # Base inferior da bomba
-        c.setStrokeColor(colors.HexColor("#E2E8F0"))
-        c.roundRect(cx - 80, cy - 122, 160, 12, 4, fill=1, stroke=1)
-
-        # Suporte do bico de combustível
-        c.roundRect(cx + 70, cy + 20, 14, 30, 3, fill=1, stroke=1)
-
-        # Mangueira curva lateral
-        p = c.beginPath()
-        p.moveTo(cx + 77, cy + 20)
-        p.curveTo(cx + 120, cy - 20, cx + 110, cy - 80, cx + 70, cy - 90)
-        c.drawPath(p, fill=0, stroke=1)
-
-        # Bico de combustível (Pistola)
-        c.roundRect(cx + 72, cy + 45, 16, 35, 4, fill=1, stroke=1)
-        c.line(cx + 75, cy + 70, cx + 62, cy + 90)
-        c.line(cx + 62, cy + 90, cx + 56, cy + 86)
-
         c.restoreState()
 
     # Desenha a marca d'água no fundo
