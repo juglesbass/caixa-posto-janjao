@@ -121,9 +121,7 @@ def main(page: ft.Page):
 
     def _registrar_servico(ctrl):
         try:
-            if hasattr(page, "services"):
-                page.services.append(ctrl)
-            elif hasattr(page, "overlay"):
+            if ctrl not in page.overlay:
                 page.overlay.append(ctrl)
         except Exception:
             pass
@@ -1462,20 +1460,20 @@ def main(page: ft.Page):
                 mostrar_snackbar(f"Erro ao gerar PDF: {ex}", ft.Colors.RED_800)
                 return
 
-            mostrar_snackbar("Abrindo compartilhamento...")
+            mostrar_snackbar("Gerando compartilhamento do PDF...")
 
-            if compartilhar_servico is not None:
-                async def _share_async():
-                    try:
-                        # Algumas versões do Flet usam share_files; se sua versão
-                        # diferir, ajuste conforme a API do ft.Share disponível.
+            async def _share_async():
+                try:
+                    if compartilhar_servico is not None and hasattr(compartilhar_servico, "share_files"):
                         await compartilhar_servico.share_files([caminho_pdf])
-                        mostrar_snackbar("Compartilhamento aberto.")
-                    except Exception:
-                        mostrar_snackbar(f"Não foi possível abrir compartilhamento. PDF salvo em: {caminho_pdf}")
-                page.run_task(_share_async)
-            else:
-                mostrar_snackbar(f"PDF salvo em: {caminho_pdf}")
+                    elif compartilhar_servico is not None and hasattr(compartilhar_servico, "share_files_async"):
+                        await compartilhar_servico.share_files_async([caminho_pdf])
+                    else:
+                        mostrar_snackbar(f"PDF gerado com sucesso em: {caminho_pdf}")
+                except Exception as err:
+                    mostrar_snackbar(f"PDF gerado e salvo em: {caminho_pdf}")
+
+            page.run_task(_share_async)
 
         def encerrar_turno(x):
             nonlocal turno_atual
