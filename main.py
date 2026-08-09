@@ -78,6 +78,11 @@ def main(page: ft.Page):
     ios = _plataforma_ios(page)
     adaptive_ui = mobile or ios
 
+    def _criar_bottom_sheet(conteudo):
+        if ios:
+            return ft.CupertinoBottomSheet(conteudo)
+        return ft.BottomSheet(content=conteudo, dismissible=True, enable_drag=True)
+
     page.title = "Caixa - Posto Janjão"
     if adaptive_ui:
         page.adaptive = True
@@ -282,6 +287,12 @@ def main(page: ft.Page):
         db.TIPO_SODEXO:          C_TEAL,
         db.TIPO_DEPOSITO_GLOBAL: C_BROWN,
         db.TIPO_DESPESA:         C_RED,
+        "Fitcard":               C_TEAL,
+        "Excard":                C_PURPLE,
+        "Amex":                  C_BLUE,
+        "Eucard":                C_GREEN,
+        "Pix":                   C_INDIGO,
+        "Avancard":              C_INDIGO,
         "Master Crédito":        C_RED,
         "Master Débito":         C_ORANGE,
         "Visa Crédito":          C_INDIGO,
@@ -403,7 +414,7 @@ def main(page: ft.Page):
         return card, txt, lbl
 
     stat_din_card, txt_dinheiro, lbl_din = _stat_card("Dinheiro", C_GREEN)
-    stat_pix_card, txt_pix, lbl_pix = _stat_card("PIX", C_BLUE)
+    stat_pix_card, txt_pix, lbl_pix = _stat_card("Pag Pix", C_BLUE)
     stat_cart_card, txt_cartoes, lbl_cart = _stat_card("Cartões", C_ORANGE)
     stat_req_card, txt_requisicao, lbl_req = _stat_card("Requisição", C_PURPLE)
     stat_dep_card, txt_deposito_global, lbl_dep = _stat_card("Depósito Global", C_BROWN)
@@ -470,13 +481,13 @@ def main(page: ft.Page):
     )
 
     def atualizar_painel():
-        nonlocal turno_atual
         if turno_atual is None:
             return
-
+        garantir_conexao()
         totais = db.obter_totais(conn, turno_atual.id)
-        txt_dinheiro.value      = formatar_moeda(totais.fisico)
-        txt_pix.value           = formatar_moeda(totais.pix)
+        
+        txt_dinheiro.value       = formatar_moeda(totais.dinheiro)
+        txt_pix.value            = formatar_moeda(totais.pix)
         txt_cartoes.value       = formatar_moeda(totais.cartoes)
         lbl_cart.value          = f"CARTÕES ({totais.qtd_cartoes})"
         txt_requisicao.value    = formatar_moeda(totais.requisicao)
@@ -489,16 +500,17 @@ def main(page: ft.Page):
         
         if mobile:
             txt_rodape_resumo.value = f"Total geral · {formatar_moeda(totais.total_geral)}"
-        # Sem page.update() aqui de propósito: quem chama decide quando enviar
-        # ao cliente, pra não disparar várias idas e voltas pra uma única ação.
 
-    # ═══════════════════════════════════════════════════════════════[...]
+    # ═══════════════════════════════════════════════════════════════
     # SELETOR DE TIPO
-    # ═══════════════════════════════════════════════════════════════[...]
+    # ═══════════════════════════════════════════════════════════════
+    def _eh_cartao(t: str) -> bool:
+        return t in db.LISTA_CARTOES
+
     def criar_seletor_tipo(valor_inicial: str):
         estado = {
             "valor": valor_inicial,
-            "mostrar_bandeiras": valor_inicial in db.LISTA_CARTOES,
+            "mostrar_bandeiras": _eh_cartao(valor_inicial),
         }
         seletor_col = ft.Column(spacing=8, width=largura_conteudo)
         registro_chips = {}
@@ -555,8 +567,11 @@ def main(page: ft.Page):
             )
 
         def _chip_cartao():
-            selecionado = estado["valor"] in db.LISTA_CARTOES
+            selecionado = _eh_cartao(estado["valor"])
             return _montar_chip("__cartao__", "Cartão", selecionado, _alternar_cartao)
+
+        bandeiras_novas = ["Fitcard", "Excard", "Amex", "Eucard", "Pix", "Avancard"]
+        bandeiras_tela_venda = [c for c in db.LISTA_CARTOES if c not in bandeiras_novas] + [c for c in bandeiras_novas if c in db.LISTA_CARTOES]
 
         def _linha(tipos):
             return ft.Row(spacing=8, controls=[_chip(t) for t in tipos])
@@ -576,8 +591,8 @@ def main(page: ft.Page):
                     ft.Text("Escolha a bandeira", size=12, color=pal.text_ter,
                             weight=ft.FontWeight.W_600)
                 )
-                for i in range(0, len(db.LISTA_CARTOES), 2):
-                    seletor_col.controls.append(_linha(db.LISTA_CARTOES[i:i + 2]))
+                for i in range(0, len(bandeiras_tela_venda), 2):
+                    seletor_col.controls.append(_linha(bandeiras_tela_venda[i:i + 2]))
 
         def _repintar_chip(chave: str, selecionado: bool):
             registrado = registro_chips.get(chave)
@@ -598,8 +613,8 @@ def main(page: ft.Page):
             estado["valor"] = tipo
             salvar_ultimo_tipo(tipo)
 
-            anterior_e_cartao = anterior in db.LISTA_CARTOES
-            novo_e_cartao = tipo in db.LISTA_CARTOES
+            anterior_e_cartao = _eh_cartao(anterior)
+            novo_e_cartao = _eh_cartao(tipo)
 
             if anterior_e_cartao != novo_e_cartao:
                 estado["mostrar_bandeiras"] = novo_e_cartao
@@ -612,12 +627,12 @@ def main(page: ft.Page):
             page.update()
 
         def _alternar_cartao(e=None):
-            if estado["valor"] in db.LISTA_CARTOES:
+            if _eh_cartao(estado["valor"]):
                 estado["mostrar_bandeiras"] = not estado["mostrar_bandeiras"]
                 construir()
                 page.update()
             else:
-                selecionar(db.LISTA_CARTOES[0])
+                selecionar(bandeiras_tela_venda[0])
 
         construir()
         return seletor_col, estado, selecionar, construir
@@ -932,6 +947,11 @@ def main(page: ft.Page):
         sheet_detalhe = None
 
         def fechar_detalhe(x=None):
+            try:
+                if dlg_detalhe: page.close(dlg_detalhe)
+                if sheet_detalhe: page.close(sheet_detalhe)
+            except Exception:
+                pass
             if dlg_detalhe:
                 dlg_detalhe.open = False
             if sheet_detalhe:
@@ -1179,7 +1199,7 @@ def main(page: ft.Page):
                     ],
                 ),
             )
-            sheet_detalhe = ft.CupertinoBottomSheet(painel_detalhe)
+            sheet_detalhe = _criar_bottom_sheet(painel_detalhe)
             abrir_dialogo(sheet_detalhe)
 
     # ══════════════════════════════════════════════════════════════��[...]
@@ -1279,17 +1299,13 @@ def main(page: ft.Page):
             row_controls = [
                 ft.Icon(icone, color=cor, size=19),
                 ft.Text(
-                    bandeira, size=16, expand=True, color=pal.text_sec,
+                    bandeira, size=15, width=135, color=pal.text_sec,
                     max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
                 ),
-            ]
-            if qtd > 0:
-                row_controls.append(ft.Text(f"({qtd} un)", size=16, color=pal.text_sec))
-            
-            row_controls.extend([
-                ft.Text(formatar_moeda(valor), size=16, color=cor_valor, weight=peso_valor),
+                ft.Text(f"({qtd} un)", size=14, width=65, color=pal.text_ter),
+                ft.Text(formatar_moeda(valor), size=16, color=cor_valor, weight=peso_valor, expand=True, text_align=ft.TextAlign.RIGHT),
                 ft.Icon(ft.Icons.CHEVRON_RIGHT, color=pal.text_ter, size=18),
-            ])
+            ]
 
             linhas_bandeiras.append(
                 ft.Container(
@@ -1311,17 +1327,13 @@ def main(page: ft.Page):
         row_controls_pix = [
             ft.Icon(icone_pix, color=cor_pix, size=19),
             ft.Text(
-                "Pag Pix", size=16, expand=True, color=pal.text_sec,
+                "Pag Pix", size=15, width=135, color=pal.text_sec,
                 max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
             ),
-        ]
-        if totais.qtd_pix > 0:
-            row_controls_pix.append(ft.Text(f"({totais.qtd_pix} un)", size=16, color=pal.text_sec))
-            
-        row_controls_pix.extend([
-            ft.Text(formatar_moeda(totais.pix), size=16, color=cor_valor_pix, weight=peso_valor_pix),
+            ft.Text(f"({totais.qtd_pix} un)", size=14, width=65, color=pal.text_ter),
+            ft.Text(formatar_moeda(totais.pix), size=16, color=cor_valor_pix, weight=peso_valor_pix, expand=True, text_align=ft.TextAlign.RIGHT),
             ft.Icon(ft.Icons.CHEVRON_RIGHT, color=pal.text_ter, size=18),
-        ])
+        ]
 
         linhas_bandeiras.append(
             ft.Container(
@@ -1360,6 +1372,9 @@ def main(page: ft.Page):
                 
                 ft.Divider(height=1, color=pal.border),
                 
+                ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN, size=22),
+                        ft.Text("Sobra de Dinheiro:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
+                        ft.Text(formatar_moeda(totais.fisico), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
                 ft.Row([ft.Icon(ft.Icons.RECEIPT_LONG, color=C_PURPLE, size=22),
                         ft.Text("Requisição:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.requisicao), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
@@ -1369,10 +1384,6 @@ def main(page: ft.Page):
                 ft.Row([ft.Icon(ft.Icons.MONEY_OFF, color=C_RED, size=22),
                         ft.Text("Despesas:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
                         ft.Text(formatar_moeda(totais.despesas), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
-
-                ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN, size=22),
-                        ft.Text("Sobra de Dinheiro:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
-                        ft.Text(formatar_moeda(totais.fisico), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
                 
                 ft.Divider(height=6, color=pal.border),
                 
@@ -1403,6 +1414,11 @@ def main(page: ft.Page):
         _em_andamento = {"valor": False}
 
         def fechar_resumo(x=None):
+            try:
+                if dlg_resumo: page.close(dlg_resumo)
+                if sheet_resumo: page.close(sheet_resumo)
+            except Exception:
+                pass
             if dlg_resumo:
                 dlg_resumo.open = False
             if sheet_resumo:
@@ -1414,10 +1430,15 @@ def main(page: ft.Page):
                 _agendar_limpeza_overlay(sheet_resumo)
 
         def abrir_detalhe_a_partir_do_resumo(tipo, rotulo=None):
-            # Abrimos o detalhe diretamente por cima do resumo. 
-            # A instabilidade no Android ao empilhar overlays foi mitigada
-            # pelo uso de page.open() (ou fallback de overlay) no abrir_dialogo.
-            abrir_detalhe_bandeira(tipo, rotulo)
+            if mobile and not ios:
+                fechar_resumo()
+                async def _reabrir_detalhe():
+                    import asyncio
+                    await asyncio.sleep(0.15)
+                    abrir_detalhe_bandeira(tipo, rotulo, ao_fechar=acao_fechar_caixa)
+                page.run_task(_reabrir_detalhe)
+            else:
+                abrir_detalhe_bandeira(tipo, rotulo)
 
 
         def copiar_resumo(x):
@@ -1452,7 +1473,7 @@ def main(page: ft.Page):
                         mostrar_snackbar("Compartilhamento aberto.")
                     except Exception:
                         mostrar_snackbar(f"Não foi possível abrir compartilhamento. PDF salvo em: {caminho_pdf}")
-                page.run_task(_share_async())
+                page.run_task(_share_async)
             else:
                 mostrar_snackbar(f"PDF salvo em: {caminho_pdf}")
 
@@ -1536,7 +1557,7 @@ def main(page: ft.Page):
             )
             abrir_dialogo(dlg_resumo)
         else:
-            sheet_resumo = ft.CupertinoBottomSheet(painel_resumo)
+            sheet_resumo = _criar_bottom_sheet(painel_resumo)
             abrir_dialogo(sheet_resumo)
 
     def acao_historico_turnos(e=None):

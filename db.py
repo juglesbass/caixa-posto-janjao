@@ -9,13 +9,19 @@ from typing import Optional
 
 # ── Constantes de tipo (evita strings soltas espalhadas pelo código) ───────
 TIPO_DINHEIRO = "Dinheiro"
-TIPO_PIX = "Pix"
+TIPO_PIX = "Pag Pix"
 TIPO_REQUISICAO = "Requisição"
 TIPO_SODEXO = "Sodexo"
 TIPO_DEPOSITO_GLOBAL = "Depósito Global"
 TIPO_DESPESA = "Despesas"
 
 LISTA_CARTOES = [
+    "Fitcard",
+    "Excard",
+    "Amex",
+    "Eucard",
+    "Pix",
+    "Avancard",
     "Master Crédito",
     "Master Débito",
     "Visa Crédito",
@@ -26,14 +32,12 @@ LISTA_CARTOES = [
     "Alelo Multibenefícios",
 ]
 
-TIPOS_DROPDOWN = [
-    TIPO_DINHEIRO,
-    TIPO_PIX,
-    TIPO_REQUISICAO,
-    *LISTA_CARTOES,
-    TIPO_DEPOSITO_GLOBAL,
-    TIPO_DESPESA,
-]
+_vistos_td = set()
+TIPOS_DROPDOWN = []
+for _t in [TIPO_DINHEIRO, TIPO_PIX, TIPO_REQUISICAO, *LISTA_CARTOES, TIPO_DEPOSITO_GLOBAL, TIPO_DESPESA]:
+    if _t not in _vistos_td:
+        _vistos_td.add(_t)
+        TIPOS_DROPDOWN.append(_t)
 
 
 def _diretorio_seguro() -> str:
@@ -262,26 +266,51 @@ def obter_detalhe_cartoes(conn: sqlite3.Connection, turno_id: int) -> dict[str, 
 
 
 def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str, tuple[float, int]]) -> str:
+    largura_bandeira = 26
+    largura_qtd = 12
+    largura_rotulo_geral = 39
+
+    def fmt_cartao(bandeira: str, qtd_str: str, valor_str: str) -> str:
+        rot_b = f"   • {bandeira}".ljust(largura_bandeira)
+        rot_q = f"{qtd_str}:".ljust(largura_qtd)
+        return f"{rot_b} {rot_q} {valor_str}"
+
+    def fmt_linha(rotulo: str, valor_str: str) -> str:
+        return f"{rotulo.ljust(largura_rotulo_geral)} {valor_str}"
+
     linhas_cartoes = "\n".join(
-        f"   • {bandeira} ({qtd} un): {formatar_moeda(valor)}" for bandeira, (valor, qtd) in detalhe_cartoes.items()
+        fmt_cartao(bandeira, f"({qtd} un)", formatar_moeda(valor))
+        for bandeira, (valor, qtd) in detalhe_cartoes.items()
     )
-    linha_pix = f"   • Pag Pix ({totais.qtd_pix} un): {formatar_moeda(totais.pix)}"
+    linha_pix = fmt_cartao("Pag Pix", f"({totais.qtd_pix} un)", formatar_moeda(totais.pix))
+
+    rot_tot_c = f"   Total de Cartões".ljust(largura_bandeira)
+    rot_tot_q = f"({totais.qtd_cartoes} un):".ljust(largura_qtd)
+    linha_tot_cartoes = f"{rot_tot_c} {rot_tot_q} {formatar_moeda(totais.cartoes)}"
+
+    linha_fisico = fmt_linha("💵 Sobra de Dinheiro:", formatar_moeda(totais.fisico))
+    linha_requisicao = fmt_linha("📋 Requisição:", formatar_moeda(totais.requisicao))
+    linha_deposito = fmt_linha("🔒 Depósito Global:", formatar_moeda(totais.deposito_global))
+    linha_despesas = fmt_linha("🛒 Despesas:", formatar_moeda(totais.despesas))
+
+    linha_total_geral = fmt_linha("✅ Total Geral:", formatar_moeda(totais.total_geral))
 
     return (
         f"⛽ *Fechamento de Turno - Posto Janjão*\n"
         f"👤 Operador: {turno.operador}\n"
         f"🕐 Turno aberto em: {turno.aberto_em}\n\n"
 
-        f"💵 Sobra de Dinheiro: {formatar_moeda(totais.fisico)}\n"
-        f"📋 Requisição: {formatar_moeda(totais.requisicao)}\n"
-        f"🔒 Depósito Global: {formatar_moeda(totais.deposito_global)}\n"
-        f"🛒 Despesas: {formatar_moeda(totais.despesas)}\n\n"
-
-        f"💳 Cartões, Vouchers e Pix por bandeira:\n"
+        f"💳 *Cartões, Vouchers e Pix por bandeira:*\n"
         f"{linhas_cartoes}\n"
         f"{linha_pix}\n"
-        f"   Total de Cartões: {formatar_moeda(totais.cartoes)} ({totais.qtd_cartoes} comprovantes)\n\n"
-        f"✅ Total Geral: {formatar_moeda(totais.total_geral)}"
+        f"{linha_tot_cartoes}\n\n"
+
+        f"{linha_fisico}\n"
+        f"{linha_requisicao}\n"
+        f"{linha_deposito}\n"
+        f"{linha_despesas}\n\n"
+
+        f"{linha_total_geral}"
     )
 
 
@@ -451,19 +480,15 @@ def exportar_turno_csv(conn: sqlite3.Connection, turno_id: int) -> str:
 
 # --- Exportar resumo em PDF -------------------------------------------------
 def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
-    """Gera um PDF com o resumo do turno e retorna o caminho do arquivo.
-
-    Implementado de forma simples usando reportlab. Import dentro da função
-    para evitar erro em ambientes onde reportlab não esteja instalado até
-    que o requirements seja aplicado.
-    """
+    """Gera um PDF altamente profissional com o resumo do turno."""
     try:
+        from reportlab.lib import colors
         from reportlab.lib.pagesizes import A4
         from reportlab.pdfgen import canvas
     except Exception as e:
         raise RuntimeError("reportlab não está instalado. Execute: pip install reportlab")
 
-    # Tenta obter o turno (aberto ou fechado)
+    # Obtém dados do turno
     cursor = conn.cursor()
     row = cursor.execute(
         "SELECT id, aberto_em, fechado_em, operador FROM turnos WHERE id = ?",
@@ -473,38 +498,228 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
     if row:
         turno = Turno(id=row["id"], aberto_em=row["aberto_em"], operador=row["operador"] or "Não informado", fechado_em=row["fechado_em"])
     else:
-        # fallback: tentar turno aberto
         turno = obter_turno_aberto(conn)
         if not turno:
             raise RuntimeError("Turno não encontrado para gerar PDF")
 
     totais = obter_totais(conn, turno_id)
     detalhe_cart = obter_detalhe_cartoes(conn, turno_id)
-    texto = montar_resumo_texto(totais, turno, detalhe_cart)
 
     os.makedirs(caminho_backups(), exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    data_geracao = datetime.now().strftime("%d/%m/%Y às %H:%M")
     caminho = os.path.join(caminho_backups(), f"turno_{turno_id}_{timestamp}.pdf")
 
     w, h = A4
-    margem_x = 40
-    y = h - 40
-    linha_altura = 14
+    margem_esq = 36
+    margem_dir = w - 36
+    largura_util = margem_dir - margem_esq
+    y = h
 
     c = canvas.Canvas(caminho, pagesize=A4)
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(margem_x, y, "Fechamento de Turno - Posto Janjão")
-    y -= 24
 
-    c.setFont("Helvetica", 10)
-    for linha in texto.splitlines():
-        if y < 40:
+    def checar_quebra_pagina(espaco_necessario=30):
+        nonlocal y
+        if y < 50 + espaco_necessario:
             c.showPage()
             y = h - 40
-            c.setFont("Helvetica", 10)
-        # truncar linhas muito longas para evitar overflow simples
-        c.drawString(margem_x, y, (linha[:200]))
-        y -= linha_altura
+
+    # ── 1. CABEÇALHO COM BANNER SUPERIOR ──────────────────────────────────────────
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.rect(0, h - 60, w, 60, fill=1, stroke=0)
+
+    c.setFillColor(colors.HexColor("#16A34A"))
+    c.rect(0, h - 64, w, 4, fill=1, stroke=0)
+
+    c.setFillColor(colors.HexColor("#FFFFFF"))
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(margem_esq, h - 34, "POSTO JANJÃO")
+    c.setFont("Helvetica", 9)
+    c.setFillColor(colors.HexColor("#94A3B8"))
+    c.drawString(margem_esq, h - 48, "FECHAMENTO DE TURNO · RELATÓRIO FINANCEIRO")
+
+    c.setFont("Helvetica", 8)
+    c.setFillColor(colors.HexColor("#CBD5E1"))
+    c.drawRightString(margem_dir, h - 34, f"Emitido em: {data_geracao}")
+    c.drawRightString(margem_dir, h - 48, f"Documento #PDF-{turno.id:04d}")
+
+    y = h - 82
+
+    # ── 2. CARD DE METADADOS DO TURNO (KPI BOX) ──────────────────────────────────
+    c.setFillColor(colors.HexColor("#F8FAFC"))
+    c.setStrokeColor(colors.HexColor("#E2E8F0"))
+    c.setLineWidth(1)
+    c.roundRect(margem_esq, y - 42, largura_util, 42, 6, fill=1, stroke=1)
+
+    c.setFont("Helvetica-Bold", 8)
+    c.setFillColor(colors.HexColor("#64748B"))
+    c.drawString(margem_esq + 14, y - 16, "NÚMERO DO TURNO")
+    c.setFont("Helvetica-Bold", 12)
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.drawString(margem_esq + 14, y - 32, f"Turno #{turno.id}")
+
+    c.setFont("Helvetica-Bold", 8)
+    c.setFillColor(colors.HexColor("#64748B"))
+    c.drawString(margem_esq + 140, y - 16, "OPERADOR CAIXA")
+    c.setFont("Helvetica-Bold", 10.5)
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.drawString(margem_esq + 140, y - 32, turno.operador[:28])
+
+    c.setFont("Helvetica-Bold", 8)
+    c.setFillColor(colors.HexColor("#64748B"))
+    c.drawString(margem_esq + 340, y - 16, "DATA / HORA DE ABERTURA")
+    c.setFont("Helvetica", 10)
+    c.setFillColor(colors.HexColor("#1E293B"))
+    c.drawString(margem_esq + 340, y - 32, turno.aberto_em)
+
+    y -= 62
+
+    # ── 3. TABELA DE CARTÕES, VOUCHERS E PIX POR BANDEIRA ─────────────────────────
+    checar_quebra_pagina(100)
+
+    c.setFont("Helvetica-Bold", 11)
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.drawString(margem_esq, y, "DETALHAMENTO DE CARTÕES, VOUCHERS E PIX POR BANDEIRA")
+    y -= 14
+
+    c.setFillColor(colors.HexColor("#1E293B"))
+    c.rect(margem_esq, y - 18, largura_util, 18, fill=1, stroke=0)
+
+    c.setFont("Helvetica-Bold", 8.5)
+    c.setFillColor(colors.HexColor("#FFFFFF"))
+    c.drawString(margem_esq + 12, y - 12, "BANDEIRA / MEIO DE PAGAMENTO")
+    c.drawCentredString(margem_esq + 300, y - 12, "QTD. COMPROVANTES")
+    c.drawRightString(margem_dir - 12, y - 12, "SUBTOTAL (R$)")
+
+    y -= 18
+
+    col_qtd_x = margem_esq + 300
+    par = False
+    for bandeira, (valor, qtd) in detalhe_cart.items():
+        checar_quebra_pagina(18)
+        bg_cor = "#F8FAFC" if par else "#FFFFFF"
+        par = not par
+
+        c.setFillColor(colors.HexColor(bg_cor))
+        c.rect(margem_esq, y - 16, largura_util, 16, fill=1, stroke=0)
+
+        c.setStrokeColor(colors.HexColor("#F1F5F9"))
+        c.setLineWidth(0.5)
+        c.line(margem_esq, y - 16, margem_dir, y - 16)
+
+        c.setFont("Helvetica", 9)
+        c.setFillColor(colors.HexColor("#334155"))
+        c.drawString(margem_esq + 12, y - 11, bandeira)
+
+        c.setFont("Helvetica", 9)
+        c.setFillColor(colors.HexColor("#64748B") if qtd == 0 else colors.HexColor("#0F172A"))
+        c.drawCentredString(col_qtd_x, y - 11, f"{qtd} un")
+
+        c.setFont("Helvetica-Bold" if valor > 0 else "Helvetica", 9)
+        c.setFillColor(colors.HexColor("#0F172A") if valor > 0 else colors.HexColor("#94A3B8"))
+        c.drawRightString(margem_dir - 12, y - 11, formatar_moeda(valor))
+
+        y -= 16
+
+    checar_quebra_pagina(22)
+    y -= 2
+    c.setFillColor(colors.HexColor("#EFF6FF"))
+    c.setStrokeColor(colors.HexColor("#93C5FD"))
+    c.setLineWidth(1)
+    c.rect(margem_esq, y - 20, largura_util, 20, fill=1, stroke=1)
+
+    c.setFont("Helvetica-Bold", 9.5)
+    c.setFillColor(colors.HexColor("#1E40AF"))
+    c.drawString(margem_esq + 12, y - 13, "TOTAL DE CARTÕES E VOUCHERS")
+    c.drawCentredString(col_qtd_x, y - 13, f"{totais.qtd_cartoes} comprovantes")
+    c.setFont("Helvetica-Bold", 10.5)
+    c.drawRightString(margem_dir - 12, y - 13, formatar_moeda(totais.cartoes))
+
+    y -= 32
+
+    # ── 4. RESUMO FINANCEIRO (OUTROS LANÇAMENTOS) ──────────────────────────────
+    checar_quebra_pagina(120)
+
+    c.setFont("Helvetica-Bold", 11)
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.drawString(margem_esq, y, "RESUMO DOS OUTROS LANÇAMENTOS DO TURNO")
+    y -= 14
+
+    itens_financeiros = [
+        ("Pag Pix", totais.pix, totais.qtd_pix, "#2563EB", "#F0F9FF"),
+        ("Sobra de Dinheiro", totais.fisico, None, "#16A34A", "#F0FDF4"),
+        ("Requisição", totais.requisicao, None, "#7C3AED", "#F5F3FF"),
+        ("Depósito Global", totais.deposito_global, None, "#D97706", "#FFFBEB"),
+        ("Despesas", totais.despesas, None, "#DC2626", "#FEF2F2"),
+    ]
+
+    for rotulo, valor, qtd, cor_destaque, bg_item in itens_financeiros:
+        checar_quebra_pagina(20)
+        c.setFillColor(colors.HexColor(bg_item))
+        c.setStrokeColor(colors.HexColor("#E2E8F0"))
+        c.setLineWidth(0.5)
+        c.rect(margem_esq, y - 18, largura_util, 18, fill=1, stroke=1)
+
+        c.setFillColor(colors.HexColor(cor_destaque))
+        c.rect(margem_esq, y - 18, 4, 18, fill=1, stroke=0)
+
+        c.setFont("Helvetica-Bold", 9)
+        c.setFillColor(colors.HexColor("#1E293B"))
+        c.drawString(margem_esq + 14, y - 12, rotulo)
+
+        if qtd is not None:
+            c.setFont("Helvetica", 8.5)
+            c.setFillColor(colors.HexColor("#64748B"))
+            c.drawCentredString(col_qtd_x, y - 12, f"({qtd} un)")
+
+        c.setFont("Helvetica-Bold", 9.5)
+        c.setFillColor(colors.HexColor(cor_destaque if valor > 0 else "#64748B"))
+        c.drawRightString(margem_dir - 12, y - 12, formatar_moeda(valor))
+
+        y -= 22
+
+    y -= 10
+
+    # ── 5. CARD TOTAL GERAL (AZUL INDIGO / VIOLÁCEO ELEGANTE) ─────────────────
+    checar_quebra_pagina(45)
+
+    c.setFillColor(colors.HexColor("#3730A3"))
+    c.setStrokeColor(colors.HexColor("#6366F1"))
+    c.setLineWidth(1.5)
+    c.roundRect(margem_esq, y - 34, largura_util, 34, 6, fill=1, stroke=1)
+
+    c.setFont("Helvetica-Bold", 10.5)
+    c.setFillColor(colors.HexColor("#E0E7FF"))
+    c.drawString(margem_esq + 16, y - 22, "TOTAL GERAL DO CAIXA")
+
+    c.setFont("Helvetica-Bold", 14)
+    c.setFillColor(colors.HexColor("#FFFFFF"))
+    c.drawRightString(margem_dir - 16, y - 23, formatar_moeda(totais.total_geral))
+
+    y -= 52
+
+    # ── 6. CAMPOS DE ASSINATURA E AUDITORIA ────────────────────────────────────
+    checar_quebra_pagina(50)
+    c.setStrokeColor(colors.HexColor("#CBD5E1"))
+    c.setLineWidth(0.8)
+
+    largura_campo = (largura_util - 40) / 2
+    x_ass1 = margem_esq + 10
+    x_ass2 = x_ass1 + largura_campo + 20
+
+    c.line(x_ass1, y - 20, x_ass1 + largura_campo, y - 20)
+    c.line(x_ass2, y - 20, x_ass2 + largura_campo, y - 20)
+
+    c.setFont("Helvetica", 8)
+    c.setFillColor(colors.HexColor("#64748B"))
+    c.drawCentredString(x_ass1 + (largura_campo / 2), y - 30, f"Assinatura: {turno.operador}")
+    c.drawCentredString(x_ass2 + (largura_campo / 2), y - 30, "Assinatura: Gerência / Conferência")
+
+    # ── 7. RODAPÉ FIXO ────────────────────────────────────────────────────────
+    c.setFont("Helvetica", 7.5)
+    c.setFillColor(colors.HexColor("#94A3B8"))
+    c.drawString(margem_esq, 20, "Posto Janjão · Sistema de Gestão de Caixa")
+    c.drawRightString(margem_dir, 20, "Página 1 de 1 · Documento Autenticado")
 
     c.showPage()
     c.save()
