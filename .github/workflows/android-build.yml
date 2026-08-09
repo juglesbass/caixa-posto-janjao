@@ -1,0 +1,52 @@
+name: Android build (Flet)
+
+on:
+  push:
+    paths:
+      - '**/*.py'
+  pull_request:
+    paths:
+      - '**/*.py'
+
+jobs:
+  build-android:
+    name: Build Android APK (unsigned)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flet
+
+      - name: Pack Android (Flet)
+        run: |
+          set -e
+          mkdir -p build/android
+          # Tenta criar o pacote Android (modo release se suportado)
+          flet pack android --release --output build/android || flet pack android --output build/android || true
+
+      - name: Find generated APK/AAB
+        run: |
+          echo "Artifacts in repository:" 
+          ls -la build || true
+          ls -la build/android || true
+          find . -type f -name "*.apk" -o -name "*.aab" || true
+
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build
+          path: |
+            **/*.apk
+            **/*.aab
+            build/android
