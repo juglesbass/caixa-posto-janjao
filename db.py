@@ -271,6 +271,7 @@ def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str,
         f"⛽ *Fechamento de Turno - Posto Janjão*\n"
         f"👤 Operador: {turno.operador}\n"
         f"🕐 Turno aberto em: {turno.aberto_em}\n\n"
+
         f"💵 Sobra de Dinheiro: {formatar_moeda(totais.fisico)}\n"
         f"📋 Requisição: {formatar_moeda(totais.requisicao)}\n"
         f"🔒 Depósito Global: {formatar_moeda(totais.deposito_global)}\n"
@@ -281,7 +282,6 @@ def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str,
         f"   Total de Cartões: {formatar_moeda(totais.cartoes)} ({totais.qtd_cartoes} comprovantes)\n\n"
         f"✅ Total Geral: {formatar_moeda(totais.total_geral)}"
     )
-
 
 
 def inserir_lancamento(
@@ -444,5 +444,117 @@ def exportar_turno_csv(conn: sqlite3.Connection, turno_id: int) -> str:
         escritor.writerow(["id", "tipo", "valor", "descricao", "data"])
         for linha in linhas:
             escritor.writerow([linha["id"], linha["tipo"], linha["valor"], linha["descricao"], linha["data"]])
+
+    return caminho
+
+
+# --- Exportar resumo em PDF -------------------------------------------------
+def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
+    """Gera um PDF com o resumo do turno e retorna o caminho do arquivo.
+
+    Implementado de forma simples usando reportlab. Import dentro da função
+    para evitar erro em ambientes onde reportlab não esteja instalado até
+    que o requirements seja aplicado.
+    """
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen import canvas
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+    except Exception:
+        raise RuntimeError("reportlab não está instalado. Execute: pip install reportlab")
+
+    # Tenta obter o turno (aberto ou fechado)
+    cursor = conn.cursor()
+    row = cursor.execute(
+        "SELECT id, aberto_em, fechado_em, operador FROM turnos WHERE id = ?",
+        (turno_id,),
+    ).fetchone()
+
+    if row:
+        turno = Turno(id=row["id"], aberto_em=row["aberto_em"], operador=row["operador"] or "Não informado", fechado_em=row["fechado_em"])
+    else:
+        # fallback: tentar turno aberto
+        turno = obter_turno_aberto(conn)
+        if not turno:
+            raise RuntimeError("Turno não encontrado para gerar PDF")
+
+    totais = obter_totais(conn, turno_id)
+    detalhe_cart = obter_detalhe_cartoes(conn, turno_id)
+    texto = montar_resumo_texto(totais, turno, detalhe_cart)
+
+    os.makedirs(caminho_backups(), exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    caminho = os.path.join(caminho_backups(), f"turno_{turno_id}_{timestamp}.pdf")
+
+    w, h = A4
+    margem_x = 40
+    y = h - 40
+    linha_altura = 14
+
+    c = canvas.Canvas(caminho, pagesize=A4)
+
+    # Tenta registrar uma fonte TTF que suporte acentuação
+    font_registered = False
+
+    # 1) Prioridade: variável de ambiente CAIXA_FONT_PATH (opção B)
+    caixa_font = os.environ.get("CAIXA_FONT_PATH")
+    if caixa_font:
+        try:
+            if os.path.exists(caixa_font):
+                pdfmetrics.registerFont(TTFont("AppSans", caixa_font))
+                c.setFont("AppSans", 10)
+                font_registered = True
+        except Exception:
+            font_registered = False
+
+    # 2) Candidatas nos caminhos padrão do sistema
+    if not font_registered:
+        candidates = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/Library/Fonts/Arial Unicode.ttf",
+        ]
+        for candidate in candidates:
+            try:
+                if os.path.exists(candidate):
+                    pdfmetrics.registerFont(TTFont("AppSans", candidate))
+                    c.setFont("AppSans", 10)
+                    font_registered = True
+                    break
+            except Exception:
+                continue
+
+    if not font_registered:
+        # fallback; Helvetica não cobre acentos corretamente, mas evita crash
+        c.setFont("Helvetica", 10)
+
+    # Cabeçalho
+    try:
+        c.setFont("AppSans", 14 if font_registered else 14)
+    except Exception:
+        c.setFont("Helvetica-Bold", 14)
+    c.drawString(margem_x, y, "Fechamento de Turno - Posto Janjão")
+    y -= 24
+
+    # Corpo do texto
+    if font_registered:
+        c.setFont("AppSans", 10)
+    else:
+        c.setFont("Helvetica", 10)
+
+    for linha in texto.splitlines():
+        if y < 40:
+            c.showPage()
+            y = h - 40
+            if font_registered:
+                c.setFont("AppSans", 10)
+            else:
+                c.setFont("Helvetica", 10)
+        c.drawString(margem_x, y, (linha[:200]))
+        y -= linha_altura
+
+    c.showPage()
+    c.save()
 
     return caminho
