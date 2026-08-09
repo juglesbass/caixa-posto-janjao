@@ -1,0 +1,104 @@
+name: iOS build (Flet)
+
+on:
+  push:
+    paths:
+      - '**/*.py'
+  pull_request:
+    paths:
+      - '**/*.py'
+
+jobs:
+  build-ios:
+    name: Build iOS IPA (or Xcode project)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flet
+
+      - name: Pack iOS (Flet)
+        run: |
+          set -e
+          mkdir -p build/ios
+          # Tenta criar o projeto iOS
+          flet pack ios --output build/ios || true
+
+      - name: Show build tree
+        run: |
+          ls -la build || true
+          ls -la build/ios || true
+          find . -type f -name "*.ipa" -o -name "*.xcarchive" || true
+
+      - name: Attempt to export signed IPA (if secrets provided)
+        env:
+          IOS_CERT_P12_BASE64: ${{ secrets.IOS_CERT_P12_BASE64 }}
+          IOS_CERT_P12_PASSWORD: ${{ secrets.IOS_CERT_P12_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          IOS_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
+        run: |
+          set -e
+          # If no signing secrets, skip. This step will try to export an IPA if archive exists.
+          if [ -z "$IOS_CERT_P12_BASE64" ] || [ -z "$IOS_PROVISIONING_PROFILE_BASE64" ] || [ -z "$IOS_DEVELOPMENT_TEAM" ]; then
+            echo "Signing secrets not provided — skipping IPA export."
+            exit 0
+          fi
+          echo "Decoding & installing certificate and provisioning profile"
+          mkdir -p /tmp/ios-cert
+          echo "$IOS_CERT_P12_BASE64" | base64 --decode > /tmp/ios-cert/cert.p12
+          security import /tmp/ios-cert/cert.p12 -P "$IOS_CERT_P12_PASSWORD" -k ~/Library/Keychains/login.keychain-db || true
+          echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > /tmp/ios-cert/profile.mobileprovision
+
+          # Attempt to find an xcarchive
+          XCARCHIVE=$(find build -type d -name "*.xcarchive" | head -n1 || true)
+          if [ -z "$XCARCHIVE" ]; then
+            echo "No .xcarchive found; attempting to archive via xcodebuild if an Xcode project exists."
+            XCODEPROJ=$(find build -type d -name "*.xcodeproj" | head -n1 || true)
+            if [ -n "$XCODEPROJ" ]; then
+              WORKDIR=$(pwd)
+              pushd "$(dirname "$XCODEPROJ")"
+              xcodebuild -workspace "$(basename "$XCODEPROJ" .xcodeproj).xcworkspace" -scheme "$(basename "$XCODEPROJ" .xcodeproj)" -configuration Release archive -archivePath $WORKDIR/build/archive.xcarchive || true
+              popd
+              XCARCHIVE=$WORKDIR/build/archive.xcarchive
+            fi
+          fi
+
+          if [ -n "$XCARCHIVE" ]; then
+            echo "Exporting IPA from $XCARCHIVE"
+            # Create exportOptions.plist basic file
+            cat > exportOptions.plist <<EOF
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+              <key>method</key>
+              <string>ad-hoc</string>
+              <key>teamID</key>
+              <string>${IOS_DEVELOPMENT_TEAM}</string>
+            </dict>
+            </plist>
+            EOF
+            xcodebuild -exportArchive -archivePath "$XCARCHIVE" -exportPath build/ios/export -exportOptionsPlist exportOptions.plist || true
+          else
+            echo "No archive available for IPA export"
+          fi
+
+      - name: Upload iOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build
+          path: |
+            **/*.ipa
+            build/ios
+            build/archive.xcarchive
