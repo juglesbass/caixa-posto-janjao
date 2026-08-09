@@ -531,6 +531,13 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
         if os.path.exists(caminho_img):
             try:
                 c.saveState()
+
+                # Corta qualquer parte da imagem abaixo de y = 95.0 (ficando um pouco acima das assinaturas)
+                y_corte_assinatura = 95.0
+                clip_p = c.beginPath()
+                clip_p.rect(0, y_corte_assinatura, w, h - y_corte_assinatura)
+                c.clipPath(clip_p, stroke=0, fill=0)
+
                 c.setFillAlpha(0.28)
                 largura_img = 290
                 altura_img = 290
