@@ -285,6 +285,7 @@ def main(page: ft.Page):
         "Master Crédito":        C_RED,
         "Master Débito":         C_ORANGE,
         "Visa Crédito":          C_INDIGO,
+        "Visa DéBITO":          C_INDIGO2,
         "Visa Débito":           C_INDIGO2,
         "Elo Crédito":           C_AMBER,
         "Elo Débito":            C_AMBER2,
@@ -339,9 +340,9 @@ def main(page: ft.Page):
             blur=_blur_vidro(),
         )
 
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════[...]
     # INFORMAÇÕES DO TURNO
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════[...]
     txt_operador_nome = ft.Text("", size=18, weight=ft.FontWeight.BOLD, color=C_BLUE)
     txt_turno_data = ft.Text("", size=13)
 
@@ -373,9 +374,9 @@ def main(page: ft.Page):
         )
     )
 
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════[...]
     # STATS GRID
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════[...]
     def _stat_card(label: str, cor: str):
         lbl = ft.Text(label.upper(), size=12, color=pal.text_ter, weight=ft.FontWeight.W_600)
         txt = ft.Text("R$ 0,00", size=22, weight=ft.FontWeight.BOLD, color=cor)
@@ -418,9 +419,9 @@ def main(page: ft.Page):
         ],
     )
 
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════[...]
     # TOTAL GERAL
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════[...]
     txt_total_geral = ft.Text(
         "R$ 0,00",
         size=22,
@@ -491,9 +492,9 @@ def main(page: ft.Page):
         # Sem page.update() aqui de propósito: quem chama decide quando enviar
         # ao cliente, pra não disparar várias idas e voltas pra uma única ação.
 
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════[...]
     # SELETOR DE TIPO
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════[...]
     def criar_seletor_tipo(valor_inicial: str):
         estado = {
             "valor": valor_inicial,
@@ -624,9 +625,9 @@ def main(page: ft.Page):
     tipo_inicial = carregar_ultimo_tipo()
     seletor_col, estado_tipo, selecionar_tipo, reconstruir_seletor = criar_seletor_tipo(tipo_inicial)
 
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════[...]
     # INPUTS
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════[...]
     _keyboard_valor = (
         ft.KeyboardType.WEB_SEARCH
         if page.platform == ft.PagePlatform.IOS
@@ -685,9 +686,9 @@ def main(page: ft.Page):
             return None
         return round(valor, 2) if valor > 0 else None
 
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════[...]
     # BOTÕES RÁPIDOS
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════[...]
     def _pill_btn(label, on_click, is_completou=False):
         cor_borda = ft.Colors.with_opacity(0.35, C_GREEN) if is_completou else pal.border_strong
         cor_texto = C_GREEN if is_completou else pal.text_sec
@@ -740,9 +741,9 @@ def main(page: ft.Page):
     )
     montar_botoes_rapidos()
 
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════[...]
     # LISTA HISTÓRICO
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════[...]
     col_historico = ft.Column(spacing=6, width=largura_conteudo)
 
     def carregar_historico():
@@ -913,9 +914,9 @@ def main(page: ft.Page):
         carregar_historico()
         page.update()
 
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════[...]
     # DETALHE DE BANDEIRA (lista completa de lançamentos por tipo/bandeira)
-    # ══════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════[...]
     def abrir_detalhe_bandeira(tipo: str, rotulo: str = None, ao_fechar=None):
         if turno_atual is None:
             return
@@ -1181,9 +1182,9 @@ def main(page: ft.Page):
             sheet_detalhe = ft.CupertinoBottomSheet(painel_detalhe)
             abrir_dialogo(sheet_detalhe)
 
-    # ══════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════��[...]
     # BOTÃO LANÇAR
-    # ══════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════��[...]
     btn_lancar = ft.Container(
         content=ft.Row(
             alignment=ft.MainAxisAlignment.CENTER,
@@ -1259,9 +1260,9 @@ def main(page: ft.Page):
     input_valor.on_submit = acao_lancar
     input_desc.on_submit  = acao_lancar
 
-    # ══════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════��[...]
     # RESUMO / FECHAR CAIXA
-    # ══════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════��[...]
     def montar_conteudo_resumo(totais, detalhe_cartoes, ao_abrir_detalhe=None):
         ao_abrir_detalhe = ao_abrir_detalhe or abrir_detalhe_bandeira
         tamanho_fonte_itens = 17
@@ -1429,6 +1430,32 @@ def main(page: ft.Page):
 
             page.run_task(_copiar_async)
 
+        def compartilhar_pdf(e=None):
+            if turno_atual is None:
+                mostrar_snackbar("Nenhum turno para exportar.")
+                return
+            try:
+                garantir_conexao()
+                caminho_pdf = db.exportar_turno_pdf(conn, turno_atual.id)
+            except Exception as ex:
+                mostrar_snackbar(f"Erro ao gerar PDF: {ex}", ft.Colors.RED_800)
+                return
+
+            mostrar_snackbar("Abrindo compartilhamento...")
+
+            if compartilhar_servico is not None:
+                async def _share_async():
+                    try:
+                        # Algumas versões do Flet usam share_files; se sua versão
+                        # diferir, ajuste conforme a API do ft.Share disponível.
+                        await compartilhar_servico.share_files([caminho_pdf])
+                        mostrar_snackbar("Compartilhamento aberto.")
+                    except Exception:
+                        mostrar_snackbar(f"Não foi possível abrir compartilhamento. PDF salvo em: {caminho_pdf}")
+                page.run_task(_share_async())
+            else:
+                mostrar_snackbar(f"PDF salvo em: {caminho_pdf}")
+
         def encerrar_turno(x):
             nonlocal turno_atual
             if _em_andamento["valor"] or turno_atual is None:
@@ -1463,6 +1490,12 @@ def main(page: ft.Page):
                            tight=True),
             on_click=copiar_resumo,
         )
+
+        btn_compartilhar_pdf = ft.TextButton(
+            content=ft.Row([ft.Icon(ft.Icons.SHARE, size=16), ft.Text("Compartilhar PDF")], tight=True),
+            on_click=compartilhar_pdf,
+        )
+
         btn_encerrar = ft.TextButton("Encerrar turno", on_click=encerrar_turno)
         btn_fechar = ft.TextButton("Fechar", on_click=fechar_resumo)
 
@@ -1483,7 +1516,7 @@ def main(page: ft.Page):
                     conteudo_resumo,
                     ft.Divider(height=1),
                     ft.Row(
-                        [btn_copiar, btn_encerrar, btn_fechar],
+                        [btn_copiar, btn_compartilhar_pdf, btn_encerrar, btn_fechar],
                         alignment=ft.MainAxisAlignment.CENTER,
                         wrap=True, spacing=4, run_spacing=4,
                     ),
@@ -1499,7 +1532,7 @@ def main(page: ft.Page):
                     width=450,
                     height=600,
                 ),
-                actions=[btn_copiar, btn_encerrar, btn_fechar],
+                actions=[btn_copiar, btn_compartilhar_pdf, btn_encerrar, btn_fechar],
             )
             abrir_dialogo(dlg_resumo)
         else:
@@ -1559,9 +1592,9 @@ def main(page: ft.Page):
         ]
         abrir_dialogo(dlg_confirmar)
 
-    # ══════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════��[...]
     # BOTTOM SHEET
-    # ══════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════��[...]
     txt_bottom_titulo = ft.Text(
         "Gerenciar Turno", size=17, weight=ft.FontWeight.BOLD, color=pal.text_pri
     )
@@ -1696,9 +1729,9 @@ def main(page: ft.Page):
     def fechar_bottom_sheet():
         fechar_menu()
 
-    # ══════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════��[...]
     # HEADER / TEMA
-    # ══════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════��[...]
     def aplicar_paleta_ui():
         nonlocal pal
         pal = criar_paleta(tema_escuro())
@@ -1767,10 +1800,9 @@ def main(page: ft.Page):
         text_align=ft.TextAlign.CENTER,
     )
 
-    # ══════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════��[...]
     # LAYOUT PRINCIPAL E TELA DE CAIXA FECHADO
-    # ══════════════════════════════════════════════════════════════════
-
+    # ══════════════════════════════════════════════════════��[...]
     def montar_interface():
         nonlocal rodape_lancar
         page.controls.clear()
@@ -1908,10 +1940,9 @@ def main(page: ft.Page):
         montar_botoes_rapidos()
         recarregar_listas()
 
-    # ══════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════��[...]
     # FLUXO DE IDENTIFICAÇÃO (LOGIN / ABRIR TURNO)
-    # ══════════════════════════════════════════════════════════════════
-
+    # ══════════════════════════════════════════════════════════════��[...]
     def solicitar_identificacao(novo_turno=False):
         icone_topo = ft.Container(
             content=ft.Icon(
