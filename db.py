@@ -521,7 +521,7 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
     def desenhar_marca_dagua_bomba(c, w, h):
         """Desenha a marca d'água colorida com bico de combustível e gotas de gasolina douradas."""
         cx = w / 2.0
-        cy = (h / 2.0) + 45.0
+        cy = (h / 2.0) - 25.0
 
         base_dir = os.path.dirname(os.path.abspath(__file__))
         caminho_img = os.path.join(base_dir, "assets", "bico_gold.jpg")
@@ -532,8 +532,8 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
             try:
                 c.saveState()
                 c.setFillAlpha(0.26)
-                largura_img = 320
-                altura_img = 320
+                largura_img = 300
+                altura_img = 300
                 c.drawImage(
                     caminho_img,
                     cx - (largura_img / 2.0),
