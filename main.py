@@ -1427,18 +1427,22 @@ def main(page: ft.Page):
 
         _atualizar_estilo_dif()
 
-        def _on_auditoria_change(e):
+        def _on_auditoria_change(e=None):
             v_val = validar_valor(input_vendas_sistema.value or "0") or 0.0
             _atualizar_estilo_dif()
             page.update()
             if turno_atual:
+                turno_atual.vendas_sistema = v_val
+                turno_atual.observacao = input_observacao.value or ""
                 try:
                     db.salvar_auditoria_turno(conn, turno_atual.id, v_val, input_observacao.value or "")
                 except Exception:
                     pass
 
         input_vendas_sistema.on_change = _on_auditoria_change
+        input_vendas_sistema.on_blur = _on_auditoria_change
         input_observacao.on_change = _on_auditoria_change
+        input_observacao.on_blur = _on_auditoria_change
 
         return ft.Column(
             tight=True, spacing=14,
@@ -1507,19 +1511,16 @@ def main(page: ft.Page):
             ],
         )
 
-    def acao_fechar_caixa(e=None):
-        if turno_atual is None: return
-        fechar_bottom_sheet()
-        garantir_conexao()
-        totais        = db.obter_totais(conn, turno_atual.id)
-        detalhe_cart  = db.obter_detalhe_cartoes(conn, turno_atual.id)
-        resumo        = db.montar_resumo_texto(totais, turno_atual, detalhe_cart)
-
-        dlg_resumo = None
-        sheet_resumo = None
-        _em_andamento = {"valor": False}
-
         def fechar_resumo(x=None):
+            if turno_atual and input_vendas_sistema and input_observacao:
+                v_val = validar_valor(input_vendas_sistema.value or "0") or 0.0
+                obs_val = input_observacao.value or ""
+                turno_atual.vendas_sistema = v_val
+                turno_atual.observacao = obs_val
+                try:
+                    db.salvar_auditoria_turno(conn, turno_atual.id, v_val, obs_val)
+                except Exception:
+                    pass
             try:
                 if dlg_resumo: page.close(dlg_resumo)
                 if sheet_resumo: page.close(sheet_resumo)
@@ -1563,6 +1564,12 @@ def main(page: ft.Page):
                 return
             try:
                 garantir_conexao()
+                v_val = validar_valor(input_vendas_sistema.value or "0") or 0.0
+                obs_val = input_observacao.value or ""
+                turno_atual.vendas_sistema = v_val
+                turno_atual.observacao = obs_val
+                db.salvar_auditoria_turno(conn, turno_atual.id, v_val, obs_val)
+
                 caminho_pdf = db.exportar_turno_pdf(conn, turno_atual.id)
             except Exception as ex:
                 mostrar_snackbar(f"Erro ao gerar PDF: {ex}", ft.Colors.RED_800)
@@ -1593,11 +1600,17 @@ def main(page: ft.Page):
                 turno_id_encerrado = turno_atual.id
                 operador_encerrado = turno_atual.operador
 
+                v_val = validar_valor(input_vendas_sistema.value or "0") or 0.0
+                obs_val = input_observacao.value or ""
+                turno_atual.vendas_sistema = v_val
+                turno_atual.observacao = obs_val
+                db.salvar_auditoria_turno(conn, turno_id_encerrado, v_val, obs_val)
+
                 # Gera o PDF do fechamento
                 caminho_pdf = db.exportar_turno_pdf(conn, turno_id_encerrado)
 
                 # Fecha o turno no banco de dados
-                db.fechar_turno(conn, turno_id_encerrado, totais)
+                db.fechar_turno(conn, turno_id_encerrado, totais, vendas_sistema=v_val, observacao=obs_val)
                 turno_atual = None
                 fechar_resumo()
 
