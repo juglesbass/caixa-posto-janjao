@@ -80,8 +80,6 @@ def main(page: ft.Page):
     adaptive_ui = mobile or ios
 
     def _criar_bottom_sheet(conteudo):
-        if ios:
-            return ft.CupertinoBottomSheet(conteudo)
         return ft.BottomSheet(content=conteudo, dismissible=True, enable_drag=True)
 
     page.title = "Caixa - Posto Janjão"
