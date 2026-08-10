@@ -118,16 +118,26 @@ def main(page: ft.Page):
                 pass
         page.run_task(fixar_retrato)
 
+    def _registrar_servico(ctrl):
+        try:
+            if hasattr(page, "services"):
+                if ctrl not in page.services:
+                    page.services.append(ctrl)
+        except Exception:
+            pass
+
     haptic_feedback = None
     if mobile:
         try:
             haptic_feedback = ft.HapticFeedback()
+            _registrar_servico(haptic_feedback)
         except Exception:
             haptic_feedback = None
 
     compartilhar_servico = None
     try:
         compartilhar_servico = ft.Share()
+        _registrar_servico(compartilhar_servico)
     except Exception:
         compartilhar_servico = None
 
@@ -1524,7 +1534,7 @@ def main(page: ft.Page):
         btn_encerrar = ft.TextButton("Encerrar turno", on_click=encerrar_turno)
         btn_fechar = ft.TextButton("Fechar", on_click=fechar_resumo)
 
-        altura_sheet = min(640, int(page.height * 0.85)) if page.height else 580
+        altura_sheet = max(680, int(page.height * 0.92)) if page.height else 680
         painel_resumo = ft.Container(
             height=altura_sheet,
             padding=ft.Padding(20, 12, 20, 30),
