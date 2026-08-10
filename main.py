@@ -80,7 +80,7 @@ def main(page: ft.Page):
     adaptive_ui = mobile or ios
 
     def _criar_bottom_sheet(conteudo):
-        return ft.BottomSheet(content=conteudo, dismissible=True)
+        return ft.BottomSheet(content=conteudo, dismissible=True, show_drag_handle=True, scrollable=True)
 
     page.title = "Caixa - Posto Janjão"
     if adaptive_ui:
@@ -1524,8 +1524,9 @@ def main(page: ft.Page):
         btn_encerrar = ft.TextButton("Encerrar turno", on_click=encerrar_turno)
         btn_fechar = ft.TextButton("Fechar", on_click=fechar_resumo)
 
+        altura_sheet = min(640, int(page.height * 0.85)) if page.height else 580
         painel_resumo = ft.Container(
-            expand=True,
+            height=altura_sheet,
             padding=ft.Padding(20, 12, 20, 30),
             bgcolor=pal.sheet_bg,
             content=ft.Column(
@@ -1533,10 +1534,6 @@ def main(page: ft.Page):
                 spacing=14,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
-                    ft.Container(
-                        width=36, height=4, border_radius=2,
-                        bgcolor=pal.border_strong,
-                    ),
                     ft.Text("Resumo do Turno", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
                     conteudo_resumo,
                     ft.Divider(height=1),

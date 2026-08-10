@@ -8,6 +8,7 @@ authors = [
 ]
 dependencies = [
     "flet>=0.85.3",
+    "reportlab>=3.6.12",
 ]
 
 [project.optional-dependencies]
