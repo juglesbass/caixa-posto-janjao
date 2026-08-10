@@ -1703,9 +1703,9 @@ def main(page: ft.Page):
                     conteudo_resumo,
                     ft.Divider(height=1),
                     ft.Row(
-                        [btn_copiar, btn_compartilhar_pdf, btn_encerrar, btn_fechar],
+                        [btn_copiar, btn_encerrar, btn_fechar],
                         alignment=ft.MainAxisAlignment.CENTER,
-                        wrap=True, spacing=4, run_spacing=4,
+                        wrap=True, spacing=6, run_spacing=4,
                     ),
                 ],
             ),
@@ -1719,7 +1719,7 @@ def main(page: ft.Page):
                     width=450,
                     height=600,
                 ),
-                actions=[btn_copiar, btn_compartilhar_pdf, btn_encerrar, btn_fechar],
+                actions=[btn_copiar, btn_encerrar, btn_fechar],
             )
             abrir_dialogo(dlg_resumo)
         else:
