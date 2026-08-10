@@ -1360,7 +1360,7 @@ def main(page: ft.Page):
             border_color=pal.border_strong,
             focused_border_color=C_BLUE,
             color=pal.text_pri,
-            prefix_text="R$ ",
+            prefix=ft.Text("R$ ", color=pal.text_sec, size=15),
             height=50,
             text_size=15,
         )
