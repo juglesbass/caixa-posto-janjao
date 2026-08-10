@@ -41,10 +41,14 @@ def enviar_pdf_drive_bg(caminho_pdf: str, turno_id: int, operador: str) -> tuple
         }
 
         data = json.dumps(payload).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        }
         req = urllib.request.Request(
             url_webhook,
             data=data,
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             method="POST",
         )
 
@@ -60,6 +64,13 @@ def enviar_pdf_drive_bg(caminho_pdf: str, turno_id: int, operador: str) -> tuple
             logger.warning(f"[DriveService] {msg}")
             return False, msg
 
+    except urllib.error.HTTPError as he:
+        if he.code == 403:
+            msg = "Erro 403: Verifique na implantação do Google Apps Script se 'Quem tem acesso' está definido como 'Qualquer pessoa' (Anyone)."
+        else:
+            msg = f"Erro HTTP {he.code}: {he.reason}"
+        logger.error(f"[DriveService] {msg}")
+        return False, msg
     except Exception as e:
         msg_erro = f"Falha ao enviar para o Google Drive: {e}"
         logger.error(f"[DriveService] {msg_erro}")
