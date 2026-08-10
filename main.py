@@ -1278,10 +1278,10 @@ def main(page: ft.Page):
     input_valor.on_submit = acao_lancar
     input_desc.on_submit  = acao_lancar
 
-    # ══════════════════════════════════════════════════════════════��[...]
+    # ══════════════════════════════════════════════════════════════[...]
     # RESUMO / FECHAR CAIXA
-    # ══════════════════════════════════════════════════════════════��[...]
-    def montar_conteudo_resumo(totais, detalhe_cartoes, ao_abrir_detalhe=None):
+    # ══════════════════════════════════════════════════════════════[...]
+    def montar_conteudo_resumo(totais, detalhe_cartoes, ao_abrir_detalhe=None, ao_registrar_inputs=None):
         ao_abrir_detalhe = ao_abrir_detalhe or abrir_detalhe_bandeira
         tamanho_fonte_itens = 17
         tamanho_fonte_titulo = 18
@@ -1377,6 +1377,9 @@ def main(page: ft.Page):
             color=pal.text_pri,
             text_size=14,
         )
+
+        if ao_registrar_inputs:
+            ao_registrar_inputs(input_vendas_sistema, input_observacao)
 
         def _calc_dif():
             val = validar_valor(input_vendas_sistema.value or "0") or 0.0
@@ -1511,10 +1514,29 @@ def main(page: ft.Page):
             ],
         )
 
+    def acao_fechar_caixa(e=None):
+        if turno_atual is None: return
+        fechar_bottom_sheet()
+        garantir_conexao()
+        totais        = db.obter_totais(conn, turno_atual.id)
+        detalhe_cart  = db.obter_detalhe_cartoes(conn, turno_atual.id)
+        resumo        = db.montar_resumo_texto(totais, turno_atual, detalhe_cart)
+
+        dlg_resumo = None
+        sheet_resumo = None
+        _em_andamento = {"valor": False}
+
+        ref_vendas_sis = {"control": None}
+        ref_obs = {"control": None}
+
+        def registrar_inputs(inp_vendas, inp_obs):
+            ref_vendas_sis["control"] = inp_vendas
+            ref_obs["control"] = inp_obs
+
         def fechar_resumo(x=None):
-            if turno_atual and input_vendas_sistema and input_observacao:
-                v_val = validar_valor(input_vendas_sistema.value or "0") or 0.0
-                obs_val = input_observacao.value or ""
+            if turno_atual and ref_vendas_sis["control"] and ref_obs["control"]:
+                v_val = validar_valor(ref_vendas_sis["control"].value or "0") or 0.0
+                obs_val = ref_obs["control"].value or ""
                 turno_atual.vendas_sistema = v_val
                 turno_atual.observacao = obs_val
                 try:
@@ -1547,7 +1569,6 @@ def main(page: ft.Page):
             else:
                 abrir_detalhe_bandeira(tipo, rotulo)
 
-
         def copiar_resumo(x):
             async def _copiar_async():
                 try:
@@ -1564,8 +1585,8 @@ def main(page: ft.Page):
                 return
             try:
                 garantir_conexao()
-                v_val = validar_valor(input_vendas_sistema.value or "0") or 0.0
-                obs_val = input_observacao.value or ""
+                v_val = (validar_valor(ref_vendas_sis["control"].value or "0") or 0.0) if ref_vendas_sis["control"] else (turno_atual.vendas_sistema or 0.0)
+                obs_val = (ref_obs["control"].value or "") if ref_obs["control"] else (turno_atual.observacao or "")
                 turno_atual.vendas_sistema = v_val
                 turno_atual.observacao = obs_val
                 db.salvar_auditoria_turno(conn, turno_atual.id, v_val, obs_val)
@@ -1600,8 +1621,8 @@ def main(page: ft.Page):
                 turno_id_encerrado = turno_atual.id
                 operador_encerrado = turno_atual.operador
 
-                v_val = validar_valor(input_vendas_sistema.value or "0") or 0.0
-                obs_val = input_observacao.value or ""
+                v_val = (validar_valor(ref_vendas_sis["control"].value or "0") or 0.0) if ref_vendas_sis["control"] else (turno_atual.vendas_sistema or 0.0)
+                obs_val = (ref_obs["control"].value or "") if ref_obs["control"] else (turno_atual.observacao or "")
                 turno_atual.vendas_sistema = v_val
                 turno_atual.observacao = obs_val
                 db.salvar_auditoria_turno(conn, turno_id_encerrado, v_val, obs_val)
@@ -1639,7 +1660,7 @@ def main(page: ft.Page):
                 _em_andamento["valor"] = False
                 mostrar_snackbar(f"Erro: {ex}", ft.Colors.RED_800)
 
-        conteudo_resumo = montar_conteudo_resumo(totais, detalhe_cart, abrir_detalhe_a_partir_do_resumo)
+        conteudo_resumo = montar_conteudo_resumo(totais, detalhe_cart, abrir_detalhe_a_partir_do_resumo, ao_registrar_inputs=registrar_inputs)
 
         btn_copiar = ft.TextButton(
             content=ft.Row([ft.Icon(ft.Icons.CONTENT_COPY, size=16), ft.Text("Copiar resumo")],
