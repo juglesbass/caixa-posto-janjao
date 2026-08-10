@@ -514,10 +514,18 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
         nome_limpo = re.sub(r'[\s]+', '_', nome_limpo)
         return nome_limpo[:25] or "Operador"
 
-    data_formatada = datetime.now().strftime("%d-%m-%Y_%H%M")
+    data_formatada = datetime.now().strftime("%d-%m-%Y")
     operador_slug = _sanitizar_nome(turno.operador)
-    nome_arquivo_pdf = f"Turno_{turno_id}_Operador_{operador_slug}_{data_formatada}.pdf"
+    nome_base = f"{operador_slug}_{data_formatada}"
+    nome_arquivo_pdf = f"{nome_base}.pdf"
     caminho = os.path.join(caminho_backups(), nome_arquivo_pdf)
+
+    contador = 2
+    while os.path.exists(caminho):
+        nome_arquivo_pdf = f"{nome_base}_{contador}.pdf"
+        caminho = os.path.join(caminho_backups(), nome_arquivo_pdf)
+        contador += 1
+
     data_geracao = datetime.now().strftime("%d/%m/%Y às %H:%M")
 
     w, h = A4
