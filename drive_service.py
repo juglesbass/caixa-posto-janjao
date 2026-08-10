@@ -9,11 +9,8 @@ import urllib.request
 
 logger = logging.getLogger("caixa_app")
 
-# URL do Webhook do Google Apps Script ou Cloud Function
-DRIVE_WEBHOOK_URL = os.environ.get(
-    "GOOGLE_DRIVE_WEBHOOK_URL",
-    "https://script.google.com/macros/s/AKfycbzes0dAFXK3_Us145YsnfKXAI_UzVjMHlVG4uK2-cYkxHy2f5M_VCaLEVEJhWOIvcVITQ/exec"
-).strip()
+# URL do Webhook do Google Apps Script ou Cloud Function configurada via ambiente
+DRIVE_WEBHOOK_URL = os.environ.get("GOOGLE_DRIVE_WEBHOOK_URL", "").strip()
 
 
 def enviar_pdf_drive_bg(caminho_pdf: str, turno_id: int, operador: str) -> tuple[bool, str]:
