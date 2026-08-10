@@ -642,8 +642,8 @@ def main(page: ft.Page):
     # INPUTS
     # ═══════════════════════════════════════════════════════════════[...]
     _keyboard_valor = (
-        ft.KeyboardType.WEB_SEARCH
-        if page.platform == ft.PagePlatform.IOS
+        ft.KeyboardType.DATETIME
+        if (ios or mobile or page.platform == ft.PagePlatform.IOS)
         else ft.KeyboardType.NUMBER
     )
 
@@ -674,9 +674,21 @@ def main(page: ft.Page):
     def desfocar_campos(*campos):
         nonlocal _blur_token
         _blur_token += 1
-        token = str(_blur_token)
-        for campo in campos:
-            campo.blur = token
+        meu_token = _blur_token
+        async def _desfocar():
+            import asyncio
+            await asyncio.sleep(0.08)
+            if _blur_token == meu_token:
+                for c in campos:
+                    try:
+                        if hasattr(c, "unfocus"): c.unfocus()
+                    except Exception:
+                        pass
+                try:
+                    page.update()
+                except Exception:
+                    pass
+        page.run_task(_desfocar)
 
     def set_valor(val, desc=""):
         input_valor.value = val
@@ -1369,7 +1381,8 @@ def main(page: ft.Page):
         input_vendas_sistema = ft.TextField(
             label="TOTAL DE VENDAS SISTEMA",
             value=f"{v_sis_ini:.2f}".replace(".", ",") if v_sis_ini > 0 else "",
-            keyboard_type=ft.KeyboardType.NUMBER,
+            keyboard_type=_keyboard_valor,
+            input_filter=FILTRO_VALOR_MONETARIO,
             hint_text="0,00",
             border_color=pal.border_strong,
             focused_border_color=C_BLUE,
