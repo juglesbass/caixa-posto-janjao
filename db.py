@@ -561,12 +561,22 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
     # Obtém dados do turno
     cursor = conn.cursor()
     row = cursor.execute(
-        "SELECT id, aberto_em, fechado_em, operador FROM turnos WHERE id = ?",
+        "SELECT id, aberto_em, fechado_em, operador, vendas_sistema, observacao FROM turnos WHERE id = ?",
         (turno_id,),
     ).fetchone()
 
     if row:
-        turno = Turno(id=row["id"], aberto_em=row["aberto_em"], operador=row["operador"] or "Não informado", fechado_em=row["fechado_em"])
+        cols = row.keys()
+        v_sis = row["vendas_sistema"] if ("vendas_sistema" in cols and row["vendas_sistema"] is not None) else 0.0
+        obs = row["observacao"] if ("observacao" in cols and row["observacao"] is not None) else ""
+        turno = Turno(
+            id=row["id"],
+            aberto_em=row["aberto_em"],
+            operador=row["operador"] or "Não informado",
+            fechado_em=row["fechado_em"],
+            vendas_sistema=v_sis,
+            observacao=obs,
+        )
     else:
         turno = obter_turno_aberto(conn)
         if not turno:

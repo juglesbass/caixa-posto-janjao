@@ -699,6 +699,20 @@ def main(page: ft.Page):
             return None
         return round(valor, 2) if valor > 0 else None
 
+    def validar_valor_monetario(texto: str) -> float:
+        if not texto or not texto.strip():
+            return 0.0
+        limpo = texto.strip().replace("R$", "").replace(" ", "")
+        if "," in limpo and "." in limpo:
+            limpo = limpo.replace(".", "").replace(",", ".")
+        elif "," in limpo:
+            limpo = limpo.replace(",", ".")
+        try:
+            valor = float(limpo)
+            return round(valor, 2) if valor >= 0 else 0.0
+        except ValueError:
+            return 0.0
+
     # ═══════════════════════════════════════════════════════════════[...]
     # BOTÕES RÁPIDOS
     # ═══════════════════════════════════════════════════════════════[...]
@@ -1382,7 +1396,7 @@ def main(page: ft.Page):
             ao_registrar_inputs(input_vendas_sistema, input_observacao)
 
         def _calc_dif():
-            val = validar_valor(input_vendas_sistema.value or "0") or 0.0
+            val = validar_valor_monetario(input_vendas_sistema.value or "0")
             return totais.total_geral - val
 
         txt_dif_valor = ft.Text(
@@ -1431,7 +1445,7 @@ def main(page: ft.Page):
         _atualizar_estilo_dif()
 
         def _on_auditoria_change(e=None):
-            v_val = validar_valor(input_vendas_sistema.value or "0") or 0.0
+            v_val = validar_valor_monetario(input_vendas_sistema.value or "0")
             _atualizar_estilo_dif()
             page.update()
             if turno_atual:
@@ -1535,7 +1549,7 @@ def main(page: ft.Page):
 
         def fechar_resumo(x=None):
             if turno_atual and ref_vendas_sis["control"] and ref_obs["control"]:
-                v_val = validar_valor(ref_vendas_sis["control"].value or "0") or 0.0
+                v_val = validar_valor_monetario(ref_vendas_sis["control"].value or "0")
                 obs_val = ref_obs["control"].value or ""
                 turno_atual.vendas_sistema = v_val
                 turno_atual.observacao = obs_val
@@ -1585,7 +1599,7 @@ def main(page: ft.Page):
                 return
             try:
                 garantir_conexao()
-                v_val = (validar_valor(ref_vendas_sis["control"].value or "0") or 0.0) if ref_vendas_sis["control"] else (turno_atual.vendas_sistema or 0.0)
+                v_val = validar_valor_monetario(ref_vendas_sis["control"].value or "0") if ref_vendas_sis["control"] else (turno_atual.vendas_sistema or 0.0)
                 obs_val = (ref_obs["control"].value or "") if ref_obs["control"] else (turno_atual.observacao or "")
                 turno_atual.vendas_sistema = v_val
                 turno_atual.observacao = obs_val
@@ -1621,7 +1635,7 @@ def main(page: ft.Page):
                 turno_id_encerrado = turno_atual.id
                 operador_encerrado = turno_atual.operador
 
-                v_val = (validar_valor(ref_vendas_sis["control"].value or "0") or 0.0) if ref_vendas_sis["control"] else (turno_atual.vendas_sistema or 0.0)
+                v_val = validar_valor_monetario(ref_vendas_sis["control"].value or "0") if ref_vendas_sis["control"] else (turno_atual.vendas_sistema or 0.0)
                 obs_val = (ref_obs["control"].value or "") if ref_obs["control"] else (turno_atual.observacao or "")
                 turno_atual.vendas_sistema = v_val
                 turno_atual.observacao = obs_val
