@@ -168,5 +168,19 @@ class TestTotais:
         assert totais.qtd_cartoes == 1
 
 
+class TestAuditoriaConciliacao:
+    """Testes para conciliação de caixa e observações."""
+
+    def test_salvar_e_recuperar_auditoria(self, temp_db):
+        """Testa salvação e recuperação de vendas_sistema e observações."""
+        turno = db.abrir_novo_turno(temp_db, "Operador Teste")
+        db.salvar_auditoria_turno(temp_db, turno.id, 4354.68, "Turno sem alterações e com sobras da pista.")
+
+        turno_rec = db.obter_turno_por_id(temp_db, turno.id)
+        assert turno_rec is not None
+        assert turno_rec.vendas_sistema == 4354.68
+        assert turno_rec.observacao == "Turno sem alterações e com sobras da pista."
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

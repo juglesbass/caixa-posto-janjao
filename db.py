@@ -111,6 +111,8 @@ class Turno:
     aberto_em: str
     operador: str = "Não informado"
     fechado_em: Optional[str] = None
+    vendas_sistema: float = 0.0
+    observacao: str = ""
 
 
 def conectar() -> sqlite3.Connection:
@@ -148,7 +150,9 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
             pix REAL,
             cartoes REAL,
             requisicao REAL,
-            total_geral REAL
+            total_geral REAL,
+            vendas_sistema REAL DEFAULT 0.0,
+            observacao TEXT DEFAULT ''
         )
         """
     )
@@ -174,6 +178,10 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
     colunas_turnos = {linha[1] for linha in cursor.execute("PRAGMA table_info(turnos)")}
     if "operador" not in colunas_turnos:
         cursor.execute("ALTER TABLE turnos ADD COLUMN operador TEXT")
+    if "vendas_sistema" not in colunas_turnos:
+        cursor.execute("ALTER TABLE turnos ADD COLUMN vendas_sistema REAL DEFAULT 0.0")
+    if "observacao" not in colunas_turnos:
+        cursor.execute("ALTER TABLE turnos ADD COLUMN observacao TEXT DEFAULT ''")
 
     turno = obter_turno_aberto(conn)
     if turno:
@@ -187,17 +195,53 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
 def obter_turno_aberto(conn: sqlite3.Connection) -> Optional[Turno]:
     cursor = conn.cursor()
     row = cursor.execute(
-        "SELECT id, aberto_em, fechado_em, operador FROM turnos WHERE fechado_em IS NULL ORDER BY id DESC LIMIT 1"
+        "SELECT id, aberto_em, fechado_em, operador, vendas_sistema, observacao FROM turnos WHERE fechado_em IS NULL ORDER BY id DESC LIMIT 1"
     ).fetchone()
 
     if row:
+        cols = row.keys()
+        v_sis = row["vendas_sistema"] if ("vendas_sistema" in cols and row["vendas_sistema"] is not None) else 0.0
+        obs = row["observacao"] if ("observacao" in cols and row["observacao"] is not None) else ""
         return Turno(
             id=row["id"],
             aberto_em=row["aberto_em"],
             operador=row["operador"] or "Não informado",
-            fechado_em=row["fechado_em"]
+            fechado_em=row["fechado_em"],
+            vendas_sistema=v_sis,
+            observacao=obs,
         )
     return None
+
+
+def obter_turno_por_id(conn: sqlite3.Connection, turno_id: int) -> Optional[Turno]:
+    cursor = conn.cursor()
+    row = cursor.execute(
+        "SELECT id, aberto_em, fechado_em, operador, vendas_sistema, observacao FROM turnos WHERE id = ?",
+        (turno_id,),
+    ).fetchone()
+
+    if row:
+        cols = row.keys()
+        v_sis = row["vendas_sistema"] if ("vendas_sistema" in cols and row["vendas_sistema"] is not None) else 0.0
+        obs = row["observacao"] if ("observacao" in cols and row["observacao"] is not None) else ""
+        return Turno(
+            id=row["id"],
+            aberto_em=row["aberto_em"],
+            operador=row["operador"] or "Não informado",
+            fechado_em=row["fechado_em"],
+            vendas_sistema=v_sis,
+            observacao=obs,
+        )
+    return None
+
+
+def salvar_auditoria_turno(conn: sqlite3.Connection, turno_id: int, vendas_sistema: float, observacao: str) -> None:
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE turnos SET vendas_sistema = ?, observacao = ? WHERE id = ?",
+        (vendas_sistema, observacao, turno_id),
+    )
+    conn.commit()
 
 
 def abrir_novo_turno(conn: sqlite3.Connection, operador: str) -> Turno:
@@ -369,25 +413,51 @@ def zerar_turno(conn: sqlite3.Connection, turno_id: int) -> None:
     conn.commit()
 
 
-def fechar_turno(conn: sqlite3.Connection, turno_id: int, totais: Totais) -> None:
+def fechar_turno(
+    conn: sqlite3.Connection,
+    turno_id: int,
+    totais: Totais,
+    vendas_sistema: Optional[float] = None,
+    observacao: Optional[str] = None,
+) -> None:
     agora = datetime.now().strftime("%d/%m/%Y %H:%M")
     cursor = conn.cursor()
-    cursor.execute(
-        """
-        UPDATE turnos
-        SET fechado_em = ?, fisico = ?, pix = ?, cartoes = ?, requisicao = ?, total_geral = ?
-        WHERE id = ?
-        """,
-        (
-            agora,
-            totais.fisico,
-            totais.pix,
-            totais.cartoes,
-            totais.requisicao,
-            totais.total_geral,
-            turno_id,
-        ),
-    )
+    if vendas_sistema is not None and observacao is not None:
+        cursor.execute(
+            """
+            UPDATE turnos
+            SET fechado_em = ?, fisico = ?, pix = ?, cartoes = ?, requisicao = ?, total_geral = ?, vendas_sistema = ?, observacao = ?
+            WHERE id = ?
+            """,
+            (
+                agora,
+                totais.fisico,
+                totais.pix,
+                totais.cartoes,
+                totais.requisicao,
+                totais.total_geral,
+                vendas_sistema,
+                observacao,
+                turno_id,
+            ),
+        )
+    else:
+        cursor.execute(
+            """
+            UPDATE turnos
+            SET fechado_em = ?, fisico = ?, pix = ?, cartoes = ?, requisicao = ?, total_geral = ?
+            WHERE id = ?
+            """,
+            (
+                agora,
+                totais.fisico,
+                totais.pix,
+                totais.cartoes,
+                totais.requisicao,
+                totais.total_geral,
+                turno_id,
+            ),
+        )
     conn.commit()
 
 
@@ -747,23 +817,87 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
 
     y -= 10
 
-    # ── 5. CARD TOTAL GERAL (AZUL INDIGO / VIOLÁCEO ELEGANTE) ─────────────────
-    checar_quebra_pagina(45)
+    # ── 5. TABELA DE CONCILIAÇÃO DE VENDAS (PISTA vs. SISTEMA) ────────────────
+    checar_quebra_pagina(110)
 
+    # 1. TOTAL DE VENDAS PISTA
     c.setFillColor(colors.HexColor("#3730A3"))
     c.setStrokeColor(colors.HexColor("#6366F1"))
-    c.setLineWidth(1.5)
-    c.roundRect(margem_esq, y - 34, largura_util, 34, 6, fill=1, stroke=1)
+    c.setLineWidth(1.2)
+    c.roundRect(margem_esq, y - 26, largura_util, 26, 4, fill=1, stroke=1)
 
-    c.setFont("Helvetica-Bold", 10.5)
+    c.setFont("Helvetica-Bold", 9)
     c.setFillColor(colors.HexColor("#E0E7FF"))
-    c.drawString(margem_esq + 16, y - 22, "TOTAL GERAL DO CAIXA")
+    c.drawString(margem_esq + 14, y - 17, "TOTAL DE VENDAS PISTA:")
 
-    c.setFont("Helvetica-Bold", 14)
+    c.setFont("Helvetica-Bold", 12)
     c.setFillColor(colors.HexColor("#FFFFFF"))
-    c.drawRightString(margem_dir - 16, y - 23, formatar_moeda(totais.total_geral))
+    c.drawRightString(margem_dir - 14, y - 17, formatar_moeda(totais.total_geral))
 
-    y -= 52
+    y -= 30
+
+    # 2. TOTAL DE VENDAS SISTEMA
+    c.setFillColor(colors.HexColor("#1E293B"))
+    c.setStrokeColor(colors.HexColor("#475569"))
+    c.setLineWidth(1)
+    c.roundRect(margem_esq, y - 26, largura_util, 26, 4, fill=1, stroke=1)
+
+    c.setFont("Helvetica-Bold", 9)
+    c.setFillColor(colors.HexColor("#CBD5E1"))
+    c.drawString(margem_esq + 14, y - 17, "TOTAL DE VENDAS SISTEMA:")
+
+    c.setFont("Helvetica-Bold", 11.5)
+    c.setFillColor(colors.HexColor("#F8FAFC"))
+    c.drawRightString(margem_dir - 14, y - 17, formatar_moeda(turno.vendas_sistema))
+
+    y -= 30
+
+    # 3. DIFERENÇA (PISTA - SISTEMA)
+    diferenca = totais.total_geral - turno.vendas_sistema
+    cor_dif_bg = "#064E3B" if abs(diferenca) < 0.01 else ("#78350F" if diferenca > 0 else "#7F1D1D")
+    cor_dif_border = "#10B981" if abs(diferenca) < 0.01 else ("#F59E0B" if diferenca > 0 else "#EF4444")
+    cor_dif_texto = "#D1FAE5" if abs(diferenca) < 0.01 else ("#FEF3C7" if diferenca > 0 else "#FEE2E2")
+
+    c.setFillColor(colors.HexColor(cor_dif_bg))
+    c.setStrokeColor(colors.HexColor(cor_dif_border))
+    c.setLineWidth(1.2)
+    c.roundRect(margem_esq, y - 26, largura_util, 26, 4, fill=1, stroke=1)
+
+    c.setFont("Helvetica-Bold", 9.5)
+    c.setFillColor(colors.HexColor(cor_dif_texto))
+    label_dif = "DIFERENÇA:"
+    c.drawString(margem_esq + 14, y - 17, label_dif)
+
+    c.setFont("Helvetica-Bold", 12)
+    c.drawRightString(margem_dir - 14, y - 17, formatar_moeda(diferenca))
+
+    y -= 36
+
+    # ── 5.1 SEÇÃO DE OBSERVAÇÕES / JUSTIFICATIVA ─────────────────────────────────
+    if turno.observacao and turno.observacao.strip():
+        obs_linhas = [l.strip() for l in turno.observacao.strip().split("\n") if l.strip()]
+        alt_obs = max(32, 18 + len(obs_linhas) * 12)
+        checar_quebra_pagina(alt_obs + 15)
+
+        c.setFillColor(colors.HexColor("#F8FAFC"))
+        c.setStrokeColor(colors.HexColor("#CBD5E1"))
+        c.setLineWidth(0.8)
+        c.roundRect(margem_esq, y - alt_obs, largura_util, alt_obs, 4, fill=1, stroke=1)
+
+        c.setFont("Helvetica-Bold", 8.5)
+        c.setFillColor(colors.HexColor("#475569"))
+        c.drawString(margem_esq + 12, y - 13, "OBSERVAÇÕES / JUSTIFICATIVA:")
+
+        c.setFont("Helvetica", 8.5)
+        c.setFillColor(colors.HexColor("#0F172A"))
+        y_text = y - 25
+        for lin in obs_linhas[:4]:
+            c.drawString(margem_esq + 12, y_text, lin[:95])
+            y_text -= 12
+
+        y -= (alt_obs + 16)
+    else:
+        y -= 10
 
     # ── 6. CAMPOS DE ASSINATURA E AUDITORIA ────────────────────────────────────
     checar_quebra_pagina(50)

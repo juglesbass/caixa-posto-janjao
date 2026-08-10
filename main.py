@@ -1349,6 +1349,97 @@ def main(page: ft.Page):
             padding=14,
         )
 
+        v_sis_ini = turno_atual.vendas_sistema if (turno_atual and turno_atual.vendas_sistema) else 0.0
+        obs_ini = turno_atual.observacao if (turno_atual and turno_atual.observacao) else ""
+
+        input_vendas_sistema = ft.TextField(
+            label="TOTAL DE VENDAS SISTEMA (AUTOMAÇÃO)",
+            value=f"{v_sis_ini:.2f}".replace(".", ",") if v_sis_ini > 0 else "",
+            keyboard_type=ft.KeyboardType.NUMBER,
+            hint_text="0,00",
+            border_color=pal.border_strong,
+            focused_border_color=C_BLUE,
+            color=pal.text_pri,
+            prefix_text="R$ ",
+            height=50,
+            text_size=15,
+        )
+
+        input_observacao = ft.TextField(
+            label="OBSERVAÇÕES / JUSTIFICATIVA",
+            value=obs_ini,
+            multiline=True,
+            min_lines=2,
+            max_lines=3,
+            hint_text="Descreva justificativas de sobras/faltas ou observações do turno...",
+            border_color=pal.border_strong,
+            focused_border_color=C_BLUE,
+            color=pal.text_pri,
+            text_size=14,
+        )
+
+        def _calc_dif():
+            val = validar_valor(input_vendas_sistema.value or "0") or 0.0
+            return totais.total_geral - val
+
+        txt_dif_valor = ft.Text(
+            formatar_moeda(_calc_dif()),
+            weight=ft.FontWeight.BOLD,
+            size=18,
+        )
+        txt_dif_label = ft.Text(
+            "DIFERENÇA:",
+            weight=ft.FontWeight.BOLD,
+            size=14,
+        )
+
+        container_diferenca = ft.Container(
+            border_radius=RADIUS_SM,
+            padding=12,
+            content=ft.Row([
+                txt_dif_label,
+                ft.Container(expand=True),
+                txt_dif_valor,
+            ]),
+        )
+
+        def _atualizar_estilo_dif():
+            dif = _calc_dif()
+            if abs(dif) < 0.01:
+                container_diferenca.bgcolor = ft.Colors.with_opacity(0.12, C_GREEN)
+                container_diferenca.border = ft.Border.all(1, C_GREEN)
+                txt_dif_valor.color = C_GREEN
+                txt_dif_label.color = C_GREEN
+                txt_dif_label.value = "DIFERENÇA (SEM DIFERENÇA):"
+            elif dif > 0:
+                container_diferenca.bgcolor = ft.Colors.with_opacity(0.12, C_ORANGE)
+                container_diferenca.border = ft.Border.all(1, C_ORANGE)
+                txt_dif_valor.color = C_ORANGE
+                txt_dif_label.color = C_ORANGE
+                txt_dif_label.value = "DIFERENÇA (SOBRA PISTA):"
+            else:
+                container_diferenca.bgcolor = ft.Colors.with_opacity(0.12, C_RED)
+                container_diferenca.border = ft.Border.all(1, C_RED)
+                txt_dif_valor.color = C_RED
+                txt_dif_label.color = C_RED
+                txt_dif_label.value = "DIFERENÇA (FALTA PISTA):"
+            txt_dif_valor.value = formatar_moeda(dif)
+
+        _atualizar_estilo_dif()
+
+        def _on_auditoria_change(e):
+            v_val = validar_valor(input_vendas_sistema.value or "0") or 0.0
+            _atualizar_estilo_dif()
+            page.update()
+            if turno_atual:
+                try:
+                    db.salvar_auditoria_turno(conn, turno_atual.id, v_val, input_observacao.value or "")
+                except Exception:
+                    pass
+
+        input_vendas_sistema.on_change = _on_auditoria_change
+        input_observacao.on_change = _on_auditoria_change
+
         return ft.Column(
             tight=True, spacing=14,
             scroll=ft.ScrollMode.AUTO, expand=True,
@@ -1385,16 +1476,33 @@ def main(page: ft.Page):
                 
                 ft.Divider(height=6, color=pal.border),
                 
+                # ── CONCILIAÇÃO DE VENDAS (PISTA vs. SISTEMA) ───────────────────
+                ft.Text("Conciliação de Vendas do Caixa", size=tamanho_fonte_titulo, color=pal.text_pri, weight=ft.FontWeight.BOLD),
+                
+                # 1. TOTAL DE VENDAS PISTA (Calculado pelo App)
                 ft.Container(
-                    bgcolor=ft.Colors.with_opacity(0.10, C_GREEN),
+                    bgcolor=ft.Colors.with_opacity(0.12, C_BLUE),
+                    border=ft.Border.all(1.2, C_BLUE),
                     border_radius=RADIUS_SM,
                     padding=12,
                     content=ft.Row([
-                        ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=C_GREEN, size=24),
-                        ft.Text("TOTAL GERAL:", expand=True, weight=ft.FontWeight.BOLD, size=16, color=pal.text_pri),
-                        ft.Text(formatar_moeda(totais.total_geral), weight=ft.FontWeight.BOLD, size=20, color=C_GREEN)
+                        ft.Icon(ft.Icons.POINT_OF_SALE, color=C_BLUE, size=22),
+                        ft.Text("TOTAL DE VENDAS PISTA:", expand=True, weight=ft.FontWeight.BOLD, size=14, color=pal.text_pri),
+                        ft.Text(formatar_moeda(totais.total_geral), weight=ft.FontWeight.BOLD, size=18, color=C_BLUE)
                     ])
                 ),
+
+                # 2. TOTAL DE VENDAS SISTEMA (Digitado pelo operador)
+                input_vendas_sistema,
+
+                # 3. DIFERENÇA (Pista - Sistema)
+                container_diferenca,
+
+                ft.Divider(height=4, color=pal.border),
+
+                # 4. OBSERVAÇÕES / JUSTIFICATIVA
+                input_observacao,
+                
                 ft.Container(height=10),
             ],
         )
