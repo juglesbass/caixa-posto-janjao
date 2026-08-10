@@ -1456,28 +1456,12 @@ def main(page: ft.Page):
                 return
             try:
                 garantir_conexao()
-                turno_id = turno_atual.id
-                operador = turno_atual.operador
-                caminho_pdf = db.exportar_turno_pdf(conn, turno_id)
+                caminho_pdf = db.exportar_turno_pdf(conn, turno_atual.id)
             except Exception as ex:
                 mostrar_snackbar(f"Erro ao gerar PDF: {ex}", ft.Colors.RED_800)
                 return
 
-            mostrar_snackbar("Gerando e enviando PDF para o Google Drive...")
-
-            # Envio automático do PDF para o Google Drive em background
-            def _drive_task():
-                ok, msg = drive_service.enviar_pdf_drive_bg(
-                    caminho_pdf, turno_id, operador
-                )
-                if ok and "sucesso" in msg.lower():
-                    mostrar_snackbar(msg, ft.Colors.GREEN_700)
-
-            async def _run_drive_bg():
-                import asyncio
-                await asyncio.to_thread(_drive_task)
-
-            page.run_task(_run_drive_bg)
+            mostrar_snackbar("Gerando compartilhamento do PDF...")
 
             async def _share_async():
                 try:
