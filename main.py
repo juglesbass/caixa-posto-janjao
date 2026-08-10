@@ -80,7 +80,7 @@ def main(page: ft.Page):
     adaptive_ui = mobile or ios
 
     def _criar_bottom_sheet(conteudo):
-        return ft.BottomSheet(content=conteudo, dismissible=True, enable_drag=True)
+        return ft.BottomSheet(content=conteudo, dismissible=True)
 
     page.title = "Caixa - Posto Janjão"
     if adaptive_ui:
