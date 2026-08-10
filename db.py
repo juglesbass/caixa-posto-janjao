@@ -692,32 +692,41 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
 
     y = h - 82
 
+    fechado_em_texto = turno.fechado_em if (turno.fechado_em and turno.fechado_em.strip()) else datetime.now().strftime("%d/%m/%Y %H:%M")
+
     # ── 2. CARD DE METADADOS DO TURNO (KPI BOX) ──────────────────────────────────
     c.setFillColor(colors.HexColor("#F8FAFC"))
     c.setStrokeColor(colors.HexColor("#E2E8F0"))
     c.setLineWidth(1)
     c.roundRect(margem_esq, y - 42, largura_util, 42, 6, fill=1, stroke=1)
 
-    c.setFont("Helvetica-Bold", 8)
+    c.setFont("Helvetica-Bold", 7.5)
     c.setFillColor(colors.HexColor("#64748B"))
-    c.drawString(margem_esq + 14, y - 16, "NÚMERO DO TURNO")
-    c.setFont("Helvetica-Bold", 12)
+    c.drawString(margem_esq + 10, y - 15, "Nº TURNO")
+    c.setFont("Helvetica-Bold", 11)
     c.setFillColor(colors.HexColor("#0F172A"))
-    c.drawString(margem_esq + 14, y - 32, f"Turno #{turno.id}")
+    c.drawString(margem_esq + 10, y - 31, f"Turno #{turno.id}")
 
-    c.setFont("Helvetica-Bold", 8)
+    c.setFont("Helvetica-Bold", 7.5)
     c.setFillColor(colors.HexColor("#64748B"))
-    c.drawString(margem_esq + 140, y - 16, "OPERADOR CAIXA")
-    c.setFont("Helvetica-Bold", 10.5)
+    c.drawString(margem_esq + 95, y - 15, "OPERADOR CAIXA")
+    c.setFont("Helvetica-Bold", 10)
     c.setFillColor(colors.HexColor("#0F172A"))
-    c.drawString(margem_esq + 140, y - 32, turno.operador[:28])
+    c.drawString(margem_esq + 95, y - 31, turno.operador[:22])
 
-    c.setFont("Helvetica-Bold", 8)
+    c.setFont("Helvetica-Bold", 7.5)
     c.setFillColor(colors.HexColor("#64748B"))
-    c.drawString(margem_esq + 340, y - 16, "DATA / HORA DE ABERTURA")
-    c.setFont("Helvetica", 10)
+    c.drawString(margem_esq + 245, y - 15, "ABERTURA")
+    c.setFont("Helvetica", 9.5)
     c.setFillColor(colors.HexColor("#1E293B"))
-    c.drawString(margem_esq + 340, y - 32, turno.aberto_em)
+    c.drawString(margem_esq + 245, y - 31, turno.aberto_em)
+
+    c.setFont("Helvetica-Bold", 7.5)
+    c.setFillColor(colors.HexColor("#16A34A"))
+    c.drawString(margem_esq + 380, y - 15, "FECHAMENTO")
+    c.setFont("Helvetica-Bold", 9.5)
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.drawString(margem_esq + 380, y - 31, fechado_em_texto)
 
     y -= 62
 
