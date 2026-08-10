@@ -80,7 +80,7 @@ def main(page: ft.Page):
     adaptive_ui = mobile or ios
 
     def _criar_bottom_sheet(conteudo):
-        return ft.BottomSheet(content=conteudo, dismissible=True, show_drag_handle=True, scrollable=True)
+        return ft.BottomSheet(content=conteudo, dismissible=True, show_drag_handle=True, scrollable=True, fullscreen=True)
 
     page.title = "Caixa - Posto Janjão"
     if adaptive_ui:
@@ -1534,9 +1534,8 @@ def main(page: ft.Page):
         btn_encerrar = ft.TextButton("Encerrar turno", on_click=encerrar_turno)
         btn_fechar = ft.TextButton("Fechar", on_click=fechar_resumo)
 
-        altura_sheet = max(680, int(page.height * 0.92)) if page.height else 680
         painel_resumo = ft.Container(
-            height=altura_sheet,
+            expand=True,
             padding=ft.Padding(20, 12, 20, 30),
             bgcolor=pal.sheet_bg,
             content=ft.Column(
