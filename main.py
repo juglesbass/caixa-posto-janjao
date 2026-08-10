@@ -120,25 +120,16 @@ def main(page: ft.Page):
                 pass
         page.run_task(fixar_retrato)
 
-    def _registrar_servico(ctrl):
-        try:
-            if ctrl not in page.overlay:
-                page.overlay.append(ctrl)
-        except Exception:
-            pass
-
     haptic_feedback = None
-    compartilhar_servico = None
     if mobile:
         try:
             haptic_feedback = ft.HapticFeedback()
-            _registrar_servico(haptic_feedback)
         except Exception:
             haptic_feedback = None
 
+    compartilhar_servico = None
     try:
         compartilhar_servico = ft.Share()
-        _registrar_servico(compartilhar_servico)
     except Exception:
         compartilhar_servico = None
 
