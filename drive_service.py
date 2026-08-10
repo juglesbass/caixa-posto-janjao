@@ -1,0 +1,66 @@
+"""Módulo de integração para envio automático de PDFs para o Google Drive."""
+
+import base64
+import json
+import logging
+import os
+import urllib.parse
+import urllib.request
+
+logger = logging.getLogger("caixa_app")
+
+# URL do Webhook do Google Apps Script ou Cloud Function configurada via ambiente
+DRIVE_WEBHOOK_URL = os.environ.get("GOOGLE_DRIVE_WEBHOOK_URL", "").strip()
+
+
+def enviar_pdf_drive_bg(caminho_pdf: str, turno_id: int, operador: str) -> tuple[bool, str]:
+    """Envia o arquivo PDF em segundo plano para o Google Drive.
+    
+    Retorna uma tupla (sucesso: bool, mensagem: str).
+    """
+    if not os.path.exists(caminho_pdf):
+        msg = f"Arquivo PDF não encontrado: {caminho_pdf}"
+        logger.error(f"[DriveService] {msg}")
+        return False, msg
+
+    url_webhook = os.environ.get("GOOGLE_DRIVE_WEBHOOK_URL", "").strip() or DRIVE_WEBHOOK_URL
+    if not url_webhook:
+        logger.info("[DriveService] URL do Google Drive não configurada. PDF armazenado em backup local.")
+        return True, "PDF salvo localmente (Drive não configurado)"
+
+    try:
+        nome_arquivo = os.path.basename(caminho_pdf)
+        with open(caminho_pdf, "rb") as f:
+            conteudo_bytes = f.read()
+
+        payload = {
+            "nome_arquivo": nome_arquivo,
+            "turno_id": turno_id,
+            "operador": operador,
+            "arquivo_base64": base64.b64encode(conteudo_bytes).decode("utf-8"),
+        }
+
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            url_webhook,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            status_code = resp.getcode()
+            corpo_resposta = resp.read().decode("utf-8", errors="ignore")
+
+        if status_code in (200, 201):
+            logger.info(f"[DriveService] PDF {nome_arquivo} enviado com sucesso para o Google Drive.")
+            return True, "PDF enviado com sucesso para o Google Drive do Gerente!"
+        else:
+            msg = f"Resposta inesperada do servidor ({status_code}): {corpo_resposta[:100]}"
+            logger.warning(f"[DriveService] {msg}")
+            return False, msg
+
+    except Exception as e:
+        msg_erro = f"Falha ao enviar para o Google Drive: {e}"
+        logger.error(f"[DriveService] {msg_erro}")
+        return False, msg_erro

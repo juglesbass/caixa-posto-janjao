@@ -2,6 +2,7 @@ import os
 from types import SimpleNamespace
 import flet as ft
 import db
+import drive_service
 
 def _app_mobile() -> bool:
     """Verifica se o aplicativo está rodando nativamente no iOS ou Android."""
@@ -1482,20 +1483,36 @@ def main(page: ft.Page):
             _em_andamento["valor"] = True
             try:
                 garantir_conexao()
-                db.fechar_turno(conn, turno_atual.id, totais)
+                turno_id_encerrado = turno_atual.id
+                operador_encerrado = turno_atual.operador
+
+                # Gera o PDF do fechamento
+                caminho_pdf = db.exportar_turno_pdf(conn, turno_id_encerrado)
+
+                # Fecha o turno no banco de dados
+                db.fechar_turno(conn, turno_id_encerrado, totais)
                 turno_atual = None
                 fechar_resumo()
 
                 async def _finalizar_encerramento():
                     import asyncio
-                    # Espera a animação de fechar a tela do resumo terminar
-                    # antes de reconstruir a interface inteira — fazer as duas
-                    # coisas juntas de forma imediata é o que mais trava no
-                    # Android.
                     await asyncio.sleep(0.35)
                     mostrar_snackbar("Turno encerrado com sucesso. Caixa Fechado.")
                     vibrar("medium")
                     montar_interface()
+
+                    # Envio automático do PDF para o Google Drive em background
+                    def _drive_task():
+                        ok, msg = drive_service.enviar_pdf_drive_bg(
+                            caminho_pdf, turno_id_encerrado, operador_encerrado
+                        )
+                        if ok and "sucesso" in msg.lower():
+                            mostrar_snackbar(msg, ft.Colors.GREEN_700)
+
+                    async def _run_drive_bg():
+                        await asyncio.to_thread(_drive_task)
+
+                    page.run_task(_run_drive_bg)
 
                 page.run_task(_finalizar_encerramento)
             except Exception as ex:
