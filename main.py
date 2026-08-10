@@ -1353,7 +1353,7 @@ def main(page: ft.Page):
         obs_ini = turno_atual.observacao if (turno_atual and turno_atual.observacao) else ""
 
         input_vendas_sistema = ft.TextField(
-            label="TOTAL DE VENDAS SISTEMA (AUTOMAÇÃO)",
+            label="TOTAL DE VENDAS SISTEMA",
             value=f"{v_sis_ini:.2f}".replace(".", ",") if v_sis_ini > 0 else "",
             keyboard_type=ft.KeyboardType.NUMBER,
             hint_text="0,00",
