@@ -506,9 +506,19 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
     detalhe_cart = obter_detalhe_cartoes(conn, turno_id)
 
     os.makedirs(caminho_backups(), exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    import re
+    def _sanitizar_nome(nome: str) -> str:
+        if not nome:
+            return "SemNome"
+        nome_limpo = re.sub(r'[^\w\s-]', '', nome).strip()
+        nome_limpo = re.sub(r'[\s]+', '_', nome_limpo)
+        return nome_limpo[:25] or "Operador"
+
+    data_formatada = datetime.now().strftime("%d-%m-%Y_%H%M")
+    operador_slug = _sanitizar_nome(turno.operador)
+    nome_arquivo_pdf = f"Turno_{turno_id}_Operador_{operador_slug}_{data_formatada}.pdf"
+    caminho = os.path.join(caminho_backups(), nome_arquivo_pdf)
     data_geracao = datetime.now().strftime("%d/%m/%Y às %H:%M")
-    caminho = os.path.join(caminho_backups(), f"turno_{turno_id}_{timestamp}.pdf")
 
     w, h = A4
     margem_esq = 36
