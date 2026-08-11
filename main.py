@@ -2190,12 +2190,7 @@ def main(page: ft.Page):
         )
         texto_erro = ft.Text("", color=ft.Colors.RED_400, size=12, weight=ft.FontWeight.W_600)
 
-        async def validar_acesso_async():
-            import asyncio
-            await asyncio.sleep(0.05)
-            validar_acesso()
-
-        def validar_acesso():
+        def validar_acesso(e=None):
             if not tem_pin or campo_pin.value == pin_configurado:
                 nonlocal turno_atual, autenticado
                 autenticado = True
@@ -2204,30 +2199,27 @@ def main(page: ft.Page):
 
                 fechar_dialogo(dlg_acesso)
 
-                async def montagem_segura():
-                    nonlocal turno_atual
-                    import asyncio
-                    await asyncio.sleep(0.2)
-
-                    if novo_turno:
-                        turno_atual = db.abrir_novo_turno(conn, nome_digitado)
+                if novo_turno:
+                    turno_atual = db.abrir_novo_turno(conn, nome_digitado)
+                else:
+                    turno_existente = db.obter_turno_aberto(conn)
+                    if turno_existente:
+                        if turno_existente.operador == "Não informado" and nome_digitado != "Não informado":
+                            conn.execute("UPDATE turnos SET operador = ? WHERE id = ?", (nome_digitado, turno_existente.id))
+                            conn.commit()
+                            turno_existente.operador = nome_digitado
+                        turno_atual = turno_existente
                     else:
-                        turno_existente = db.obter_turno_aberto(conn)
-                        if turno_existente:
-                            if turno_existente.operador == "Não informado" and nome_digitado != "Não informado":
-                                conn.execute("UPDATE turnos SET operador = ? WHERE id = ?", (nome_digitado, turno_existente.id))
-                                conn.commit()
-                                turno_existente.operador = nome_digitado
-                            turno_atual = turno_existente
-                        else:
-                            turno_atual = None
+                        turno_atual = None
 
-                    montar_interface()
-
-                page.run_task(montagem_segura)
+                montar_interface()
             else:
                 texto_erro.value = "PIN incorreto"
                 page.update()
+
+        campo_nome.on_submit = validar_acesso
+        if tem_pin:
+            campo_pin.on_submit = validar_acesso
 
         conteudos = [
             ft.Row([icone_topo], alignment=ft.MainAxisAlignment.CENTER),
@@ -2267,7 +2259,7 @@ def main(page: ft.Page):
             modal=True,
         )
 
-        btn_confirmar = ft.Container(
+        btn_confirmar = ft.FilledButton(
             content=ft.Row(
                 tight=True,
                 spacing=8,
@@ -2286,20 +2278,14 @@ def main(page: ft.Page):
                     ),
                 ],
             ),
-            bgcolor=C_GREEN,
-            border_radius=RADIUS_SM,
-            padding=ft.Padding(24, 14, 24, 14),
-            alignment=ft.Alignment(0, 0),
+            style=ft.ButtonStyle(
+                bg_color=C_GREEN,
+                shape=ft.RoundedRectangleBorder(radius=RADIUS_SM),
+            ),
             width=240,
-            on_click=lambda x: page.run_task(validar_acesso_async),
-            scale=ft.Scale(scale=1),
-            animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
-            animate=_animacao(120, ft.AnimationCurve.EASE_OUT),
+            height=48,
+            on_click=validar_acesso,
         )
-        def hover_confirmar(e):
-            e.control.scale = 1.05 if e.data == "true" else 1.0
-            e.control.update()
-        btn_confirmar.on_hover = hover_confirmar
 
         dlg_acesso.actions = [btn_confirmar]
         dlg_acesso.actions_alignment = ft.MainAxisAlignment.CENTER
