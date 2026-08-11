@@ -2204,13 +2204,13 @@ def main(page: ft.Page):
                 else:
                     turno_existente = db.obter_turno_aberto(conn)
                     if turno_existente:
-                        if turno_existente.operador == "Não informado" and nome_digitado != "Não informado":
+                        if turno_existente.operador in ("Não informado", "", None) and nome_digitado != "Não informado":
                             conn.execute("UPDATE turnos SET operador = ? WHERE id = ?", (nome_digitado, turno_existente.id))
                             conn.commit()
                             turno_existente.operador = nome_digitado
                         turno_atual = turno_existente
                     else:
-                        turno_atual = None
+                        turno_atual = db.abrir_novo_turno(conn, nome_digitado)
 
                 montar_interface()
             else:
@@ -2304,7 +2304,8 @@ def main(page: ft.Page):
         turno_atual = _turno_existente
         montar_interface()
     else:
-        solicitar_identificacao(novo_turno=False)
+        turno_atual = None
+        montar_interface()
 
 # ---------------------------------------------------------
 # ESCUDO ANTI-TELA PRETA (Para debug em iOS Sandboxed)
