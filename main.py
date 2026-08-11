@@ -2279,7 +2279,7 @@ def main(page: ft.Page):
                 ],
             ),
             style=ft.ButtonStyle(
-                bg_color=C_GREEN,
+                bgcolor=C_GREEN,
                 shape=ft.RoundedRectangleBorder(radius=RADIUS_SM),
             ),
             width=240,
