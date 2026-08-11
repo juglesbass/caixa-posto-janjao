@@ -1896,11 +1896,6 @@ def main(page: ft.Page):
                     on_click=acao_fechar_caixa,
                 ),
                 ft.ListTile(
-                    leading=ft.Icon(ft.Icons.RESTORE_PAGE_ROUNDED, color=C_ORANGE),
-                    title=ft.Text("Reabrir Último Turno", size=15),
-                    on_click=acao_reabrir_turno,
-                ),
-                ft.ListTile(
                     leading=ft.Icon(ft.Icons.HISTORY, color=pal.text_sec),
                     title=ft.Text("Histórico de Turnos", size=15),
                     on_click=acao_historico_turnos,
@@ -2095,17 +2090,18 @@ def main(page: ft.Page):
                 ),
             ]
             if ultimo_fechado:
-                controles_fechado.append(ft.Container(height=10))
+                controles_fechado.append(ft.Container(height=15))
                 controles_fechado.append(
                     ft.TextButton(
                         content=ft.Row(
-                            tight=True, spacing=6,
+                            tight=True, spacing=4,
+                            alignment=ft.MainAxisAlignment.CENTER,
                             controls=[
-                                ft.Icon(ft.Icons.RESTORE_PAGE_ROUNDED, color=C_ORANGE, size=18),
-                                ft.Text(f"Reabrir Turno #{ultimo_fechado.numero_do_dia} de {ultimo_fechado.operador}", color=C_ORANGE, size=14, weight=ft.FontWeight.W_600),
+                                ft.Icon(ft.Icons.HISTORY, size=14, color=pal.text_ter),
+                                ft.Text("Histórico de turnos / Reabrir anterior", size=12, color=pal.text_ter),
                             ]
                         ),
-                        on_click=acao_reabrir_turno,
+                        on_click=acao_historico_turnos,
                     )
                 )
             controles_fechado.append(ft.Container(expand=True))
