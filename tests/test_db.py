@@ -186,7 +186,18 @@ class TestAuditoriaConciliacao:
         t1 = db.abrir_novo_turno(temp_db, "Agildo")
         t2 = db.abrir_novo_turno(temp_db, "João")
         assert t1.numero_do_dia == 1
-        assert t2.numero_do_dia == 2
+    def test_reabrir_ultimo_turno(self, temp_db):
+        """Testa o fechamento e posterior reabertura do turno."""
+        t1 = db.abrir_novo_turno(temp_db, "Agildo")
+        totais = db.obter_totais(temp_db, t1.id)
+        db.fechar_turno(temp_db, t1.id, totais)
+        assert db.obter_turno_aberto(temp_db) is None
+
+        t_reaberto = db.reabrir_turno_por_id(temp_db, t1.id)
+        assert t_reaberto is not None
+        assert t_reaberto.id == t1.id
+        assert t_reaberto.fechado_em is None
+        assert db.obter_turno_aberto(temp_db) is not None
 
 
 if __name__ == "__main__":

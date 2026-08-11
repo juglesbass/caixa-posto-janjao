@@ -1757,6 +1757,12 @@ def main(page: ft.Page):
             ft.ListTile(
                 title=ft.Text(f"Turno #{db.obter_numero_turno_do_dia(conn, t['id'])} ({t['aberto_em'][:10]}) · {t['operador']} · {formatar_moeda(t['total_geral'])}"),
                 subtitle=ft.Text(f"{t['aberto_em']} → {t['fechado_em']}"),
+                trailing=ft.IconButton(
+                    ft.Icons.RESTORE_PAGE_ROUNDED,
+                    icon_color=C_ORANGE,
+                    tooltip="Reabrir este turno",
+                    on_click=lambda e, tid=t["id"]: (fechar_dialogo(dlg_hist), acao_reabrir_turno(e, tid)),
+                ),
             )
             for t in turnos
         ]
@@ -1769,6 +1775,41 @@ def main(page: ft.Page):
         )
         dlg_hist.actions = [ft.TextButton("Fechar", on_click=lambda x: fechar_dialogo(dlg_hist))]
         abrir_dialogo(dlg_hist)
+
+    def acao_reabrir_turno(e=None, turno_id_alvo=None):
+        fechar_bottom_sheet()
+        garantir_conexao()
+        if turno_atual is not None:
+            mostrar_snackbar("Já existe um turno aberto no momento.", ft.Colors.ORANGE_800)
+            return
+
+        if turno_id_alvo:
+            turno_para_reabrir = db.obter_turno_por_id(conn, turno_id_alvo)
+        else:
+            turno_para_reabrir = db.obter_ultimo_turno_fechado(conn)
+
+        if not turno_para_reabrir:
+            mostrar_snackbar("Nenhum turno fechado para reabrir.", ft.Colors.BLUE_GREY_700)
+            return
+
+        def _confirmar_reabrir(x=None):
+            nonlocal turno_atual
+            fechar_dialogo(dlg_conf)
+            t_ok = db.reabrir_turno_por_id(conn, turno_para_reabrir.id)
+            if t_ok:
+                turno_atual = t_ok
+                mostrar_snackbar(f"Turno #{t_ok.numero_do_dia} reaberto com sucesso!", ft.Colors.GREEN_700)
+                montar_interface()
+
+        dlg_conf = ft.AlertDialog(
+            title=ft.Text("Reabrir Turno"),
+            content=ft.Text(f"Deseja reabrir o Turno #{turno_para_reabrir.numero_do_dia} de {turno_para_reabrir.operador}?\n\nVocê poderá adicionar ou alterar lançamentos e encerrar novamente."),
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_conf)),
+                ft.TextButton("Reabrir Turno", on_click=_confirmar_reabrir),
+            ],
+        )
+        abrir_dialogo(dlg_conf)
 
     def acao_zerar_tudo(e=None):
         if turno_atual is None: return
@@ -1855,6 +1896,11 @@ def main(page: ft.Page):
                     on_click=acao_fechar_caixa,
                 ),
                 ft.ListTile(
+                    leading=ft.Icon(ft.Icons.RESTORE_PAGE_ROUNDED, color=C_ORANGE),
+                    title=ft.Text("Reabrir Último Turno", size=15),
+                    on_click=acao_reabrir_turno,
+                ),
+                ft.ListTile(
                     leading=ft.Icon(ft.Icons.HISTORY, color=pal.text_sec),
                     title=ft.Text("Histórico de Turnos", size=15),
                     on_click=acao_historico_turnos,
@@ -1931,9 +1977,9 @@ def main(page: ft.Page):
     def fechar_bottom_sheet():
         fechar_menu()
 
-    # ══════════════════════════════════════════════════════��[...]
+    # ════════════════════════════════════════════════════════════════════════
     # HEADER / TEMA
-    # ══════════════════════════════════════════════════════��[...]
+    # ════════════════════════════════════════════════════════════════════════
     def aplicar_paleta_ui():
         nonlocal pal
         pal = criar_paleta(tema_escuro())
@@ -2020,39 +2066,56 @@ def main(page: ft.Page):
 
             topo = ft.Row([btn_tema_fechado], alignment=ft.MainAxisAlignment.END, width=largura_conteudo)
 
+            ultimo_fechado = db.obter_ultimo_turno_fechado(conn)
+            controles_fechado = [
+                topo,
+                ft.Container(height=40),
+                ft.Icon(ft.Icons.LOCK_OUTLINE, size=80, color=pal.text_ter),
+                ft.Text("Caixa Fechado", size=26, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                ft.Text("Nenhum turno em andamento no momento.", size=14, color=pal.text_sec),
+                ft.Container(height=20),
+                ft.Container(
+                    content=ft.Row(
+                        tight=True,
+                        spacing=8,
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        controls=[
+                            ft.Icon(ft.Icons.PLAY_ARROW, color=ft.Colors.WHITE, size=20),
+                            ft.Text("Abrir Novo Turno", color=ft.Colors.WHITE, size=15,
+                                    weight=ft.FontWeight.W_600),
+                        ],
+                    ),
+                    bgcolor=C_GREEN,
+                    border_radius=12,
+                    padding=ft.Padding(24, 16, 24, 16),
+                    on_click=lambda e: solicitar_identificacao(novo_turno=True),
+                    scale=ft.Scale(scale=1),
+                    animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
+                    animate=_animacao(120, ft.AnimationCurve.EASE_OUT),
+                ),
+            ]
+            if ultimo_fechado:
+                controles_fechado.append(ft.Container(height=10))
+                controles_fechado.append(
+                    ft.TextButton(
+                        content=ft.Row(
+                            tight=True, spacing=6,
+                            controls=[
+                                ft.Icon(ft.Icons.RESTORE_PAGE_ROUNDED, color=C_ORANGE, size=18),
+                                ft.Text(f"Reabrir Turno #{ultimo_fechado.numero_do_dia} de {ultimo_fechado.operador}", color=C_ORANGE, size=14, weight=ft.FontWeight.W_600),
+                            ]
+                        ),
+                        on_click=acao_reabrir_turno,
+                    )
+                )
+            controles_fechado.append(ft.Container(expand=True))
+
             tela_fechado = ft.Column(
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 alignment=ft.MainAxisAlignment.CENTER,
-                spacing=20,
+                spacing=10,
                 expand=True,
-                controls=[
-                    topo,
-                    ft.Container(height=40),
-                    ft.Icon(ft.Icons.LOCK_OUTLINE, size=80, color=pal.text_ter),
-                    ft.Text("Caixa Fechado", size=26, weight=ft.FontWeight.BOLD, color=pal.text_pri),
-                    ft.Text("Nenhum turno em andamento no momento.", size=14, color=pal.text_sec),
-                    ft.Container(height=20),
-                    ft.Container(
-                        content=ft.Row(
-                            tight=True,
-                            spacing=8,
-                            alignment=ft.MainAxisAlignment.CENTER,
-                            controls=[
-                                ft.Icon(ft.Icons.PLAY_ARROW, color=ft.Colors.WHITE, size=20),
-                                ft.Text("Abrir Novo Turno", color=ft.Colors.WHITE, size=15,
-                                        weight=ft.FontWeight.W_600),
-                            ],
-                        ),
-                        bgcolor=C_GREEN,
-                        border_radius=12,
-                        padding=ft.Padding(24, 16, 24, 16),
-                        on_click=lambda e: solicitar_identificacao(novo_turno=True),
-                        scale=ft.Scale(scale=1),
-                        animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
-                        animate=_animacao(120, ft.AnimationCurve.EASE_OUT),
-                    ),
-                    ft.Container(expand=True)
-                ]
+                controls=controles_fechado,
             )
 
             def hover_btn_abrir(e):

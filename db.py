@@ -268,6 +268,38 @@ def salvar_auditoria_turno(conn: sqlite3.Connection, turno_id: int, vendas_siste
     conn.commit()
 
 
+def obter_ultimo_turno_fechado(conn: sqlite3.Connection) -> Optional[Turno]:
+    """Retorna o último turno que foi encerrado."""
+    cursor = conn.cursor()
+    row = cursor.execute(
+        "SELECT id, aberto_em, fechado_em, operador, vendas_sistema, observacao FROM turnos WHERE fechado_em IS NOT NULL ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+
+    if row:
+        cols = row.keys()
+        v_sis = row["vendas_sistema"] if ("vendas_sistema" in cols and row["vendas_sistema"] is not None) else 0.0
+        obs = row["observacao"] if ("observacao" in cols and row["observacao"] is not None) else ""
+        num_dia = obter_numero_turno_do_dia(conn, row["id"])
+        return Turno(
+            id=row["id"],
+            aberto_em=row["aberto_em"],
+            operador=row["operador"] or "Não informado",
+            fechado_em=row["fechado_em"],
+            vendas_sistema=v_sis,
+            observacao=obs,
+            numero_do_dia=num_dia,
+        )
+    return None
+
+
+def reabrir_turno_por_id(conn: sqlite3.Connection, turno_id: int) -> Optional[Turno]:
+    """Reabre um turno previamente encerrado, limpando a data de fechamento."""
+    cursor = conn.cursor()
+    cursor.execute("UPDATE turnos SET fechado_em = NULL WHERE id = ?", (turno_id,))
+    conn.commit()
+    return obter_turno_por_id(conn, turno_id)
+
+
 def abrir_novo_turno(conn: sqlite3.Connection, operador: str) -> Turno:
     cursor = conn.cursor()
     agora = datetime.now().strftime("%d/%m/%Y %H:%M")
