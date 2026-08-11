@@ -1868,6 +1868,7 @@ def main(page: ft.Page):
                     ("Não informado", turno_atual.id),
                 )
                 conn.commit()
+                db.salvar_banco_web_sync()
                 turno_atual.operador = "Não informado"
             except Exception:
                 pass
@@ -2266,6 +2267,7 @@ def main(page: ft.Page):
                         if turno_existente.operador in ("Não informado", "", None) and nome_digitado != "Não informado":
                             conn.execute("UPDATE turnos SET operador = ? WHERE id = ?", (nome_digitado, turno_existente.id))
                             conn.commit()
+                            db.salvar_banco_web_sync()
                             turno_existente.operador = nome_digitado
                         turno_atual = turno_existente
                     else:

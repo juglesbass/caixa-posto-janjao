@@ -1,11 +1,60 @@
-"""Camada de acesso ao banco de dados do caixa."""
-
+import base64
 import csv
+import logging
 import os
 import sqlite3
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
+
+logger = logging.getLogger("caixa_app")
+
+
+def _is_pyodide() -> bool:
+    """Verifica se está executando dentro do navegador (Pyodide WebAssembly)."""
+    if "pyodide" in sys.modules or (hasattr(sys, "platform") and sys.platform == "emscripten"):
+        return True
+    try:
+        import js
+        return True
+    except ImportError:
+        return False
+
+
+def restaurar_banco_web_storage() -> None:
+    """Restaura o banco de dados do localStorage do navegador no Pyodide WebAssembly."""
+    if not _is_pyodide():
+        return
+    try:
+        import js
+        b64_db = js.localStorage.getItem("caixa_db_backup")
+        if b64_db:
+            db_bytes = base64.b64decode(b64_db)
+            caminho = caminho_banco()
+            with open(caminho, "wb") as f:
+                f.write(db_bytes)
+            logger.info("[DB WebStorage] Banco de dados restaurado do localStorage.")
+    except Exception as e:
+        logger.error(f"[DB WebStorage] Erro ao restaurar do localStorage: {e}")
+
+
+def salvar_banco_web_sync() -> None:
+    """Salva o estado atual do banco no localStorage do navegador para persistência PWA."""
+    if not _is_pyodide():
+        return
+    try:
+        import js
+        caminho = caminho_banco()
+        if os.path.exists(caminho):
+            with open(caminho, "rb") as f:
+                db_bytes = f.read()
+            b64_db = base64.b64encode(db_bytes).decode("utf-8")
+            js.localStorage.setItem("caixa_db_backup", b64_db)
+            logger.info("[DB WebStorage] Banco sincronizado no localStorage.")
+    except Exception as e:
+        logger.error(f"[DB WebStorage] Erro ao salvar no localStorage: {e}")
+
 
 # ── Constantes de tipo (evita strings soltas espalhadas pelo código) ───────
 TIPO_DINHEIRO = "Dinheiro"
@@ -136,6 +185,7 @@ def obter_numero_turno_do_dia(conn: sqlite3.Connection, turno_id: int) -> int:
 
 
 def conectar() -> sqlite3.Connection:
+    restaurar_banco_web_storage()
     conn = sqlite3.connect(caminho_banco(), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     try:
@@ -210,6 +260,7 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
             (turno.id,),
         )
     conn.commit()
+    salvar_banco_web_sync()
 
 
 def obter_turno_aberto(conn: sqlite3.Connection) -> Optional[Turno]:
@@ -266,6 +317,7 @@ def salvar_auditoria_turno(conn: sqlite3.Connection, turno_id: int, vendas_siste
         (vendas_sistema, observacao, turno_id),
     )
     conn.commit()
+    salvar_banco_web_sync()
 
 
 def obter_ultimo_turno_fechado(conn: sqlite3.Connection) -> Optional[Turno]:
@@ -297,6 +349,7 @@ def reabrir_turno_por_id(conn: sqlite3.Connection, turno_id: int) -> Optional[Tu
     cursor = conn.cursor()
     cursor.execute("UPDATE turnos SET fechado_em = NULL WHERE id = ?", (turno_id,))
     conn.commit()
+    salvar_banco_web_sync()
     return obter_turno_por_id(conn, turno_id)
 
 
@@ -305,6 +358,7 @@ def abrir_novo_turno(conn: sqlite3.Connection, operador: str) -> Turno:
     agora = datetime.now().strftime("%d/%m/%Y %H:%M")
     cursor.execute("INSERT INTO turnos (aberto_em, operador) VALUES (?, ?)", (agora, operador))
     conn.commit()
+    salvar_banco_web_sync()
     turno_id = cursor.lastrowid
     num_dia = obter_numero_turno_do_dia(conn, turno_id)
     return Turno(id=turno_id, aberto_em=agora, operador=operador, numero_do_dia=num_dia)
@@ -430,6 +484,7 @@ def inserir_lancamento(
         (tipo, valor_centavos, descricao, data_atual, turno_id),
     )
     conn.commit()
+    salvar_banco_web_sync()
 
 
 def atualizar_lancamento(
@@ -451,6 +506,7 @@ def atualizar_lancamento(
         (tipo, valor_centavos, descricao, lancamento_id, turno_id),
     )
     conn.commit()
+    salvar_banco_web_sync()
     return cursor.rowcount > 0
 
 
@@ -461,6 +517,7 @@ def deletar_lancamento(conn: sqlite3.Connection, lancamento_id: int, turno_id: i
         (lancamento_id, turno_id),
     )
     conn.commit()
+    salvar_banco_web_sync()
     return cursor.rowcount > 0
 
 
@@ -468,6 +525,7 @@ def zerar_turno(conn: sqlite3.Connection, turno_id: int) -> None:
     cursor = conn.cursor()
     cursor.execute("DELETE FROM lancamentos WHERE turno_id = ?", (turno_id,))
     conn.commit()
+    salvar_banco_web_sync()
 
 
 def fechar_turno(
@@ -516,6 +574,7 @@ def fechar_turno(
             ),
         )
     conn.commit()
+    salvar_banco_web_sync()
 
 
 def listar_agrupado(conn: sqlite3.Connection, turno_id: int) -> list[tuple[str, float]]:
