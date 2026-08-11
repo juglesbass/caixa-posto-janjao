@@ -240,12 +240,19 @@ def main(page: ft.Page):
         page.run_task(_tarefa)
 
     def fechar_dialogo(dlg):
+        if not dlg:
+            return
+        if hasattr(page, "close"):
+            try:
+                page.close(dlg)
+            except Exception:
+                pass
         try:
-            page.pop_dialog()
-        except AttributeError:
             dlg.open = False
             page.update()
-            _agendar_limpeza_overlay(dlg)
+        except Exception:
+            pass
+        _agendar_limpeza_overlay(dlg)
 
     def mostrar_snackbar(mensagem: str, cor=ft.Colors.GREEN_700):
         snack = ft.SnackBar(
@@ -1877,13 +1884,8 @@ def main(page: ft.Page):
 
     def fechar_menu():
         nonlocal _menu_aberto
-        try:
-            page.pop_dialog()
-        except AttributeError:
-            if _menu_aberto is not None:
-                _menu_aberto.open = False
-                page.update()
-                _agendar_limpeza_overlay(_menu_aberto)
+        if _menu_aberto is not None:
+            fechar_dialogo(_menu_aberto)
         _menu_aberto = None
 
     def _menu_handler(callback):
