@@ -4,6 +4,7 @@ import base64
 import json
 import logging
 import os
+import sys
 import urllib.parse
 import urllib.request
 
@@ -14,6 +15,39 @@ DRIVE_WEBHOOK_URL = os.environ.get(
     "GOOGLE_DRIVE_WEBHOOK_URL",
     "https://script.google.com/macros/s/AKfycbzes0dAFXK3_Us145YsnfKXAI_UzVjMHlVG4uK2-cYkxHy2f5M_VCaLEVEJhWOIvcVITQ/exec"
 ).strip()
+
+
+def _is_pyodide() -> bool:
+    """Verifica se está executando dentro do navegador (Pyodide WebAssembly)."""
+    if "pyodide" in sys.modules or (hasattr(sys, "platform") and sys.platform == "emscripten"):
+        return True
+    try:
+        import js
+        return True
+    except ImportError:
+        return False
+
+
+def _enviar_web_js(url_webhook: str, payload: dict) -> tuple[bool, str]:
+    """Envia o payload usando a API fetch nativa do navegador (PWA/Pyodide)."""
+    try:
+        import js
+        payload_str = json.dumps(payload)
+        
+        # Em Apps Script, usar Content-Type "text/plain" evita o pré-flight CORS travado pelo navegador
+        options = js.Object.fromEntries([
+            ("method", "POST"),
+            ("headers", js.Object.fromEntries([("Content-Type", "text/plain;charset=utf-8")])),
+            ("body", payload_str)
+        ])
+        
+        js.fetch(url_webhook, options)
+        logger.info("[DriveService Web] Requisição de envio disparada via browser fetch.")
+        return True, "PDF enviado com sucesso para o Google Drive do Gerente!"
+    except Exception as e:
+        msg = f"Falha ao enviar via Web Browser: {e}"
+        logger.error(f"[DriveService Web] {msg}")
+        return False, msg
 
 
 def enviar_pdf_drive_bg(caminho_pdf: str, turno_id: int, operador: str) -> tuple[bool, str]:
@@ -42,6 +76,10 @@ def enviar_pdf_drive_bg(caminho_pdf: str, turno_id: int, operador: str) -> tuple
             "operador": operador,
             "arquivo_base64": base64.b64encode(conteudo_bytes).decode("utf-8"),
         }
+
+        # Se for executado no navegador (PWA/Pyodide WebAssembly), dispara via Javascript Fetch API
+        if _is_pyodide():
+            return _enviar_web_js(url_webhook, payload)
 
         data = json.dumps(payload).encode("utf-8")
         headers = {
