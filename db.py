@@ -113,6 +113,26 @@ class Turno:
     fechado_em: Optional[str] = None
     vendas_sistema: float = 0.0
     observacao: str = ""
+    numero_do_dia: int = 1
+
+
+def obter_numero_turno_do_dia(conn: sqlite3.Connection, turno_id: int) -> int:
+    """Calcula o número sequencial do turno no seu respectivo dia (ex: 1º do dia, 2º do dia).
+    Quando a data muda (novo dia), a contagem é automaticamente resetada para 1.
+    """
+    try:
+        cursor = conn.cursor()
+        row = cursor.execute("SELECT aberto_em FROM turnos WHERE id = ?", (turno_id,)).fetchone()
+        if not row or not row["aberto_em"]:
+            return 1
+        data_str = row["aberto_em"][:10]
+        count = cursor.execute(
+            "SELECT COUNT(*) FROM turnos WHERE substr(aberto_em, 1, 10) = ? AND id <= ?",
+            (data_str, turno_id),
+        ).fetchone()[0]
+        return max(1, count)
+    except Exception:
+        return 1
 
 
 def conectar() -> sqlite3.Connection:
@@ -202,6 +222,7 @@ def obter_turno_aberto(conn: sqlite3.Connection) -> Optional[Turno]:
         cols = row.keys()
         v_sis = row["vendas_sistema"] if ("vendas_sistema" in cols and row["vendas_sistema"] is not None) else 0.0
         obs = row["observacao"] if ("observacao" in cols and row["observacao"] is not None) else ""
+        num_dia = obter_numero_turno_do_dia(conn, row["id"])
         return Turno(
             id=row["id"],
             aberto_em=row["aberto_em"],
@@ -209,6 +230,7 @@ def obter_turno_aberto(conn: sqlite3.Connection) -> Optional[Turno]:
             fechado_em=row["fechado_em"],
             vendas_sistema=v_sis,
             observacao=obs,
+            numero_do_dia=num_dia,
         )
     return None
 
@@ -224,6 +246,7 @@ def obter_turno_por_id(conn: sqlite3.Connection, turno_id: int) -> Optional[Turn
         cols = row.keys()
         v_sis = row["vendas_sistema"] if ("vendas_sistema" in cols and row["vendas_sistema"] is not None) else 0.0
         obs = row["observacao"] if ("observacao" in cols and row["observacao"] is not None) else ""
+        num_dia = obter_numero_turno_do_dia(conn, row["id"])
         return Turno(
             id=row["id"],
             aberto_em=row["aberto_em"],
@@ -231,6 +254,7 @@ def obter_turno_por_id(conn: sqlite3.Connection, turno_id: int) -> Optional[Turn
             fechado_em=row["fechado_em"],
             vendas_sistema=v_sis,
             observacao=obs,
+            numero_do_dia=num_dia,
         )
     return None
 
@@ -250,7 +274,8 @@ def abrir_novo_turno(conn: sqlite3.Connection, operador: str) -> Turno:
     cursor.execute("INSERT INTO turnos (aberto_em, operador) VALUES (?, ?)", (agora, operador))
     conn.commit()
     turno_id = cursor.lastrowid
-    return Turno(id=turno_id, aberto_em=agora, operador=operador)
+    num_dia = obter_numero_turno_do_dia(conn, turno_id)
+    return Turno(id=turno_id, aberto_em=agora, operador=operador, numero_do_dia=num_dia)
 
 
 def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
@@ -340,7 +365,7 @@ def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str,
     linha_total_geral = fmt_linha("✅ Total Geral:", formatar_moeda(totais.total_geral))
 
     return (
-        f"⛽ *Fechamento de Turno - Posto Janjão*\n"
+        f"⛽ *Fechamento de Turno #{turno.numero_do_dia} - Posto Janjão*\n"
         f"👤 Operador: {turno.operador}\n"
         f"🕐 Turno aberto em: {turno.aberto_em}\n\n"
 
@@ -688,7 +713,7 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
     c.setFont("Helvetica", 8)
     c.setFillColor(colors.HexColor("#CBD5E1"))
     c.drawRightString(margem_dir, h - 34, f"Emitido em: {data_geracao}")
-    c.drawRightString(margem_dir, h - 48, f"Documento #PDF-{turno.id:04d}")
+    c.drawRightString(margem_dir, h - 48, f"Documento #PDF-{turno.numero_do_dia:04d}")
 
     y = h - 82
 
@@ -705,7 +730,7 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
     c.drawString(margem_esq + 10, y - 15, "Nº TURNO")
     c.setFont("Helvetica-Bold", 11)
     c.setFillColor(colors.HexColor("#0F172A"))
-    c.drawString(margem_esq + 10, y - 31, f"Turno #{turno.id}")
+    c.drawString(margem_esq + 10, y - 31, f"Turno #{turno.numero_do_dia}")
 
     c.setFont("Helvetica-Bold", 7.5)
     c.setFillColor(colors.HexColor("#64748B"))

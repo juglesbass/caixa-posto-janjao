@@ -181,6 +181,13 @@ class TestAuditoriaConciliacao:
         assert turno_rec.vendas_sistema == 4354.68
         assert turno_rec.observacao == "Turno sem alterações e com sobras da pista."
 
+    def test_numero_turno_do_dia_reset_diario(self, temp_db):
+        """Testa se a numeração do turno reseta para 1 a cada nova data."""
+        t1 = db.abrir_novo_turno(temp_db, "Agildo")
+        t2 = db.abrir_novo_turno(temp_db, "João")
+        assert t1.numero_do_dia == 1
+        assert t2.numero_do_dia == 2
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

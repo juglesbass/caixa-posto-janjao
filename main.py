@@ -501,7 +501,7 @@ def main(page: ft.Page):
         txt_total_geral.value   = formatar_moeda(totais.total_geral)
         
         txt_operador_nome.value = f"Operador(a): {turno_atual.operador}"
-        txt_turno_data.value    = f"Turno #{turno_atual.id} · Aberto em: {turno_atual.aberto_em}"
+        txt_turno_data.value    = f"Turno #{turno_atual.numero_do_dia} · Aberto em: {turno_atual.aberto_em}"
         
         if mobile:
             txt_rodape_resumo.value = f"Total geral · {formatar_moeda(totais.total_geral)}"
@@ -1486,7 +1486,7 @@ def main(page: ft.Page):
             scroll=ft.ScrollMode.AUTO, expand=True,
             controls=[
                 ft.Column(spacing=3, controls=[
-                    ft.Text(f"Turno #{turno_atual.id} · Operador(a): {turno_atual.operador}",
+                    ft.Text(f"Turno #{turno_atual.numero_do_dia} · Operador(a): {turno_atual.operador}",
                             size=16, color=pal.text_pri, weight=ft.FontWeight.BOLD),
                     ft.Text(f"Aberto em: {turno_atual.aberto_em}",
                             size=15, color=pal.text_ter),
@@ -1755,7 +1755,7 @@ def main(page: ft.Page):
             return
         itens = [
             ft.ListTile(
-                title=ft.Text(f"Turno #{t['id']} · {t['operador']} · {formatar_moeda(t['total_geral'])}"),
+                title=ft.Text(f"Turno #{db.obter_numero_turno_do_dia(conn, t['id'])} ({t['aberto_em'][:10]}) · {t['operador']} · {formatar_moeda(t['total_geral'])}"),
                 subtitle=ft.Text(f"{t['aberto_em']} → {t['fechado_em']}"),
             )
             for t in turnos
