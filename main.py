@@ -39,7 +39,8 @@ C_ACCENT_LIGHT = "#60a5fa"
 # ── Acentos por tipo de pagamento ───────────────────────────────────────────
 C_GREEN   = "#34d399"
 C_BLUE    = "#60a5fa"
-C_PURPLE  = "#a78bfa"
+C_PURPLE        = "#a78bfa"
+C_ROXO_EQUADOR  = "#5a2382"
 C_ORANGE  = "#fb923c"
 C_BROWN   = "#d4a27a"
 C_TEAL    = "#2dd4bf"
@@ -423,8 +424,8 @@ def main(page: ft.Page):
     # STATS GRID
     # ═══════════════════════════════════════════════════════════════[...]
     def _stat_card(label: str, cor: str, icone):
-        cor_fundo_roxo = ft.Colors.with_opacity(0.10, C_PURPLE) if tema_escuro() else ft.Colors.with_opacity(0.06, C_PURPLE)
-        cor_borda_roxa = ft.Colors.with_opacity(0.22, C_PURPLE) if tema_escuro() else ft.Colors.with_opacity(0.16, C_PURPLE)
+        cor_fundo_roxo = ft.Colors.with_opacity(0.25, C_ROXO_EQUADOR) if tema_escuro() else ft.Colors.with_opacity(0.10, C_ROXO_EQUADOR)
+        cor_borda_roxa = ft.Colors.with_opacity(0.45, C_ROXO_EQUADOR) if tema_escuro() else ft.Colors.with_opacity(0.25, C_ROXO_EQUADOR)
         badge = ft.Container(
             content=ft.Icon(icone, color=cor, size=16),
             bgcolor=ft.Colors.with_opacity(0.14, cor),
@@ -447,7 +448,7 @@ def main(page: ft.Page):
             padding=ft.Padding(left=14, right=14, top=14, bottom=14),
             expand=True,
             blur=_blur_vidro(),
-            shadow=_sombra(C_PURPLE, 10, 0.08, 2),
+            shadow=_sombra(C_ROXO_EQUADOR, 10, 0.12, 2),
             scale=ft.Scale(scale=1),
             animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
         )
@@ -2219,8 +2220,8 @@ def main(page: ft.Page):
         txt_turno_data.color = pal.text_sec
         txt_operador_nome.color = C_ACCENT_LIGHT
         
-        cor_fundo_roxo = ft.Colors.with_opacity(0.10, C_PURPLE) if tema_escuro() else ft.Colors.with_opacity(0.06, C_PURPLE)
-        cor_borda_roxa = ft.Colors.with_opacity(0.22, C_PURPLE) if tema_escuro() else ft.Colors.with_opacity(0.16, C_PURPLE)
+        cor_fundo_roxo = ft.Colors.with_opacity(0.25, C_ROXO_EQUADOR) if tema_escuro() else ft.Colors.with_opacity(0.10, C_ROXO_EQUADOR)
+        cor_borda_roxa = ft.Colors.with_opacity(0.45, C_ROXO_EQUADOR) if tema_escuro() else ft.Colors.with_opacity(0.25, C_ROXO_EQUADOR)
 
         for card, lbl in (
             (stat_din_card, lbl_din),
