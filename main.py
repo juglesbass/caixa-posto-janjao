@@ -2172,8 +2172,7 @@ def main(page: ft.Page):
         campo_valor_modal = ft.TextField(
             label="Valor",
             hint_text="0,00",
-            prefix_text="R$ ",
-            prefix_style=ft.TextStyle(size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+            prefix=ft.Text("R$ ", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
             text_size=22,
             text_style=ft.TextStyle(weight=ft.FontWeight.BOLD, color=pal.text_pri),
             keyboard_type=ft.KeyboardType.NUMBER,
