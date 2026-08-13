@@ -1434,84 +1434,6 @@ def main(page: ft.Page):
             )
         )
 
-        # ── Hero Bento Card (Total Geral da Pista) ──
-        hero_total_pista = ft.Container(
-            bgcolor=pal.surface,
-            border_radius=RADIUS_SM,
-            border=borda_all(1, pal.border),
-            padding=ft.Padding(16, 14, 16, 14),
-            content=ft.Column(
-                spacing=4,
-                controls=[
-                    ft.Row(
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        controls=[
-                            ft.Text("TOTAL DE VENDAS DA PISTA", size=11, weight=ft.FontWeight.BOLD, color=pal.text_sec),
-                            ft.Container(
-                                content=ft.Icon(ft.Icons.POINT_OF_SALE_ROUNDED, color=C_ACCENT_LIGHT, size=16),
-                                bgcolor=ft.Colors.with_opacity(0.12, C_ACCENT),
-                                border_radius=8,
-                                padding=6,
-                            )
-                        ]
-                    ),
-                    ft.Text(formatar_moeda(totais.total_geral), size=26, weight=ft.FontWeight.BOLD, color=pal.text_pri),
-                    ft.Container(
-                        height=2,
-                        border_radius=1,
-                        gradient=ft.LinearGradient(
-                            begin=ft.Alignment(-1, 0),
-                            end=ft.Alignment(1, 0),
-                            colors=[C_ACCENT, ft.Colors.with_opacity(0.1, C_ACCENT)],
-                        ),
-                    ),
-                ]
-            )
-        )
-
-        # ── Grade 2x2 de Totais do Caixa ──
-        def _resumo_mini_card(icone, label, valor, cor_badge):
-            return ft.Container(
-                expand=True,
-                bgcolor=pal.surface,
-                border_radius=12,
-                border=borda_all(1, pal.border),
-                padding=ft.Padding(10, 10, 10, 10),
-                content=ft.Column(
-                    spacing=4,
-                    controls=[
-                        ft.Row(
-                            spacing=6,
-                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                            controls=[
-                                ft.Container(
-                                    content=ft.Icon(icone, color=cor_badge, size=14),
-                                    bgcolor=ft.Colors.with_opacity(0.12, cor_badge),
-                                    border_radius=6,
-                                    padding=4,
-                                ),
-                                ft.Text(label.upper(), size=10, weight=ft.FontWeight.BOLD, color=pal.text_sec),
-                            ]
-                        ),
-                        ft.Text(formatar_moeda(valor), size=15, weight=ft.FontWeight.BOLD, color=pal.text_pri),
-                    ]
-                )
-            )
-
-        grid_totais_resumo = ft.Column(
-            spacing=8,
-            controls=[
-                ft.Row(spacing=8, controls=[
-                    _resumo_mini_card(ft.Icons.PAYMENTS_ROUNDED, "Sobra Dinheiro", totais.fisico, C_ACCENT_LIGHT),
-                    _resumo_mini_card(ft.Icons.RECEIPT_LONG_ROUNDED, "Requisição", totais.requisicao, C_ACCENT_LIGHT),
-                ]),
-                ft.Row(spacing=8, controls=[
-                    _resumo_mini_card(ft.Icons.ACCOUNT_BALANCE_ROUNDED, "Depósito Global", totais.deposito_global, C_ACCENT_LIGHT),
-                    _resumo_mini_card(ft.Icons.MONEY_OFF_ROUNDED, "Despesas", totais.despesas, C_RED),
-                ]),
-            ]
-        )
-
         # ── Detalhe de Cartões & Pix ──
         linhas_bandeiras = []
         for bandeira, (valor, qtd) in detalhe_cartoes.items():
@@ -1588,24 +1510,40 @@ def main(page: ft.Page):
             content=ft.Column(
                 spacing=8,
                 controls=[
-                    ft.Row(
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        controls=[
-                            ft.Row(
-                                spacing=6,
-                                controls=[
-                                    ft.Icon(ft.Icons.CREDIT_CARD_ROUNDED, color=C_ACCENT_LIGHT, size=16),
-                                    ft.Text("CARTÕES, VOUCHERS E PIX", size=11, weight=ft.FontWeight.BOLD, color=pal.text_sec),
-                                ]
-                            ),
-                            ft.Text(f"Total: {formatar_moeda(totais.cartoes + totais.pix)}", size=12, weight=ft.FontWeight.BOLD, color=pal.text_pri),
-                        ]
-                    ),
-                    ft.Divider(height=1, color=pal.border),
                     ft.Column(linhas_bandeiras, spacing=4),
                 ]
             )
         )
+
+        # ── Linhas de Totais Individuais ──
+        def _linha_total_resumo(icone, label, valor, cor_icone, info_extra=""):
+            return ft.Container(
+                bgcolor=pal.surface,
+                border_radius=10,
+                border=borda_all(1, pal.border),
+                padding=ft.Padding(12, 10, 12, 10),
+                content=ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Row(
+                            spacing=10,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[
+                                ft.Container(
+                                    content=ft.Icon(icone, color=cor_icone, size=16),
+                                    bgcolor=ft.Colors.with_opacity(0.12, cor_icone),
+                                    border_radius=8,
+                                    padding=6,
+                                ),
+                                ft.Text(label, size=14, color=pal.text_sec, weight=ft.FontWeight.W_500),
+                                ft.Text(info_extra, size=12, color=pal.text_ter) if info_extra else ft.Container(),
+                            ]
+                        ),
+                        ft.Text(formatar_moeda(valor), size=15, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                    ]
+                )
+            )
 
         # ── Inputs de Vendas Sistema e Observação ──
         v_sis_ini = turno_atual.vendas_sistema if (turno_atual and turno_atual.vendas_sistema) else 0.0
@@ -1712,15 +1650,38 @@ def main(page: ft.Page):
         input_observacao.on_blur = _on_auditoria_change
 
         return ft.Column(
-            tight=True, spacing=12,
+            tight=True, spacing=10,
             scroll=ft.ScrollMode.AUTO, expand=True,
             controls=[
                 header_turno_resumo,
-                hero_total_pista,
-                grid_totais_resumo,
-                caixa_cartoes,
                 ft.Divider(height=1, color=pal.border),
+                ft.Text("DETALHE DE CARTÕES, VOUCHERS E PIX", size=11, color=pal.text_sec, weight=ft.FontWeight.BOLD),
+                caixa_cartoes,
+                _linha_total_resumo(ft.Icons.CREDIT_CARD_ROUNDED, "Total Cartões & Pix", totais.cartoes + totais.pix, C_ACCENT_LIGHT, f"({totais.qtd_cartoes + totais.qtd_pix} un)"),
+                ft.Divider(height=1, color=pal.border),
+                _linha_total_resumo(ft.Icons.PAYMENTS_ROUNDED, "Sobra de Dinheiro", totais.fisico, C_GREEN),
+                _linha_total_resumo(ft.Icons.RECEIPT_LONG_ROUNDED, "Requisição", totais.requisicao, C_PURPLE),
+                _linha_total_resumo(ft.Icons.ACCOUNT_BALANCE_ROUNDED, "Depósito Global", totais.deposito_global, C_BROWN),
+                _linha_total_resumo(ft.Icons.MONEY_OFF_ROUNDED, "Despesas", totais.despesas, C_RED),
+                ft.Divider(height=4, color=pal.border),
                 ft.Text("CONCILIAÇÃO DE VENDAS DO CAIXA", size=11, color=pal.text_sec, weight=ft.FontWeight.BOLD),
+                ft.Container(
+                    bgcolor=ft.Colors.with_opacity(0.12, C_ACCENT),
+                    border=borda_all(1.2, C_ACCENT),
+                    border_radius=RADIUS_SM,
+                    padding=ft.Padding(14, 12, 14, 12),
+                    content=ft.Row([
+                        ft.Row(
+                            spacing=8,
+                            controls=[
+                                ft.Icon(ft.Icons.POINT_OF_SALE_ROUNDED, color=C_ACCENT_LIGHT, size=20),
+                                ft.Text("TOTAL DE VENDAS PISTA:", weight=ft.FontWeight.BOLD, size=13, color=pal.text_pri),
+                            ]
+                        ),
+                        ft.Container(expand=True),
+                        ft.Text(formatar_moeda(totais.total_geral), weight=ft.FontWeight.BOLD, size=18, color=C_ACCENT_LIGHT if dark_mode else C_ACCENT),
+                    ])
+                ),
                 input_vendas_sistema,
                 container_diferenca,
                 input_observacao,
