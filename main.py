@@ -2214,19 +2214,28 @@ def main(page: ft.Page):
 
         btn_tema.content.icon = icone_tema_atual
 
+        cor_accent_atual = C_ACCENT_LIGHT if tema_escuro() else C_ACCENT
+        cor_despesa_atual = ft.Colors.RED_400 if tema_escuro() else ft.Colors.RED_700
+
         txt_turno_data.color = pal.text_sec
-        txt_operador_nome.color = C_ACCENT_LIGHT
+        txt_operador_nome.color = cor_accent_atual
+        txt_total_geral.color = cor_accent_atual
         
-        for card, lbl in (
-            (stat_din_card, lbl_din),
-            (stat_pix_card, lbl_pix),
-            (stat_cart_card, lbl_cart),
-            (stat_req_card, lbl_req),
-            (stat_dep_card, lbl_dep),
-            (stat_desp_card, lbl_desp),
+        for card, txt_val, lbl, cor_badge in (
+            (stat_din_card, txt_dinheiro, lbl_din, cor_accent_atual),
+            (stat_pix_card, txt_pix, lbl_pix, cor_accent_atual),
+            (stat_cart_card, txt_cartoes, lbl_cart, cor_accent_atual),
+            (stat_req_card, txt_requisicao, lbl_req, cor_accent_atual),
+            (stat_dep_card, txt_deposito_global, lbl_dep, cor_accent_atual),
+            (stat_desp_card, txt_despesas, lbl_desp, cor_despesa_atual),
         ):
             card.bgcolor = pal.surface
-            lbl.color = pal.text_ter
+            card.border = borda_all(1, pal.border)
+            txt_val.color = pal.text_pri
+            lbl.color = pal.text_sec
+            badge_cnt = card.content.controls[0].controls[0]
+            badge_cnt.content.color = cor_badge
+            badge_cnt.bgcolor = ft.Colors.with_opacity(0.12, cor_badge)
             
         txt_total_geral_label.color = pal.text_sec
         txt_header_titulo.color = pal.text_pri
