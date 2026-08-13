@@ -168,6 +168,13 @@ def main(page: ft.Page):
     except Exception:
         compartilhar_servico = None
 
+    clipboard_service = None
+    try:
+        clipboard_service = ft.Clipboard()
+        _registrar_servico(clipboard_service)
+    except Exception:
+        clipboard_service = None
+
     def vibrar(intensidade="light"):
         if haptic_feedback is None:
             return
@@ -1710,133 +1717,105 @@ def main(page: ft.Page):
 
         def abrir_whatsapp(e=None):
             nonlocal resumo
+            vibrar("light")
             try:
                 texto_enc = urllib.parse.quote(resumo)
-                url_wa = f"https://api.whatsapp.com/send?text={texto_enc}"
-                
-                # Executa no navegador via JS para contornar bloqueador de popup do Safari/iOS
+                url_wa = f"https://wa.me/?text={texto_enc}"
                 try:
-                    js_wa = f"window.location.href = {json.dumps(url_wa)};"
-                    page.eval_js(js_wa)
-                except Exception:
                     page.launch_url(url_wa)
-                mostrar_snackbar("Abrindo no WhatsApp... 🚀")
+                    mostrar_snackbar("Abrindo no WhatsApp... 🚀")
+                except Exception:
+                    if compartilhar_servico:
+                        async def _share_wa():
+                            await compartilhar_servico.share_text(resumo, title="Resumo do Turno")
+                        page.run_task(_share_wa)
+                        mostrar_snackbar("Selecione o WhatsApp na lista.")
+                    else:
+                        mostrar_snackbar("Não foi possível abrir o WhatsApp automaticamente.", ft.Colors.RED_800)
             except Exception as ex:
                 mostrar_snackbar(f"Erro ao abrir WhatsApp: {ex}", ft.Colors.RED_800)
 
         def copiar_resumo(e=None):
             nonlocal resumo
-            copiado = False
-            try:
-                page.set_clipboard(resumo)
-                copiado = True
-            except Exception:
-                pass
+            vibrar("light")
+            async def _copiar_async():
+                copiado = False
+                try:
+                    if clipboard_service:
+                        await clipboard_service.set(resumo)
+                        copiado = True
+                    elif hasattr(page, "clipboard") and page.clipboard:
+                        await page.clipboard.set(resumo)
+                        copiado = True
+                except Exception as err:
+                    print(f"Erro no clipboard: {err}")
 
-            try:
-                # Universal fallback para iOS Safari e Android WebKit
-                js_copy = f"""
-                (function() {{
-                    try {{
-                        if (navigator.clipboard && window.isSecureContext) {{
-                            navigator.clipboard.writeText({json.dumps(resumo)});
-                        }}
-                    }} catch(e) {{}}
-                    try {{
-                        const textArea = document.createElement("textarea");
-                        textArea.value = {json.dumps(resumo)};
-                        textArea.style.position = "fixed";
-                        textArea.style.left = "-999999px";
-                        textArea.style.top = "-999999px";
-                        document.body.appendChild(textArea);
-                        textArea.focus();
-                        textArea.select();
-                        document.execCommand('copy');
-                        textArea.remove();
-                    }} catch(e) {{}}
-                }})();
-                """
-                page.eval_js(js_copy)
-                copiado = True
-            except Exception:
-                pass
+                if copiado:
+                    mostrar_snackbar("Resumo copiado com sucesso! Pronto para colar.")
+                else:
+                    try:
+                        if compartilhar_servico:
+                            await compartilhar_servico.share_text(resumo, title="Resumo do Turno")
+                            mostrar_snackbar("Texto enviado para compartilhamento.")
+                        else:
+                            mostrar_snackbar("Não foi possível copiar o texto automaticamente.", ft.Colors.RED_800)
+                    except Exception as ex:
+                        mostrar_snackbar(f"Erro ao compartilhar resumo: {ex}", ft.Colors.RED_800)
 
-            if copiado:
-                mostrar_snackbar("Resumo copiado com sucesso! Pronto para colar.")
-            else:
-                abrir_whatsapp(e)
+            page.run_task(_copiar_async)
 
         def abrir_detalhe_a_partir_do_resumo(tipo: str, rotulo: str = None):
             fechar_resumo()
             abrir_detalhe_bandeira(tipo, rotulo, ao_fechar=acao_fechar_caixa)
 
+        def _abrir_pdf_local(caminho_pdf, nome_pdf):
+            try:
+                if sys.platform == "win32":
+                    os.startfile(caminho_pdf)
+                elif sys.platform == "darwin":
+                    subprocess.Popen(["open", caminho_pdf])
+                else:
+                    subprocess.Popen(["xdg-open", caminho_pdf])
+                mostrar_snackbar(f"PDF aberto: {nome_pdf}")
+            except Exception:
+                mostrar_snackbar(f"PDF salvo em: {caminho_pdf}")
+
         def compartilhar_pdf(e=None):
             if turno_atual is None:
                 mostrar_snackbar("Nenhum turno aberto.", ft.Colors.RED_800)
                 return
+            vibrar("light")
             try:
                 caminho_pdf = db.exportar_turno_pdf(conn, turno_atual.id)
                 nome_pdf = os.path.basename(caminho_pdf)
 
-                # 1. No navegador web / Pyodide / iOS Safari: faz download e abre visualização nativa
-                try:
-                    with open(caminho_pdf, "rb") as f:
-                        b64_pdf = base64.b64encode(f.read()).decode("ascii")
-                    js_download = f"""
-                    (function() {{
-                        const byteCharacters = atob('{b64_pdf}');
-                        const byteNumbers = new Array(byteCharacters.length);
-                        for (let i = 0; i < byteCharacters.length; i++) {{
-                            byteNumbers[i] = byteCharacters.charCodeAt(i);
-                        }}
-                        const byteArray = new Uint8Array(byteNumbers);
-                        const blob = new Blob([byteArray], {{type: 'application/pdf'}});
-                        const blobUrl = URL.createObjectURL(blob);
-                        
-                        const link = document.createElement('a');
-                        link.href = blobUrl;
-                        link.download = '{nome_pdf}';
-                        link.target = '_blank';
-                        document.body.appendChild(link);
-                        link.click();
-                        setTimeout(function() {{ document.body.removeChild(link); }}, 2000);
-                        
-                        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {{
-                            window.location.href = blobUrl;
-                        }}
-                    }})();
-                    """
-                    page.eval_js(js_download)
-                    mostrar_snackbar(f"PDF gerado com sucesso: {nome_pdf} 📥")
-                    return
-                except Exception:
-                    pass
+                with open(caminho_pdf, "rb") as f:
+                    pdf_bytes = f.read()
 
-                # 2. Se estiver no app mobile nativo com plugin de share
-                if mobile and compartilhar_servico:
-                    try:
-                        async def _share_async():
-                            if hasattr(compartilhar_servico, "share_files"):
-                                await compartilhar_servico.share_files([caminho_pdf])
-                            elif hasattr(compartilhar_servico, "share_files_async"):
-                                await compartilhar_servico.share_files_async([caminho_pdf])
-                        page.run_task(_share_async)
-                        mostrar_snackbar(f"Compartilhando PDF: {nome_pdf}")
-                        return
-                    except Exception:
-                        pass
+                if compartilhar_servico:
+                    async def _share_pdf_async():
+                        try:
+                            share_file = ft.ShareFile(
+                                path=caminho_pdf,
+                                data=pdf_bytes,
+                                mime_type="application/pdf",
+                                name=nome_pdf
+                            )
+                            await compartilhar_servico.share_files(
+                                [share_file],
+                                title=f"Resumo do Turno - {nome_pdf}",
+                                text="Resumo do Turno Posto Janjão",
+                                download_fallback_enabled=True
+                            )
+                            mostrar_snackbar(f"PDF pronto: {nome_pdf} 📥")
+                        except Exception as ex:
+                            print(f"Erro no share_files: {ex}")
+                            _abrir_pdf_local(caminho_pdf, nome_pdf)
 
-                # 3. Fallback Desktop nativo (abre o leitor de PDF do sistema)
-                try:
-                    if sys.platform == "win32":
-                        os.startfile(caminho_pdf)
-                    elif sys.platform == "darwin":
-                        subprocess.Popen(["open", caminho_pdf])
-                    else:
-                        subprocess.Popen(["xdg-open", caminho_pdf])
-                    mostrar_snackbar(f"PDF aberto: {nome_pdf}")
-                except Exception:
-                    mostrar_snackbar(f"PDF salvo em: {caminho_pdf}")
+                    page.run_task(_share_pdf_async)
+                else:
+                    _abrir_pdf_local(caminho_pdf, nome_pdf)
+
             except Exception as ex:
                 mostrar_snackbar(f"Erro ao gerar PDF: {ex}", ft.Colors.RED_800)
 
@@ -1936,13 +1915,14 @@ def main(page: ft.Page):
                 padding=ft.Padding(14, 10, 14, 10),
                 ink=True,
                 on_click=on_click,
-                scale=ft.Scale(scale=1),
-                animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
             )
-            def hover_action(e):
-                e.control.scale = 1.04 if e.data == "true" else 1.0
-                e.control.update()
-            btn.on_hover = hover_action
+            if not mobile and not ios:
+                btn.scale = ft.Scale(scale=1)
+                btn.animate_scale = _animacao(150, ft.AnimationCurve.EASE_OUT)
+                def hover_action(e):
+                    e.control.scale = 1.04 if e.data == "true" else 1.0
+                    e.control.update()
+                btn.on_hover = hover_action
             return btn
 
         btn_whatsapp = _action_pill_btn(ft.Icons.CHAT_ROUNDED, "WhatsApp", abrir_whatsapp, cor_bg="#15803d", cor_texto=ft.Colors.WHITE)
