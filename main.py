@@ -1,4 +1,9 @@
 import os
+import sys
+import json
+import base64
+import urllib.parse
+import subprocess
 from types import SimpleNamespace
 import flet as ft
 import db
@@ -1703,25 +1708,104 @@ def main(page: ft.Page):
             except Exception:
                 pass
 
-        def copiar_resumo(e):
+        def abrir_whatsapp(e=None):
             nonlocal resumo
             try:
+                texto_enc = urllib.parse.quote(resumo)
+                url_wa = f"https://api.whatsapp.com/send?text={texto_enc}"
+                page.launch_url(url_wa)
+                mostrar_snackbar("Abrindo no WhatsApp... 🚀")
+            except Exception as ex:
+                mostrar_snackbar(f"Erro ao abrir WhatsApp: {ex}", ft.Colors.RED_800)
+
+        def copiar_resumo(e=None):
+            nonlocal resumo
+            copiado = False
+            try:
                 page.set_clipboard(resumo)
-                mostrar_snackbar("Resumo copiado para a área de transferência!")
+                copiado = True
             except Exception:
-                mostrar_snackbar("Não foi possível copiar.", ft.Colors.RED_800)
+                pass
+
+            if not copiado:
+                try:
+                    js_code = f"navigator.clipboard.writeText({json.dumps(resumo)});"
+                    page.eval_js(js_code)
+                    copiado = True
+                except Exception:
+                    pass
+
+            if copiado:
+                mostrar_snackbar("Resumo copiado com sucesso! Pronto para colar.")
+            else:
+                abrir_whatsapp(e)
 
         def abrir_detalhe_a_partir_do_resumo(tipo: str, rotulo: str = None):
             fechar_resumo()
             abrir_detalhe_bandeira(tipo, rotulo, ao_fechar=acao_fechar_caixa)
 
-        def compartilhar_pdf(e):
+        def compartilhar_pdf(e=None):
             if turno_atual is None:
                 mostrar_snackbar("Nenhum turno aberto.", ft.Colors.RED_800)
                 return
             try:
                 caminho_pdf = db.exportar_turno_pdf(conn, turno_atual.id)
-                mostrar_snackbar(f"PDF gerado com sucesso!")
+                nome_pdf = os.path.basename(caminho_pdf)
+
+                # 1. Se estiver no app mobile nativo, usa ft.Share para abrir a folha de compartilhamento nativa
+                if mobile and compartilhar_servico:
+                    try:
+                        async def _share_async():
+                            if hasattr(compartilhar_servico, "share_files"):
+                                await compartilhar_servico.share_files([caminho_pdf])
+                            elif hasattr(compartilhar_servico, "share_files_async"):
+                                await compartilhar_servico.share_files_async([caminho_pdf])
+                        page.run_task(_share_async)
+                        mostrar_snackbar(f"Compartilhando PDF: {nome_pdf}")
+                        return
+                    except Exception:
+                        pass
+
+                # 2. No navegador web/Pyodide: faz o download automático e abre em nova aba
+                try:
+                    with open(caminho_pdf, "rb") as f:
+                        b64_pdf = base64.b64encode(f.read()).decode("ascii")
+                    js_download = f"""
+                    (function() {{
+                        const byteCharacters = atob('{b64_pdf}');
+                        const byteNumbers = new Array(byteCharacters.length);
+                        for (let i = 0; i < byteCharacters.length; i++) {{
+                            byteNumbers[i] = byteCharacters.charCodeAt(i);
+                        }}
+                        const byteArray = new Uint8Array(byteNumbers);
+                        const blob = new Blob([byteArray], {{type: 'application/pdf'}});
+                        const blobUrl = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.download = '{nome_pdf}';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        window.open(blobUrl, '_blank');
+                    }})();
+                    """
+                    page.eval_js(js_download)
+                    mostrar_snackbar(f"PDF baixado: {nome_pdf} 📥")
+                    return
+                except Exception:
+                    pass
+
+                # 3. Fallback Desktop nativo (abre o leitor de PDF do sistema)
+                try:
+                    if sys.platform == "win32":
+                        os.startfile(caminho_pdf)
+                    elif sys.platform == "darwin":
+                        subprocess.Popen(["open", caminho_pdf])
+                    else:
+                        subprocess.Popen(["xdg-open", caminho_pdf])
+                    mostrar_snackbar(f"PDF aberto: {nome_pdf}")
+                except Exception:
+                    mostrar_snackbar(f"PDF salvo em: {caminho_pdf}")
             except Exception as ex:
                 mostrar_snackbar(f"Erro ao gerar PDF: {ex}", ft.Colors.RED_800)
 
@@ -1829,8 +1913,9 @@ def main(page: ft.Page):
             btn.on_hover = hover_action
             return btn
 
-        btn_copiar = _action_pill_btn(ft.Icons.CONTENT_COPY_ROUNDED, "Copiar WhatsApp", copiar_resumo)
-        btn_compartilhar_pdf = _action_pill_btn(ft.Icons.PICTURE_AS_PDF_ROUNDED, "Gerar PDF", compartilhar_pdf)
+        btn_whatsapp = _action_pill_btn(ft.Icons.CHAT_ROUNDED, "WhatsApp", abrir_whatsapp, cor_bg="#15803d", cor_texto=ft.Colors.WHITE)
+        btn_copiar = _action_pill_btn(ft.Icons.CONTENT_COPY_ROUNDED, "Copiar Texto", copiar_resumo)
+        btn_compartilhar_pdf = _action_pill_btn(ft.Icons.PICTURE_AS_PDF_ROUNDED, "Baixar PDF", compartilhar_pdf)
         btn_encerrar = _action_pill_btn(ft.Icons.LOCK_ROUNDED, "Encerrar Turno", encerrar_turno, is_primary=True)
         btn_fechar = _action_pill_btn(ft.Icons.CLOSE_ROUNDED, "Fechar", fechar_resumo)
 
@@ -1839,7 +1924,7 @@ def main(page: ft.Page):
             wrap=True,
             spacing=8,
             run_spacing=8,
-            controls=[btn_copiar, btn_compartilhar_pdf, btn_encerrar, btn_fechar],
+            controls=[btn_whatsapp, btn_copiar, btn_compartilhar_pdf, btn_encerrar, btn_fechar],
         )
 
         largura_resumo = min(480, largura_conteudo)
