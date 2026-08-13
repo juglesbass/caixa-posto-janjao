@@ -11,30 +11,30 @@ def _app_mobile() -> bool:
 def criar_paleta(escuro: bool) -> SimpleNamespace:
     if escuro:
         return SimpleNamespace(
-            bg="#0d1117",
-            surface="#161b22",
-            border=ft.Colors.with_opacity(0.10, "#60a5fa"),
-            border_strong=ft.Colors.with_opacity(0.25, "#60a5fa"),
+            bg="#0f0c1b",
+            surface="#1b1528",
+            border=ft.Colors.with_opacity(0.15, "#a78bfa"),
+            border_strong=ft.Colors.with_opacity(0.30, "#a78bfa"),
             text_pri="#ecf0f1",
-            text_sec=ft.Colors.with_opacity(0.60, "#ecf0f1"),
-            text_ter=ft.Colors.with_opacity(0.40, "#ecf0f1"),
-            sheet_bg=ft.Colors.with_opacity(0.97, "#141a22"),
+            text_sec=ft.Colors.with_opacity(0.65, "#ecf0f1"),
+            text_ter=ft.Colors.with_opacity(0.42, "#ecf0f1"),
+            sheet_bg=ft.Colors.with_opacity(0.97, "#171224"),
         )
     return SimpleNamespace(
-        bg="#f0f4f8",
+        bg="#f5f0fb",
         surface="#ffffff",
-        border=ft.Colors.with_opacity(0.10, "#2563eb"),
-        border_strong=ft.Colors.with_opacity(0.18, "#2563eb"),
-        text_pri="#1a202c",
-        text_sec=ft.Colors.with_opacity(0.65, "#1a202c"),
-        text_ter=ft.Colors.with_opacity(0.42, "#1a202c"),
+        border=ft.Colors.with_opacity(0.12, "#6c2d9b"),
+        border_strong=ft.Colors.with_opacity(0.20, "#6c2d9b"),
+        text_pri="#1a1528",
+        text_sec=ft.Colors.with_opacity(0.68, "#1a1528"),
+        text_ter=ft.Colors.with_opacity(0.45, "#1a1528"),
         sheet_bg="#ffffff",
     )
 
-# ── Cor principal (Azul Cobalto) ────────────────────────────────────────────
-C_ACCENT       = "#2563eb"
-C_ACCENT_DARK  = "#1d4ed8"
-C_ACCENT_LIGHT = "#60a5fa"
+# ── Cor principal (Roxo Equador Energia) ───────────────────────────────────
+C_ACCENT       = "#6c2d9b"
+C_ACCENT_DARK  = "#4e1e72"
+C_ACCENT_LIGHT = "#a78bfa"
 
 # ── Acentos por tipo de pagamento ───────────────────────────────────────────
 C_GREEN   = "#34d399"
@@ -424,8 +424,6 @@ def main(page: ft.Page):
     # STATS GRID
     # ═══════════════════════════════════════════════════════════════[...]
     def _stat_card(label: str, cor: str, icone):
-        cor_fundo_roxo = ft.Colors.with_opacity(0.25, C_ROXO_EQUADOR) if tema_escuro() else ft.Colors.with_opacity(0.10, C_ROXO_EQUADOR)
-        cor_borda_roxa = ft.Colors.with_opacity(0.45, C_ROXO_EQUADOR) if tema_escuro() else ft.Colors.with_opacity(0.25, C_ROXO_EQUADOR)
         badge = ft.Container(
             content=ft.Icon(icone, color=cor, size=16),
             bgcolor=ft.Colors.with_opacity(0.14, cor),
@@ -442,13 +440,13 @@ def main(page: ft.Page):
                     txt,
                 ],
             ),
-            bgcolor=cor_fundo_roxo,
+            bgcolor=pal.surface,
             border_radius=RADIUS_SM,
-            border=borda_all(1, cor_borda_roxa),
+            border=borda_all(1, pal.border),
             padding=ft.Padding(left=14, right=14, top=14, bottom=14),
             expand=True,
             blur=_blur_vidro(),
-            shadow=_sombra(C_ROXO_EQUADOR, 10, 0.12, 2),
+            shadow=_sombra(C_ACCENT, 10, 0.08, 2),
             scale=ft.Scale(scale=1),
             animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
         )
@@ -2220,9 +2218,6 @@ def main(page: ft.Page):
         txt_turno_data.color = pal.text_sec
         txt_operador_nome.color = C_ACCENT_LIGHT
         
-        cor_fundo_roxo = ft.Colors.with_opacity(0.25, C_ROXO_EQUADOR) if tema_escuro() else ft.Colors.with_opacity(0.10, C_ROXO_EQUADOR)
-        cor_borda_roxa = ft.Colors.with_opacity(0.45, C_ROXO_EQUADOR) if tema_escuro() else ft.Colors.with_opacity(0.25, C_ROXO_EQUADOR)
-
         for card, lbl in (
             (stat_din_card, lbl_din),
             (stat_pix_card, lbl_pix),
@@ -2231,8 +2226,8 @@ def main(page: ft.Page):
             (stat_dep_card, lbl_dep),
             (stat_desp_card, lbl_desp),
         ):
-            card.bgcolor = cor_fundo_roxo
-            card.border = borda_all(1, cor_borda_roxa)
+            card.bgcolor = pal.surface
+            card.border = borda_all(1, pal.border)
             lbl.color = pal.text_ter
             
         txt_total_geral_label.color = pal.text_sec
