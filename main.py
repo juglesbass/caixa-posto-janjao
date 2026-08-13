@@ -367,12 +367,14 @@ def main(page: ft.Page):
     def _animacao(duracao=150, curva=ft.AnimationCurve.EASE_OUT):
         return None if mobile else ft.Animation(duracao, curva)
 
-    def glass_container(content, padding=16, radius=RADIUS_SM, border_color=pal.border, bgcolor=pal.surface):
+    def glass_container(content, padding=16, radius=RADIUS_SM, border_color=None, bgcolor=None):
+        border_c = border_color if border_color is not None else pal.border
+        bg_c = bgcolor if bgcolor is not None else pal.surface
         return ft.Container(
             content=content,
-            bgcolor=bgcolor,
+            bgcolor=bg_c,
             border_radius=radius,
-            border=borda_all(1, border_color),
+            border=borda_all(1, border_c),
             padding=padding,
             blur=_blur_vidro(),
         )
