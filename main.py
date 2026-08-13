@@ -1679,7 +1679,7 @@ def main(page: ft.Page):
                             ]
                         ),
                         ft.Container(expand=True),
-                        ft.Text(formatar_moeda(totais.total_geral), weight=ft.FontWeight.BOLD, size=18, color=C_ACCENT_LIGHT if dark_mode else C_ACCENT),
+                        ft.Text(formatar_moeda(totais.total_geral), weight=ft.FontWeight.BOLD, size=18, color=C_ACCENT_LIGHT if tema_escuro() else C_ACCENT),
                     ])
                 ),
                 input_vendas_sistema,
