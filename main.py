@@ -307,26 +307,26 @@ def main(page: ft.Page):
             storage_set("caixa_ultimo_tipo", tipo)
 
     CORES = {
-        db.TIPO_DINHEIRO:        C_GREEN,
-        db.TIPO_PIX:             C_BLUE,
-        db.TIPO_REQUISICAO:      C_PURPLE,
-        db.TIPO_SODEXO:          C_TEAL,
-        db.TIPO_DEPOSITO_GLOBAL: C_BROWN,
+        db.TIPO_DINHEIRO:        C_ACCENT_LIGHT,
+        db.TIPO_PIX:             C_ACCENT_LIGHT,
+        db.TIPO_REQUISICAO:      C_ACCENT_LIGHT,
+        db.TIPO_SODEXO:          C_ACCENT_LIGHT,
+        db.TIPO_DEPOSITO_GLOBAL: C_ACCENT_LIGHT,
         db.TIPO_DESPESA:         C_RED,
-        "Fitcard":               C_TEAL,
-        "Excard":                C_PURPLE,
-        "Amex":                  C_BLUE,
-        "Eucard":                C_GREEN,
-        "Pix":                   C_INDIGO,
-        "Avancard":              C_INDIGO,
-        "Master Crédito":        C_RED,
-        "Master Débito":         C_ORANGE,
-        "Visa Crédito":          C_INDIGO,
-        "Visa DéBITO":          C_INDIGO2,
-        "Visa Débito":           C_INDIGO2,
-        "Elo Crédito":           C_AMBER,
-        "Elo Débito":            C_AMBER2,
-        "Alelo Multibenefícios": C_PURPLE,
+        "Fitcard":               C_ACCENT_LIGHT,
+        "Excard":                C_ACCENT_LIGHT,
+        "Amex":                  C_ACCENT_LIGHT,
+        "Eucard":                C_ACCENT_LIGHT,
+        "Pix":                   C_ACCENT_LIGHT,
+        "Avancard":              C_ACCENT_LIGHT,
+        "Master Crédito":        C_ACCENT_LIGHT,
+        "Master Débito":         C_ACCENT_LIGHT,
+        "Visa Crédito":          C_ACCENT_LIGHT,
+        "Visa DéBITO":          C_ACCENT_LIGHT,
+        "Visa Débito":           C_ACCENT_LIGHT,
+        "Elo Crédito":           C_ACCENT_LIGHT,
+        "Elo Débito":            C_ACCENT_LIGHT,
+        "Alelo Multibenefícios": C_ACCENT_LIGHT,
     }
 
     ICONES = {
@@ -430,7 +430,7 @@ def main(page: ft.Page):
             padding=6,
         )
         lbl = ft.Text(label.upper(), size=11, color=pal.text_ter, weight=ft.FontWeight.W_600)
-        txt = ft.Text("R$ 0,00", size=21, weight=ft.FontWeight.BOLD, color=cor)
+        txt = ft.Text("R$ 0,00", size=21, weight=ft.FontWeight.BOLD, color=pal.text_pri)
         card = ft.Container(
             content=ft.Column(
                 spacing=6,
@@ -441,11 +441,11 @@ def main(page: ft.Page):
             ),
             bgcolor=pal.surface,
             border_radius=RADIUS_SM,
-            border=borda_all(1, ft.Colors.with_opacity(0.14, cor)),
+            border=borda_all(1, ft.Colors.with_opacity(0.12, C_ACCENT)),
             padding=ft.Padding(left=14, right=14, top=14, bottom=14),
             expand=True,
             blur=_blur_vidro(),
-            shadow=_sombra(cor, 10, 0.08, 2),
+            shadow=_sombra(C_ACCENT, 10, 0.05, 2),
             scale=ft.Scale(scale=1),
             animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
         )
@@ -456,11 +456,11 @@ def main(page: ft.Page):
         
         return card, txt, lbl
 
-    stat_din_card, txt_dinheiro, lbl_din = _stat_card("Dinheiro", C_GREEN, ft.Icons.PAYMENTS)
-    stat_pix_card, txt_pix, lbl_pix = _stat_card("Pag Pix", C_BLUE, ft.Icons.PIX)
-    stat_cart_card, txt_cartoes, lbl_cart = _stat_card("Cartões", C_ORANGE, ft.Icons.CREDIT_CARD)
-    stat_req_card, txt_requisicao, lbl_req = _stat_card("Requisição", C_PURPLE, ft.Icons.RECEIPT_LONG)
-    stat_dep_card, txt_deposito_global, lbl_dep = _stat_card("Depósito Global", C_BROWN, ft.Icons.ACCOUNT_BALANCE)
+    stat_din_card, txt_dinheiro, lbl_din = _stat_card("Dinheiro", C_ACCENT_LIGHT, ft.Icons.PAYMENTS)
+    stat_pix_card, txt_pix, lbl_pix = _stat_card("Pag Pix", C_ACCENT_LIGHT, ft.Icons.PIX)
+    stat_cart_card, txt_cartoes, lbl_cart = _stat_card("Cartões", C_ACCENT_LIGHT, ft.Icons.CREDIT_CARD)
+    stat_req_card, txt_requisicao, lbl_req = _stat_card("Requisição", C_ACCENT_LIGHT, ft.Icons.RECEIPT_LONG)
+    stat_dep_card, txt_deposito_global, lbl_dep = _stat_card("Depósito Global", C_ACCENT_LIGHT, ft.Icons.ACCOUNT_BALANCE)
     stat_desp_card, txt_despesas, lbl_desp = _stat_card("Despesas", C_RED, ft.Icons.MONEY_OFF)
 
     stats_grid = ft.Column(
@@ -554,15 +554,18 @@ def main(page: ft.Page):
         registro_chips = {}
 
         def _estilo(chave: str, selecionado: bool):
-            cor = cor_tipo(chave)
+            if selecionado:
+                return {
+                    "bgcolor": C_ACCENT,
+                    "border": borda_all(1.5, C_ACCENT_LIGHT),
+                    "cor_conteudo": ft.Colors.WHITE,
+                    "peso_texto": ft.FontWeight.BOLD,
+                }
             return {
-                "bgcolor": cor if selecionado else ft.Colors.with_opacity(0.12, cor),
-                "border": borda_all(
-                    1.5 if selecionado else 1,
-                    cor if selecionado else ft.Colors.with_opacity(0.35, cor),
-                ),
-                "cor_conteudo": ft.Colors.WHITE if selecionado else cor,
-                "peso_texto": ft.FontWeight.W_600 if selecionado else ft.FontWeight.W_500,
+                "bgcolor": pal.surface,
+                "border": borda_all(1, pal.border),
+                "cor_conteudo": pal.text_sec,
+                "peso_texto": ft.FontWeight.W_500,
             }
 
         def _montar_chip(chave: str, rotulo: str, selecionado: bool, ao_clicar):
@@ -949,7 +952,7 @@ def main(page: ft.Page):
                                         controls=[
                                             ft.Text(
                                                 f"{formatar_moeda(row['valor'])} · {row['tipo']}{desc_texto}",
-                                                color=cor, size=13, weight=ft.FontWeight.W_600,
+                                                color=pal.text_pri, size=13, weight=ft.FontWeight.W_600,
                                             ),
                                             ft.Text(row["data"], color=pal.text_ter, size=11),
                                         ],
@@ -961,7 +964,7 @@ def main(page: ft.Page):
                                 controls=[
                                     ft.IconButton(
                                         icon=ft.Icons.EDIT_OUTLINED,
-                                        icon_color=C_BLUE,
+                                        icon_color=pal.text_ter,
                                         icon_size=17,
                                         tooltip="Editar",
                                         on_click=abrir_edicao,
