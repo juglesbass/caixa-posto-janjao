@@ -1434,7 +1434,7 @@ def main(page: ft.Page):
             )
         )
 
-        # ── Detalhe de Cartões & Pix ──
+        # ── Detalhe de Cartões & Vouchers ──
         linhas_bandeiras = []
         for bandeira, (valor, qtd) in detalhe_cartoes.items():
             cor   = cor_tipo(bandeira)
@@ -1469,39 +1469,6 @@ def main(page: ft.Page):
                 )
             )
 
-        # Pix
-        cor_pix = cor_tipo(db.TIPO_PIX)
-        icone_pix = icone_tipo(db.TIPO_PIX)
-        cor_valor_pix = pal.text_pri if totais.pix > 0 else pal.text_ter
-        peso_valor_pix = ft.FontWeight.BOLD if totais.pix > 0 else ft.FontWeight.NORMAL
-        
-        row_controls_pix = [
-            ft.Container(
-                content=ft.Icon(icone_pix, color=cor_pix, size=14),
-                bgcolor=ft.Colors.with_opacity(0.12, cor_pix),
-                border_radius=6,
-                padding=4,
-            ),
-            ft.Text(
-                "Pag Pix", size=13, width=130, color=pal.text_sec,
-                max_lines=1, overflow=ft.TextOverflow.ELLIPSIS, weight=ft.FontWeight.W_500,
-            ),
-            ft.Text(f"({totais.qtd_pix} un)", size=12, width=55, color=pal.text_ter),
-            ft.Text(formatar_moeda(totais.pix), size=14, color=cor_valor_pix, weight=peso_valor_pix, expand=True, text_align=ft.TextAlign.RIGHT),
-            ft.Icon(ft.Icons.CHEVRON_RIGHT_ROUNDED, color=pal.text_ter, size=16),
-        ]
-
-        linhas_bandeiras.append(
-            ft.Container(
-                content=ft.Row(row_controls_pix, spacing=8),
-                border_radius=8,
-                padding=ft.Padding(left=6, right=6, top=6, bottom=6),
-                ink=True,
-                tooltip="Toque para ver e editar os lançamentos de Pix",
-                on_click=lambda e: ao_abrir_detalhe(db.TIPO_PIX, "Pag Pix"),
-            )
-        )
-
         caixa_cartoes = ft.Container(
             bgcolor=pal.surface,
             border_radius=RADIUS_SM,
@@ -1516,12 +1483,14 @@ def main(page: ft.Page):
         )
 
         # ── Linhas de Totais Individuais ──
-        def _linha_total_resumo(icone, label, valor, cor_icone, info_extra=""):
+        def _linha_total_resumo(icone, label, valor, cor_icone, info_extra="", on_click=None):
             return ft.Container(
                 bgcolor=pal.surface,
                 border_radius=10,
                 border=borda_all(1, pal.border),
                 padding=ft.Padding(12, 10, 12, 10),
+                ink=bool(on_click),
+                on_click=on_click,
                 content=ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -1540,7 +1509,14 @@ def main(page: ft.Page):
                                 ft.Text(info_extra, size=12, color=pal.text_ter) if info_extra else ft.Container(),
                             ]
                         ),
-                        ft.Text(formatar_moeda(valor), size=15, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                        ft.Row(
+                            spacing=4,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[
+                                ft.Text(formatar_moeda(valor), size=15, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                                ft.Icon(ft.Icons.CHEVRON_RIGHT_ROUNDED, color=pal.text_ter, size=16) if on_click else ft.Container(),
+                            ]
+                        ),
                     ]
                 )
             )
@@ -1655,11 +1631,12 @@ def main(page: ft.Page):
             controls=[
                 header_turno_resumo,
                 ft.Divider(height=1, color=pal.border),
-                ft.Text("DETALHE DE CARTÕES, VOUCHERS E PIX", size=11, color=pal.text_sec, weight=ft.FontWeight.BOLD),
+                ft.Text("DETALHE DE CARTÕES E VOUCHERS", size=11, color=pal.text_sec, weight=ft.FontWeight.BOLD),
                 caixa_cartoes,
-                _linha_total_resumo(ft.Icons.CREDIT_CARD_ROUNDED, "Total Cartões & Pix", totais.cartoes + totais.pix, C_ACCENT_LIGHT, f"({totais.qtd_cartoes + totais.qtd_pix} un)"),
+                _linha_total_resumo(ft.Icons.CREDIT_CARD_ROUNDED, "Total de Cartões", totais.cartoes, C_ORANGE, f"({totais.qtd_cartoes} un)"),
                 ft.Divider(height=1, color=pal.border),
                 _linha_total_resumo(ft.Icons.PAYMENTS_ROUNDED, "Sobra de Dinheiro", totais.fisico, C_GREEN),
+                _linha_total_resumo(ft.Icons.QR_CODE_ROUNDED, "Pag Pix", totais.pix, C_BLUE, f"({totais.qtd_pix} un)", on_click=lambda e: ao_abrir_detalhe(db.TIPO_PIX, "Pag Pix")),
                 _linha_total_resumo(ft.Icons.RECEIPT_LONG_ROUNDED, "Requisição", totais.requisicao, C_PURPLE),
                 _linha_total_resumo(ft.Icons.ACCOUNT_BALANCE_ROUNDED, "Depósito Global", totais.deposito_global, C_BROWN),
                 _linha_total_resumo(ft.Icons.MONEY_OFF_ROUNDED, "Despesas", totais.despesas, C_RED),

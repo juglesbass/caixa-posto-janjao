@@ -444,6 +444,7 @@ def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str,
     linha_tot_cartoes = f"{rot_tot_c} {rot_tot_q} {formatar_moeda(totais.cartoes)}"
 
     linha_fisico = fmt_linha("💵 Sobra de Dinheiro:", formatar_moeda(totais.fisico))
+    linha_pix = fmt_linha("⚡ Pag Pix:", f"({totais.qtd_pix} un) {formatar_moeda(totais.pix)}")
     linha_requisicao = fmt_linha("📋 Requisição:", formatar_moeda(totais.requisicao))
     linha_deposito = fmt_linha("🔒 Depósito Global:", formatar_moeda(totais.deposito_global))
     linha_despesas = fmt_linha("🛒 Despesas:", formatar_moeda(totais.despesas))
@@ -454,17 +455,14 @@ def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str,
         f"⛽ *Fechamento de Turno #{turno.numero_do_dia} - Posto Janjão*\n"
         f"👤 Operador: {turno.operador}\n"
         f"🕐 Turno aberto em: {turno.aberto_em}\n\n"
-
-        f"💳 *Cartões, Vouchers e Pix por bandeira:*\n"
+        f"💳 *Cartões e Vouchers por bandeira:*\n"
         f"{linhas_cartoes}\n"
-        f"{linha_pix}\n"
         f"{linha_tot_cartoes}\n\n"
-
         f"{linha_fisico}\n"
+        f"{linha_pix}\n"
         f"{linha_requisicao}\n"
         f"{linha_deposito}\n"
         f"{linha_despesas}\n\n"
-
         f"{linha_total_geral}"
     )
 
