@@ -1308,9 +1308,9 @@ def main(page: ft.Page):
             sheet_detalhe = _criar_bottom_sheet(painel_detalhe)
             abrir_dialogo(sheet_detalhe)
 
-    # ══════════════════════════════════════════════════════════════��[...]
+    # ══════════════════════════════════════════════════════════════[...]
     # BOTÃO LANÇAR
-    # ══════════════════════════════════════════════════════════════��[...]
+    # ══════════════════════════════════════════════════════════════[...]
     btn_lancar = ft.Container(
         content=ft.Row(
             alignment=ft.MainAxisAlignment.CENTER,
@@ -1368,10 +1368,6 @@ def main(page: ft.Page):
             mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {estado_tipo['valor']}")
             vibrar("light")
             salvar_ultimo_tipo(estado_tipo["valor"])
-            # atualizar_painel/carregar_historico não fazem page.update() sozinhos
-            # aqui de propósito: a conexão já foi garantida acima e o update
-            # final do "finally" (que sempre roda) já cobre esse refresh,
-            # evitando uma ida e volta extra ao servidor a cada lançamento.
             atualizar_painel()
             carregar_historico()
             desfocar_campos(input_valor, input_desc)
@@ -1386,92 +1382,249 @@ def main(page: ft.Page):
     input_valor.on_submit = acao_lancar
     input_desc.on_submit  = acao_lancar
 
-    # ══════════════════════════════════════════════════════════════[...]
-    # RESUMO / FECHAR CAIXA
-    # ══════════════════════════════════════════════════════════════[...]
+    # ════════════════════════════════════════════════════════════════════════
+    # RESUMO / FECHAR CAIXA (Estilo Kalo Bento Grid)
+    # ════════════════════════════════════════════════════════════════════════
     def montar_conteudo_resumo(totais, detalhe_cartoes, ao_abrir_detalhe=None, ao_registrar_inputs=None):
         ao_abrir_detalhe = ao_abrir_detalhe or abrir_detalhe_bandeira
-        tamanho_fonte_itens = 17
-        tamanho_fonte_titulo = 18
 
+        # ── Header do Turno no Resumo ──
+        header_turno_resumo = ft.Container(
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border=borda_all(1, pal.border),
+            padding=ft.Padding(14, 10, 14, 10),
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    ft.Row(
+                        spacing=10,
+                        controls=[
+                            ft.Container(
+                                content=ft.Icon(ft.Icons.PERSON_ROUNDED, color=ft.Colors.WHITE, size=18),
+                                bgcolor=C_ACCENT,
+                                padding=8,
+                                border_radius=50,
+                            ),
+                            ft.Column(
+                                spacing=1,
+                                controls=[
+                                    ft.Text(turno_atual.operador if turno_atual else "Operador", size=14, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                                    ft.Text(f"Aberto em: {turno_atual.aberto_em if turno_atual else ''}", size=11, color=pal.text_sec),
+                                ]
+                            )
+                        ]
+                    ),
+                    ft.Container(
+                        content=ft.Row(
+                            spacing=4,
+                            tight=True,
+                            controls=[
+                                ft.Icon(ft.Icons.LOCAL_FIRE_DEPARTMENT_ROUNDED, size=14, color=C_AMBER),
+                                ft.Text(f"Turno #{turno_atual.numero_do_dia if turno_atual else '1'}", size=12, weight=ft.FontWeight.BOLD, color=C_AMBER),
+                            ]
+                        ),
+                        bgcolor=ft.Colors.with_opacity(0.12, C_AMBER),
+                        border=borda_all(1, ft.Colors.with_opacity(0.25, C_AMBER)),
+                        border_radius=100,
+                        padding=ft.Padding(8, 4, 8, 4),
+                    )
+                ]
+            )
+        )
+
+        # ── Hero Bento Card (Total Geral da Pista) ──
+        hero_total_pista = ft.Container(
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border=borda_all(1, pal.border),
+            padding=ft.Padding(16, 14, 16, 14),
+            content=ft.Column(
+                spacing=4,
+                controls=[
+                    ft.Row(
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        controls=[
+                            ft.Text("TOTAL DE VENDAS DA PISTA", size=11, weight=ft.FontWeight.BOLD, color=pal.text_sec),
+                            ft.Container(
+                                content=ft.Icon(ft.Icons.POINT_OF_SALE_ROUNDED, color=C_ACCENT_LIGHT, size=16),
+                                bgcolor=ft.Colors.with_opacity(0.12, C_ACCENT),
+                                border_radius=8,
+                                padding=6,
+                            )
+                        ]
+                    ),
+                    ft.Text(formatar_moeda(totais.total_geral), size=26, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                    ft.Container(
+                        height=2,
+                        border_radius=1,
+                        gradient=ft.LinearGradient(
+                            begin=ft.Alignment(-1, 0),
+                            end=ft.Alignment(1, 0),
+                            colors=[C_ACCENT, ft.Colors.with_opacity(0.1, C_ACCENT)],
+                        ),
+                    ),
+                ]
+            )
+        )
+
+        # ── Grade 2x2 de Totais do Caixa ──
+        def _resumo_mini_card(icone, label, valor, cor_badge):
+            return ft.Container(
+                expand=True,
+                bgcolor=pal.surface,
+                border_radius=12,
+                border=borda_all(1, pal.border),
+                padding=ft.Padding(10, 10, 10, 10),
+                content=ft.Column(
+                    spacing=4,
+                    controls=[
+                        ft.Row(
+                            spacing=6,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[
+                                ft.Container(
+                                    content=ft.Icon(icone, color=cor_badge, size=14),
+                                    bgcolor=ft.Colors.with_opacity(0.12, cor_badge),
+                                    border_radius=6,
+                                    padding=4,
+                                ),
+                                ft.Text(label.upper(), size=10, weight=ft.FontWeight.BOLD, color=pal.text_sec),
+                            ]
+                        ),
+                        ft.Text(formatar_moeda(valor), size=15, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                    ]
+                )
+            )
+
+        grid_totais_resumo = ft.Column(
+            spacing=8,
+            controls=[
+                ft.Row(spacing=8, controls=[
+                    _resumo_mini_card(ft.Icons.PAYMENTS_ROUNDED, "Sobra Dinheiro", totais.fisico, C_ACCENT_LIGHT),
+                    _resumo_mini_card(ft.Icons.RECEIPT_LONG_ROUNDED, "Requisição", totais.requisicao, C_ACCENT_LIGHT),
+                ]),
+                ft.Row(spacing=8, controls=[
+                    _resumo_mini_card(ft.Icons.ACCOUNT_BALANCE_ROUNDED, "Depósito Global", totais.deposito_global, C_ACCENT_LIGHT),
+                    _resumo_mini_card(ft.Icons.MONEY_OFF_ROUNDED, "Despesas", totais.despesas, C_RED),
+                ]),
+            ]
+        )
+
+        # ── Detalhe de Cartões & Pix ──
         linhas_bandeiras = []
         for bandeira, (valor, qtd) in detalhe_cartoes.items():
             cor   = cor_tipo(bandeira)
             icone = icone_tipo(bandeira)
-            
             cor_valor = pal.text_pri if valor > 0 else pal.text_ter
-            peso_valor = ft.FontWeight.W_600 if valor > 0 else ft.FontWeight.NORMAL
+            peso_valor = ft.FontWeight.BOLD if valor > 0 else ft.FontWeight.NORMAL
 
             row_controls = [
-                ft.Icon(icone, color=cor, size=19),
-                ft.Text(
-                    bandeira, size=15, width=135, color=pal.text_sec,
-                    max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
+                ft.Container(
+                    content=ft.Icon(icone, color=cor, size=14),
+                    bgcolor=ft.Colors.with_opacity(0.12, cor),
+                    border_radius=6,
+                    padding=4,
                 ),
-                ft.Text(f"({qtd} un)", size=14, width=65, color=pal.text_ter),
-                ft.Text(formatar_moeda(valor), size=16, color=cor_valor, weight=peso_valor, expand=True, text_align=ft.TextAlign.RIGHT),
-                ft.Icon(ft.Icons.CHEVRON_RIGHT, color=pal.text_ter, size=18),
+                ft.Text(
+                    bandeira, size=13, width=130, color=pal.text_sec,
+                    max_lines=1, overflow=ft.TextOverflow.ELLIPSIS, weight=ft.FontWeight.W_500,
+                ),
+                ft.Text(f"({qtd} un)", size=12, width=55, color=pal.text_ter),
+                ft.Text(formatar_moeda(valor), size=14, color=cor_valor, weight=peso_valor, expand=True, text_align=ft.TextAlign.RIGHT),
+                ft.Icon(ft.Icons.CHEVRON_RIGHT_ROUNDED, color=pal.text_ter, size=16),
             ]
 
             linhas_bandeiras.append(
                 ft.Container(
-                    content=ft.Row(row_controls, spacing=10),
-                    border_radius=RADIUS_SM,
-                    padding=ft.Padding(left=4, right=4, top=6, bottom=6),
+                    content=ft.Row(row_controls, spacing=8),
+                    border_radius=8,
+                    padding=ft.Padding(left=6, right=6, top=6, bottom=6),
                     ink=True,
                     tooltip="Toque para ver e editar os lançamentos desta bandeira",
                     on_click=lambda e, b=bandeira: ao_abrir_detalhe(b),
                 )
             )
 
-        # Pix agora faz parte da categoria de Cartões/Vouchers, exibido como "Pag Pix"
+        # Pix
         cor_pix = cor_tipo(db.TIPO_PIX)
         icone_pix = icone_tipo(db.TIPO_PIX)
         cor_valor_pix = pal.text_pri if totais.pix > 0 else pal.text_ter
-        peso_valor_pix = ft.FontWeight.W_600 if totais.pix > 0 else ft.FontWeight.NORMAL
+        peso_valor_pix = ft.FontWeight.BOLD if totais.pix > 0 else ft.FontWeight.NORMAL
         
         row_controls_pix = [
-            ft.Icon(icone_pix, color=cor_pix, size=19),
-            ft.Text(
-                "Pag Pix", size=15, width=135, color=pal.text_sec,
-                max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
+            ft.Container(
+                content=ft.Icon(icone_pix, color=cor_pix, size=14),
+                bgcolor=ft.Colors.with_opacity(0.12, cor_pix),
+                border_radius=6,
+                padding=4,
             ),
-            ft.Text(f"({totais.qtd_pix} un)", size=14, width=65, color=pal.text_ter),
-            ft.Text(formatar_moeda(totais.pix), size=16, color=cor_valor_pix, weight=peso_valor_pix, expand=True, text_align=ft.TextAlign.RIGHT),
-            ft.Icon(ft.Icons.CHEVRON_RIGHT, color=pal.text_ter, size=18),
+            ft.Text(
+                "Pag Pix", size=13, width=130, color=pal.text_sec,
+                max_lines=1, overflow=ft.TextOverflow.ELLIPSIS, weight=ft.FontWeight.W_500,
+            ),
+            ft.Text(f"({totais.qtd_pix} un)", size=12, width=55, color=pal.text_ter),
+            ft.Text(formatar_moeda(totais.pix), size=14, color=cor_valor_pix, weight=peso_valor_pix, expand=True, text_align=ft.TextAlign.RIGHT),
+            ft.Icon(ft.Icons.CHEVRON_RIGHT_ROUNDED, color=pal.text_ter, size=16),
         ]
 
         linhas_bandeiras.append(
             ft.Container(
-                content=ft.Row(row_controls_pix, spacing=10),
-                border_radius=RADIUS_SM,
-                padding=ft.Padding(left=4, right=4, top=6, bottom=6),
+                content=ft.Row(row_controls_pix, spacing=8),
+                border_radius=8,
+                padding=ft.Padding(left=6, right=6, top=6, bottom=6),
                 ink=True,
                 tooltip="Toque para ver e editar os lançamentos de Pix",
                 on_click=lambda e: ao_abrir_detalhe(db.TIPO_PIX, "Pag Pix"),
             )
         )
 
-        caixa_cartoes = glass_container(
-            content=ft.Column(linhas_bandeiras, spacing=10),
-            padding=14,
+        caixa_cartoes = ft.Container(
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border=borda_all(1, pal.border),
+            padding=12,
+            content=ft.Column(
+                spacing=8,
+                controls=[
+                    ft.Row(
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        controls=[
+                            ft.Row(
+                                spacing=6,
+                                controls=[
+                                    ft.Icon(ft.Icons.CREDIT_CARD_ROUNDED, color=C_ACCENT_LIGHT, size=16),
+                                    ft.Text("CARTÕES, VOUCHERS E PIX", size=11, weight=ft.FontWeight.BOLD, color=pal.text_sec),
+                                ]
+                            ),
+                            ft.Text(f"Total: {formatar_moeda(totais.cartoes + totais.pix)}", size=12, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                        ]
+                    ),
+                    ft.Divider(height=1, color=pal.border),
+                    ft.Column(linhas_bandeiras, spacing=4),
+                ]
+            )
         )
 
+        # ── Inputs de Vendas Sistema e Observação ──
         v_sis_ini = turno_atual.vendas_sistema if (turno_atual and turno_atual.vendas_sistema) else 0.0
         obs_ini = turno_atual.observacao if (turno_atual and turno_atual.observacao) else ""
 
         input_vendas_sistema = ft.TextField(
-            label="TOTAL DE VENDAS SISTEMA",
+            label="TOTAL DE VENDAS SISTEMA (PDV)",
             value=f"{v_sis_ini:.2f}".replace(".", ",") if v_sis_ini > 0 else "",
             keyboard_type=_keyboard_valor,
             input_filter=FILTRO_VALOR_MONETARIO,
             hint_text="0,00",
-            border_color=pal.border_strong,
-            focused_border_color=C_BLUE,
-            color=pal.text_pri,
-            prefix=ft.Text("R$ ", color=pal.text_sec, size=15),
-            height=50,
-            text_size=15,
+            filled=True,
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border_color=pal.border,
+            focused_border_color=C_ACCENT,
+            prefix=ft.Text("R$ ", size=16, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+            text_size=16,
+            text_style=ft.TextStyle(weight=ft.FontWeight.BOLD, color=pal.text_pri),
         )
 
         input_observacao = ft.TextField(
@@ -1481,10 +1634,12 @@ def main(page: ft.Page):
             min_lines=2,
             max_lines=3,
             hint_text="Descreva justificativas de sobras/faltas ou observações do turno...",
-            border_color=pal.border_strong,
-            focused_border_color=C_BLUE,
-            color=pal.text_pri,
-            text_size=14,
+            filled=True,
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border_color=pal.border,
+            focused_border_color=C_ACCENT,
+            text_size=13,
         )
 
         if ao_registrar_inputs:
@@ -1502,12 +1657,12 @@ def main(page: ft.Page):
         txt_dif_label = ft.Text(
             "DIFERENÇA:",
             weight=ft.FontWeight.BOLD,
-            size=14,
+            size=13,
         )
 
         container_diferenca = ft.Container(
             border_radius=RADIUS_SM,
-            padding=12,
+            padding=ft.Padding(14, 12, 14, 12),
             content=ft.Row([
                 txt_dif_label,
                 ft.Container(expand=True),
@@ -1519,22 +1674,22 @@ def main(page: ft.Page):
             dif = _calc_dif()
             if abs(dif) < 0.01:
                 container_diferenca.bgcolor = ft.Colors.with_opacity(0.12, C_GREEN)
-                container_diferenca.border = ft.Border.all(1, C_GREEN)
+                container_diferenca.border = borda_all(1, C_GREEN)
                 txt_dif_valor.color = C_GREEN
                 txt_dif_label.color = C_GREEN
-                txt_dif_label.value = "DIFERENÇA (SEM DIFERENÇA):"
+                txt_dif_label.value = "✅ CAIXA 100% BATIDO (SEM DIFERENÇA)"
             elif dif > 0:
-                container_diferenca.bgcolor = ft.Colors.with_opacity(0.12, C_ORANGE)
-                container_diferenca.border = ft.Border.all(1, C_ORANGE)
-                txt_dif_valor.color = C_ORANGE
-                txt_dif_label.color = C_ORANGE
-                txt_dif_label.value = "DIFERENÇA (SOBRA PISTA):"
+                container_diferenca.bgcolor = ft.Colors.with_opacity(0.12, C_AMBER)
+                container_diferenca.border = borda_all(1, C_AMBER)
+                txt_dif_valor.color = C_AMBER
+                txt_dif_label.color = C_AMBER
+                txt_dif_label.value = "▲ SOBRA NA PISTA:"
             else:
                 container_diferenca.bgcolor = ft.Colors.with_opacity(0.12, C_RED)
-                container_diferenca.border = ft.Border.all(1, C_RED)
+                container_diferenca.border = borda_all(1, C_RED)
                 txt_dif_valor.color = C_RED
                 txt_dif_label.color = C_RED
-                txt_dif_label.value = "DIFERENÇA (FALTA PISTA):"
+                txt_dif_label.value = "▼ FALTA NA PISTA:"
             txt_dif_valor.value = formatar_moeda(dif)
 
         _atualizar_estilo_dif()
@@ -1557,68 +1712,18 @@ def main(page: ft.Page):
         input_observacao.on_blur = _on_auditoria_change
 
         return ft.Column(
-            tight=True, spacing=14,
+            tight=True, spacing=12,
             scroll=ft.ScrollMode.AUTO, expand=True,
             controls=[
-                ft.Column(spacing=3, controls=[
-                    ft.Text(f"Turno #{turno_atual.numero_do_dia} · Operador(a): {turno_atual.operador}",
-                            size=16, color=pal.text_pri, weight=ft.FontWeight.BOLD),
-                    ft.Text(f"Aberto em: {turno_atual.aberto_em}",
-                            size=15, color=pal.text_ter),
-                ]),
-                
-                ft.Divider(height=1, color=pal.border),
-                
-                ft.Text("Detalhe de Cartões, Vouchers e Pix", size=tamanho_fonte_titulo, color=pal.text_pri, weight=ft.FontWeight.BOLD),
+                header_turno_resumo,
+                hero_total_pista,
+                grid_totais_resumo,
                 caixa_cartoes,
-                ft.Row([ft.Icon(ft.Icons.CREDIT_CARD, color=C_ORANGE, size=22),
-                        ft.Text(f"Total Cartões ({totais.qtd_cartoes} un):", expand=True, size=tamanho_fonte_itens, color=pal.text_sec),
-                        ft.Text(formatar_moeda(totais.cartoes), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
-                
                 ft.Divider(height=1, color=pal.border),
-                
-                ft.Row([ft.Icon(ft.Icons.MONEY, color=C_GREEN, size=22),
-                        ft.Text("Sobra de Dinheiro:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
-                        ft.Text(formatar_moeda(totais.fisico), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
-                ft.Row([ft.Icon(ft.Icons.RECEIPT_LONG, color=C_PURPLE, size=22),
-                        ft.Text("Requisição:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
-                        ft.Text(formatar_moeda(totais.requisicao), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
-                ft.Row([ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=C_BROWN, size=22),
-                        ft.Text("Depósito Global:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
-                        ft.Text(formatar_moeda(totais.deposito_global), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
-                ft.Row([ft.Icon(ft.Icons.MONEY_OFF, color=C_RED, size=22),
-                        ft.Text("Despesas:", size=tamanho_fonte_itens, expand=True, color=pal.text_sec),
-                        ft.Text(formatar_moeda(totais.despesas), size=tamanho_fonte_itens, weight=ft.FontWeight.BOLD, color=pal.text_pri)]),
-                
-                ft.Divider(height=6, color=pal.border),
-                
-                # ── CONCILIAÇÃO DE VENDAS (PISTA vs. SISTEMA) ───────────────────
-                ft.Text("Conciliação de Vendas do Caixa", size=tamanho_fonte_titulo, color=pal.text_pri, weight=ft.FontWeight.BOLD),
-                
-                # 1. TOTAL DE VENDAS PISTA (Calculado pelo App)
-                ft.Container(
-                    bgcolor=ft.Colors.with_opacity(0.12, C_BLUE),
-                    border=ft.Border.all(1.2, C_BLUE),
-                    border_radius=RADIUS_SM,
-                    padding=12,
-                    content=ft.Row([
-                        ft.Icon(ft.Icons.POINT_OF_SALE, color=C_BLUE, size=22),
-                        ft.Text("TOTAL DE VENDAS PISTA:", expand=True, weight=ft.FontWeight.BOLD, size=14, color=pal.text_pri),
-                        ft.Text(formatar_moeda(totais.total_geral), weight=ft.FontWeight.BOLD, size=18, color=C_BLUE)
-                    ])
-                ),
-
-                # 2. TOTAL DE VENDAS SISTEMA (Digitado pelo operador)
+                ft.Text("CONCILIAÇÃO DE VENDAS DO CAIXA", size=11, color=pal.text_sec, weight=ft.FontWeight.BOLD),
                 input_vendas_sistema,
-
-                # 3. DIFERENÇA (Pista - Sistema)
                 container_diferenca,
-
-                ft.Divider(height=4, color=pal.border),
-
-                # 4. OBSERVAÇÕES / JUSTIFICATIVA
                 input_observacao,
-                
                 ft.Container(height=10),
             ],
         )
@@ -1653,171 +1758,214 @@ def main(page: ft.Page):
                 except Exception:
                     pass
             try:
-                if dlg_resumo: page.close(dlg_resumo)
-                if sheet_resumo: page.close(sheet_resumo)
+                if dlg_resumo:
+                    fechar_dialogo(dlg_resumo)
+                if sheet_resumo:
+                    fechar_dialogo(sheet_resumo)
             except Exception:
                 pass
-            if dlg_resumo:
-                dlg_resumo.open = False
-            if sheet_resumo:
-                sheet_resumo.open = False
-            page.update()
-            if dlg_resumo:
-                _agendar_limpeza_overlay(dlg_resumo)
-            if sheet_resumo:
-                _agendar_limpeza_overlay(sheet_resumo)
 
-        def abrir_detalhe_a_partir_do_resumo(tipo, rotulo=None):
-            if mobile and not ios:
-                fechar_resumo()
-                async def _reabrir_detalhe():
-                    import asyncio
-                    await asyncio.sleep(0.15)
-                    abrir_detalhe_bandeira(tipo, rotulo, ao_fechar=acao_fechar_caixa)
-                page.run_task(_reabrir_detalhe)
-            else:
-                abrir_detalhe_bandeira(tipo, rotulo)
+        def copiar_resumo(e):
+            nonlocal resumo
+            try:
+                page.set_clipboard(resumo)
+                mostrar_snackbar("Resumo copiado para a área de transferência!")
+            except Exception:
+                mostrar_snackbar("Não foi possível copiar.", ft.Colors.RED_800)
 
-        def copiar_resumo(x):
-            async def _copiar_async():
-                try:
-                    await ft.Clipboard().set(resumo)
-                    mostrar_snackbar("Resumo copiado para a área de transferência")
-                except Exception:
-                    mostrar_snackbar("Não foi possível copiar o resumo")
+        def abrir_detalhe_a_partir_do_resumo(tipo: str, rotulo: str = None):
+            fechar_resumo()
+            abrir_detalhe_bandeira(tipo, rotulo, ao_fechar=acao_fechar_caixa)
 
-            page.run_task(_copiar_async)
-
-        def compartilhar_pdf(e=None):
+        def compartilhar_pdf(e):
             if turno_atual is None:
-                mostrar_snackbar("Nenhum turno para exportar.")
+                mostrar_snackbar("Nenhum turno aberto.", ft.Colors.RED_800)
                 return
             try:
-                garantir_conexao()
-                v_val = validar_valor_monetario(ref_vendas_sis["control"].value or "0") if ref_vendas_sis["control"] else (turno_atual.vendas_sistema or 0.0)
-                obs_val = (ref_obs["control"].value or "") if ref_obs["control"] else (turno_atual.observacao or "")
-                turno_atual.vendas_sistema = v_val
-                turno_atual.observacao = obs_val
-                db.salvar_auditoria_turno(conn, turno_atual.id, v_val, obs_val)
-
                 caminho_pdf = db.exportar_turno_pdf(conn, turno_atual.id)
+                mostrar_snackbar(f"PDF gerado com sucesso!")
             except Exception as ex:
                 mostrar_snackbar(f"Erro ao gerar PDF: {ex}", ft.Colors.RED_800)
-                return
 
-            mostrar_snackbar("Gerando compartilhamento do PDF...")
-
-            async def _share_async():
-                try:
-                    if compartilhar_servico is not None and hasattr(compartilhar_servico, "share_files"):
-                        await compartilhar_servico.share_files([caminho_pdf])
-                    elif compartilhar_servico is not None and hasattr(compartilhar_servico, "share_files_async"):
-                        await compartilhar_servico.share_files_async([caminho_pdf])
-                    else:
-                        mostrar_snackbar(f"PDF gerado com sucesso em: {caminho_pdf}")
-                except Exception as err:
-                    mostrar_snackbar(f"PDF gerado e salvo em: {caminho_pdf}")
-
-            page.run_task(_share_async)
-
-        def encerrar_turno(x):
-            nonlocal turno_atual
-            if _em_andamento["valor"] or turno_atual is None:
-                return
+        def encerrar_turno(e):
+            if _em_andamento["valor"]: return
             _em_andamento["valor"] = True
-            try:
-                garantir_conexao()
-                turno_id_encerrado = turno_atual.id
-                operador_encerrado = turno_atual.operador
 
-                v_val = validar_valor_monetario(ref_vendas_sis["control"].value or "0") if ref_vendas_sis["control"] else (turno_atual.vendas_sistema or 0.0)
-                obs_val = (ref_obs["control"].value or "") if ref_obs["control"] else (turno_atual.observacao or "")
-                turno_atual.vendas_sistema = v_val
-                turno_atual.observacao = obs_val
-                db.salvar_auditoria_turno(conn, turno_id_encerrado, v_val, obs_val)
+            dlg_confirmar = ft.AlertDialog(
+                title=ft.Row(
+                    spacing=8,
+                    controls=[
+                        ft.Icon(ft.Icons.LOCK_ROUNDED, color=C_RED, size=20),
+                        ft.Text("Encerrar Turno?", weight=ft.FontWeight.BOLD),
+                    ]
+                ),
+                content=ft.Text(
+                    f"Confirma o fechamento do Turno #{turno_atual.numero_do_dia} "
+                    f"de {turno_atual.operador}?\n\n"
+                    f"Total Geral: {formatar_moeda(totais.total_geral)}"
+                ),
+            )
 
-                # Gera o PDF do fechamento
-                caminho_pdf = db.exportar_turno_pdf(conn, turno_id_encerrado)
+            def confirmar_fechamento(x):
+                nonlocal turno_atual
+                fechar_dialogo(dlg_confirmar)
+                try:
+                    garantir_conexao()
+                    v_val = 0.0
+                    obs_val = ""
+                    if ref_vendas_sis["control"]:
+                        v_val = validar_valor_monetario(ref_vendas_sis["control"].value or "0")
+                    if ref_obs["control"]:
+                        obs_val = ref_obs["control"].value or ""
 
-                # Fecha o turno no banco de dados
-                db.fechar_turno(conn, turno_id_encerrado, totais, vendas_sistema=v_val, observacao=obs_val)
-                turno_atual = None
-                fechar_resumo()
+                    turno_id_encerrado = turno_atual.id
+                    operador_encerrado = turno_atual.operador
 
-                async def _finalizar_encerramento():
-                    import asyncio
-                    await asyncio.sleep(0.35)
-                    mostrar_snackbar("Turno encerrado com sucesso. Caixa Fechado.")
-                    vibrar("medium")
-                    montar_interface()
+                    # Gera o PDF antes de fechar para garantir os dados
+                    caminho_pdf = db.exportar_turno_pdf(conn, turno_id_encerrado)
 
-                    # Envio automático do PDF para o Google Drive em background
-                    def _drive_task():
-                        ok, msg = drive_service.enviar_pdf_drive_bg(
-                            caminho_pdf, turno_id_encerrado, operador_encerrado
-                        )
-                        if ok and "sucesso" in msg.lower():
-                            mostrar_snackbar(msg, ft.Colors.GREEN_700)
+                    # Fecha o turno no banco de dados
+                    db.fechar_turno(conn, turno_id_encerrado, totais, vendas_sistema=v_val, observacao=obs_val)
+                    turno_atual = None
+                    fechar_resumo()
 
-                    async def _run_drive_bg():
-                        await asyncio.to_thread(_drive_task)
+                    async def _finalizar_encerramento():
+                        import asyncio
+                        await asyncio.sleep(0.35)
+                        mostrar_snackbar("Turno encerrado com sucesso. Caixa Fechado.")
+                        vibrar("medium")
+                        montar_interface()
 
-                    page.run_task(_run_drive_bg)
+                        # Envio automático do PDF para o Google Drive em background
+                        def _drive_task():
+                            ok, msg = drive_service.enviar_pdf_drive_bg(
+                                caminho_pdf, turno_id_encerrado, operador_encerrado
+                            )
+                            if ok and "sucesso" in msg.lower():
+                                mostrar_snackbar(msg, ft.Colors.GREEN_700)
 
-                page.run_task(_finalizar_encerramento)
-            except Exception as ex:
-                _em_andamento["valor"] = False
-                mostrar_snackbar(f"Erro: {ex}", ft.Colors.RED_800)
+                        async def _run_drive_bg():
+                            await asyncio.to_thread(_drive_task)
+
+                        page.run_task(_run_drive_bg)
+
+                    page.run_task(_finalizar_encerramento)
+                except Exception as ex:
+                    _em_andamento["valor"] = False
+                    mostrar_snackbar(f"Erro: {ex}", ft.Colors.RED_800)
+
+            dlg_confirmar.actions = [
+                ft.TextButton("Sim, Encerrar", on_click=confirmar_fechamento),
+                ft.TextButton("Cancelar", on_click=lambda x: (fechar_dialogo(dlg_confirmar), _em_andamento.update({"valor": False}))),
+            ]
+            abrir_dialogo(dlg_confirmar)
 
         conteudo_resumo = montar_conteudo_resumo(totais, detalhe_cart, abrir_detalhe_a_partir_do_resumo, ao_registrar_inputs=registrar_inputs)
 
-        btn_copiar = ft.TextButton(
-            content=ft.Row([ft.Icon(ft.Icons.CONTENT_COPY, size=16), ft.Text("Copiar resumo")],
-                           tight=True),
-            on_click=copiar_resumo,
+        def _action_pill_btn(icone, label, on_click, cor_bg=None, cor_texto=None, is_primary=False):
+            bg = C_ACCENT if is_primary else (cor_bg or pal.surface)
+            txt_cor = ft.Colors.WHITE if is_primary else (cor_texto or pal.text_pri)
+            borda = borda_all(1, C_ACCENT_LIGHT if is_primary else pal.border)
+            
+            btn = ft.Container(
+                content=ft.Row(
+                    tight=True,
+                    spacing=6,
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    controls=[
+                        ft.Icon(icone, size=15, color=txt_cor),
+                        ft.Text(label, size=12, weight=ft.FontWeight.BOLD, color=txt_cor),
+                    ]
+                ),
+                bgcolor=bg,
+                border=borda,
+                border_radius=100,
+                padding=ft.Padding(14, 8, 14, 8),
+                on_click=on_click,
+                scale=ft.Scale(scale=1),
+                animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
+            )
+            def hover_action(e):
+                e.control.scale = 1.04 if e.data == "true" else 1.0
+                e.control.update()
+            btn.on_hover = hover_action
+            return btn
+
+        btn_copiar = _action_pill_btn(ft.Icons.CONTENT_COPY_ROUNDED, "Copiar WhatsApp", copiar_resumo)
+        btn_compartilhar_pdf = _action_pill_btn(ft.Icons.PICTURE_AS_PDF_ROUNDED, "Gerar PDF", compartilhar_pdf)
+        btn_encerrar = _action_pill_btn(ft.Icons.LOCK_ROUNDED, "Encerrar Turno", encerrar_turno, is_primary=True)
+        btn_fechar = _action_pill_btn(ft.Icons.CLOSE_ROUNDED, "Fechar", fechar_resumo)
+
+        acoes_resumo_row = ft.Row(
+            alignment=ft.MainAxisAlignment.CENTER,
+            wrap=True,
+            spacing=8,
+            run_spacing=8,
+            controls=[btn_copiar, btn_compartilhar_pdf, btn_encerrar, btn_fechar],
         )
 
-        btn_compartilhar_pdf = ft.TextButton(
-            content=ft.Row([ft.Icon(ft.Icons.SHARE, size=16), ft.Text("Compartilhar PDF")], tight=True),
-            on_click=compartilhar_pdf,
-        )
-
-        btn_encerrar = ft.TextButton("Encerrar turno", on_click=encerrar_turno)
-        btn_fechar = ft.TextButton("Fechar", on_click=fechar_resumo)
-
-        painel_resumo = ft.Container(
-            expand=True,
-            padding=ft.Padding(20, 12, 20, 30),
-            bgcolor=pal.sheet_bg,
-            content=ft.Column(
-                expand=True,
-                spacing=14,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                controls=[
-                    ft.Text("Resumo do Turno", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
-                    conteudo_resumo,
-                    ft.Divider(height=1),
-                    ft.Row(
-                        [btn_copiar, btn_encerrar, btn_fechar],
-                        alignment=ft.MainAxisAlignment.CENTER,
-                        wrap=True, spacing=6, run_spacing=4,
-                    ),
-                ],
-            ),
-        )
+        largura_resumo = min(480, largura_conteudo)
 
         if not mobile:
             dlg_resumo = ft.AlertDialog(
-                title=ft.Text("Resumo do Turno"),
+                title=ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    controls=[
+                        ft.Row(
+                            spacing=8,
+                            controls=[
+                                ft.Icon(ft.Icons.ASSESSMENT_ROUNDED, color=C_ACCENT, size=22),
+                                ft.Text("Resumo do Turno", weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                            ]
+                        ),
+                        ft.IconButton(ft.Icons.CLOSE, icon_color=pal.text_sec, icon_size=18, on_click=fechar_resumo),
+                    ]
+                ),
                 content=ft.Container(
                     content=conteudo_resumo,
-                    width=450,
+                    width=largura_resumo,
                     height=600,
                 ),
-                actions=[btn_copiar, btn_encerrar, btn_fechar],
+                actions=[acoes_resumo_row],
             )
             abrir_dialogo(dlg_resumo)
         else:
+            painel_resumo = ft.Container(
+                expand=True,
+                padding=ft.Padding(20, 12, 20, 30),
+                bgcolor=pal.sheet_bg,
+                content=ft.Column(
+                    expand=True,
+                    spacing=12,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Container(
+                            width=36, height=4, border_radius=2,
+                            bgcolor=pal.border_strong,
+                        ),
+                        ft.Row(
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            controls=[
+                                ft.Row(
+                                    spacing=8,
+                                    controls=[
+                                        ft.Icon(ft.Icons.ASSESSMENT_ROUNDED, color=C_ACCENT, size=22),
+                                        ft.Text("Resumo do Turno", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                                    ]
+                                ),
+                                ft.IconButton(ft.Icons.CLOSE, icon_color=pal.text_sec, icon_size=20, on_click=fechar_resumo),
+                            ]
+                        ),
+                        ft.Divider(height=1, color=pal.border),
+                        ft.Container(
+                            content=conteudo_resumo,
+                            expand=True,
+                        ),
+                        ft.Divider(height=1, color=pal.border),
+                        acoes_resumo_row,
+                    ],
+                ),
+            )
             sheet_resumo = _criar_bottom_sheet(painel_resumo)
             abrir_dialogo(sheet_resumo)
 
