@@ -2157,6 +2157,228 @@ def main(page: ft.Page):
             on_click=ao_clicar,
         )
 
+    # ════════════════════════════════════════════════════════════════════════
+    # MODAL DE LANÇAMENTO RÁPIDO EXPRESS (Botão Flutuante +)
+    # ════════════════════════════════════════════════════════════════════════
+    def abrir_modal_novo_lancamento(tipo_padrao=None):
+        if turno_atual is None:
+            solicitar_identificacao(novo_turno=True)
+            return
+
+        tipo_inicial = tipo_padrao or estado_tipo.get("valor", "Dinheiro")
+        seletor_modal, estado_modal, _sel_mod, _rec_mod = criar_seletor_tipo(tipo_inicial)
+        seletor_modal.width = min(400, largura_conteudo)
+
+        campo_valor_modal = ft.TextField(
+            label="Valor",
+            hint_text="0,00",
+            prefix_text="R$ ",
+            prefix_style=ft.TextStyle(size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+            text_size=22,
+            text_style=ft.TextStyle(weight=ft.FontWeight.BOLD, color=pal.text_pri),
+            keyboard_type=ft.KeyboardType.NUMBER,
+            width=min(400, largura_conteudo),
+            autofocus=True,
+            filled=True,
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border_color=pal.border,
+            focused_border_color=C_ACCENT,
+            input_filter=FILTRO_VALOR_MONETARIO,
+        )
+
+        campo_desc_modal = ft.TextField(
+            label="Descrição / Placa (Opcional)",
+            hint_text="Ex: Placa ABC-1234, Troco, etc.",
+            prefix_icon=ft.Icons.EDIT_NOTE_ROUNDED,
+            width=min(400, largura_conteudo),
+            filled=True,
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border_color=pal.border,
+            focused_border_color=C_ACCENT,
+        )
+
+        dlg_novo = None
+        sheet_novo = None
+
+        def fechar_modal_novo(x=None):
+            try:
+                if dlg_novo:
+                    fechar_dialogo(dlg_novo)
+                if sheet_novo:
+                    fechar_dialogo(sheet_novo)
+            except Exception:
+                pass
+
+        def set_valor_modal(v: float):
+            campo_valor_modal.value = f"{v:.2f}".replace(".", ",")
+            campo_valor_modal.error_text = None
+            try:
+                campo_valor_modal.update()
+            except Exception:
+                pass
+
+        botoes_rapidos_modal = ft.Row(
+            wrap=True,
+            spacing=8,
+            alignment=ft.MainAxisAlignment.CENTER,
+            controls=[
+                _pill_btn("+ R$ 20", lambda e: set_valor_modal(20.0)),
+                _pill_btn("+ R$ 50", lambda e: set_valor_modal(50.0)),
+                _pill_btn("+ R$ 100", lambda e: set_valor_modal(100.0)),
+                _pill_btn("+ R$ 150", lambda e: set_valor_modal(150.0)),
+                _pill_btn("+ R$ 200", lambda e: set_valor_modal(200.0)),
+                _pill_btn("Completou", lambda e: set_valor_modal(50.0), is_completou=True),
+            ]
+        )
+
+        def confirmar_lancamento_modal(e=None):
+            val = validar_valor(campo_valor_modal.value or "")
+            if val is None:
+                campo_valor_modal.error_text = "Informe um valor maior que zero"
+                campo_valor_modal.update()
+                return
+
+            try:
+                garantir_conexao()
+                tipo_sel = estado_modal["valor"]
+                db.inserir_lancamento(
+                    conn,
+                    turno_atual.id,
+                    tipo_sel,
+                    val,
+                    campo_desc_modal.value or "",
+                )
+                fechar_modal_novo()
+                recarregar_listas()
+                salvar_ultimo_tipo(tipo_sel)
+                vibrar("light")
+                mostrar_snackbar(f"{formatar_moeda(val)} lançado em {tipo_sel}! 🎉", C_ACCENT)
+            except Exception as erro:
+                print(f"[confirmar_lancamento_modal] Erro: {erro}")
+                mostrar_snackbar("Erro ao registrar lançamento.", ft.Colors.RED_800)
+
+        campo_valor_modal.on_submit = confirmar_lancamento_modal
+        campo_desc_modal.on_submit = confirmar_lancamento_modal
+
+        btn_confirmar_modal = ft.Container(
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=8,
+                controls=[
+                    ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, color=ft.Colors.WHITE, size=20),
+                    ft.Text("Confirmar Lançamento", color=ft.Colors.WHITE, size=16, weight=ft.FontWeight.BOLD),
+                ]
+            ),
+            gradient=ft.LinearGradient(
+                begin=ft.Alignment(-1, 0),
+                end=ft.Alignment(1, 0),
+                colors=[C_ACCENT, C_ACCENT_DARK],
+            ),
+            border_radius=100,
+            height=50,
+            width=min(400, largura_conteudo),
+            alignment=ft.Alignment(0, 0),
+            shadow=_sombra(C_ACCENT, 16, 0.35, 3),
+            on_click=confirmar_lancamento_modal,
+            scale=ft.Scale(scale=1),
+            animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
+        )
+
+        def hover_btn_modal(e):
+            e.control.scale = 1.02 if e.data == "true" else 1.0
+            e.control.update()
+        btn_confirmar_modal.on_hover = hover_btn_modal
+
+        largura_modal = min(440, largura_conteudo)
+
+        if not mobile:
+            dlg_novo = ft.AlertDialog(
+                title=ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    controls=[
+                        ft.Row(
+                            spacing=8,
+                            controls=[
+                                ft.Icon(ft.Icons.ADD_CIRCLE_ROUNDED, color=C_ACCENT, size=22),
+                                ft.Text("Novo Lançamento", weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                            ]
+                        ),
+                        ft.IconButton(ft.Icons.CLOSE, icon_color=pal.text_sec, icon_size=18, on_click=fechar_modal_novo),
+                    ]
+                ),
+                content=ft.Container(
+                    content=ft.Column(
+                        tight=True,
+                        spacing=12,
+                        scroll=ft.ScrollMode.AUTO,
+                        controls=[
+                            ft.Text("Forma de Pagamento", size=12, weight=ft.FontWeight.BOLD, color=pal.text_sec),
+                            seletor_modal,
+                            campo_valor_modal,
+                            botoes_rapidos_modal,
+                            campo_desc_modal,
+                            ft.Container(height=4),
+                            btn_confirmar_modal,
+                        ],
+                    ),
+                    width=largura_modal,
+                    height=480,
+                ),
+            )
+            abrir_dialogo(dlg_novo)
+        else:
+            painel_novo = ft.Container(
+                expand=True,
+                padding=ft.Padding(20, 12, 20, 30),
+                bgcolor=pal.sheet_bg,
+                content=ft.Column(
+                    expand=True,
+                    spacing=12,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Container(
+                            width=36, height=4, border_radius=2,
+                            bgcolor=pal.border_strong,
+                        ),
+                        ft.Row(
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            controls=[
+                                ft.Row(
+                                    spacing=8,
+                                    controls=[
+                                        ft.Icon(ft.Icons.ADD_CIRCLE_ROUNDED, color=C_ACCENT, size=22),
+                                        ft.Text("Novo Lançamento", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                                    ]
+                                ),
+                                ft.IconButton(ft.Icons.CLOSE, icon_color=pal.text_sec, icon_size=20, on_click=fechar_modal_novo),
+                            ]
+                        ),
+                        ft.Divider(height=1, color=pal.border),
+                        ft.Container(
+                            content=ft.Column(
+                                spacing=12,
+                                scroll=ft.ScrollMode.AUTO,
+                                expand=True,
+                                controls=[
+                                    ft.Text("Forma de Pagamento", size=12, weight=ft.FontWeight.BOLD, color=pal.text_sec),
+                                    seletor_modal,
+                                    campo_valor_modal,
+                                    botoes_rapidos_modal,
+                                    campo_desc_modal,
+                                    ft.Container(height=10),
+                                    btn_confirmar_modal,
+                                ]
+                            ),
+                            expand=True,
+                        ),
+                    ],
+                ),
+            )
+            sheet_novo = _criar_bottom_sheet(painel_novo)
+            abrir_dialogo(sheet_novo)
+
     btn_floating_add = ft.Container(
         content=ft.Icon(ft.Icons.ADD_ROUNDED, color=ft.Colors.WHITE, size=28),
         width=52,
@@ -2169,10 +2391,10 @@ def main(page: ft.Page):
         ),
         shadow=_sombra(C_ACCENT, 16, 0.45, 3),
         alignment=ft.Alignment(0, 0),
-        on_click=acao_lancar,
+        on_click=lambda e: abrir_modal_novo_lancamento(),
         scale=ft.Scale(scale=1),
         animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
-        tooltip="Lançar Abastecimento (+)",
+        tooltip="Novo Lançamento (+)",
     )
 
     def hover_add_btn(e):
