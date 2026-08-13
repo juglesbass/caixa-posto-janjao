@@ -2180,20 +2180,26 @@ def main(page: ft.Page):
         e.control.update()
     btn_floating_add.on_hover = hover_add_btn
 
+    def _rolar_inicio(e):
+        try:
+            area_scroll.scroll_to(offset=0, duration=300)
+        except Exception:
+            pass
+
     floating_bottom_bar = ft.Container(
         width=largura_conteudo,
         height=66,
         bgcolor=pal.sheet_bg,
         border_radius=22,
         border=borda_all(1, pal.border),
-        shadow=_sombra(ft.Colors.BLACK, 24, 0.25, 6),
+        shadow=_sombra(ft.Colors.BLACK, 24, 0.35, 6),
         padding=ft.Padding(left=12, right=12, top=4, bottom=4),
         blur=_blur_vidro(),
         content=ft.Row(
             alignment=ft.MainAxisAlignment.SPACE_AROUND,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
             controls=[
-                _criar_nav_btn(ft.Icons.HOME_ROUNDED, "Início", lambda e: None, C_ACCENT),
+                _criar_nav_btn(ft.Icons.HOME_ROUNDED, "Início", _rolar_inicio, C_ACCENT),
                 _criar_nav_btn(ft.Icons.RECEIPT_LONG_ROUNDED, "Histórico", acao_historico_turnos),
                 btn_floating_add,
                 _criar_nav_btn(ft.Icons.ASSESSMENT_ROUNDED, "Resumo", acao_fechar_caixa),
@@ -2381,8 +2387,10 @@ def main(page: ft.Page):
 
         rodape_flutuante = ft.Container(
             content=floating_bottom_bar,
-            alignment=ft.Alignment(0, 1),
-            padding=ft.Padding(left=12, right=12, bottom=12, top=0),
+            bottom=16,
+            left=0,
+            right=0,
+            alignment=ft.Alignment(0, 0),
         )
 
         conteudo_com_barra = ft.Stack(
@@ -2391,6 +2399,7 @@ def main(page: ft.Page):
                 rodape_flutuante,
             ],
             expand=True,
+            width=largura_conteudo,
         )
 
         if mobile:
