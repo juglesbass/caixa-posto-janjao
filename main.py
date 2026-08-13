@@ -1918,18 +1918,22 @@ def main(page: ft.Page):
     # ══════════════════════════════════════════════════════════════��[...]
     # BOTTOM SHEET
     # ══════════════════════════════════════════════════════════════��[...]
-    txt_bottom_titulo = ft.Text(
-        "Gerenciar Turno", size=17, weight=ft.FontWeight.BOLD, color=pal.text_pri
-    )
-    bottom_div_1 = ft.Divider(height=8, color=pal.border)
-    bottom_div_2 = ft.Divider(height=8, color=pal.border)
+    # ════════════════════════════════════════════════════════════════════════
+    # MENU DE OPÇÕES DO CAIXA / GERENCIAR TURNO (Bento Action Sheet)
+    # ════════════════════════════════════════════════════════════════════════
     def acao_sair_operador(e=None):
         fechar_bottom_sheet()
         dlg_sair = ft.AlertDialog(
-            title=ft.Text("Sair do Operador?"),
+            title=ft.Row(
+                spacing=8,
+                controls=[
+                    ft.Icon(ft.Icons.LOGOUT_ROUNDED, color=C_AMBER, size=20),
+                    ft.Text("Desconectar Operador?", weight=ft.FontWeight.BOLD),
+                ]
+            ),
             content=ft.Text(
-                "O turno continuará aberto.\n"
-                "Na próxima vez que abrir o app será pedido o nome do operador."
+                "O turno continuará aberto normalmente.\n"
+                "Na próxima vez que abrir o app será solicitado o nome do operador."
             ),
         )
 
@@ -1947,55 +1951,15 @@ def main(page: ft.Page):
                 turno_atual.operador = "Não informado"
             except Exception:
                 pass
-            mostrar_snackbar("Operador desconectado. Até logo!")
+            mostrar_snackbar("Operador desconectado com sucesso.")
             turno_atual = None
             solicitar_identificacao(novo_turno=False)
 
         dlg_sair.actions = [
-            ft.TextButton("Sair", on_click=confirmar_sair),
+            ft.TextButton("Desconectar", on_click=confirmar_sair),
             ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_sair)),
         ]
         abrir_dialogo(dlg_sair)
-
-    bottom_sheet_content = ft.Container(
-        padding=20,
-        bgcolor=pal.sheet_bg,
-        content=ft.Column(
-            tight=True,
-            spacing=8,
-            controls=[
-                txt_bottom_titulo,
-                bottom_div_1,
-                ft.ListTile(
-                    leading=ft.Icon(ft.Icons.ASSESSMENT, color=C_BLUE),
-                    title=ft.Text("Fechar Caixa / Resumo", size=15),
-                    on_click=acao_fechar_caixa,
-                ),
-                ft.ListTile(
-                    leading=ft.Icon(ft.Icons.HISTORY, color=pal.text_sec),
-                    title=ft.Text("Histórico de Turnos", size=15),
-                    on_click=acao_historico_turnos,
-                ),
-                bottom_div_2,
-                ft.ListTile(
-                    leading=ft.Icon(ft.Icons.DELETE_FOREVER, color=C_RED),
-                    title=ft.Text("Limpar / Zerar Tudo", size=15, color=C_RED),
-                    on_click=acao_zerar_tudo,
-                ),
-                ft.Divider(height=4),
-                ft.ListTile(
-                    leading=ft.Icon(ft.Icons.LOGOUT, color=pal.text_ter),
-                    title=ft.Text("Sair do Operador", size=15, color=pal.text_ter),
-                    on_click=acao_sair_operador,
-                ),
-            ],
-        ),
-    )
-
-    bottom_sheet = ft.BottomSheet(
-        open=False,
-        content=bottom_sheet_content,
-    )
 
     _menu_aberto = None
 
@@ -2005,48 +1969,185 @@ def main(page: ft.Page):
             fechar_dialogo(_menu_aberto)
         _menu_aberto = None
 
-    def _menu_handler(callback):
-        def handler(e):
-            fechar_menu()
-            callback()
-        return handler
-
-    def abrir_bottom_sheet(e):
-        nonlocal _menu_aberto
-        if ios:
-            sheet = ft.CupertinoActionSheet(
-                title=ft.Text("Gerenciar Turno"),
-                cancel=ft.CupertinoActionSheetAction(
-                    content=ft.Text("Cancelar"),
-                    on_click=lambda ev: fechar_menu(),
-                ),
-                actions=[
-                    ft.CupertinoActionSheetAction(
-                        content=ft.Text("Fechar Caixa / Resumo"),
-                        on_click=_menu_handler(acao_fechar_caixa),
-                    ),
-                    ft.CupertinoActionSheetAction(
-                        content=ft.Text("Histórico de Turnos"),
-                        on_click=_menu_handler(acao_historico_turnos),
-                    ),
-                    ft.CupertinoActionSheetAction(
-                        content=ft.Text("Limpar / Zerar Tudo", color=C_RED),
-                        on_click=_menu_handler(acao_zerar_tudo),
-                    ),
-                    ft.CupertinoActionSheetAction(
-                        content=ft.Text("Sair do Operador"),
-                        on_click=_menu_handler(acao_sair_operador),
-                    ),
-                ],
-            )
-            _menu_aberto = ft.CupertinoBottomSheet(sheet)
-            abrir_dialogo(_menu_aberto)
-        else:
-            _menu_aberto = bottom_sheet
-            abrir_dialogo(_menu_aberto)
-
     def fechar_bottom_sheet():
         fechar_menu()
+
+    def _menu_action_tile(icone, titulo, subtitulo, cor_icone, on_click, is_danger=False):
+        cor_titulo = C_RED if is_danger else pal.text_pri
+        cor_borda = ft.Colors.with_opacity(0.30, C_RED) if is_danger else pal.border
+
+        card = ft.Container(
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    ft.Row(
+                        spacing=12,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        expand=True,
+                        controls=[
+                            ft.Container(
+                                content=ft.Icon(icone, color=cor_icone, size=20),
+                                bgcolor=ft.Colors.with_opacity(0.12, cor_icone),
+                                border_radius=12,
+                                padding=10,
+                            ),
+                            ft.Column(
+                                spacing=2,
+                                expand=True,
+                                controls=[
+                                    ft.Text(titulo, size=14, weight=ft.FontWeight.BOLD, color=cor_titulo),
+                                    ft.Text(subtitulo, size=11, color=pal.text_sec),
+                                ]
+                            ),
+                        ]
+                    ),
+                    ft.Icon(ft.Icons.CHEVRON_RIGHT_ROUNDED, color=pal.text_ter, size=18),
+                ]
+            ),
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border=borda_all(1, cor_borda),
+            padding=ft.Padding(left=12, right=12, top=12, bottom=12),
+            on_click=on_click,
+            scale=ft.Scale(scale=1),
+            animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
+        )
+
+        def hover_tile(e):
+            e.control.scale = 1.02 if e.data == "true" else 1.0
+            e.control.update()
+        card.on_hover = hover_tile
+
+        return card
+
+    def abrir_bottom_sheet(e=None):
+        nonlocal _menu_aberto
+
+        def acao_wrapper(callback):
+            def handler(ev):
+                fechar_menu()
+                callback()
+            return handler
+
+        opcoes_menu = ft.Column(
+            spacing=10,
+            tight=True,
+            controls=[
+                _menu_action_tile(
+                    ft.Icons.ASSESSMENT_ROUNDED,
+                    "Fechar Caixa & Resumo",
+                    "Conferir totais, sangrias e conciliação do turno",
+                    C_ACCENT,
+                    acao_wrapper(acao_fechar_caixa),
+                ),
+                _menu_action_tile(
+                    ft.Icons.HISTORY_ROUNDED,
+                    "Histórico de Turnos",
+                    "Consultar ou reabrir turnos anteriores",
+                    C_ACCENT_LIGHT,
+                    acao_wrapper(acao_historico_turnos),
+                ),
+                _menu_action_tile(
+                    ft.Icons.PERSON_REMOVE_ROUNDED,
+                    "Trocar / Sair do Operador",
+                    "Manter turno aberto e desconectar usuário",
+                    C_AMBER,
+                    acao_wrapper(acao_sair_operador),
+                ),
+                _menu_action_tile(
+                    ft.Icons.DELETE_FOREVER_ROUNDED,
+                    "Limpar / Zerar Tudo",
+                    "Reset completo e irreversível dos dados",
+                    C_RED,
+                    acao_wrapper(acao_zerar_tudo),
+                    is_danger=True,
+                ),
+            ]
+        )
+
+        btn_fechar_menu = ft.TextButton("Fechar Menu", on_click=lambda ev: fechar_menu())
+
+        largura_menu = min(420, largura_conteudo)
+
+        if not mobile:
+            _menu_aberto = ft.AlertDialog(
+                title=ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    controls=[
+                        ft.Row(
+                            spacing=8,
+                            controls=[
+                                ft.Icon(ft.Icons.TUNE_ROUNDED, color=C_ACCENT, size=22),
+                                ft.Text("Menu do Caixa", weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                            ]
+                        ),
+                        ft.IconButton(ft.Icons.CLOSE, icon_color=pal.text_sec, icon_size=18, on_click=lambda ev: fechar_menu()),
+                    ]
+                ),
+                content=ft.Container(
+                    content=ft.Column(
+                        tight=True,
+                        spacing=12,
+                        scroll=ft.ScrollMode.AUTO,
+                        controls=[
+                            ft.Text("Gerenciamento e ações do turno", size=12, color=pal.text_sec),
+                            ft.Divider(height=1, color=pal.border),
+                            opcoes_menu,
+                        ],
+                    ),
+                    width=largura_menu,
+                ),
+                actions=[btn_fechar_menu],
+            )
+            abrir_dialogo(_menu_aberto)
+        else:
+            painel_menu = ft.Container(
+                expand=True,
+                padding=ft.Padding(20, 12, 20, 30),
+                bgcolor=pal.sheet_bg,
+                content=ft.Column(
+                    expand=True,
+                    spacing=12,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Container(
+                            width=36, height=4, border_radius=2,
+                            bgcolor=pal.border_strong,
+                        ),
+                        ft.Row(
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            controls=[
+                                ft.Row(
+                                    spacing=8,
+                                    controls=[
+                                        ft.Icon(ft.Icons.TUNE_ROUNDED, color=C_ACCENT, size=22),
+                                        ft.Text("Menu do Caixa", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                                    ]
+                                ),
+                                ft.IconButton(ft.Icons.CLOSE, icon_color=pal.text_sec, icon_size=20, on_click=lambda ev: fechar_menu()),
+                            ]
+                        ),
+                        ft.Divider(height=1, color=pal.border),
+                        ft.Container(
+                            content=ft.Column(
+                                spacing=10,
+                                scroll=ft.ScrollMode.AUTO,
+                                expand=True,
+                                controls=[
+                                    ft.Text("Gerenciamento e ações do turno", size=12, color=pal.text_sec),
+                                    opcoes_menu,
+                                    ft.Container(height=8),
+                                    btn_fechar_menu,
+                                ]
+                            ),
+                            expand=True,
+                        ),
+                    ],
+                ),
+            )
+            _menu_aberto = _criar_bottom_sheet(painel_menu)
+            abrir_dialogo(_menu_aberto)
 
     # ════════════════════════════════════════════════════════════════════════
     # HEADER / TEMA
@@ -2847,13 +2948,8 @@ def main(page: ft.Page):
         btn_menu.content.icon_color = pal.text_sec
         btn_menu.bgcolor = pal.surface
         btn_menu.border = borda_all(1, pal.border)
-        txt_sec_historico.color = pal.text_pri
         for div in (div_top, div_mid, div_bot):
             div.bgcolor = pal.border
-        txt_bottom_titulo.color = pal.text_pri
-        bottom_div_1.color = pal.border
-        bottom_div_2.color = pal.border
-        bottom_sheet_content.bgcolor = pal.sheet_bg
         floating_bottom_bar.bgcolor = pal.sheet_bg
         floating_bottom_bar.border = borda_all(1, pal.border)
 
