@@ -11,36 +11,35 @@ def _app_mobile() -> bool:
 def criar_paleta(escuro: bool) -> SimpleNamespace:
     if escuro:
         return SimpleNamespace(
-            bg="#0f0c1b",
-            surface="#1b1528",
-            border=ft.Colors.with_opacity(0.15, "#a78bfa"),
-            border_strong=ft.Colors.with_opacity(0.30, "#a78bfa"),
+            bg="#0d1117",
+            surface="#161b22",
+            border=ft.Colors.with_opacity(0.10, "#60a5fa"),
+            border_strong=ft.Colors.with_opacity(0.25, "#60a5fa"),
             text_pri="#ecf0f1",
-            text_sec=ft.Colors.with_opacity(0.65, "#ecf0f1"),
-            text_ter=ft.Colors.with_opacity(0.42, "#ecf0f1"),
-            sheet_bg=ft.Colors.with_opacity(0.97, "#171224"),
+            text_sec=ft.Colors.with_opacity(0.60, "#ecf0f1"),
+            text_ter=ft.Colors.with_opacity(0.40, "#ecf0f1"),
+            sheet_bg=ft.Colors.with_opacity(0.97, "#141a22"),
         )
     return SimpleNamespace(
-        bg="#f5f0fb",
+        bg="#f0f4f8",
         surface="#ffffff",
-        border=ft.Colors.with_opacity(0.12, "#6c2d9b"),
-        border_strong=ft.Colors.with_opacity(0.20, "#6c2d9b"),
-        text_pri="#1a1528",
-        text_sec=ft.Colors.with_opacity(0.68, "#1a1528"),
-        text_ter=ft.Colors.with_opacity(0.45, "#1a1528"),
+        border=ft.Colors.with_opacity(0.10, "#2563eb"),
+        border_strong=ft.Colors.with_opacity(0.18, "#2563eb"),
+        text_pri="#1a202c",
+        text_sec=ft.Colors.with_opacity(0.65, "#1a202c"),
+        text_ter=ft.Colors.with_opacity(0.42, "#1a202c"),
         sheet_bg="#ffffff",
     )
 
-# ── Cor principal (Roxo Equador Energia) ───────────────────────────────────
-C_ACCENT       = "#6c2d9b"
-C_ACCENT_DARK  = "#4e1e72"
-C_ACCENT_LIGHT = "#a78bfa"
+# ── Cor principal (Azul Cobalto) ────────────────────────────────────────────
+C_ACCENT       = "#2563eb"
+C_ACCENT_DARK  = "#1d4ed8"
+C_ACCENT_LIGHT = "#60a5fa"
 
 # ── Acentos por tipo de pagamento ───────────────────────────────────────────
 C_GREEN   = "#34d399"
 C_BLUE    = "#60a5fa"
-C_PURPLE        = "#a78bfa"
-C_ROXO_EQUADOR  = "#5a2382"
+C_PURPLE  = "#a78bfa"
 C_ORANGE  = "#fb923c"
 C_BROWN   = "#d4a27a"
 C_TEAL    = "#2dd4bf"
@@ -426,7 +425,7 @@ def main(page: ft.Page):
     def _stat_card(label: str, cor: str, icone):
         badge = ft.Container(
             content=ft.Icon(icone, color=cor, size=16),
-            bgcolor=ft.Colors.with_opacity(0.14, cor),
+            bgcolor=ft.Colors.with_opacity(0.12, cor),
             border_radius=8,
             padding=6,
         )
@@ -442,11 +441,11 @@ def main(page: ft.Page):
             ),
             bgcolor=pal.surface,
             border_radius=RADIUS_SM,
-            border=borda_all(1, pal.border),
+            border=borda_all(1, ft.Colors.with_opacity(0.12, C_ACCENT)),
             padding=ft.Padding(left=14, right=14, top=14, bottom=14),
             expand=True,
             blur=_blur_vidro(),
-            shadow=_sombra(C_ACCENT, 10, 0.08, 2),
+            shadow=_sombra(C_ACCENT, 10, 0.05, 2),
             scale=ft.Scale(scale=1),
             animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
         )
@@ -2227,7 +2226,6 @@ def main(page: ft.Page):
             (stat_desp_card, lbl_desp),
         ):
             card.bgcolor = pal.surface
-            card.border = borda_all(1, pal.border)
             lbl.color = pal.text_ter
             
         txt_total_geral_label.color = pal.text_sec
