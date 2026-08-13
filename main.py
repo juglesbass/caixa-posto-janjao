@@ -1713,7 +1713,13 @@ def main(page: ft.Page):
             try:
                 texto_enc = urllib.parse.quote(resumo)
                 url_wa = f"https://api.whatsapp.com/send?text={texto_enc}"
-                page.launch_url(url_wa)
+                
+                # Executa no navegador via JS para contornar bloqueador de popup do Safari/iOS
+                try:
+                    js_wa = f"window.location.href = {json.dumps(url_wa)};"
+                    page.eval_js(js_wa)
+                except Exception:
+                    page.launch_url(url_wa)
                 mostrar_snackbar("Abrindo no WhatsApp... 🚀")
             except Exception as ex:
                 mostrar_snackbar(f"Erro ao abrir WhatsApp: {ex}", ft.Colors.RED_800)
@@ -1727,13 +1733,33 @@ def main(page: ft.Page):
             except Exception:
                 pass
 
-            if not copiado:
-                try:
-                    js_code = f"navigator.clipboard.writeText({json.dumps(resumo)});"
-                    page.eval_js(js_code)
-                    copiado = True
-                except Exception:
-                    pass
+            try:
+                # Universal fallback para iOS Safari e Android WebKit
+                js_copy = f"""
+                (function() {{
+                    try {{
+                        if (navigator.clipboard && window.isSecureContext) {{
+                            navigator.clipboard.writeText({json.dumps(resumo)});
+                        }}
+                    }} catch(e) {{}}
+                    try {{
+                        const textArea = document.createElement("textarea");
+                        textArea.value = {json.dumps(resumo)};
+                        textArea.style.position = "fixed";
+                        textArea.style.left = "-999999px";
+                        textArea.style.top = "-999999px";
+                        document.body.appendChild(textArea);
+                        textArea.focus();
+                        textArea.select();
+                        document.execCommand('copy');
+                        textArea.remove();
+                    }} catch(e) {{}}
+                }})();
+                """
+                page.eval_js(js_copy)
+                copiado = True
+            except Exception:
+                pass
 
             if copiado:
                 mostrar_snackbar("Resumo copiado com sucesso! Pronto para colar.")
@@ -1752,21 +1778,7 @@ def main(page: ft.Page):
                 caminho_pdf = db.exportar_turno_pdf(conn, turno_atual.id)
                 nome_pdf = os.path.basename(caminho_pdf)
 
-                # 1. Se estiver no app mobile nativo, usa ft.Share para abrir a folha de compartilhamento nativa
-                if mobile and compartilhar_servico:
-                    try:
-                        async def _share_async():
-                            if hasattr(compartilhar_servico, "share_files"):
-                                await compartilhar_servico.share_files([caminho_pdf])
-                            elif hasattr(compartilhar_servico, "share_files_async"):
-                                await compartilhar_servico.share_files_async([caminho_pdf])
-                        page.run_task(_share_async)
-                        mostrar_snackbar(f"Compartilhando PDF: {nome_pdf}")
-                        return
-                    except Exception:
-                        pass
-
-                # 2. No navegador web/Pyodide: faz o download automático e abre em nova aba
+                # 1. No navegador web / Pyodide / iOS Safari: faz download e abre visualização nativa
                 try:
                     with open(caminho_pdf, "rb") as f:
                         b64_pdf = base64.b64encode(f.read()).decode("ascii")
@@ -1780,20 +1792,39 @@ def main(page: ft.Page):
                         const byteArray = new Uint8Array(byteNumbers);
                         const blob = new Blob([byteArray], {{type: 'application/pdf'}});
                         const blobUrl = URL.createObjectURL(blob);
+                        
                         const link = document.createElement('a');
                         link.href = blobUrl;
                         link.download = '{nome_pdf}';
+                        link.target = '_blank';
                         document.body.appendChild(link);
                         link.click();
-                        document.body.removeChild(link);
-                        window.open(blobUrl, '_blank');
+                        setTimeout(function() {{ document.body.removeChild(link); }}, 2000);
+                        
+                        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {{
+                            window.location.href = blobUrl;
+                        }}
                     }})();
                     """
                     page.eval_js(js_download)
-                    mostrar_snackbar(f"PDF baixado: {nome_pdf} 📥")
+                    mostrar_snackbar(f"PDF gerado com sucesso: {nome_pdf} 📥")
                     return
                 except Exception:
                     pass
+
+                # 2. Se estiver no app mobile nativo com plugin de share
+                if mobile and compartilhar_servico:
+                    try:
+                        async def _share_async():
+                            if hasattr(compartilhar_servico, "share_files"):
+                                await compartilhar_servico.share_files([caminho_pdf])
+                            elif hasattr(compartilhar_servico, "share_files_async"):
+                                await compartilhar_servico.share_files_async([caminho_pdf])
+                        page.run_task(_share_async)
+                        mostrar_snackbar(f"Compartilhando PDF: {nome_pdf}")
+                        return
+                    except Exception:
+                        pass
 
                 # 3. Fallback Desktop nativo (abre o leitor de PDF do sistema)
                 try:
@@ -1902,7 +1933,8 @@ def main(page: ft.Page):
                 bgcolor=bg,
                 border=borda,
                 border_radius=100,
-                padding=ft.Padding(14, 8, 14, 8),
+                padding=ft.Padding(14, 10, 14, 10),
+                ink=True,
                 on_click=on_click,
                 scale=ft.Scale(scale=1),
                 animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
@@ -2447,7 +2479,7 @@ def main(page: ft.Page):
             prefix=ft.Text("R$ ", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
             text_size=22,
             text_style=ft.TextStyle(weight=ft.FontWeight.BOLD, color=pal.text_pri),
-            keyboard_type=ft.KeyboardType.NUMBER,
+            keyboard_type=_keyboard_valor,
             width=min(400, largura_conteudo),
             autofocus=True,
             filled=True,
