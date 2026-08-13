@@ -2180,6 +2180,282 @@ def main(page: ft.Page):
         e.control.update()
     btn_floating_add.on_hover = hover_add_btn
 
+    # ════════════════════════════════════════════════════════════════════════
+    # HISTÓRICO RECENTE DO TURNO ATUAL (Modal / Bottom Sheet)
+    # ════════════════════════════════════════════════════════════════════════
+    def abrir_historico_recente(e=None):
+        if turno_atual is None:
+            return
+
+        lista_ctrl = ft.Column(spacing=8)
+        txt_sub_info = ft.Text("", size=13, color=pal.text_sec)
+
+        dlg_hist = None
+        sheet_hist = None
+
+        def fechar_hist(x=None):
+            try:
+                if dlg_hist:
+                    fechar_dialogo(dlg_hist)
+                if sheet_hist:
+                    fechar_dialogo(sheet_hist)
+            except Exception:
+                pass
+
+        def renderizar_itens():
+            garantir_conexao()
+            itens = db.listar_historico(conn, turno_atual.id, limite=100)
+            lista_ctrl.controls.clear()
+            txt_sub_info.value = f"{len(itens)} lançamento{'s' if len(itens) != 1 else ''} no turno atual"
+
+            if not itens:
+                lista_ctrl.controls.append(
+                    ft.Container(
+                        content=ft.Column(
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                            spacing=6,
+                            controls=[
+                                ft.Icon(ft.Icons.RECEIPT_ROUNDED, size=40, color=pal.text_ter),
+                                ft.Text("Nenhum lançamento no turno atual", size=14, color=pal.text_sec),
+                            ]
+                        ),
+                        padding=30,
+                        alignment=ft.Alignment(0, 0),
+                    )
+                )
+                page.update()
+                return
+
+            for row in itens:
+                cor = cor_tipo(row["tipo"])
+                icone = icone_tipo(row["tipo"])
+                desc_texto = f" — {row['descricao']}" if row["descricao"] else ""
+
+                def confirmar_exclusao(ev, rid=row["id"], tipo=row["tipo"], valor=row["valor"]):
+                    dlg_excluir = ft.AlertDialog(
+                        title=ft.Text("Apagar lançamento?"),
+                        content=ft.Text(f"Remover {formatar_moeda(valor)} · {tipo}?"),
+                    )
+
+                    def excluir_confirmado(x, lancamento_id=rid):
+                        garantir_conexao()
+                        if db.deletar_lancamento(conn, lancamento_id, turno_atual.id):
+                            fechar_dialogo(dlg_excluir)
+                            mostrar_snackbar("Lançamento removido.", ft.Colors.ORANGE_800)
+                            vibrar("light")
+                            recarregar_listas()
+                            renderizar_itens()
+                        else:
+                            mostrar_snackbar("Não foi possível apagar.", ft.Colors.RED_800)
+
+                    dlg_excluir.actions = [
+                        ft.TextButton("Apagar", on_click=excluir_confirmado),
+                        ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_excluir)),
+                    ]
+                    abrir_dialogo(dlg_excluir)
+
+                def abrir_edicao(
+                    ev,
+                    rid=row["id"],
+                    tipo=row["tipo"],
+                    valor=row["valor"],
+                    descricao=row["descricao"],
+                ):
+                    seletor_edit, estado_edit, _sel_edit, _rec_edit = criar_seletor_tipo(tipo)
+                    seletor_edit.width = min(300, largura_conteudo)
+
+                    campo_valor_edit = ft.TextField(
+                        label="Valor",
+                        value=f"{valor:.2f}".replace(".", ","),
+                        prefix=ft.Text("R$ "),
+                        width=min(300, largura_conteudo),
+                        adaptive=adaptive_ui,
+                        autocorrect=False,
+                        enable_suggestions=False,
+                        input_filter=FILTRO_VALOR_MONETARIO,
+                    )
+                    campo_desc_edit = ft.TextField(
+                        label="Descrição / Placa (Opcional)",
+                        value=descricao or "",
+                        width=min(300, largura_conteudo),
+                        adaptive=adaptive_ui,
+                    )
+                    dlg_editar = ft.AlertDialog(
+                        title=ft.Text("Editar lançamento"),
+                        content=ft.Column(
+                            [
+                                ft.Text("Forma de Pagamento", size=12, color=pal.text_sec),
+                                seletor_edit,
+                                campo_valor_edit,
+                                campo_desc_edit,
+                            ],
+                            tight=True, spacing=10,
+                            scroll=ft.ScrollMode.AUTO, height=420,
+                        ),
+                    )
+
+                    def salvar_edicao(x, lancamento_id=rid):
+                        novo_valor = validar_valor(campo_valor_edit.value or "")
+                        if novo_valor is None:
+                            campo_valor_edit.error_text = "Informe um valor maior que zero"
+                            page.update()
+                            return
+                        try:
+                            garantir_conexao()
+                            ok = db.atualizar_lancamento(
+                                conn, lancamento_id, turno_atual.id,
+                                estado_edit["valor"], novo_valor, campo_desc_edit.value or "",
+                            )
+                            if ok:
+                                fechar_dialogo(dlg_editar)
+                                mostrar_snackbar("Lançamento atualizado.")
+                                recarregar_listas()
+                                renderizar_itens()
+                            else:
+                                mostrar_snackbar("Não foi possível editar.", ft.Colors.RED_800)
+                        except Exception:
+                            mostrar_snackbar("Erro ao editar. Tente novamente.", ft.Colors.RED_800)
+
+                    dlg_editar.actions = [
+                        ft.TextButton("Salvar", on_click=salvar_edicao),
+                        ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_editar)),
+                    ]
+                    abrir_dialogo(dlg_editar)
+
+                lista_ctrl.controls.append(
+                    ft.Container(
+                        content=ft.Row(
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[
+                                ft.Row(
+                                    spacing=10,
+                                    expand=True,
+                                    controls=[
+                                        ft.Container(
+                                            content=ft.Icon(icone, color=cor, size=16),
+                                            bgcolor=ft.Colors.with_opacity(0.12, cor),
+                                            border_radius=8,
+                                            padding=8,
+                                        ),
+                                        ft.Column(
+                                            spacing=2,
+                                            expand=True,
+                                            controls=[
+                                                ft.Text(
+                                                    f"{formatar_moeda(row['valor'])} · {row['tipo']}{desc_texto}",
+                                                    color=pal.text_pri, size=13, weight=ft.FontWeight.W_600,
+                                                ),
+                                                ft.Text(row["data"], color=pal.text_ter, size=11),
+                                            ],
+                                        ),
+                                    ],
+                                ),
+                                ft.Row(
+                                    spacing=0,
+                                    controls=[
+                                        ft.IconButton(
+                                            icon=ft.Icons.EDIT_OUTLINED,
+                                            icon_color=pal.text_ter,
+                                            icon_size=18,
+                                            tooltip="Editar",
+                                            on_click=abrir_edicao,
+                                        ),
+                                        ft.IconButton(
+                                            icon=ft.Icons.DELETE_OUTLINE,
+                                            icon_color=C_RED,
+                                            icon_size=18,
+                                            tooltip="Apagar",
+                                            on_click=confirmar_exclusao,
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        ),
+                        bgcolor=pal.surface,
+                        border_radius=RADIUS_SM,
+                        border=ft.Border(
+                            left=ft.BorderSide(3, cor),
+                            right=ft.BorderSide(1, pal.border),
+                            top=ft.BorderSide(1, pal.border),
+                            bottom=ft.BorderSide(1, pal.border),
+                        ),
+                        blur=_blur_vidro(),
+                        padding=ft.Padding(left=12, right=4, top=10, bottom=10),
+                    )
+                )
+            page.update()
+
+        renderizar_itens()
+
+        largura_modal = min(440, largura_conteudo)
+        btn_fechar = ft.TextButton("Fechar", on_click=fechar_hist)
+
+        if not mobile:
+            dlg_hist = ft.AlertDialog(
+                title=ft.Row(
+                    [
+                        ft.Icon(ft.Icons.RECEIPT_LONG_ROUNDED, color=C_ACCENT, size=22),
+                        ft.Text("Histórico Recente", weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                    ],
+                    spacing=8,
+                ),
+                content=ft.Container(
+                    content=ft.Column(
+                        tight=True,
+                        spacing=10,
+                        scroll=ft.ScrollMode.AUTO,
+                        controls=[
+                            txt_sub_info,
+                            ft.Divider(height=1, color=pal.border),
+                            lista_ctrl,
+                        ],
+                    ),
+                    width=largura_modal,
+                    height=460,
+                ),
+                actions=[btn_fechar],
+            )
+            abrir_dialogo(dlg_hist)
+        else:
+            painel_hist = ft.Container(
+                expand=True,
+                padding=ft.Padding(20, 12, 20, 30),
+                bgcolor=pal.sheet_bg,
+                content=ft.Column(
+                    expand=True,
+                    spacing=14,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Container(
+                            width=36, height=4, border_radius=2,
+                            bgcolor=pal.border_strong,
+                        ),
+                        ft.Row(
+                            [
+                                ft.Icon(ft.Icons.RECEIPT_LONG_ROUNDED, color=C_ACCENT, size=22),
+                                ft.Text("Histórico Recente", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                            ],
+                            spacing=8,
+                            alignment=ft.MainAxisAlignment.CENTER,
+                        ),
+                        txt_sub_info,
+                        ft.Divider(height=1, color=pal.border),
+                        ft.Container(
+                            content=ft.Column(
+                                controls=[lista_ctrl],
+                                scroll=ft.ScrollMode.AUTO,
+                                expand=True,
+                            ),
+                            expand=True,
+                        ),
+                        btn_fechar,
+                    ],
+                ),
+            )
+            sheet_hist = _criar_bottom_sheet(painel_hist)
+            abrir_dialogo(sheet_hist)
+
     def _rolar_inicio(e):
         try:
             area_scroll.scroll_to(offset=0, duration=300)
@@ -2200,7 +2476,7 @@ def main(page: ft.Page):
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
             controls=[
                 _criar_nav_btn(ft.Icons.HOME_ROUNDED, "Início", _rolar_inicio, C_ACCENT),
-                _criar_nav_btn(ft.Icons.RECEIPT_LONG_ROUNDED, "Histórico", acao_historico_turnos),
+                _criar_nav_btn(ft.Icons.RECEIPT_LONG_ROUNDED, "Histórico", abrir_historico_recente),
                 btn_floating_add,
                 _criar_nav_btn(ft.Icons.ASSESSMENT_ROUNDED, "Resumo", acao_fechar_caixa),
                 _criar_nav_btn(ft.Icons.MORE_HORIZ_ROUNDED, "Menu", abrir_bottom_sheet),
@@ -2371,9 +2647,6 @@ def main(page: ft.Page):
             row_botoes_rapidos,
             input_desc,
             btn_lancar,
-            div_mid,
-            txt_sec_historico,
-            col_historico,
             ft.Container(height=85),
         ]
 
