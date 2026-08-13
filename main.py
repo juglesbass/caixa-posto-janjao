@@ -485,7 +485,6 @@ def main(page: ft.Page):
 
     txt_total_geral_label = ft.Text(
         "TOTAL GERAL", size=12, weight=ft.FontWeight.W_600, color=pal.text_sec,
-        letter_spacing=1.5,
     )
 
     total_geral_card = ft.Container(
