@@ -3654,14 +3654,16 @@ def main(page: ft.Page):
 
         input_busca = ft.TextField(
             hint_text="Buscar por descrição, placa ou valor...",
+            hint_style=ft.TextStyle(color=pal.text_sec, size=12),
+            text_style=ft.TextStyle(color=pal.text_pri, size=13),
             prefix_icon=ft.Icons.SEARCH_ROUNDED,
             filled=True,
             bgcolor=pal.surface,
             border_radius=RADIUS_SM,
             border_color=pal.border,
             focused_border_color=C_ACCENT,
-            text_size=13,
-            height=44,
+            cursor_color=C_ACCENT,
+            content_padding=ft.Padding(12, 10, 12, 10),
             on_change=lambda e: (termo_busca.update({"valor": e.control.value or ""}), renderizar_itens()),
         )
 
@@ -3702,15 +3704,17 @@ def main(page: ft.Page):
             ]
         )
 
-        btn_exp_excel = ft.ElevatedButton(
+        btn_exp_excel = ft.Container(
             content=ft.Row([
-                ft.Icon(ft.Icons.TABLE_CHART_ROUNDED, size=16, color=ft.Colors.WHITE),
-                ft.Text("Exportar Excel (CSV)", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD)
-            ], tight=True),
-            bgcolor=C_GREEN,
+                ft.Icon(ft.Icons.FILE_DOWNLOAD_ROUNDED, size=15, color=C_GREEN),
+                ft.Text("Excel (CSV)", size=12, color=C_GREEN, weight=ft.FontWeight.BOLD)
+            ], tight=True, spacing=4),
+            bgcolor=ft.Colors.with_opacity(0.12, C_GREEN),
+            border=borda_all(1, ft.Colors.with_opacity(0.30, C_GREEN)),
+            border_radius=100,
+            padding=ft.Padding(10, 6, 12, 6),
             on_click=lambda e: acao_exportar_excel(),
-            height=38,
-            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10)),
+            ink=True,
         )
 
         renderizar_itens()
@@ -3726,7 +3730,6 @@ def main(page: ft.Page):
                 row_chips_filtro,
                 ft.Row([
                     txt_sub_info,
-                    ft.Container(expand=True),
                     btn_exp_excel,
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                 ft.Divider(height=1, color=pal.border),
