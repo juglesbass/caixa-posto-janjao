@@ -241,20 +241,17 @@ def main(page: ft.Page):
     def aplicar_largura():
         w = largura_conteudo
         if turno_atual is not None:
-            header.width = w
-            seletor_col.width = w
-            input_valor.width = w
-            input_desc.width = w
-            row_botoes_rapidos.width = w
-            col_historico.width = w
-            btn_lancar.width = w
-            info_turno_card.width = w
-            total_geral_card.width = w
-            stats_grid.width = w
-            try:
-                floating_bottom_bar.width = w
-            except Exception:
-                pass
+            for ctrl in [
+                header, hud_totais_card, banner_alerta_sangria,
+                seletor_col, input_valor, input_desc,
+                row_calculadora_troco, row_botoes_rapidos,
+                btn_lancar, floating_bottom_bar
+            ]:
+                try:
+                    if hasattr(ctrl, "width"):
+                        ctrl.width = w
+                except Exception:
+                    pass
         page.update()
 
     def abrir_dialogo(dlg):
