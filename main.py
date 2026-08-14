@@ -3972,36 +3972,36 @@ def main(page: ft.Page):
             row_botoes_rapidos,
             input_desc,
             btn_lancar,
-            ft.Container(height=95),
+            ft.Container(height=16),
         ]
 
-        area_scroll = ft.Column(
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=12,
+        area_scroll = ft.ListView(
             controls=controles_scroll,
-            scroll=ft.ScrollMode.ADAPTIVE,
+            spacing=12,
             expand=True,
+            padding=ft.Padding(0, 0, 0, 8),
         )
 
-        rodape_flutuante = ft.Container(
-            content=floating_bottom_bar,
-            bottom=12,
-            left=0,
-            right=0,
-            alignment=ft.Alignment(0, 0),
-        )
-
-        conteudo_com_barra = ft.Stack(
-            controls=[
-                area_scroll,
-                rodape_flutuante,
-            ],
+        conteudo_com_barra = ft.Column(
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=0,
             expand=True,
             width=largura_conteudo,
+            controls=[
+                ft.Container(
+                    content=area_scroll,
+                    expand=True,
+                ),
+                ft.Container(
+                    content=floating_bottom_bar,
+                    padding=ft.Padding(0, 4, 0, 6 if mobile else 10),
+                    alignment=ft.Alignment(0, 0),
+                ),
+            ],
         )
 
         if mobile:
-            raiz = ft.SafeArea(conteudo_com_barra)
+            raiz = ft.SafeArea(conteudo_com_barra, expand=True)
         else:
             raiz = conteudo_com_barra
 
