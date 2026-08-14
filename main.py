@@ -1383,7 +1383,7 @@ def main(page: ft.Page):
         scale=ft.Scale(scale=1),
         animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
         ink=True,
-        on_click=acao_lancar,
+        on_click=lambda e: acao_lancar(e),
     )
 
     if not mobile and not ios:
