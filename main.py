@@ -481,12 +481,18 @@ def main(page: ft.Page):
             c.on_hover = hover_c
         return c
 
-    chip_din = _criar_hud_chip("Dinheiro", C_GREEN, ft.Icons.PAYMENTS_ROUNDED, txt_dinheiro, lambda e: ao_abrir_detalhe(db.TIPO_DINHEIRO, "Dinheiro"))
-    chip_pix = _criar_hud_chip("Pix", C_BLUE, ft.Icons.PIX_ROUNDED, txt_pix, lambda e: ao_abrir_detalhe(db.TIPO_PIX, "Pag Pix"))
-    chip_cart = _criar_hud_chip("Cartões", C_PURPLE, ft.Icons.CREDIT_CARD_ROUNDED, txt_cartoes, lambda e: ao_abrir_detalhe("Cartões", "Cartões"))
-    chip_req = _criar_hud_chip("Requisição", C_AMBER, ft.Icons.RECEIPT_LONG_ROUNDED, txt_requisicao, lambda e: ao_abrir_detalhe(db.TIPO_REQUISICAO, "Requisição"))
-    chip_dep = _criar_hud_chip("Depósito", C_BROWN, ft.Icons.ACCOUNT_BALANCE_ROUNDED, txt_deposito_global, lambda e: ao_abrir_detalhe(db.TIPO_DEPOSITO_GLOBAL, "Depósito Global"))
-    chip_desp = _criar_hud_chip("Despesas", C_RED, ft.Icons.MONEY_OFF_ROUNDED, txt_despesas, lambda e: ao_abrir_detalhe(db.TIPO_DESPESA, "Despesas"))
+    def _clicar_chip_hud(tipo, rotulo):
+        try:
+            abrir_detalhe_bandeira(tipo, rotulo)
+        except Exception as err:
+            print(f"[HUD chip] Erro ao abrir detalhe: {err}")
+
+    chip_din = _criar_hud_chip("Dinheiro", C_GREEN, ft.Icons.PAYMENTS_ROUNDED, txt_dinheiro, lambda e: _clicar_chip_hud(db.TIPO_DINHEIRO, "Dinheiro"))
+    chip_pix = _criar_hud_chip("Pix", C_BLUE, ft.Icons.PIX_ROUNDED, txt_pix, lambda e: _clicar_chip_hud(db.TIPO_PIX, "Pag Pix"))
+    chip_cart = _criar_hud_chip("Cartões", C_PURPLE, ft.Icons.CREDIT_CARD_ROUNDED, txt_cartoes, lambda e: _clicar_chip_hud("Cartões", "Cartões"))
+    chip_req = _criar_hud_chip("Requisição", C_AMBER, ft.Icons.RECEIPT_LONG_ROUNDED, txt_requisicao, lambda e: _clicar_chip_hud(db.TIPO_REQUISICAO, "Requisição"))
+    chip_dep = _criar_hud_chip("Depósito", C_BROWN, ft.Icons.ACCOUNT_BALANCE_ROUNDED, txt_deposito_global, lambda e: _clicar_chip_hud(db.TIPO_DEPOSITO_GLOBAL, "Depósito Global"))
+    chip_desp = _criar_hud_chip("Despesas", C_RED, ft.Icons.MONEY_OFF_ROUNDED, txt_despesas, lambda e: _clicar_chip_hud(db.TIPO_DESPESA, "Despesas"))
 
     row_hud_chips = ft.Row(
         spacing=6,
@@ -605,6 +611,7 @@ def main(page: ft.Page):
         return t in db.LISTA_CARTOES
 
     bandeiras_disponiveis = [
+        "Pix",
         "Master Débito", "Master Crédito", "Visa Débito", "Visa Crédito",
         "Elo Débito", "Elo Crédito", "Alelo Multibenefícios", "Sodexo",
         "Fitcard", "Excard", "Amex", "Eucard", "Avancard"
@@ -826,6 +833,12 @@ def main(page: ft.Page):
     def ao_tocar_fora(e):
         desfocar_campos(input_valor, input_desc, input_recebido)
 
+    def ao_focar_campo(e):
+        try:
+            area_scroll.scroll_to(offset=240, duration=200)
+        except Exception:
+            pass
+
     input_valor = ft.TextField(
         label="Valor da Venda (Ex: 50.00 ou 50,00)",
         width=largura_conteudo,
@@ -843,6 +856,7 @@ def main(page: ft.Page):
         autocorrect=False,
         enable_suggestions=False,
         input_filter=FILTRO_VALOR_MONETARIO,
+        on_focus=ao_focar_campo,
         on_tap_outside=ao_tocar_fora,
     )
 
@@ -903,6 +917,7 @@ def main(page: ft.Page):
         input_filter=FILTRO_VALOR_MONETARIO,
         visible=(tipo_inicial == db.TIPO_DINHEIRO),
         on_change=atualizar_calculo_troco,
+        on_focus=ao_focar_campo,
         on_tap_outside=ao_tocar_fora,
     )
 
@@ -928,6 +943,7 @@ def main(page: ft.Page):
         filled=True,
         bgcolor=pal.surface,
         adaptive=adaptive_ui,
+        on_focus=ao_focar_campo,
         on_tap_outside=ao_tocar_fora,
     )
 
