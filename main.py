@@ -1718,22 +1718,42 @@ def main(page: ft.Page):
         def abrir_whatsapp(e=None):
             nonlocal resumo
             vibrar("light")
-            try:
-                texto_enc = urllib.parse.quote(resumo)
-                url_wa = f"https://wa.me/?text={texto_enc}"
+
+            async def _abrir_wa_async():
                 try:
-                    page.launch_url(url_wa)
-                    mostrar_snackbar("Abrindo no WhatsApp... 🚀")
-                except Exception:
-                    if compartilhar_servico:
-                        async def _share_wa():
-                            await compartilhar_servico.share_text(resumo, title="Resumo do Turno")
-                        page.run_task(_share_wa)
-                        mostrar_snackbar("Selecione o WhatsApp na lista.")
-                    else:
-                        mostrar_snackbar("Não foi possível abrir o WhatsApp automaticamente.", ft.Colors.RED_800)
-            except Exception as ex:
-                mostrar_snackbar(f"Erro ao abrir WhatsApp: {ex}", ft.Colors.RED_800)
+                    texto_enc = urllib.parse.quote(resumo)
+
+                    # 1. No mobile / iOS, o Share Sheet nativo abre com o WhatsApp no topo
+                    # e também tenta invocar o aplicativo do WhatsApp diretamente
+                    if mobile or ios or getattr(page, "platform", None) == ft.PagePlatform.IOS:
+                        try:
+                            page.launch_url(f"whatsapp://send?text={texto_enc}")
+                        except Exception:
+                            pass
+
+                        if compartilhar_servico:
+                            try:
+                                await compartilhar_servico.share_text(resumo, title="Resumo do Turno - Posto Janjão")
+                                mostrar_snackbar("Selecione o WhatsApp no menu de envio 🚀")
+                                return
+                            except Exception:
+                                pass
+
+                    # 2. Desktop / Web / Fallback
+                    url_wa = f"https://wa.me/?text={texto_enc}"
+                    try:
+                        page.launch_url(url_wa)
+                        mostrar_snackbar("Abrindo no WhatsApp... 🚀")
+                    except Exception:
+                        if compartilhar_servico:
+                            await compartilhar_servico.share_text(resumo, title="Resumo do Turno - Posto Janjão")
+                            mostrar_snackbar("Selecione o WhatsApp no menu de envio.")
+                        else:
+                            mostrar_snackbar("Não foi possível abrir o WhatsApp automaticamente.", ft.Colors.RED_800)
+                except Exception as ex:
+                    mostrar_snackbar(f"Erro ao abrir WhatsApp: {ex}", ft.Colors.RED_800)
+
+            page.run_task(_abrir_wa_async)
 
         def copiar_resumo(e=None):
             nonlocal resumo

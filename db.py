@@ -421,50 +421,45 @@ def obter_detalhe_cartoes(conn: sqlite3.Connection, turno_id: int) -> dict[str, 
 
 
 def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str, tuple[float, int]]) -> str:
-    largura_bandeira = 26
-    largura_qtd = 12
-    largura_rotulo_geral = 39
+    """Monta um resumo em texto perfeitamente alinhado e legível para WhatsApp e clipboard."""
+    if detalhe_cartoes:
+        linhas_cartoes = "\n".join(
+            f"• {bandeira} ({qtd} un): {formatar_moeda(valor)}"
+            for bandeira, (valor, qtd) in detalhe_cartoes.items()
+        )
+    else:
+        linhas_cartoes = "• Nenhum cartão lançado"
 
-    def fmt_cartao(bandeira: str, qtd_str: str, valor_str: str) -> str:
-        rot_b = f"   • {bandeira}".ljust(largura_bandeira)
-        rot_q = f"{qtd_str}:".ljust(largura_qtd)
-        return f"{rot_b} {rot_q} {valor_str}"
+    linhas = [
+        f"⛽ *FECHAMENTO DE TURNO #{turno.numero_do_dia} - POSTO JANJÃO*",
+        f"👤 *Operador:* {turno.operador}",
+        f"🕐 *Aberto em:* {turno.aberto_em}",
+        "━━━━━━━━━━━━━━━━━━━━━",
+        "💳 *CARTÕES E VOUCHERS:*",
+        linhas_cartoes,
+        f"💳 *Total Cartões ({totais.qtd_cartoes} un):* {formatar_moeda(totais.cartoes)}",
+        "━━━━━━━━━━━━━━━━━━━━━",
+        f"💵 *Sobra de Dinheiro:* {formatar_moeda(totais.fisico)}",
+        f"⚡ *Pag Pix ({totais.qtd_pix} un):* {formatar_moeda(totais.pix)}",
+        f"📋 *Requisição:* {formatar_moeda(totais.requisicao)}",
+        f"🔒 *Depósito Global:* {formatar_moeda(totais.deposito_global)}",
+        f"🛒 *Despesas:* {formatar_moeda(totais.despesas)}",
+        "━━━━━━━━━━━━━━━━━━━━━",
+        f"✅ *TOTAL GERAL: {formatar_moeda(totais.total_geral)}*",
+    ]
 
-    def fmt_linha(rotulo: str, valor_str: str) -> str:
-        return f"{rotulo.ljust(largura_rotulo_geral)} {valor_str}"
+    v_sis = getattr(turno, "vendas_sistema", 0.0) or 0.0
+    obs = getattr(turno, "observacao", "") or ""
+    if v_sis > 0 or obs.strip():
+        linhas.append("━━━━━━━━━━━━━━━━━━━━━")
+        if v_sis > 0:
+            diff = totais.total_geral - v_sis
+            diff_str = f" (Dif: {formatar_moeda(diff)})" if abs(diff) > 0.01 else " (Bateu)"
+            linhas.append(f"📊 *Vendas Sistema:* {formatar_moeda(v_sis)}{diff_str}")
+        if obs.strip():
+            linhas.append(f"📝 *Obs:* {obs.strip()}")
 
-    linhas_cartoes = "\n".join(
-        fmt_cartao(bandeira, f"({qtd} un)", formatar_moeda(valor))
-        for bandeira, (valor, qtd) in detalhe_cartoes.items()
-    )
-    linha_pix = fmt_cartao("Pag Pix", f"({totais.qtd_pix} un)", formatar_moeda(totais.pix))
-
-    rot_tot_c = f"   Total de Cartões".ljust(largura_bandeira)
-    rot_tot_q = f"({totais.qtd_cartoes} un):".ljust(largura_qtd)
-    linha_tot_cartoes = f"{rot_tot_c} {rot_tot_q} {formatar_moeda(totais.cartoes)}"
-
-    linha_fisico = fmt_linha("💵 Sobra de Dinheiro:", formatar_moeda(totais.fisico))
-    linha_pix = fmt_linha("⚡ Pag Pix:", f"({totais.qtd_pix} un) {formatar_moeda(totais.pix)}")
-    linha_requisicao = fmt_linha("📋 Requisição:", formatar_moeda(totais.requisicao))
-    linha_deposito = fmt_linha("🔒 Depósito Global:", formatar_moeda(totais.deposito_global))
-    linha_despesas = fmt_linha("🛒 Despesas:", formatar_moeda(totais.despesas))
-
-    linha_total_geral = fmt_linha("✅ Total Geral:", formatar_moeda(totais.total_geral))
-
-    return (
-        f"⛽ *Fechamento de Turno #{turno.numero_do_dia} - Posto Janjão*\n"
-        f"👤 Operador: {turno.operador}\n"
-        f"🕐 Turno aberto em: {turno.aberto_em}\n\n"
-        f"💳 *Cartões e Vouchers por bandeira:*\n"
-        f"{linhas_cartoes}\n"
-        f"{linha_tot_cartoes}\n\n"
-        f"{linha_fisico}\n"
-        f"{linha_pix}\n"
-        f"{linha_requisicao}\n"
-        f"{linha_deposito}\n"
-        f"{linha_despesas}\n\n"
-        f"{linha_total_geral}"
-    )
+    return "\n".join(linhas)
 
 
 def inserir_lancamento(
@@ -703,20 +698,20 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
     import re
     def _sanitizar_nome(nome: str) -> str:
         if not nome:
-            return "SemNome"
+            return "Operador"
         nome_limpo = re.sub(r'[^\w\s-]', '', nome).strip()
-        nome_limpo = re.sub(r'[\s]+', '_', nome_limpo)
-        return nome_limpo[:25] or "Operador"
+        nome_limpo = re.sub(r'[\s_]+', ' ', nome_limpo).strip()
+        return nome_limpo[:30] or "Operador"
 
     data_formatada = datetime.now().strftime("%d-%m-%Y")
-    operador_slug = _sanitizar_nome(turno.operador)
-    nome_base = f"{operador_slug}_{data_formatada}"
+    operador_nome = _sanitizar_nome(turno.operador)
+    nome_base = f"{operador_nome} {data_formatada}"
     nome_arquivo_pdf = f"{nome_base}.pdf"
     caminho = os.path.join(caminho_backups(), nome_arquivo_pdf)
 
     contador = 2
     while os.path.exists(caminho):
-        nome_arquivo_pdf = f"{nome_base}_{contador}.pdf"
+        nome_arquivo_pdf = f"{nome_base} ({contador}).pdf"
         caminho = os.path.join(caminho_backups(), nome_arquivo_pdf)
         contador += 1
 
