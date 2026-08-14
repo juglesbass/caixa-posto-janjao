@@ -231,7 +231,11 @@ def main(page: ft.Page):
 
     def atualizar_largura():
         nonlocal largura_conteudo
-        largura_conteudo = max(340, min(480, int(page.width) - 24))
+        try:
+            pw = int(page.width) if page.width is not None else 400
+            largura_conteudo = max(340, min(480, pw - 24))
+        except Exception:
+            largura_conteudo = 380
         aplicar_largura()
 
     def aplicar_largura():
@@ -3421,6 +3425,11 @@ if __name__ == "__main__":
         # No celular, usamos ft.run(main=...)
         ft.run(main=main_seguro)
     else:
-        # No computador, definimos a porta e o view
+        # No computador/Mac, roda com visualização web direta no navegador
         porta = int(os.environ.get("PORT", 5000))
-        ft.run(main=main_seguro, port=porta, host="0.0.0.0")
+        ft.run(
+            main=main_seguro,
+            port=porta,
+            host="0.0.0.0",
+            view=ft.AppView.WEB_BROWSER,
+        )
