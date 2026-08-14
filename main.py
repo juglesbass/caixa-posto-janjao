@@ -3609,7 +3609,7 @@ def main(page: ft.Page):
 
         row_chips_filtro = ft.Row(
             spacing=6,
-            scroll=ft.ScrollMode.AUTO,
+            wrap=True,
             controls=[
                 _criar_chip_filtro("Todos"),
                 _criar_chip_filtro("Dinheiro"),
