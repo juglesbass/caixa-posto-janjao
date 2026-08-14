@@ -200,11 +200,14 @@ def main(page: ft.Page):
             return
         async def _vibrar_async():
             try:
-                metodo = getattr(haptic_feedback, f"{intensidade}_impact", None)
+                if intensidade in ("selection", "tick"):
+                    metodo = getattr(haptic_feedback, "selection_click", None) or getattr(haptic_feedback, "light_impact", None)
+                else:
+                    metodo = getattr(haptic_feedback, f"{intensidade}_impact", None)
                 if metodo:
                     await metodo()
-                else:
-                    await haptic_feedback.vibrate()
+                elif hasattr(haptic_feedback, "light_impact"):
+                    await haptic_feedback.light_impact()
             except Exception:
                 pass
         page.run_task(_vibrar_async)
@@ -794,7 +797,7 @@ def main(page: ft.Page):
             seletor_col.controls.append(ft.Row(spacing=8, controls=[card_dep, card_desp]))
 
         def selecionar(tipo):
-            vibrar("selection")
+            vibrar("light")
             estado["valor"] = tipo
             if _eh_cartao(tipo):
                 estado["cartao_atual"] = tipo
@@ -1013,7 +1016,7 @@ def main(page: ft.Page):
         cor_bg    = ft.Colors.with_opacity(0.12, C_AMBER) if is_completou else pal.surface
         
         def handle_click(e):
-            vibrar("selection")
+            vibrar("light")
             if on_click:
                 on_click(e)
 
