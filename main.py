@@ -112,7 +112,7 @@ def _plataforma_ios(page: ft.Page) -> bool:
         return True
     return getattr(page, "platform", None) == ft.PagePlatform.IOS
 
-def main(page: ft.Page):
+async def main(page: ft.Page):
     mobile = _plataforma_mobile(page)
     ios = _plataforma_ios(page)
     adaptive_ui = mobile or ios
@@ -135,12 +135,48 @@ def main(page: ft.Page):
         font_family="Inter",
     )
 
-    tema_inicial = ft.ThemeMode.DARK
+    def _registrar_servico(ctrl):
+        try:
+            if hasattr(page, "services") and page.services is not None:
+                if ctrl not in page.services:
+                    page.services.append(ctrl)
+            elif hasattr(page, "overlay") and page.overlay is not None:
+                if ctrl not in page.overlay:
+                    page.overlay.append(ctrl)
+        except Exception:
+            pass
+
+    shared_preferences = None
     try:
-        if page.client_storage.get("caixa_tema") == "light":
-            tema_inicial = ft.ThemeMode.LIGHT
+        shared_preferences = ft.SharedPreferences()
+        _registrar_servico(shared_preferences)
+        page.update()
     except Exception:
-        pass
+        shared_preferences = None
+
+    if shared_preferences:
+        try:
+            b64_storage = await shared_preferences.get("caixa_db_backup")
+            if b64_storage:
+                import base64
+                caminho = db.caminho_banco()
+                pasta = os.path.dirname(caminho)
+                if pasta:
+                    os.makedirs(pasta, exist_ok=True)
+                with open(caminho, "wb") as f:
+                    f.write(base64.b64decode(b64_storage))
+                print(f"[SharedPreferences] Banco restaurado do navegador com sucesso ({len(b64_storage)} bytes b64)!")
+        except Exception as e:
+            print(f"[SharedPreferences] Erro ao restaurar: {e}")
+
+    tema_inicial = ft.ThemeMode.DARK
+    if shared_preferences:
+        try:
+            tema_salvo = await shared_preferences.get("caixa_tema")
+            if tema_salvo == "light":
+                tema_inicial = ft.ThemeMode.LIGHT
+        except Exception:
+            pass
     page.theme_mode = tema_inicial
 
     def tema_escuro() -> bool:
@@ -164,14 +200,6 @@ def main(page: ft.Page):
             except Exception:
                 pass
         page.run_task(fixar_retrato)
-
-    def _registrar_servico(ctrl):
-        try:
-            if hasattr(page, "services"):
-                if ctrl not in page.services:
-                    page.services.append(ctrl)
-        except Exception:
-            pass
 
     haptic_feedback = None
     if mobile:
@@ -215,32 +243,28 @@ def main(page: ft.Page):
     conn = db.conectar()
     db.inicializar_banco(conn)
 
-    try:
-        if db._is_pyodide() or getattr(page, "web", False):
-            if not db.obter_turno_aberto(conn):
-                b64_client = page.client_storage.get("caixa_db_backup")
-                if b64_client:
-                    import base64
-                    with open(db.caminho_banco(), "wb") as f:
-                        f.write(base64.b64decode(b64_client))
-                    conn = db.conectar()
-    except Exception:
-        pass
-
     def sincronizar_armazenamento_navegador():
         try:
             db.salvar_banco_web_sync(conn)
-            if db._is_pyodide() or getattr(page, "web", False):
-                caminho = db.caminho_banco()
-                if os.path.exists(caminho):
-                    with open(caminho, "rb") as f:
-                        data = f.read()
-                    if len(data) > 0:
-                        import base64
-                        b64 = base64.b64encode(data).decode("utf-8")
-                        page.client_storage.set("caixa_db_backup", b64)
         except Exception:
             pass
+
+        if shared_preferences:
+            async def _salvar_sp():
+                try:
+                    conn.commit()
+                    caminho = db.caminho_banco()
+                    if os.path.exists(caminho):
+                        with open(caminho, "rb") as f:
+                            data = f.read()
+                        if len(data) > 0:
+                            import base64
+                            b64 = base64.b64encode(data).decode("utf-8")
+                            await shared_preferences.set("caixa_db_backup", b64)
+                            await shared_preferences.set("caixa_db_last_sync", datetime.now().isoformat())
+                except Exception as ex:
+                    print(f"[SharedPreferences] Erro ao salvar: {ex}")
+            page.run_task(_salvar_sp)
 
     turno_atual = None
 
@@ -2134,6 +2158,7 @@ def main(page: ft.Page):
                     # Fecha o turno no banco de dados
                     db.fechar_turno(conn, turno_id_encerrado, totais, vendas_sistema=v_val, observacao=obs_val)
                     turno_atual = None
+                    sincronizar_armazenamento_navegador()
                     fechar_resumo()
 
                     async def _finalizar_encerramento():
@@ -2332,6 +2357,7 @@ def main(page: ft.Page):
             t_ok = db.reabrir_turno_por_id(conn, turno_para_reabrir.id)
             if t_ok:
                 turno_atual = t_ok
+                sincronizar_armazenamento_navegador()
                 mostrar_snackbar(f"Turno #{t_ok.numero_do_dia} reaberto com sucesso!", ft.Colors.GREEN_700)
                 montar_interface()
 
@@ -2432,6 +2458,7 @@ def main(page: ft.Page):
             mostrar_snackbar(f"Sangria de {formatar_moeda(v)} realizada com sucesso!", ft.Colors.ORANGE_800)
             vibrar("medium")
             recarregar_listas()
+            sincronizar_armazenamento_navegador()
 
         conteudo_sang = ft.Column(
             tight=True, spacing=12,
@@ -2596,6 +2623,7 @@ def main(page: ft.Page):
                 )
                 fechar_dialogo(dlg_fb)
                 recarregar_bicos()
+                sincronizar_armazenamento_navegador()
                 mostrar_snackbar("Bico salvo com sucesso!")
 
             dlg_fb.actions = [
@@ -3098,13 +3126,13 @@ def main(page: ft.Page):
         page.theme_mode = (
             ft.ThemeMode.LIGHT if page.theme_mode == ft.ThemeMode.DARK else ft.ThemeMode.DARK
         )
-        try:
-            page.client_storage.set(
-                "caixa_tema",
-                "dark" if page.theme_mode == ft.ThemeMode.DARK else "light",
-            )
-        except Exception:
-            pass
+        if shared_preferences:
+            async def _salvar_tema_sp():
+                try:
+                    await shared_preferences.set("caixa_tema", "dark" if page.theme_mode == ft.ThemeMode.DARK else "light")
+                except Exception:
+                    pass
+            page.run_task(_salvar_tema_sp)
         aplicar_paleta_ui()
 
     btn_tema = ft.Container(
@@ -3540,6 +3568,7 @@ def main(page: ft.Page):
                             vibrar("light")
                             recarregar_listas()
                             renderizar_itens()
+                            sincronizar_armazenamento_navegador()
                         else:
                             mostrar_snackbar("Não foi possível apagar.", ft.Colors.RED_800)
 
@@ -3606,6 +3635,7 @@ def main(page: ft.Page):
                                 mostrar_snackbar("Lançamento atualizado.")
                                 recarregar_listas()
                                 renderizar_itens()
+                                sincronizar_armazenamento_navegador()
                             else:
                                 mostrar_snackbar("Não foi possível editar.", ft.Colors.RED_800)
                         except Exception:
@@ -4125,12 +4155,12 @@ def main(page: ft.Page):
                         if turno_existente.operador in ("Não informado", "", None) and nome_digitado != "Não informado":
                             conn.execute("UPDATE turnos SET operador = ? WHERE id = ?", (nome_digitado, turno_existente.id))
                             conn.commit()
-                            db.salvar_banco_web_sync()
                             turno_existente.operador = nome_digitado
                         turno_atual = turno_existente
                     else:
                         turno_atual = db.abrir_novo_turno(conn, nome_digitado, fundo_caixa=val_fundo)
 
+                sincronizar_armazenamento_navegador()
                 montar_interface()
             else:
                 texto_erro.value = "PIN incorreto"
@@ -4231,9 +4261,9 @@ def main(page: ft.Page):
 # ---------------------------------------------------------
 # ESCUDO ANTI-TELA PRETA (Para debug em iOS Sandboxed)
 # ---------------------------------------------------------
-def main_seguro(page: ft.Page):
+async def main_seguro(page: ft.Page):
     try:
-        main(page)
+        await main(page)
     except Exception as e:
         import traceback
         page.clean()
