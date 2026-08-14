@@ -3348,7 +3348,7 @@ def main(page: ft.Page):
         if turno_atual is None:
             return
 
-        lista_ctrl = ft.Column(spacing=8)
+        lista_ctrl = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO)
         txt_sub_info = ft.Text("", size=13, color=pal.text_sec)
         termo_busca = {"valor": "", "filtro_tipo": "Todos"}
 
@@ -3648,7 +3648,7 @@ def main(page: ft.Page):
                     btn_exp_excel,
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                 ft.Divider(height=1, color=pal.border),
-                ft.Container(content=lista_ctrl, height=360, scroll=ft.ScrollMode.AUTO),
+                ft.Container(content=lista_ctrl, height=360),
             ],
         )
 
