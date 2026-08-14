@@ -63,6 +63,8 @@ TIPO_REQUISICAO = "Requisição"
 TIPO_SODEXO = "Sodexo"
 TIPO_DEPOSITO_GLOBAL = "Depósito Global"
 TIPO_DESPESA = "Despesas"
+TIPO_SANGRIA = "Sangria"
+TIPO_SUPRIMENTO = "Suprimento"
 
 LISTA_CARTOES = [
     "Fitcard",
@@ -83,29 +85,40 @@ LISTA_CARTOES = [
 
 _vistos_td = set()
 TIPOS_DROPDOWN = []
-for _t in [TIPO_DINHEIRO, TIPO_PIX, TIPO_REQUISICAO, *LISTA_CARTOES, TIPO_DEPOSITO_GLOBAL, TIPO_DESPESA]:
+for _t in [TIPO_DINHEIRO, TIPO_PIX, TIPO_REQUISICAO, *LISTA_CARTOES, TIPO_DEPOSITO_GLOBAL, TIPO_DESPESA, TIPO_SANGRIA, TIPO_SUPRIMENTO]:
     if _t not in _vistos_td:
         _vistos_td.add(_t)
         TIPOS_DROPDOWN.append(_t)
 
 
 def _diretorio_seguro() -> str:
-    # Tenta pegar a pasta oficial do Flet primeiro
+    # 1. Tenta pegar a pasta oficial do Flet primeiro
     data_dir = os.environ.get("FLET_APP_STORAGE_DATA")
     if data_dir:
-        os.makedirs(data_dir, exist_ok=True)
-        return data_dir
+        try:
+            os.makedirs(data_dir, exist_ok=True)
+            return data_dir
+        except Exception:
+            pass
 
-    # Salvação para o iOS compilado: Procura a pasta Documents autorizada
-    home = os.environ.get("HOME")
-    if home:
-        docs = os.path.join(home, "Documents")
-        if os.path.isdir(docs):
-            return docs
+    # 2. Em iOS compilado: Procura a pasta Documents autorizada do container
+    if os.environ.get("FLET_PLATFORM") == "ios":
+        home = os.environ.get("HOME")
+        if home:
+            docs = os.path.join(home, "Documents")
+            try:
+                os.makedirs(docs, exist_ok=True)
+                return docs
+            except Exception:
+                pass
 
-    # Fallback robusto: pasta ao lado do próprio script, independente de
-    # onde o processo foi iniciado (evita depender do cwd do processo).
-    return os.path.dirname(os.path.abspath(__file__))
+    # 3. Fallback robusto: pasta do projeto ao lado do script
+    local_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        os.makedirs(local_dir, exist_ok=True)
+        return local_dir
+    except Exception:
+        return os.getcwd()
 
 
 def caminho_banco() -> str:
@@ -139,8 +152,12 @@ class Totais:
     dinheiro: float
     deposito_global: float = 0.0
     despesas: float = 0.0
+    sangrias: float = 0.0
+    suprimento: float = 0.0
+    fundo_caixa: float = 0.0
     qtd_cartoes: int = 0
     qtd_pix: int = 0
+    qtd_sangrias: int = 0
 
     @property
     def total_geral(self) -> float:
@@ -153,6 +170,11 @@ class Totais:
             + self.despesas
         )
 
+    @property
+    def dinheiro_gaveta(self) -> float:
+        """Calcula o dinheiro físico real esperado na gaveta."""
+        return max(0.0, self.fundo_caixa + self.fisico + self.suprimento - self.sangrias - self.despesas)
+
 
 @dataclass
 class Turno:
@@ -163,6 +185,28 @@ class Turno:
     vendas_sistema: float = 0.0
     observacao: str = ""
     numero_do_dia: int = 1
+    fundo_caixa: float = 0.0
+
+
+@dataclass
+class Encerrante:
+    id: int
+    turno_id: int
+    bico: str
+    combustivel: str
+    inicial: float
+    final: float
+    preco_litro: float
+    litros: float
+    total_reais: float
+
+
+BICOS_PADRAO = [
+    ("Bico 01", "Gasolina Comum", 5.89),
+    ("Bico 02", "Gasolina Aditivada", 6.09),
+    ("Bico 03", "Etanol", 3.99),
+    ("Bico 04", "Diesel S10", 6.19),
+]
 
 
 def obter_numero_turno_do_dia(conn: sqlite3.Connection, turno_id: int) -> int:
@@ -222,7 +266,24 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
             requisicao REAL,
             total_geral REAL,
             vendas_sistema REAL DEFAULT 0.0,
-            observacao TEXT DEFAULT ''
+            observacao TEXT DEFAULT '',
+            fundo_caixa REAL DEFAULT 0.0
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS encerrantes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            turno_id INTEGER NOT NULL,
+            bico TEXT NOT NULL,
+            combustivel TEXT NOT NULL,
+            inicial REAL NOT NULL DEFAULT 0.0,
+            final REAL NOT NULL DEFAULT 0.0,
+            preco_litro REAL NOT NULL DEFAULT 0.0,
+            litros REAL NOT NULL DEFAULT 0.0,
+            total_reais REAL NOT NULL DEFAULT 0.0,
+            FOREIGN KEY (turno_id) REFERENCES turnos(id)
         )
         """
     )
@@ -252,6 +313,8 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
         cursor.execute("ALTER TABLE turnos ADD COLUMN vendas_sistema REAL DEFAULT 0.0")
     if "observacao" not in colunas_turnos:
         cursor.execute("ALTER TABLE turnos ADD COLUMN observacao TEXT DEFAULT ''")
+    if "fundo_caixa" not in colunas_turnos:
+        cursor.execute("ALTER TABLE turnos ADD COLUMN fundo_caixa REAL DEFAULT 0.0")
 
     turno = obter_turno_aberto(conn)
     if turno:
@@ -266,13 +329,14 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
 def obter_turno_aberto(conn: sqlite3.Connection) -> Optional[Turno]:
     cursor = conn.cursor()
     row = cursor.execute(
-        "SELECT id, aberto_em, fechado_em, operador, vendas_sistema, observacao FROM turnos WHERE fechado_em IS NULL ORDER BY id DESC LIMIT 1"
+        "SELECT id, aberto_em, fechado_em, operador, vendas_sistema, observacao, fundo_caixa FROM turnos WHERE fechado_em IS NULL ORDER BY id DESC LIMIT 1"
     ).fetchone()
 
     if row:
         cols = row.keys()
         v_sis = row["vendas_sistema"] if ("vendas_sistema" in cols and row["vendas_sistema"] is not None) else 0.0
         obs = row["observacao"] if ("observacao" in cols and row["observacao"] is not None) else ""
+        f_cx = float(row["fundo_caixa"] or 0.0) if "fundo_caixa" in cols else 0.0
         num_dia = obter_numero_turno_do_dia(conn, row["id"])
         return Turno(
             id=row["id"],
@@ -282,6 +346,7 @@ def obter_turno_aberto(conn: sqlite3.Connection) -> Optional[Turno]:
             vendas_sistema=v_sis,
             observacao=obs,
             numero_do_dia=num_dia,
+            fundo_caixa=f_cx,
         )
     return None
 
@@ -289,7 +354,7 @@ def obter_turno_aberto(conn: sqlite3.Connection) -> Optional[Turno]:
 def obter_turno_por_id(conn: sqlite3.Connection, turno_id: int) -> Optional[Turno]:
     cursor = conn.cursor()
     row = cursor.execute(
-        "SELECT id, aberto_em, fechado_em, operador, vendas_sistema, observacao FROM turnos WHERE id = ?",
+        "SELECT id, aberto_em, fechado_em, operador, vendas_sistema, observacao, fundo_caixa FROM turnos WHERE id = ?",
         (turno_id,),
     ).fetchone()
 
@@ -297,6 +362,7 @@ def obter_turno_por_id(conn: sqlite3.Connection, turno_id: int) -> Optional[Turn
         cols = row.keys()
         v_sis = row["vendas_sistema"] if ("vendas_sistema" in cols and row["vendas_sistema"] is not None) else 0.0
         obs = row["observacao"] if ("observacao" in cols and row["observacao"] is not None) else ""
+        f_cx = float(row["fundo_caixa"] or 0.0) if "fundo_caixa" in cols else 0.0
         num_dia = obter_numero_turno_do_dia(conn, row["id"])
         return Turno(
             id=row["id"],
@@ -306,6 +372,7 @@ def obter_turno_por_id(conn: sqlite3.Connection, turno_id: int) -> Optional[Turn
             vendas_sistema=v_sis,
             observacao=obs,
             numero_do_dia=num_dia,
+            fundo_caixa=f_cx,
         )
     return None
 
@@ -324,13 +391,14 @@ def obter_ultimo_turno_fechado(conn: sqlite3.Connection) -> Optional[Turno]:
     """Retorna o último turno que foi encerrado."""
     cursor = conn.cursor()
     row = cursor.execute(
-        "SELECT id, aberto_em, fechado_em, operador, vendas_sistema, observacao FROM turnos WHERE fechado_em IS NOT NULL ORDER BY id DESC LIMIT 1"
+        "SELECT id, aberto_em, fechado_em, operador, vendas_sistema, observacao, fundo_caixa FROM turnos WHERE fechado_em IS NOT NULL ORDER BY id DESC LIMIT 1"
     ).fetchone()
 
     if row:
         cols = row.keys()
         v_sis = row["vendas_sistema"] if ("vendas_sistema" in cols and row["vendas_sistema"] is not None) else 0.0
         obs = row["observacao"] if ("observacao" in cols and row["observacao"] is not None) else ""
+        f_cx = float(row["fundo_caixa"] or 0.0) if "fundo_caixa" in cols else 0.0
         num_dia = obter_numero_turno_do_dia(conn, row["id"])
         return Turno(
             id=row["id"],
@@ -340,6 +408,7 @@ def obter_ultimo_turno_fechado(conn: sqlite3.Connection) -> Optional[Turno]:
             vendas_sistema=v_sis,
             observacao=obs,
             numero_do_dia=num_dia,
+            fundo_caixa=f_cx,
         )
     return None
 
@@ -353,15 +422,18 @@ def reabrir_turno_por_id(conn: sqlite3.Connection, turno_id: int) -> Optional[Tu
     return obter_turno_por_id(conn, turno_id)
 
 
-def abrir_novo_turno(conn: sqlite3.Connection, operador: str) -> Turno:
+def abrir_novo_turno(conn: sqlite3.Connection, operador: str, fundo_caixa: float = 0.0) -> Turno:
     cursor = conn.cursor()
     agora = datetime.now().strftime("%d/%m/%Y %H:%M")
-    cursor.execute("INSERT INTO turnos (aberto_em, operador) VALUES (?, ?)", (agora, operador))
+    cursor.execute(
+        "INSERT INTO turnos (aberto_em, operador, fundo_caixa) VALUES (?, ?, ?)",
+        (agora, operador, fundo_caixa),
+    )
     conn.commit()
     salvar_banco_web_sync()
     turno_id = cursor.lastrowid
     num_dia = obter_numero_turno_do_dia(conn, turno_id)
-    return Turno(id=turno_id, aberto_em=agora, operador=operador, numero_do_dia=num_dia)
+    return Turno(id=turno_id, aberto_em=agora, operador=operador, numero_do_dia=num_dia, fundo_caixa=fundo_caixa)
 
 
 def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
@@ -380,10 +452,21 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
     requisicao = totais_centavos.get(TIPO_REQUISICAO, 0) / 100.0
     deposito_global = totais_centavos.get(TIPO_DEPOSITO_GLOBAL, 0) / 100.0
     despesas = totais_centavos.get(TIPO_DESPESA, 0) / 100.0
+    sangrias = totais_centavos.get(TIPO_SANGRIA, 0) / 100.0
+    suprimento = totais_centavos.get(TIPO_SUPRIMENTO, 0) / 100.0
 
     total_cartoes = sum(totais_centavos.get(cartao, 0) for cartao in LISTA_CARTOES) / 100.0
     qtd_cartoes = sum(totais_qtd.get(cartao, 0) for cartao in LISTA_CARTOES)
     qtd_pix = totais_qtd.get(TIPO_PIX, 0)
+    qtd_sangrias = totais_qtd.get(TIPO_SANGRIA, 0)
+
+    fundo_caixa = 0.0
+    try:
+        row_t = cursor.execute("SELECT fundo_caixa FROM turnos WHERE id = ?", (turno_id,)).fetchone()
+        if row_t and "fundo_caixa" in row_t.keys() and row_t["fundo_caixa"] is not None:
+            fundo_caixa = float(row_t["fundo_caixa"] or 0.0)
+    except Exception:
+        pass
 
     fisico = dinheiro
 
@@ -395,8 +478,12 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
         dinheiro=dinheiro,
         deposito_global=deposito_global,
         despesas=despesas,
+        sangrias=sangrias,
+        suprimento=suprimento,
+        fundo_caixa=fundo_caixa,
         qtd_cartoes=qtd_cartoes,
         qtd_pix=qtd_pix,
+        qtd_sangrias=qtd_sangrias,
     )
 
 
@@ -418,6 +505,180 @@ def obter_detalhe_cartoes(conn: sqlite3.Connection, turno_id: int) -> dict[str, 
         )
         for cartao in LISTA_CARTOES
     }
+
+
+def obter_encerrantes(conn: sqlite3.Connection, turno_id: int) -> list[Encerrante]:
+    """Retorna todos os encerrantes de bicos lançados no turno."""
+    cursor = conn.cursor()
+    rows = cursor.execute(
+        "SELECT id, turno_id, bico, combustivel, inicial, final, preco_litro, litros, total_reais FROM encerrantes WHERE turno_id = ? ORDER BY id ASC",
+        (turno_id,)
+    ).fetchall()
+    return [
+        Encerrante(
+            id=r["id"],
+            turno_id=r["turno_id"],
+            bico=r["bico"],
+            combustivel=r["combustivel"],
+            inicial=float(r["inicial"] or 0.0),
+            final=float(r["final"] or 0.0),
+            preco_litro=float(r["preco_litro"] or 0.0),
+            litros=float(r["litros"] or 0.0),
+            total_reais=float(r["total_reais"] or 0.0),
+        )
+        for r in rows
+    ]
+
+
+def salvar_encerrante(
+    conn: sqlite3.Connection,
+    turno_id: int,
+    bico: str,
+    combustivel: str,
+    inicial: float,
+    final: float,
+    preco_litro: float,
+    encerrante_id: Optional[int] = None
+) -> Encerrante:
+    """Salva ou atualiza uma medição de encerrante com cálculo automático de litros e total."""
+    cursor = conn.cursor()
+    litros = max(0.0, round(final - inicial, 2)) if final >= inicial else 0.0
+    total_reais = round(litros * preco_litro, 2)
+    if encerrante_id:
+        cursor.execute(
+            """
+            UPDATE encerrantes
+            SET bico = ?, combustivel = ?, inicial = ?, final = ?, preco_litro = ?, litros = ?, total_reais = ?
+            WHERE id = ? AND turno_id = ?
+            """,
+            (bico, combustivel, inicial, final, preco_litro, litros, total_reais, encerrante_id, turno_id)
+        )
+        enc_id = encerrante_id
+    else:
+        cursor.execute(
+            """
+            INSERT INTO encerrantes (turno_id, bico, combustivel, inicial, final, preco_litro, litros, total_reais)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (turno_id, bico, combustivel, inicial, final, preco_litro, litros, total_reais)
+        )
+        enc_id = cursor.lastrowid
+    conn.commit()
+    salvar_banco_web_sync()
+    return Encerrante(
+        id=enc_id,
+        turno_id=turno_id,
+        bico=bico,
+        combustivel=combustivel,
+        inicial=inicial,
+        final=final,
+        preco_litro=preco_litro,
+        litros=litros,
+        total_reais=total_reais,
+    )
+
+
+def excluir_encerrante(conn: sqlite3.Connection, encerrante_id: int) -> None:
+    """Remove uma medição de bico."""
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM encerrantes WHERE id = ?", (encerrante_id,))
+    conn.commit()
+    salvar_banco_web_sync()
+
+
+def obter_totais_encerrantes(conn: sqlite3.Connection, turno_id: int) -> tuple[float, float]:
+    """Retorna (total_litros, total_reais) das medições de bicos do turno."""
+    cursor = conn.cursor()
+    row = cursor.execute(
+        "SELECT SUM(litros), SUM(total_reais) FROM encerrantes WHERE turno_id = ?",
+        (turno_id,)
+    ).fetchone()
+    if row:
+        return float(row[0] or 0.0), float(row[1] or 0.0)
+    return 0.0, 0.0
+
+
+def obter_distribuicao_pagamentos(conn: sqlite3.Connection, turno_id: int) -> dict[str, float]:
+    """Retorna a distribuição de valores por categoria para gráficos."""
+    totais = obter_totais(conn, turno_id)
+    dist = {}
+    if totais.fisico > 0: dist["Dinheiro"] = totais.fisico
+    if totais.pix > 0: dist["Pag Pix"] = totais.pix
+    if totais.cartoes > 0: dist["Cartões"] = totais.cartoes
+    if totais.requisicao > 0: dist["Requisição"] = totais.requisicao
+    if totais.deposito_global > 0: dist["Depósito Global"] = totais.deposito_global
+    if totais.despesas > 0: dist["Despesas"] = totais.despesas
+    if totais.sangrias > 0: dist["Sangria"] = totais.sangrias
+    return dist
+
+
+def obter_movimento_por_hora(conn: sqlite3.Connection, turno_id: int) -> list[tuple[str, int, float]]:
+    """Retorna o movimento agrupado por hora: [(hora_str, quantidade_vendas, total_reais), ...]."""
+    cursor = conn.cursor()
+    rows = cursor.execute(
+        """
+        SELECT substr(data, 12, 2) as hora, COUNT(*), SUM(valor_centavos)
+        FROM lancamentos
+        WHERE turno_id = ? AND data IS NOT NULL AND length(data) >= 13
+        GROUP BY hora
+        ORDER BY hora ASC
+        """,
+        (turno_id,)
+    ).fetchall()
+    resultado = []
+    for r in rows:
+        h = f"{r[0]}:00" if r[0] else "--:00"
+        qtd = int(r[1] or 0)
+        tot = float(r[2] or 0) / 100.0
+        resultado.append((h, qtd, tot))
+    return resultado
+
+
+def exportar_turno_excel_csv(conn: sqlite3.Connection, turno_id: int) -> str:
+    """Gera um arquivo CSV formatado com BOM UTF-8 (100% compatível com Microsoft Excel)."""
+    turno = obter_turno_por_id(conn, turno_id)
+    totais = obter_totais(conn, turno_id)
+    cursor = conn.cursor()
+    lancamentos = cursor.execute(
+        "SELECT id, tipo, valor_centavos, descricao, data FROM lancamentos WHERE turno_id = ? ORDER BY id ASC",
+        (turno_id,)
+    ).fetchall()
+
+    pasta = caminho_backups()
+    os.makedirs(pasta, exist_ok=True)
+    nome_op = (turno.operador or "Operador").replace(" ", "_")
+    data_limpa = (turno.aberto_em or "data").replace("/", "-").replace(":", "-").replace(" ", "_")
+    caminho = os.path.join(pasta, f"Fechamento_Turno_{turno.numero_do_dia}_{nome_op}_{data_limpa}.csv")
+
+    with open(caminho, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f, delimiter=";")
+        writer.writerow(["FECHAMENTO DE TURNO - POSTO JANJAO"])
+        writer.writerow(["Turno:", f"#{turno.numero_do_dia}"])
+        writer.writerow(["Operador:", turno.operador])
+        writer.writerow(["Aberto em:", turno.aberto_em])
+        writer.writerow(["Fechado em:", turno.fechado_em or "Em Aberto"])
+        writer.writerow([])
+        writer.writerow(["RESUMO FINANCEIRO"])
+        writer.writerow(["Categoria", "Valor"])
+        writer.writerow(["Dinheiro em Vendas", formatar_moeda(totais.fisico)])
+        writer.writerow(["Fundo de Caixa (Troco Inicial)", formatar_moeda(totais.fundo_caixa)])
+        if totais.sangrias > 0:
+            writer.writerow(["Sangrias (Retiradas Cofre)", formatar_moeda(totais.sangrias)])
+        writer.writerow(["Dinheiro na Gaveta (Atual)", formatar_moeda(totais.dinheiro_gaveta)])
+        writer.writerow(["Pag Pix", formatar_moeda(totais.pix)])
+        writer.writerow(["Cartões e Vouchers", formatar_moeda(totais.cartoes)])
+        writer.writerow(["Requisição", formatar_moeda(totais.requisicao)])
+        writer.writerow(["Depósito Global", formatar_moeda(totais.deposito_global)])
+        writer.writerow(["Despesas", formatar_moeda(totais.despesas)])
+        writer.writerow(["TOTAL GERAL", formatar_moeda(totais.total_geral)])
+        writer.writerow([])
+        writer.writerow(["LANCAMENTOS DETALHADOS"])
+        writer.writerow(["ID", "Data/Hora", "Forma de Pagamento", "Valor (R$)", "Descricao / Placa"])
+        for l in lancamentos:
+            v = float(l["valor_centavos"] or 0) / 100.0
+            writer.writerow([l["id"], l["data"] or "", l["tipo"] or "", f"{v:.2f}".replace(".", ","), l["descricao"] or ""])
+
+    return caminho
 
 
 def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str, tuple[float, int]]) -> str:
@@ -444,13 +705,23 @@ def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str,
         f"💳 *Total Cartões ({totais.qtd_cartoes} un):* *{formatar_moeda(totais.cartoes)}*",
         div,
         f"💵 *Sobra Dinheiro:* {formatar_moeda(totais.fisico)}",
+    ]
+
+    if totais.fundo_caixa > 0:
+        linhas.append(f"💰 *Fundo de Caixa:* {formatar_moeda(totais.fundo_caixa)}")
+    if totais.sangrias > 0:
+        linhas.append(f"🔻 *Sangrias (Cofre):* {formatar_moeda(totais.sangrias)} ({totais.qtd_sangrias} un)")
+    if totais.fundo_caixa > 0 or totais.sangrias > 0:
+        linhas.append(f"📥 *Dinheiro na Gaveta:* {formatar_moeda(totais.dinheiro_gaveta)}")
+
+    linhas.extend([
         f"⚡ *Pag Pix ({totais.qtd_pix} un):* {formatar_moeda(totais.pix)}",
         f"📋 *Requisição:* {formatar_moeda(totais.requisicao)}",
         f"🔒 *Depósito Global:* {formatar_moeda(totais.deposito_global)}",
         f"🛒 *Despesas:* {formatar_moeda(totais.despesas)}",
         div,
         f"✅ *TOTAL GERAL: {formatar_moeda(totais.total_geral)}*",
-    ]
+    ])
 
     v_sis = getattr(turno, "vendas_sistema", 0.0) or 0.0
     obs = getattr(turno, "observacao", "") or ""

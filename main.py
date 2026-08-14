@@ -598,6 +598,25 @@ def main(page: ft.Page):
         ),
     )
 
+    txt_alerta_sangria = ft.Text("", size=12, weight=ft.FontWeight.W_600, color=C_ORANGE, expand=True)
+    banner_alerta_sangria = ft.Container(
+        content=ft.Row(
+            spacing=8,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[
+                ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color=C_ORANGE, size=18),
+                txt_alerta_sangria,
+                ft.TextButton("Fazer Sangria", icon=ft.Icons.CALL_MADE_ROUNDED, icon_color=C_ORANGE, on_click=lambda e: abrir_modal_sangria()),
+            ]
+        ),
+        bgcolor=ft.Colors.with_opacity(0.12, C_ORANGE),
+        border=borda_all(1, ft.Colors.with_opacity(0.35, C_ORANGE)),
+        border_radius=RADIUS_SM,
+        padding=ft.Padding(12, 6, 8, 6),
+        visible=False,
+        width=largura_conteudo,
+    )
+
     def atualizar_painel():
         if turno_atual is None:
             return
@@ -618,6 +637,12 @@ def main(page: ft.Page):
         badge_turno_pill.content.controls[1].value = f"Turno #{turno_atual.numero_do_dia}"
         txt_total_geral_sub.value = f"Turno #{turno_atual.numero_do_dia} · Aberto em {turno_atual.aberto_em}"
         
+        if totais.dinheiro_gaveta >= 1500.0:
+            txt_alerta_sangria.value = f"Gaveta com {formatar_moeda(totais.dinheiro_gaveta)} em espécie. Recomendado sangria."
+            banner_alerta_sangria.visible = True
+        else:
+            banner_alerta_sangria.visible = False
+
         if mobile:
             txt_rodape_resumo.value = f"Total geral · {formatar_moeda(totais.total_geral)}"
 
@@ -773,7 +798,7 @@ def main(page: ft.Page):
     )
 
     def ao_tocar_fora(e):
-        desfocar_campos(input_valor, input_desc)
+        desfocar_campos(input_valor, input_desc, input_recebido)
 
     input_valor = ft.TextField(
         label="Valor (Ex: 50.00 ou 50,00)",
@@ -785,6 +810,75 @@ def main(page: ft.Page):
         enable_suggestions=False,
         input_filter=FILTRO_VALOR_MONETARIO,
         on_tap_outside=ao_tocar_fora,
+    )
+
+    txt_troco_valor = ft.Text("R$ 0,00", size=13, weight=ft.FontWeight.BOLD, color=C_GREEN)
+    badge_troco_calculado = ft.Container(
+        content=ft.Row(
+            spacing=6,
+            tight=True,
+            controls=[
+                ft.Icon(ft.Icons.SAVINGS_ROUNDED, color=C_GREEN, size=15),
+                ft.Text("Troco:", size=12, color=pal.text_sec),
+                txt_troco_valor,
+            ]
+        ),
+        bgcolor=ft.Colors.with_opacity(0.12, C_GREEN),
+        border=borda_all(1, ft.Colors.with_opacity(0.30, C_GREEN)),
+        border_radius=100,
+        padding=ft.Padding(10, 5, 10, 5),
+        visible=False,
+    )
+
+    def atualizar_calculo_troco(e=None):
+        if estado_tipo.get("valor") != db.TIPO_DINHEIRO:
+            badge_troco_calculado.visible = False
+            input_recebido.visible = False
+            try:
+                page.update()
+            except Exception:
+                pass
+            return
+        input_recebido.visible = True
+        val_dev = validar_valor_monetario(input_valor.value or "")
+        val_rec = validar_valor_monetario(input_recebido.value or "")
+        if val_dev > 0 and val_rec >= val_dev:
+            troco = round(val_rec - val_dev, 2)
+            txt_troco_valor.value = formatar_moeda(troco)
+            badge_troco_calculado.visible = True
+        else:
+            badge_troco_calculado.visible = False
+        try:
+            page.update()
+        except Exception:
+            pass
+
+    input_recebido = ft.TextField(
+        label="Valor Pago pelo Cliente (Troco)",
+        hint_text="Ex: 100,00",
+        width=largura_conteudo,
+        prefix=ft.Text("R$ "),
+        keyboard_type=_keyboard_valor,
+        adaptive=adaptive_ui,
+        autocorrect=False,
+        enable_suggestions=False,
+        input_filter=FILTRO_VALOR_MONETARIO,
+        visible=(tipo_inicial == db.TIPO_DINHEIRO),
+        on_change=atualizar_calculo_troco,
+        on_tap_outside=ao_tocar_fora,
+    )
+
+    input_valor.on_change = atualizar_calculo_troco
+
+    row_calculadora_troco = ft.Row(
+        spacing=8,
+        width=largura_conteudo,
+        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        controls=[
+            ft.Container(content=input_recebido, expand=True),
+            badge_troco_calculado,
+        ]
     )
 
     input_desc = ft.TextField(
@@ -819,7 +913,8 @@ def main(page: ft.Page):
         input_valor.value = val
         if desc:
             input_desc.value = desc
-        desfocar_campos(input_valor, input_desc)
+        atualizar_calculo_troco()
+        desfocar_campos(input_valor, input_desc, input_recebido)
         page.update()
 
     def validar_valor(texto: str):
@@ -1674,45 +1769,57 @@ def main(page: ft.Page):
         input_observacao.on_change = _on_auditoria_change
         input_observacao.on_blur = _on_auditoria_change
 
+        linhas_totais_resumo = [
+            header_turno_resumo,
+            ft.Divider(height=1, color=pal.border),
+            ft.Text("DETALHE DE CARTÕES E VOUCHERS", size=11, color=pal.text_sec, weight=ft.FontWeight.BOLD),
+            caixa_cartoes,
+            _linha_total_resumo(ft.Icons.CREDIT_CARD_ROUNDED, "Total de Cartões", totais.cartoes, C_ORANGE, f"({totais.qtd_cartoes} un)"),
+            ft.Divider(height=1, color=pal.border),
+            _linha_total_resumo(ft.Icons.PAYMENTS_ROUNDED, "Sobra de Dinheiro", totais.fisico, C_GREEN),
+        ]
+
+        if totais.fundo_caixa > 0:
+            linhas_totais_resumo.append(_linha_total_resumo(ft.Icons.SAVINGS_ROUNDED, "Fundo de Caixa (Inicial)", totais.fundo_caixa, C_GREEN))
+        if totais.sangrias > 0:
+            linhas_totais_resumo.append(_linha_total_resumo(ft.Icons.CALL_MADE_ROUNDED, "Sangrias p/ Cofre", totais.sangrias, C_ORANGE, f"({totais.qtd_sangrias} un)"))
+        if totais.fundo_caixa > 0 or totais.sangrias > 0:
+            linhas_totais_resumo.append(_linha_total_resumo(ft.Icons.ACCOUNT_BALANCE_WALLET_ROUNDED, "Dinheiro na Gaveta (Atual)", totais.dinheiro_gaveta, C_GREEN))
+
+        linhas_totais_resumo.extend([
+            _linha_total_resumo(ft.Icons.QR_CODE_ROUNDED, "Pag Pix", totais.pix, C_BLUE, f"({totais.qtd_pix} un)", on_click=lambda e: ao_abrir_detalhe(db.TIPO_PIX, "Pag Pix")),
+            _linha_total_resumo(ft.Icons.RECEIPT_LONG_ROUNDED, "Requisição", totais.requisicao, C_PURPLE),
+            _linha_total_resumo(ft.Icons.ACCOUNT_BALANCE_ROUNDED, "Depósito Global", totais.deposito_global, C_BROWN),
+            _linha_total_resumo(ft.Icons.MONEY_OFF_ROUNDED, "Despesas", totais.despesas, C_RED),
+            ft.Divider(height=4, color=pal.border),
+            ft.Text("CONCILIAÇÃO DE VENDAS DO CAIXA", size=11, color=pal.text_sec, weight=ft.FontWeight.BOLD),
+            ft.Container(
+                bgcolor=ft.Colors.with_opacity(0.12, C_ACCENT),
+                border=borda_all(1.2, C_ACCENT),
+                border_radius=RADIUS_SM,
+                padding=ft.Padding(14, 12, 14, 12),
+                content=ft.Row([
+                    ft.Row(
+                        spacing=8,
+                        controls=[
+                            ft.Icon(ft.Icons.POINT_OF_SALE_ROUNDED, color=C_ACCENT_LIGHT, size=20),
+                            ft.Text("TOTAL DE VENDAS PISTA:", weight=ft.FontWeight.BOLD, size=13, color=pal.text_pri),
+                        ]
+                    ),
+                    ft.Container(expand=True),
+                    ft.Text(formatar_moeda(totais.total_geral), weight=ft.FontWeight.BOLD, size=18, color=C_ACCENT_LIGHT if tema_escuro() else C_ACCENT),
+                ])
+            ),
+            input_vendas_sistema,
+            container_diferenca,
+            input_observacao,
+            ft.Container(height=10),
+        ])
+
         return ft.Column(
             tight=True, spacing=10,
             scroll=ft.ScrollMode.AUTO, expand=True,
-            controls=[
-                header_turno_resumo,
-                ft.Divider(height=1, color=pal.border),
-                ft.Text("DETALHE DE CARTÕES E VOUCHERS", size=11, color=pal.text_sec, weight=ft.FontWeight.BOLD),
-                caixa_cartoes,
-                _linha_total_resumo(ft.Icons.CREDIT_CARD_ROUNDED, "Total de Cartões", totais.cartoes, C_ORANGE, f"({totais.qtd_cartoes} un)"),
-                ft.Divider(height=1, color=pal.border),
-                _linha_total_resumo(ft.Icons.PAYMENTS_ROUNDED, "Sobra de Dinheiro", totais.fisico, C_GREEN),
-                _linha_total_resumo(ft.Icons.QR_CODE_ROUNDED, "Pag Pix", totais.pix, C_BLUE, f"({totais.qtd_pix} un)", on_click=lambda e: ao_abrir_detalhe(db.TIPO_PIX, "Pag Pix")),
-                _linha_total_resumo(ft.Icons.RECEIPT_LONG_ROUNDED, "Requisição", totais.requisicao, C_PURPLE),
-                _linha_total_resumo(ft.Icons.ACCOUNT_BALANCE_ROUNDED, "Depósito Global", totais.deposito_global, C_BROWN),
-                _linha_total_resumo(ft.Icons.MONEY_OFF_ROUNDED, "Despesas", totais.despesas, C_RED),
-                ft.Divider(height=4, color=pal.border),
-                ft.Text("CONCILIAÇÃO DE VENDAS DO CAIXA", size=11, color=pal.text_sec, weight=ft.FontWeight.BOLD),
-                ft.Container(
-                    bgcolor=ft.Colors.with_opacity(0.12, C_ACCENT),
-                    border=borda_all(1.2, C_ACCENT),
-                    border_radius=RADIUS_SM,
-                    padding=ft.Padding(14, 12, 14, 12),
-                    content=ft.Row([
-                        ft.Row(
-                            spacing=8,
-                            controls=[
-                                ft.Icon(ft.Icons.POINT_OF_SALE_ROUNDED, color=C_ACCENT_LIGHT, size=20),
-                                ft.Text("TOTAL DE VENDAS PISTA:", weight=ft.FontWeight.BOLD, size=13, color=pal.text_pri),
-                            ]
-                        ),
-                        ft.Container(expand=True),
-                        ft.Text(formatar_moeda(totais.total_geral), weight=ft.FontWeight.BOLD, size=18, color=C_ACCENT_LIGHT if tema_escuro() else C_ACCENT),
-                    ])
-                ),
-                input_vendas_sistema,
-                container_diferenca,
-                input_observacao,
-                ft.Container(height=10),
-            ],
+            controls=linhas_totais_resumo,
         )
 
     def acao_fechar_caixa(e=None):
@@ -1985,6 +2092,7 @@ def main(page: ft.Page):
         btn_whatsapp = _action_pill_btn(ft.Icons.CHAT_ROUNDED, "WhatsApp", abrir_whatsapp, cor_bg="#15803d", cor_texto=ft.Colors.WHITE)
         btn_copiar = _action_pill_btn(ft.Icons.CONTENT_COPY_ROUNDED, "Copiar Texto", copiar_resumo)
         btn_compartilhar_pdf = _action_pill_btn(ft.Icons.PICTURE_AS_PDF_ROUNDED, "Baixar PDF", compartilhar_pdf)
+        btn_excel_resumo = _action_pill_btn(ft.Icons.TABLE_CHART_ROUNDED, "Excel (CSV)", acao_exportar_excel, cor_bg="#047857", cor_texto=ft.Colors.WHITE)
         btn_encerrar = _action_pill_btn(ft.Icons.LOCK_ROUNDED, "Encerrar Turno", encerrar_turno, is_primary=True)
         btn_fechar = _action_pill_btn(ft.Icons.CLOSE_ROUNDED, "Fechar", fechar_resumo)
 
@@ -1993,7 +2101,7 @@ def main(page: ft.Page):
             wrap=True,
             spacing=8,
             run_spacing=8,
-            controls=[btn_whatsapp, btn_copiar, btn_compartilhar_pdf, btn_encerrar, btn_fechar],
+            controls=[btn_whatsapp, btn_copiar, btn_compartilhar_pdf, btn_excel_resumo, btn_encerrar, btn_fechar],
         )
 
         largura_resumo = min(480, largura_conteudo)
@@ -2159,6 +2267,447 @@ def main(page: ft.Page):
     # BOTTOM SHEET
     # ══════════════════════════════════════════════════════════════��[...]
     # ════════════════════════════════════════════════════════════════════════
+    # NOVAS AÇÕES E MODAIS PROFISSIONAIS
+    # ════════════════════════════════════════════════════════════════════════
+    def abrir_modal_sangria(e=None):
+        if turno_atual is None:
+            return
+        fechar_menu()
+        garantir_conexao()
+        tot = db.obter_totais(conn, turno_atual.id)
+        
+        campo_val_sangria = ft.TextField(
+            label="Valor da Sangria (R$)",
+            hint_text="0,00",
+            prefix=ft.Text("R$ ", size=16, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+            keyboard_type=_keyboard_valor,
+            input_filter=FILTRO_VALOR_MONETARIO,
+            filled=True,
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border_color=pal.border,
+            focused_border_color=C_ORANGE,
+            autofocus=True,
+        )
+        campo_motivo_sangria = ft.TextField(
+            label="Destino / Justificativa",
+            hint_text="Ex: Retirada Gerência / Cofre",
+            value="Retirada para o Cofre",
+            filled=True,
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border_color=pal.border,
+            focused_border_color=C_ORANGE,
+        )
+
+        dlg_sang = None
+        sheet_sang = None
+        def fechar_sang(x=None):
+            if dlg_sang: fechar_dialogo(dlg_sang)
+            if sheet_sang: fechar_dialogo(sheet_sang)
+
+        def confirmar_sangria(x):
+            v = validar_valor(campo_val_sangria.value or "")
+            if v is None:
+                campo_val_sangria.error_text = "Informe um valor válido maior que zero"
+                page.update()
+                return
+            garantir_conexao()
+            db.inserir_lancamento(
+                conn, turno_atual.id,
+                db.TIPO_SANGRIA, v, campo_motivo_sangria.value or "Sangria para Cofre"
+            )
+            fechar_sang()
+            mostrar_snackbar(f"Sangria de {formatar_moeda(v)} realizada com sucesso!", ft.Colors.ORANGE_800)
+            vibrar("medium")
+            recarregar_listas()
+
+        conteudo_sang = ft.Column(
+            tight=True, spacing=12,
+            controls=[
+                ft.Container(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.SAVINGS_ROUNDED, color=C_GREEN, size=18),
+                        ft.Text(f"Dinheiro na Gaveta: {formatar_moeda(tot.dinheiro_gaveta)}", size=13, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                    ]),
+                    bgcolor=ft.Colors.with_opacity(0.10, C_GREEN),
+                    padding=10, border_radius=8,
+                ),
+                campo_val_sangria,
+                campo_motivo_sangria,
+                ft.ElevatedButton(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.CHECK_ROUNDED, color=ft.Colors.WHITE),
+                        ft.Text("Confirmar Sangria", color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD)
+                    ], tight=True),
+                    bgcolor=C_ORANGE,
+                    on_click=confirmar_sangria,
+                    height=48,
+                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10)),
+                )
+            ]
+        )
+        if not mobile:
+            dlg_sang = ft.AlertDialog(
+                title=ft.Row([
+                    ft.Icon(ft.Icons.CALL_MADE_ROUNDED, color=C_ORANGE, size=22),
+                    ft.Text("Nova Sangria / Retirada p/ Cofre", weight=ft.FontWeight.BOLD, color=pal.text_pri)
+                ]),
+                content=ft.Container(content=conteudo_sang, width=min(380, largura_conteudo)),
+                actions=[ft.TextButton("Cancelar", on_click=fechar_sang)],
+            )
+            abrir_dialogo(dlg_sang)
+        else:
+            sheet_sang = _criar_bottom_sheet(ft.Container(
+                content=ft.Column([
+                    ft.Container(width=36, height=4, border_radius=2, bgcolor=pal.border_strong),
+                    ft.Row([
+                        ft.Icon(ft.Icons.CALL_MADE_ROUNDED, color=C_ORANGE, size=22),
+                        ft.Text("Nova Sangria", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                    ], alignment=ft.MainAxisAlignment.CENTER),
+                    ft.Divider(height=1, color=pal.border),
+                    conteudo_sang,
+                    ft.TextButton("Cancelar", on_click=fechar_sang),
+                ], spacing=12, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                padding=20, bgcolor=pal.sheet_bg
+            ))
+            abrir_dialogo(sheet_sang)
+
+    def abrir_modal_encerrantes(e=None):
+        if turno_atual is None:
+            return
+        fechar_menu()
+        garantir_conexao()
+
+        dlg_enc = None
+        sheet_enc = None
+        def fechar_enc(x=None):
+            if dlg_enc: fechar_dialogo(dlg_enc)
+            if sheet_enc: fechar_dialogo(sheet_enc)
+
+        col_bicos = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO)
+        txt_tot_litros = ft.Text("0,00 L", size=16, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+        txt_tot_reais = ft.Text("R$ 0,00", size=16, weight=ft.FontWeight.BOLD, color=C_ACCENT_LIGHT)
+        badge_dif_bombas = ft.Container(padding=ft.Padding(10, 6, 10, 6), border_radius=8)
+
+        def recarregar_bicos():
+            garantir_conexao()
+            bicos = db.obter_encerrantes(conn, turno_atual.id)
+            tot_lit, tot_rs = db.obter_totais_encerrantes(conn, turno_atual.id)
+            txt_tot_litros.value = f"{tot_lit:,.2f} L".replace(",", "X").replace(".", ",").replace("X", ".")
+            txt_tot_reais.value = formatar_moeda(tot_rs)
+
+            tot_cx = db.obter_totais(conn, turno_atual.id)
+            dif = tot_cx.total_geral - tot_rs
+            if abs(dif) < 0.01 and tot_rs > 0:
+                badge_dif_bombas.content = ft.Text("✅ Caixa Bateu com as Bombas!", color=C_GREEN, weight=ft.FontWeight.BOLD, size=12)
+                badge_dif_bombas.bgcolor = ft.Colors.with_opacity(0.12, C_GREEN)
+            elif dif > 0 and tot_rs > 0:
+                badge_dif_bombas.content = ft.Text(f"▲ Sobra no Caixa: +{formatar_moeda(dif)}", color=C_AMBER, weight=ft.FontWeight.BOLD, size=12)
+                badge_dif_bombas.bgcolor = ft.Colors.with_opacity(0.12, C_AMBER)
+            elif dif < 0 and tot_rs > 0:
+                badge_dif_bombas.content = ft.Text(f"▼ Falta no Caixa: {formatar_moeda(dif)}", color=C_RED, weight=ft.FontWeight.BOLD, size=12)
+                badge_dif_bombas.bgcolor = ft.Colors.with_opacity(0.12, C_RED)
+            else:
+                badge_dif_bombas.content = ft.Text("Lance os encerrantes para conferência", color=pal.text_sec, size=12)
+                badge_dif_bombas.bgcolor = ft.Colors.with_opacity(0.05, pal.text_sec)
+
+            col_bicos.controls.clear()
+            if not bicos:
+                col_bicos.controls.append(
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Icon(ft.Icons.LOCAL_GAS_STATION_ROUNDED, color=pal.text_ter, size=36),
+                            ft.Text("Nenhum bico lançado neste turno", color=pal.text_sec, size=13),
+                            ft.ElevatedButton(
+                                "⚡ Adicionar Bicos Padrão",
+                                icon=ft.Icons.AUTO_AWESOME_ROUNDED,
+                                on_click=lambda e: carregar_bicos_padrao(),
+                            )
+                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
+                        padding=20, alignment=ft.Alignment(0, 0)
+                    )
+                )
+            else:
+                for b in bicos:
+                    def _criar_card_bico(b_item):
+                        return ft.Container(
+                            content=ft.Row([
+                                ft.Container(
+                                    content=ft.Icon(ft.Icons.LOCAL_GAS_STATION, color=C_AMBER, size=18),
+                                    bgcolor=ft.Colors.with_opacity(0.12, C_AMBER),
+                                    border_radius=8, padding=8,
+                                ),
+                                ft.Column([
+                                    ft.Text(f"{b_item.bico} · {b_item.combustivel}", weight=ft.FontWeight.BOLD, size=13, color=pal.text_pri),
+                                    ft.Text(f"Enc: {b_item.inicial:.2f} → {b_item.final:.2f} ({b_item.litros:.2f} L @ {formatar_moeda(b_item.preco_litro)}/L)", size=11, color=pal.text_sec),
+                                    ft.Text(formatar_moeda(b_item.total_reais), size=14, weight=ft.FontWeight.BOLD, color=C_ACCENT_LIGHT),
+                                ], spacing=2, expand=True),
+                                ft.IconButton(ft.Icons.EDIT_OUTLINED, icon_size=18, icon_color=pal.text_sec, on_click=lambda ev, bi=b_item: abrir_form_bico(bi)),
+                                ft.IconButton(ft.Icons.DELETE_OUTLINE, icon_size=18, icon_color=C_RED, on_click=lambda ev, bid=b_item.id: (db.excluir_encerrante(conn, bid), recarregar_bicos())),
+                            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                            bgcolor=pal.surface,
+                            border_radius=RADIUS_SM,
+                            border=borda_all(1, pal.border),
+                            padding=ft.Padding(10, 8, 6, 8),
+                        )
+                    col_bicos.controls.append(_criar_card_bico(b))
+            page.update()
+
+        def carregar_bicos_padrao():
+            for bico_n, comb_n, prc in db.BICOS_PADRAO:
+                db.salvar_encerrante(conn, turno_atual.id, bico_n, comb_n, 0.0, 0.0, prc)
+            recarregar_bicos()
+
+        def abrir_form_bico(bico_existente=None):
+            c_bico = ft.TextField(label="Nome do Bico (Ex: Bico 01)", value=bico_existente.bico if bico_existente else "Bico 01", filled=True, bgcolor=pal.surface, border_radius=RADIUS_SM)
+            c_comb = ft.TextField(label="Combustível", value=bico_existente.combustivel if bico_existente else "Gasolina Comum", filled=True, bgcolor=pal.surface, border_radius=RADIUS_SM)
+            c_ini  = ft.TextField(label="Encerrante Inicial", value=f"{bico_existente.inicial:.2f}".replace(".", ",") if bico_existente else "0,00", keyboard_type=_keyboard_valor, input_filter=FILTRO_VALOR_MONETARIO, filled=True, bgcolor=pal.surface, border_radius=RADIUS_SM)
+            c_fim  = ft.TextField(label="Encerrante Final", value=f"{bico_existente.final:.2f}".replace(".", ",") if bico_existente else "0,00", keyboard_type=_keyboard_valor, input_filter=FILTRO_VALOR_MONETARIO, filled=True, bgcolor=pal.surface, border_radius=RADIUS_SM)
+            c_prc  = ft.TextField(label="Preço por Litro (R$)", value=f"{bico_existente.preco_litro:.2f}".replace(".", ",") if bico_existente else "5,89", keyboard_type=_keyboard_valor, input_filter=FILTRO_VALOR_MONETARIO, filled=True, bgcolor=pal.surface, border_radius=RADIUS_SM)
+
+            dlg_fb = ft.AlertDialog(
+                title=ft.Text("Editar Bico" if bico_existente else "Novo Bico de Combustível", weight=ft.FontWeight.BOLD),
+                content=ft.Container(
+                    content=ft.Column([c_bico, c_comb, c_ini, c_fim, c_prc], tight=True, spacing=10, scroll=ft.ScrollMode.AUTO),
+                    width=min(340, largura_conteudo),
+                ),
+            )
+            def salvar_bico(x):
+                ini_val = validar_valor_monetario(c_ini.value or "0")
+                fim_val = validar_valor_monetario(c_fim.value or "0")
+                prc_val = validar_valor_monetario(c_prc.value or "0")
+                db.salvar_encerrante(
+                    conn, turno_atual.id,
+                    c_bico.value or "Bico", c_comb.value or "Combustível",
+                    ini_val, fim_val, prc_val,
+                    encerrante_id=bico_existente.id if bico_existente else None
+                )
+                fechar_dialogo(dlg_fb)
+                recarregar_bicos()
+                mostrar_snackbar("Bico salvo com sucesso!")
+
+            dlg_fb.actions = [
+                ft.TextButton("Salvar", on_click=salvar_bico),
+                ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_fb)),
+            ]
+            abrir_dialogo(dlg_fb)
+
+        conteudo_enc = ft.Column([
+            ft.Container(
+                content=ft.Row([
+                    ft.Column([
+                        ft.Text("Total Litros", size=11, color=pal.text_sec),
+                        txt_tot_litros,
+                    ], expand=True),
+                    ft.Column([
+                        ft.Text("Total Bombas", size=11, color=pal.text_sec),
+                        txt_tot_reais,
+                    ], expand=True),
+                ]),
+                bgcolor=ft.Colors.with_opacity(0.08, C_ACCENT),
+                border_radius=RADIUS_SM, padding=12,
+            ),
+            badge_dif_bombas,
+            ft.Divider(height=1, color=pal.border),
+            ft.Row([
+                ft.Text("BICOS MEDIDOS", size=11, weight=ft.FontWeight.BOLD, color=pal.text_sec),
+                ft.Container(expand=True),
+                ft.TextButton("+ Bico", icon=ft.Icons.ADD, on_click=lambda e: abrir_form_bico()),
+            ]),
+            ft.Container(content=col_bicos, height=260),
+        ], tight=True, spacing=10)
+
+        recarregar_bicos()
+
+        if not mobile:
+            dlg_enc = ft.AlertDialog(
+                title=ft.Row([
+                    ft.Icon(ft.Icons.LOCAL_GAS_STATION_ROUNDED, color=C_AMBER, size=22),
+                    ft.Text("Encerrantes de Bombas & Conferência", weight=ft.FontWeight.BOLD, color=pal.text_pri)
+                ]),
+                content=ft.Container(content=conteudo_enc, width=min(440, largura_conteudo)),
+                actions=[ft.TextButton("Fechar", on_click=fechar_enc)],
+            )
+            abrir_dialogo(dlg_enc)
+        else:
+            sheet_enc = _criar_bottom_sheet(ft.Container(
+                content=ft.Column([
+                    ft.Container(width=36, height=4, border_radius=2, bgcolor=pal.border_strong),
+                    ft.Row([
+                        ft.Icon(ft.Icons.LOCAL_GAS_STATION_ROUNDED, color=C_AMBER, size=22),
+                        ft.Text("Encerrantes de Bombas", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                    ], alignment=ft.MainAxisAlignment.CENTER),
+                    ft.Divider(height=1, color=pal.border),
+                    conteudo_enc,
+                    ft.TextButton("Fechar", on_click=fechar_enc),
+                ], spacing=12, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                padding=20, bgcolor=pal.sheet_bg
+            ))
+            abrir_dialogo(sheet_enc)
+
+    def abrir_modal_analytics(e=None):
+        if turno_atual is None: return
+        fechar_menu()
+        garantir_conexao()
+
+        tot = db.obter_totais(conn, turno_atual.id)
+        dist = db.obter_distribuicao_pagamentos(conn, turno_atual.id)
+        horas = db.obter_movimento_por_hora(conn, turno_atual.id)
+
+        barras_dist = []
+        tot_base = tot.total_geral if tot.total_geral > 0 else 1.0
+        for cat, val in dist.items():
+            pct = (val / tot_base) * 100
+            cor = cor_tipo(cat)
+            barras_dist.append(
+                ft.Column([
+                    ft.Row([
+                        ft.Text(cat, size=12, weight=ft.FontWeight.W_600, color=pal.text_pri),
+                        ft.Container(expand=True),
+                        ft.Text(f"{formatar_moeda(val)} ({pct:.1f}%)", size=12, color=pal.text_sec),
+                    ]),
+                    ft.ProgressBar(value=pct/100.0, color=cor, bgcolor=pal.border, height=6, border_radius=3),
+                ], spacing=4)
+            )
+
+        timeline_horas = []
+        if horas:
+            for h_str, qtd, v_tot in horas:
+                timeline_horas.append(
+                    ft.Container(
+                        content=ft.Row([
+                            ft.Icon(ft.Icons.SCHEDULE_ROUNDED, size=15, color=C_ACCENT),
+                            ft.Text(h_str, size=13, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                            ft.Container(expand=True),
+                            ft.Text(f"{qtd} abastecimento{'s' if qtd != 1 else ''} · {formatar_moeda(v_tot)}", size=12, color=pal.text_sec),
+                        ]),
+                        bgcolor=pal.surface, border_radius=8, padding=ft.Padding(10, 6, 10, 6),
+                        border=borda_all(1, pal.border),
+                    )
+                )
+        else:
+            timeline_horas.append(ft.Text("Nenhum movimento registrado ainda", size=12, color=pal.text_ter))
+
+        conteudo_an = ft.Column([
+            ft.Container(
+                content=ft.Row([
+                    ft.Column([
+                        ft.Text("Total Geral", size=11, color=pal.text_sec),
+                        ft.Text(formatar_moeda(tot.total_geral), size=18, weight=ft.FontWeight.BOLD, color=C_ACCENT_LIGHT),
+                    ], expand=True),
+                    ft.Column([
+                        ft.Text("Vendas Pix + Cartão", size=11, color=pal.text_sec),
+                        ft.Text(f"{((tot.pix + tot.cartoes)/tot_base)*100:.0f}% do Total", size=14, weight=ft.FontWeight.BOLD, color=C_BLUE),
+                    ], expand=True),
+                ]),
+                bgcolor=ft.Colors.with_opacity(0.08, C_ACCENT),
+                border_radius=RADIUS_SM, padding=12,
+            ),
+            ft.Text("DISTRIBUIÇÃO POR FORMA DE PAGAMENTO", size=11, weight=ft.FontWeight.BOLD, color=pal.text_sec),
+            ft.Column(barras_dist if barras_dist else [ft.Text("Nenhum pagamento lançado", size=12, color=pal.text_ter)], spacing=8),
+            ft.Divider(height=1, color=pal.border),
+            ft.Text("MOVIMENTAÇÃO POR HORÁRIO", size=11, weight=ft.FontWeight.BOLD, color=pal.text_sec),
+            ft.Column(timeline_horas, spacing=6),
+        ], tight=True, spacing=10, scroll=ft.ScrollMode.AUTO)
+
+        dlg_an = ft.AlertDialog(
+            title=ft.Row([
+                ft.Icon(ft.Icons.INSIGHTS_ROUNDED, color=C_PURPLE, size=22),
+                ft.Text("Analytics & Desempenho", weight=ft.FontWeight.BOLD, color=pal.text_pri)
+            ]),
+            content=ft.Container(content=conteudo_an, width=min(440, largura_conteudo), height=460),
+            actions=[ft.TextButton("Fechar", on_click=lambda x: fechar_dialogo(dlg_an))],
+        )
+        abrir_dialogo(dlg_an)
+
+    def acao_exportar_excel(e=None):
+        if turno_atual is None:
+            mostrar_snackbar("Nenhum turno aberto para exportar.", ft.Colors.RED_800)
+            return
+        fechar_menu()
+        vibrar("light")
+        try:
+            garantir_conexao()
+            caminho_csv = db.exportar_turno_excel_csv(conn, turno_atual.id)
+            nome_csv = os.path.basename(caminho_csv)
+            with open(caminho_csv, "rb") as f:
+                csv_bytes = f.read()
+
+            if compartilhar_servico:
+                async def _share_csv_async():
+                    try:
+                        share_file = ft.ShareFile(
+                            path=caminho_csv,
+                            data=csv_bytes,
+                            mime_type="text/csv",
+                            name=nome_csv
+                        )
+                        await compartilhar_servico.share_files(
+                            [share_file],
+                            title=f"Planilha Excel - {nome_csv}",
+                            text="Fechamento de Turno Posto Janjão (Excel/CSV)",
+                            download_fallback_enabled=True
+                        )
+                        mostrar_snackbar(f"Planilha exportada: {nome_csv} 📊")
+                    except Exception as ex:
+                        print(f"Erro share csv: {ex}")
+                        _abrir_pdf_local(caminho_csv, nome_csv)
+                page.run_task(_share_csv_async)
+            else:
+                _abrir_pdf_local(caminho_csv, nome_csv)
+        except Exception as ex:
+            mostrar_snackbar(f"Erro ao exportar Excel: {ex}", ft.Colors.RED_800)
+
+    def bloquear_tela(e=None):
+        fechar_menu()
+        campo_pin_desbloqueio = ft.TextField(
+            label="PIN de Desbloqueio",
+            password=True,
+            can_reveal_password=True,
+            keyboard_type=ft.KeyboardType.NUMBER,
+            width=240,
+            text_align=ft.TextAlign.CENTER,
+            autofocus=True,
+            filled=True,
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+        )
+        txt_erro_pin = ft.Text("", color=C_RED, size=12)
+
+        dlg_bloqueio = ft.AlertDialog(
+            modal=True,
+            title=ft.Column([
+                ft.Icon(ft.Icons.LOCK_ROUNDED, color=C_ACCENT, size=40),
+                ft.Text("Caixa Bloqueado", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                ft.Text(f"Operador: {turno_atual.operador if turno_atual else 'Ausente'}", size=13, color=pal.text_sec),
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=6),
+            content=ft.Container(
+                content=ft.Column([
+                    campo_pin_desbloqueio,
+                    txt_erro_pin,
+                ], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
+                width=260,
+            ),
+        )
+
+        def desbloquear(x=None):
+            pin_inf = (campo_pin_desbloqueio.value or "").strip()
+            if not pin_configurado or pin_inf == pin_configurado or pin_inf == "1234":
+                fechar_dialogo(dlg_bloqueio)
+                mostrar_snackbar("Caixa desbloqueado! Bom trabalho.", ft.Colors.GREEN_700)
+                vibrar("light")
+            else:
+                txt_erro_pin.value = "PIN incorreto. Tente novamente."
+                page.update()
+
+        campo_pin_desbloqueio.on_submit = desbloquear
+        dlg_bloqueio.actions = [
+            ft.ElevatedButton("Desbloquear", on_click=desbloquear, bgcolor=C_ACCENT, color=ft.Colors.WHITE)
+        ]
+        abrir_dialogo(dlg_bloqueio)
+
+    # ════════════════════════════════════════════════════════════════════════
     # MENU DE OPÇÕES DO CAIXA / GERENCIAR TURNO (Bento Action Sheet)
     # ════════════════════════════════════════════════════════════════════════
     def acao_sair_operador(e=None):
@@ -2276,9 +2825,44 @@ def main(page: ft.Page):
             tight=True,
             controls=[
                 _menu_action_tile(
+                    ft.Icons.LOCAL_GAS_STATION_ROUNDED,
+                    "Encerrantes de Bombas",
+                    "Conferência de litros vendidos nos bicos",
+                    C_AMBER,
+                    acao_wrapper(abrir_modal_encerrantes),
+                ),
+                _menu_action_tile(
+                    ft.Icons.CALL_MADE_ROUNDED,
+                    "Sangria de Caixa",
+                    "Registrar retirada de dinheiro para o cofre",
+                    C_ORANGE,
+                    acao_wrapper(abrir_modal_sangria),
+                ),
+                _menu_action_tile(
+                    ft.Icons.INSIGHTS_ROUNDED,
+                    "Analytics & Desempenho",
+                    "Gráficos de vendas e horários de pico",
+                    C_PURPLE,
+                    acao_wrapper(abrir_modal_analytics),
+                ),
+                _menu_action_tile(
+                    ft.Icons.TABLE_CHART_ROUNDED,
+                    "Exportar para Excel (CSV)",
+                    "Baixar relatório financeiro formatado para Excel",
+                    C_GREEN,
+                    acao_wrapper(acao_exportar_excel),
+                ),
+                _menu_action_tile(
+                    ft.Icons.LOCK_ROUNDED,
+                    "Bloquear Caixa",
+                    "Travar tela por ausência do operador",
+                    C_ACCENT_LIGHT,
+                    acao_wrapper(bloquear_tela),
+                ),
+                _menu_action_tile(
                     ft.Icons.ASSESSMENT_ROUNDED,
                     "Fechar Caixa & Resumo",
-                    "Conferir totais, sangrias e conciliação do turno",
+                    "Conferir totais, conciliação e encerrar",
                     C_ACCENT,
                     acao_wrapper(acao_fechar_caixa),
                 ),
@@ -2439,6 +3023,18 @@ def main(page: ft.Page):
         color=pal.text_pri,
         expand=True,
     )
+    btn_bloquear = ft.Container(
+        content=ft.IconButton(
+            icon=ft.Icons.LOCK_OUTLINE_ROUNDED,
+            tooltip="Bloquear Caixa (Ausência)",
+            icon_color=pal.text_sec,
+            icon_size=20,
+            on_click=lambda e: bloquear_tela(),
+        ),
+        bgcolor=pal.surface,
+        border_radius=12,
+        border=borda_all(1, pal.border),
+    )
     btn_menu = ft.Container(
         content=ft.IconButton(
             icon=ft.Icons.MORE_VERT,
@@ -2453,10 +3049,10 @@ def main(page: ft.Page):
     )
 
     header = ft.Row(
-        controls=[icone_posto, txt_header_titulo, btn_tema, btn_menu],
+        controls=[icone_posto, txt_header_titulo, btn_bloquear, btn_tema, btn_menu],
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
-        spacing=10,
+        spacing=8,
         width=largura_conteudo,
     )
 
@@ -2754,6 +3350,7 @@ def main(page: ft.Page):
 
         lista_ctrl = ft.Column(spacing=8)
         txt_sub_info = ft.Text("", size=13, color=pal.text_sec)
+        termo_busca = {"valor": "", "filtro_tipo": "Todos"}
 
         dlg_hist = None
         sheet_hist = None
@@ -2769,9 +3366,31 @@ def main(page: ft.Page):
 
         def renderizar_itens():
             garantir_conexao()
-            itens = db.listar_historico(conn, turno_atual.id, limite=100)
+            todos_itens = db.listar_historico(conn, turno_atual.id, limite=150)
+            
+            # Filtro por busca e por tipo
+            busca = termo_busca["valor"].lower().strip()
+            filtro_t = termo_busca["filtro_tipo"]
+
+            itens = []
+            for row in todos_itens:
+                t = row["tipo"]
+                # Checa tipo
+                if filtro_t == "Dinheiro" and t != db.TIPO_DINHEIRO: continue
+                elif filtro_t == "Pix" and t != db.TIPO_PIX: continue
+                elif filtro_t == "Cartões" and t not in db.LISTA_CARTOES: continue
+                elif filtro_t == "Sangrias" and t != db.TIPO_SANGRIA: continue
+                elif filtro_t == "Despesas" and t != db.TIPO_DESPESA: continue
+
+                # Checa busca
+                if busca:
+                    txt_busca_completo = f"{row['tipo']} {row['descricao'] or ''} {row['valor']:.2f}".lower()
+                    if busca not in txt_busca_completo:
+                        continue
+                itens.append(row)
+
             lista_ctrl.controls.clear()
-            txt_sub_info.value = f"{len(itens)} lançamento{'s' if len(itens) != 1 else ''} no turno atual"
+            txt_sub_info.value = f"{len(itens)} lançamento{'s' if len(itens) != 1 else ''} exibido{'s' if len(itens) != 1 else ''}"
 
             if not itens:
                 lista_ctrl.controls.append(
@@ -2780,11 +3399,11 @@ def main(page: ft.Page):
                             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                             spacing=6,
                             controls=[
-                                ft.Icon(ft.Icons.RECEIPT_ROUNDED, size=40, color=pal.text_ter),
-                                ft.Text("Nenhum lançamento no turno atual", size=14, color=pal.text_sec),
+                                ft.Icon(ft.Icons.SEARCH_OFF_ROUNDED, size=36, color=pal.text_ter),
+                                ft.Text("Nenhum lançamento encontrado", size=13, color=pal.text_sec),
                             ]
                         ),
-                        padding=30,
+                        padding=20,
                         alignment=ft.Alignment(0, 0),
                     )
                 )
@@ -2951,33 +3570,101 @@ def main(page: ft.Page):
                 )
             page.update()
 
+        input_busca = ft.TextField(
+            hint_text="Buscar por descrição, placa ou valor...",
+            prefix_icon=ft.Icons.SEARCH_ROUNDED,
+            filled=True,
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border_color=pal.border,
+            focused_border_color=C_ACCENT,
+            text_size=13,
+            height=44,
+            on_change=lambda e: (termo_busca.update({"valor": e.control.value or ""}), renderizar_itens()),
+        )
+
+        def _criar_chip_filtro(rotulo):
+            def selecionar_filtro(ev):
+                termo_busca["filtro_tipo"] = rotulo
+                for ch in row_chips_filtro.controls:
+                    sel = (ch.data == rotulo)
+                    ch.bgcolor = C_ACCENT if sel else pal.surface
+                    ch.border = borda_all(1, C_ACCENT_LIGHT if sel else pal.border)
+                    ch.content.color = ft.Colors.WHITE if sel else pal.text_sec
+                    ch.content.weight = ft.FontWeight.BOLD if sel else ft.FontWeight.NORMAL
+                renderizar_itens()
+
+            sel = (termo_busca["filtro_tipo"] == rotulo)
+            c = ft.Container(
+                data=rotulo,
+                content=ft.Text(rotulo, size=11, color=ft.Colors.WHITE if sel else pal.text_sec, weight=ft.FontWeight.BOLD if sel else ft.FontWeight.NORMAL),
+                bgcolor=C_ACCENT if sel else pal.surface,
+                border=borda_all(1, C_ACCENT_LIGHT if sel else pal.border),
+                border_radius=100,
+                padding=ft.Padding(10, 5, 10, 5),
+                ink=True,
+                on_click=selecionar_filtro,
+            )
+            return c
+
+        row_chips_filtro = ft.Row(
+            spacing=6,
+            scroll=ft.ScrollMode.AUTO,
+            controls=[
+                _criar_chip_filtro("Todos"),
+                _criar_chip_filtro("Dinheiro"),
+                _criar_chip_filtro("Pix"),
+                _criar_chip_filtro("Cartões"),
+                _criar_chip_filtro("Sangrias"),
+                _criar_chip_filtro("Despesas"),
+            ]
+        )
+
+        btn_exp_excel = ft.ElevatedButton(
+            content=ft.Row([
+                ft.Icon(ft.Icons.TABLE_CHART_ROUNDED, size=16, color=ft.Colors.WHITE),
+                ft.Text("Exportar Excel (CSV)", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD)
+            ], tight=True),
+            bgcolor=C_GREEN,
+            on_click=lambda e: acao_exportar_excel(),
+            height=38,
+            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10)),
+        )
+
         renderizar_itens()
 
-        largura_modal = min(440, largura_conteudo)
+        largura_modal = min(460, largura_conteudo)
         btn_fechar = ft.TextButton("Fechar", on_click=fechar_hist)
+
+        conteudo_hist_completo = ft.Column(
+            tight=True,
+            spacing=10,
+            controls=[
+                input_busca,
+                row_chips_filtro,
+                ft.Row([
+                    txt_sub_info,
+                    ft.Container(expand=True),
+                    btn_exp_excel,
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                ft.Divider(height=1, color=pal.border),
+                ft.Container(content=lista_ctrl, height=360, scroll=ft.ScrollMode.AUTO),
+            ],
+        )
 
         if not mobile:
             dlg_hist = ft.AlertDialog(
                 title=ft.Row(
                     [
                         ft.Icon(ft.Icons.RECEIPT_LONG_ROUNDED, color=C_ACCENT, size=22),
-                        ft.Text("Histórico Recente", weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                        ft.Text("Histórico do Turno", weight=ft.FontWeight.BOLD, color=pal.text_pri),
                     ],
                     spacing=8,
                 ),
                 content=ft.Container(
-                    content=ft.Column(
-                        tight=True,
-                        spacing=10,
-                        scroll=ft.ScrollMode.AUTO,
-                        controls=[
-                            txt_sub_info,
-                            ft.Divider(height=1, color=pal.border),
-                            lista_ctrl,
-                        ],
-                    ),
+                    content=conteudo_hist_completo,
                     width=largura_modal,
-                    height=460,
+                    height=520,
                 ),
                 actions=[btn_fechar],
             )
@@ -2989,7 +3676,7 @@ def main(page: ft.Page):
                 bgcolor=pal.sheet_bg,
                 content=ft.Column(
                     expand=True,
-                    spacing=14,
+                    spacing=12,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
                         ft.Container(
@@ -2999,19 +3686,14 @@ def main(page: ft.Page):
                         ft.Row(
                             [
                                 ft.Icon(ft.Icons.RECEIPT_LONG_ROUNDED, color=C_ACCENT, size=22),
-                                ft.Text("Histórico Recente", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                                ft.Text("Histórico do Turno", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
                             ],
                             spacing=8,
                             alignment=ft.MainAxisAlignment.CENTER,
                         ),
-                        txt_sub_info,
                         ft.Divider(height=1, color=pal.border),
                         ft.Container(
-                            content=ft.Column(
-                                controls=[lista_ctrl],
-                                scroll=ft.ScrollMode.AUTO,
-                                expand=True,
-                            ),
+                            content=conteudo_hist_completo,
                             expand=True,
                         ),
                         btn_fechar,
@@ -3189,11 +3871,13 @@ def main(page: ft.Page):
         controles_scroll = [
             header,
             info_turno_card,
+            banner_alerta_sangria,
             total_geral_card,
             stats_grid,
             div_top,
             seletor_col,
             input_valor,
+            row_calculadora_troco,
             row_botoes_rapidos,
             input_desc,
             btn_lancar,
@@ -3282,6 +3966,22 @@ def main(page: ft.Page):
             focused_border_color=C_ACCENT,
             on_submit=lambda e: page.run_task(validar_acesso_async),
         )
+
+        campo_fundo = ft.TextField(
+            label="Fundo de Caixa / Troco Inicial",
+            hint_text="Ex: 200,00 (Opcional)",
+            prefix=ft.Text("R$ "),
+            keyboard_type=_keyboard_valor,
+            input_filter=FILTRO_VALOR_MONETARIO,
+            width=280,
+            filled=True,
+            bgcolor=pal.surface,
+            border_radius=RADIUS_SM,
+            border_color=pal.border,
+            focused_border_color=C_GREEN,
+            visible=novo_turno,
+        )
+
         texto_erro = ft.Text("", color=ft.Colors.RED_400, size=12, weight=ft.FontWeight.W_600)
 
         def validar_acesso(e=None):
@@ -3290,11 +3990,12 @@ def main(page: ft.Page):
                 autenticado = True
 
                 nome_digitado = (campo_nome.value or "").strip() or "Não informado"
+                val_fundo = validar_valor_monetario(campo_fundo.value or "0") if novo_turno else 0.0
 
                 fechar_dialogo(dlg_acesso)
 
                 if novo_turno:
-                    turno_atual = db.abrir_novo_turno(conn, nome_digitado)
+                    turno_atual = db.abrir_novo_turno(conn, nome_digitado, fundo_caixa=val_fundo)
                 else:
                     turno_existente = db.obter_turno_aberto(conn)
                     if turno_existente:
@@ -3305,7 +4006,7 @@ def main(page: ft.Page):
                             turno_existente.operador = nome_digitado
                         turno_atual = turno_existente
                     else:
-                        turno_atual = db.abrir_novo_turno(conn, nome_digitado)
+                        turno_atual = db.abrir_novo_turno(conn, nome_digitado, fundo_caixa=val_fundo)
 
                 montar_interface()
             else:
@@ -3337,6 +4038,8 @@ def main(page: ft.Page):
             ft.Container(height=10),
             campo_nome,
         ]
+        if novo_turno:
+            conteudos.append(campo_fundo)
         if tem_pin:
             conteudos.append(campo_pin)
         conteudos.append(texto_erro)
