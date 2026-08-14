@@ -421,45 +421,78 @@ def obter_detalhe_cartoes(conn: sqlite3.Connection, turno_id: int) -> dict[str, 
 
 
 def montar_resumo_texto(totais: Totais, turno: Turno, detalhe_cartoes: dict[str, tuple[float, int]]) -> str:
-    """Monta um resumo em texto perfeitamente alinhado e legível para WhatsApp e clipboard."""
-    if detalhe_cartoes:
-        linhas_cartoes = "\n".join(
-            f"• {bandeira} ({qtd} un): {formatar_moeda(valor)}"
-            for bandeira, (valor, qtd) in detalhe_cartoes.items()
-        )
-    else:
-        linhas_cartoes = "• Nenhum cartão lançado"
+    """Monta um resumo em texto com valores perfeitamente alinhados em coluna para WhatsApp e clipboard."""
+    itens_cartoes = []
+    for bandeira, (val, qtd) in detalhe_cartoes.items():
+        rot = f"• {bandeira} ({qtd} un)"
+        itens_cartoes.append((rot, formatar_moeda(val)))
 
-    linhas = [
-        f"⛽ *FECHAMENTO DE TURNO #{turno.numero_do_dia} - POSTO JANJÃO*",
-        f"👤 *Operador:* {turno.operador}",
-        f"🕐 *Aberto em:* {turno.aberto_em}",
-        "━━━━━━━━━━━━━━━━━━━━━",
-        "💳 *CARTÕES E VOUCHERS:*",
-        linhas_cartoes,
-        f"💳 *Total Cartões ({totais.qtd_cartoes} un):* {formatar_moeda(totais.cartoes)}",
-        "━━━━━━━━━━━━━━━━━━━━━",
-        f"💵 *Sobra de Dinheiro:* {formatar_moeda(totais.fisico)}",
-        f"⚡ *Pag Pix ({totais.qtd_pix} un):* {formatar_moeda(totais.pix)}",
-        f"📋 *Requisição:* {formatar_moeda(totais.requisicao)}",
-        f"🔒 *Depósito Global:* {formatar_moeda(totais.deposito_global)}",
-        f"🛒 *Despesas:* {formatar_moeda(totais.despesas)}",
-        "━━━━━━━━━━━━━━━━━━━━━",
-        f"✅ *TOTAL GERAL: {formatar_moeda(totais.total_geral)}*",
+    tot_cartoes_rot = f"Total Cartões ({totais.qtd_cartoes} un)"
+    tot_cartoes_val = formatar_moeda(totais.cartoes)
+
+    linhas_principais = [
+        ("Sobra Dinheiro", formatar_moeda(totais.fisico)),
+        (f"Pag Pix ({totais.qtd_pix} un)", formatar_moeda(totais.pix)),
+        ("Requisição", formatar_moeda(totais.requisicao)),
+        ("Depósito Global", formatar_moeda(totais.deposito_global)),
+        ("Despesas", formatar_moeda(totais.despesas)),
     ]
+
+    tot_geral_rot = "TOTAL GERAL"
+    tot_geral_val = formatar_moeda(totais.total_geral)
+
+    todos_itens = itens_cartoes + [(tot_cartoes_rot, tot_cartoes_val)] + linhas_principais + [(tot_geral_rot, tot_geral_val)]
 
     v_sis = getattr(turno, "vendas_sistema", 0.0) or 0.0
     obs = getattr(turno, "observacao", "") or ""
+    if v_sis > 0:
+        todos_itens.append(("Vendas Sistema", formatar_moeda(v_sis)))
+
+    larg_rot = max(22, max(len(r) for r, v in todos_itens))
+    larg_val = max(11, max(len(v) for r, v in todos_itens))
+    larg_total = larg_rot + larg_val + 2
+
+    div_duplo = "=" * larg_total
+    div_simples = "-" * larg_total
+
+    corpo = []
+    corpo.append("CARTÕES E VOUCHERS:")
+    if itens_cartoes:
+        for r, v in itens_cartoes:
+            corpo.append(f"{r.ljust(larg_rot)}  {v.rjust(larg_val)}")
+    else:
+        corpo.append("• Nenhum cartão lançado")
+
+    corpo.append(div_simples)
+    corpo.append(f"{tot_cartoes_rot.ljust(larg_rot)}  {tot_cartoes_val.rjust(larg_val)}")
+    corpo.append(div_duplo)
+
+    for r, v in linhas_principais:
+        corpo.append(f"{r.ljust(larg_rot)}  {v.rjust(larg_val)}")
+
+    corpo.append(div_duplo)
+    corpo.append(f"{tot_geral_rot.ljust(larg_rot)}  {tot_geral_val.rjust(larg_val)}")
+
     if v_sis > 0 or obs.strip():
-        linhas.append("━━━━━━━━━━━━━━━━━━━━━")
+        corpo.append(div_duplo)
         if v_sis > 0:
             diff = totais.total_geral - v_sis
             diff_str = f" (Dif: {formatar_moeda(diff)})" if abs(diff) > 0.01 else " (Bateu)"
-            linhas.append(f"📊 *Vendas Sistema:* {formatar_moeda(v_sis)}{diff_str}")
+            corpo.append(f"{'Vendas Sistema'.ljust(larg_rot)}  {formatar_moeda(v_sis).rjust(larg_val)}{diff_str}")
         if obs.strip():
-            linhas.append(f"📝 *Obs:* {obs.strip()}")
+            corpo.append(f"Obs: {obs.strip()}")
 
-    return "\n".join(linhas)
+    bloco_tabela = "\n".join(corpo)
+    mono = "```"
+
+    return (
+        f"⛽ *FECHAMENTO DE TURNO #{turno.numero_do_dia} - POSTO JANJÃO*\n"
+        f"👤 *Operador:* {turno.operador}\n"
+        f"🕐 *Aberto em:* {turno.aberto_em}\n"
+        f"{mono}\n"
+        f"{bloco_tabela}\n"
+        f"{mono}"
+    )
 
 
 def inserir_lancamento(
