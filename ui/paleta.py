@@ -97,36 +97,33 @@ def _app_mobile() -> bool:
 
 def criar_paleta(escuro: bool) -> SimpleNamespace:
     """
-    Cria uma paleta de cores moderna e refinada baseada no tema ativo.
-    
-    Args:
-        escuro: True para tema escuro (Dark Slate), False para claro (Clean iOS)
-        
-    Returns:
-        SimpleNamespace com tokens de cores
+    Cria uma paleta de cores moderna e refinada baseada no tema ativo (Dark Obsidian / Clean iOS).
     """
     if escuro:
         return SimpleNamespace(
-            bg="#0b0f19",
-            surface="#131b2e",
-            surface_subtle="#1a243b",
-            border=ft.Colors.with_opacity(0.12, ft.Colors.WHITE),
-            border_strong=ft.Colors.with_opacity(0.28, "#38bdf8"),
+            bg="#08090f",
+            surface="#111420",
+            surface_subtle="#181d2e",
+            surface_elevated="#20273d",
+            border=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
+            border_strong=ft.Colors.with_opacity(0.35, "#38bdf8"),
             text_pri="#f8fafc",
             text_sec="#94a3b8",
             text_ter="#64748b",
-            sheet_bg="#0f172a",
-            card_gradient_start="#161f36",
-            card_gradient_end="#0f172a",
-            hero_bg_start="#172554",
-            hero_bg_end="#0f172a",
+            sheet_bg="#0d101a",
+            card_gradient_start="#141826",
+            card_gradient_end="#0e111c",
+            hero_bg_start="#11182c",
+            hero_bg_end="#0c0e18",
+            hud_bg="#0f1322",
         )
     return SimpleNamespace(
         bg="#f4f6fb",
         surface="#ffffff",
         surface_subtle="#f1f5f9",
+        surface_elevated="#e2e8f0",
         border=ft.Colors.with_opacity(0.08, ft.Colors.BLACK),
-        border_strong=ft.Colors.with_opacity(0.20, "#2563eb"),
+        border_strong=ft.Colors.with_opacity(0.25, "#2563eb"),
         text_pri="#0f172a",
         text_sec="#475569",
         text_ter="#94a3b8",
@@ -135,6 +132,7 @@ def criar_paleta(escuro: bool) -> SimpleNamespace:
         card_gradient_end="#f8fafc",
         hero_bg_start="#eff6ff",
         hero_bg_end="#ffffff",
+        hud_bg="#ffffff",
     )
 
 

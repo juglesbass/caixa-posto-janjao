@@ -422,178 +422,135 @@ def main(page: ft.Page):
     # INFORMAÇÕES DO TURNO
     # ═══════════════════════════════════════════════════════[...]
     # ════════════════════════════════════════════════════════════════════════
-    # INFORMAÇÕES DO TURNO (Estilo Kalo Header Badge)
     # ════════════════════════════════════════════════════════════════════════
-    txt_operador_nome = ft.Text("", size=16, weight=ft.FontWeight.BOLD, color=pal.text_pri)
-    txt_turno_data = ft.Text("", size=12, color=pal.text_sec)
-    
+    # INFORMAÇÕES DO TURNO & HUD DE TOTAIS (PDV FIRST BENTO HUD)
+    # ════════════════════════════════════════════════════════════════════════
+    txt_operador_nome = ft.Text("", size=14, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+    txt_turno_data = ft.Text("", size=11, color=pal.text_sec)
+
     badge_turno_pill = ft.Container(
         content=ft.Row(
             spacing=5,
             tight=True,
             controls=[
-                ft.Container(
-                    width=7, height=7, border_radius=4,
-                    bgcolor=C_GREEN,
-                ),
-                ft.Text("Turno #1", size=12, weight=ft.FontWeight.BOLD, color=C_GREEN),
+                ft.Container(width=7, height=7, border_radius=4, bgcolor=C_GREEN),
+                ft.Text("Turno #1", size=11, weight=ft.FontWeight.BOLD, color=C_GREEN),
             ]
         ),
         bgcolor=ft.Colors.with_opacity(0.12, C_GREEN),
         border=borda_all(1, ft.Colors.with_opacity(0.30, C_GREEN)),
         border_radius=100,
-        padding=ft.Padding(left=10, right=10, top=5, bottom=5),
+        padding=ft.Padding(left=8, right=8, top=3, bottom=3),
     )
 
-    info_turno_card = ft.Container(
-        width=largura_conteudo,
-        content=ft.Row(
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-            controls=[
-                ft.Row(
-                    spacing=12,
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                    controls=[
-                        ft.Container(
-                            content=ft.Icon(ft.Icons.PERSON_ROUNDED, color=ft.Colors.WHITE, size=20),
-                            bgcolor=C_ACCENT,
-                            padding=9,
-                            border_radius=50,
-                            shadow=_sombra(C_ACCENT, 10, 0.30, 2),
-                        ),
-                        ft.Column(
-                            spacing=1,
-                            controls=[
-                                txt_operador_nome,
-                                txt_turno_data,
-                            ]
-                        )
-                    ]
-                ),
-                badge_turno_pill,
-            ]
-        ),
-        padding=ft.Padding(left=4, right=4, top=4, bottom=4),
-    )
-
-    # ════════════════════════════════════════════════════════════════════════
-    # STATS GRID (BENTO GRID MODULAR)
-    # ════════════════════════════════════════════════════════════════════════
-    def _stat_card(label: str, cor: str, icone):
-        badge = ft.Container(
-            content=ft.Icon(icone, color=cor, size=16),
-            bgcolor=ft.Colors.with_opacity(0.14, cor),
-            border_radius=10,
-            padding=7,
-        )
-        lbl = ft.Text(label.upper(), size=11, color=pal.text_sec, weight=ft.FontWeight.BOLD)
-        txt = ft.Text("R$ 0,00", size=19, weight=ft.FontWeight.BOLD, color=pal.text_pri)
-        card = ft.Container(
-            content=ft.Column(
-                spacing=8,
-                controls=[
-                    ft.Row(spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER, controls=[badge, lbl]),
-                    txt,
-                ],
-            ),
-            bgcolor=pal.surface,
-            border_radius=RADIUS_SM,
-            border=borda_all(1, pal.border),
-            padding=ft.Padding(left=14, right=14, top=14, bottom=14),
-            expand=True,
-            blur=_blur_vidro(),
-            shadow=_sombra(ft.Colors.BLACK, 10, 0.04, 2),
-            scale=ft.Scale(scale=1),
-            animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
-        )
-        if not mobile and not ios:
-            def hover_card(e):
-                e.control.scale = 1.02 if e.data == "true" else 1.0
-                e.control.update()
-            card.on_hover = hover_card
-        
-        return card, txt, lbl
-
-    stat_din_card, txt_dinheiro, lbl_din = _stat_card("Dinheiro", C_GREEN, ft.Icons.PAYMENTS_ROUNDED)
-    stat_pix_card, txt_pix, lbl_pix = _stat_card("Pag Pix", C_BLUE, ft.Icons.PIX_ROUNDED)
-    stat_cart_card, txt_cartoes, lbl_cart = _stat_card("Cartões", C_PURPLE, ft.Icons.CREDIT_CARD_ROUNDED)
-    stat_req_card, txt_requisicao, lbl_req = _stat_card("Requisição", C_AMBER, ft.Icons.RECEIPT_LONG_ROUNDED)
-    stat_dep_card, txt_deposito_global, lbl_dep = _stat_card("Depósito Global", C_BROWN, ft.Icons.ACCOUNT_BALANCE_ROUNDED)
-    stat_desp_card, txt_despesas, lbl_desp = _stat_card("Despesas", C_RED, ft.Icons.MONEY_OFF_ROUNDED)
-
-    stats_grid = ft.Column(
-        spacing=10,
-        width=largura_conteudo,
-        controls=[
-            ft.Row(spacing=10, controls=[stat_din_card, stat_pix_card]),
-            ft.Row(spacing=10, controls=[stat_cart_card, stat_req_card]),
-            ft.Row(spacing=10, controls=[stat_dep_card, stat_desp_card]),
-        ],
-    )
-
-    # ════════════════════════════════════════════════════════════════════════
-    # TOTAL GERAL (HERO CARD BENTO - KALO STYLE)
-    # ════════════════════════════════════════════════════════════════════════
     txt_total_geral = ft.Text(
         "R$ 0,00",
-        size=34,
+        size=28,
         weight=ft.FontWeight.BOLD,
         color=pal.text_pri,
     )
 
-    txt_total_geral_label = ft.Text(
-        "TOTAL GERAL DO TURNO", size=11, weight=ft.FontWeight.BOLD, color=pal.text_sec,
+    txt_dinheiro = ft.Text("R$ 0,00", size=11, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+    txt_pix = ft.Text("R$ 0,00", size=11, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+    txt_cartoes = ft.Text("R$ 0,00", size=11, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+    txt_requisicao = ft.Text("R$ 0,00", size=11, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+    txt_deposito_global = ft.Text("R$ 0,00", size=11, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+    txt_despesas = ft.Text("R$ 0,00", size=11, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+
+    def _criar_hud_chip(label: str, cor: str, icone, txt_ctrl, ao_clicar=None):
+        c = ft.Container(
+            content=ft.Row(
+                spacing=5,
+                tight=True,
+                controls=[
+                    ft.Icon(icone, color=cor, size=13),
+                    ft.Text(label, size=11, color=pal.text_sec, weight=ft.FontWeight.W_500),
+                    txt_ctrl,
+                ]
+            ),
+            bgcolor=ft.Colors.with_opacity(0.08, cor),
+            border=borda_all(1, ft.Colors.with_opacity(0.20, cor)),
+            border_radius=100,
+            padding=ft.Padding(8, 4, 10, 4),
+            ink=True,
+            on_click=ao_clicar,
+        )
+        if not mobile and not ios:
+            def hover_c(e):
+                e.control.scale = 1.04 if e.data == "true" else 1.0
+                e.control.update()
+            c.scale = ft.Scale(scale=1)
+            c.animate_scale = _animacao(150, ft.AnimationCurve.EASE_OUT)
+            c.on_hover = hover_c
+        return c
+
+    chip_din = _criar_hud_chip("Dinheiro", C_GREEN, ft.Icons.PAYMENTS_ROUNDED, txt_dinheiro, lambda e: ao_abrir_detalhe(db.TIPO_DINHEIRO, "Dinheiro"))
+    chip_pix = _criar_hud_chip("Pix", C_BLUE, ft.Icons.PIX_ROUNDED, txt_pix, lambda e: ao_abrir_detalhe(db.TIPO_PIX, "Pag Pix"))
+    chip_cart = _criar_hud_chip("Cartões", C_PURPLE, ft.Icons.CREDIT_CARD_ROUNDED, txt_cartoes, lambda e: ao_abrir_detalhe("Cartões", "Cartões"))
+    chip_req = _criar_hud_chip("Requisição", C_AMBER, ft.Icons.RECEIPT_LONG_ROUNDED, txt_requisicao, lambda e: ao_abrir_detalhe(db.TIPO_REQUISICAO, "Requisição"))
+    chip_dep = _criar_hud_chip("Depósito", C_BROWN, ft.Icons.ACCOUNT_BALANCE_ROUNDED, txt_deposito_global, lambda e: ao_abrir_detalhe(db.TIPO_DEPOSITO_GLOBAL, "Depósito Global"))
+    chip_desp = _criar_hud_chip("Despesas", C_RED, ft.Icons.MONEY_OFF_ROUNDED, txt_despesas, lambda e: ao_abrir_detalhe(db.TIPO_DESPESA, "Despesas"))
+
+    row_hud_chips = ft.Row(
+        spacing=6,
+        scroll=ft.ScrollMode.AUTO,
+        controls=[chip_din, chip_pix, chip_cart, chip_req, chip_dep, chip_desp],
     )
 
-    txt_total_geral_sub = ft.Text(
-        "Movimentação consolidada do caixa", size=12, color=pal.text_ter,
-    )
-
-    total_geral_card = ft.Container(
+    hud_totais_card = ft.Container(
         width=largura_conteudo,
         border_radius=RADIUS,
         bgcolor=pal.surface,
         border=borda_all(1, ft.Colors.with_opacity(0.18, C_ACCENT)),
         blur=_blur_vidro(),
-        shadow=_sombra(C_ACCENT, 18, 0.12, 4),
-        padding=ft.Padding(left=20, right=20, top=18, bottom=18),
+        shadow=_sombra(C_ACCENT, 16, 0.12, 4),
+        padding=ft.Padding(left=16, right=16, top=12, bottom=12),
         content=ft.Column(
-            spacing=6,
+            spacing=8,
             controls=[
                 ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
                         ft.Row(
-                            spacing=6,
+                            spacing=8,
                             controls=[
                                 ft.Container(
-                                    width=8, height=8, border_radius=4,
-                                    bgcolor=C_ACCENT_LIGHT,
+                                    content=ft.Icon(ft.Icons.PERSON_ROUNDED, color=ft.Colors.WHITE, size=14),
+                                    bgcolor=C_ACCENT,
+                                    padding=5,
+                                    border_radius=50,
                                 ),
-                                txt_total_geral_label,
+                                ft.Column(
+                                    spacing=0,
+                                    controls=[txt_operador_nome, txt_turno_data],
+                                ),
+                            ]
+                        ),
+                        badge_turno_pill,
+                    ]
+                ),
+                ft.Divider(height=1, color=pal.border),
+                ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Column(
+                            spacing=1,
+                            controls=[
+                                ft.Text("TOTAL GERAL DO TURNO", size=10, weight=ft.FontWeight.BOLD, color=pal.text_sec),
+                                txt_total_geral,
                             ]
                         ),
                         ft.Container(
-                            content=ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET_ROUNDED, color=C_ACCENT_LIGHT, size=18),
-                            bgcolor=ft.Colors.with_opacity(0.14, C_ACCENT),
-                            border_radius=8,
-                            padding=6,
+                            content=ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET_ROUNDED, color=C_ACCENT_LIGHT, size=22),
+                            bgcolor=ft.Colors.with_opacity(0.12, C_ACCENT),
+                            border_radius=10,
+                            padding=8,
                         ),
                     ]
                 ),
-                txt_total_geral,
-                ft.Container(
-                    height=3,
-                    border_radius=2,
-                    gradient=ft.LinearGradient(
-                        begin=ft.Alignment(-1, 0),
-                        end=ft.Alignment(1, 0),
-                        colors=[C_ACCENT, C_ACCENT_LIGHT, ft.Colors.with_opacity(0.10, C_ACCENT)],
-                    ),
-                    margin=ft.Margin(top=4, bottom=2, left=0, right=0),
-                ),
-                txt_total_geral_sub,
+                row_hud_chips,
             ],
         ),
     )
@@ -626,7 +583,6 @@ def main(page: ft.Page):
         txt_dinheiro.value       = formatar_moeda(totais.dinheiro)
         txt_pix.value            = formatar_moeda(totais.pix)
         txt_cartoes.value       = formatar_moeda(totais.cartoes)
-        lbl_cart.value          = f"CARTÕES ({totais.qtd_cartoes})"
         txt_requisicao.value    = formatar_moeda(totais.requisicao)
         txt_deposito_global.value = formatar_moeda(totais.deposito_global)
         txt_despesas.value        = formatar_moeda(totais.despesas)
@@ -635,7 +591,6 @@ def main(page: ft.Page):
         txt_operador_nome.value = f"{_saudacao_hora()}, {turno_atual.operador}"
         txt_turno_data.value    = f"Aberto em {turno_atual.aberto_em}"
         badge_turno_pill.content.controls[1].value = f"Turno #{turno_atual.numero_do_dia}"
-        txt_total_geral_sub.value = f"Turno #{turno_atual.numero_do_dia} · Aberto em {turno_atual.aberto_em}"
         
         if totais.dinheiro_gaveta >= 1500.0:
             txt_alerta_sangria.value = f"Gaveta com {formatar_moeda(totais.dinheiro_gaveta)} em espécie. Recomendado sangria."
@@ -646,141 +601,214 @@ def main(page: ft.Page):
         if mobile:
             txt_rodape_resumo.value = f"Total geral · {formatar_moeda(totais.total_geral)}"
 
-    # ═══════════════════════════════════════════════════════════════
-    # SELETOR DE TIPO
-    # ═══════════════════════════════════════════════════════════════
+    # ════════════════════════════════════════════════════════════════════════
+    # GRADE TÁTIL DE FORMAS DE PAGAMENTO (6 CARDS TÁTEIS)
+    # ════════════════════════════════════════════════════════════════════════
     def _eh_cartao(t: str) -> bool:
         return t in db.LISTA_CARTOES
 
+    bandeiras_disponiveis = [
+        "Master Débito", "Master Crédito", "Visa Débito", "Visa Crédito",
+        "Elo Débito", "Elo Crédito", "Alelo Multibenefícios", "Sodexo",
+        "Fitcard", "Excard", "Amex", "Eucard", "Avancard"
+    ]
+
     def criar_seletor_tipo(valor_inicial: str):
+        cartao_escolhido = valor_inicial if _eh_cartao(valor_inicial) else "Master Débito"
         estado = {
             "valor": valor_inicial,
-            "mostrar_bandeiras": _eh_cartao(valor_inicial),
+            "cartao_atual": cartao_escolhido,
         }
         seletor_col = ft.Column(spacing=8, width=largura_conteudo)
-        registro_chips = {}
+        registro_cards = {}
 
-        def _estilo(chave: str, selecionado: bool):
-            if selecionado:
-                return {
-                    "bgcolor": C_ACCENT,
-                    "border": borda_all(1.5, C_ACCENT_LIGHT),
-                    "cor_conteudo": ft.Colors.WHITE,
-                    "peso_texto": ft.FontWeight.BOLD,
-                }
-            return {
-                "bgcolor": pal.surface,
-                "border": borda_all(1, pal.border),
-                "cor_conteudo": pal.text_sec,
-                "peso_texto": ft.FontWeight.W_500,
-            }
+        def abrir_modal_bandeiras(e=None):
+            dlg_bandeiras = None
+            sheet_bandeiras = None
 
-        def _montar_chip(chave: str, rotulo: str, selecionado: bool, ao_clicar):
-            estilo = _estilo(chave, selecionado)
-            icone_ctrl = ft.Icon(icone_tipo(chave), size=16, color=estilo["cor_conteudo"])
-            texto_ctrl = ft.Text(
-                rotulo, size=14, color=estilo["cor_conteudo"], weight=estilo["peso_texto"]
+            def fechar_band(x=None):
+                if dlg_bandeiras: fechar_dialogo(dlg_bandeiras)
+                if sheet_bandeiras: fechar_dialogo(sheet_bandeiras)
+
+            def escolher_bandeira(nome_band):
+                estado["cartao_atual"] = nome_band
+                fechar_band()
+                selecionar(nome_band)
+
+            lista_band_controls = []
+            for band in bandeiras_disponiveis:
+                cor_b = cor_tipo(band)
+                ico_b = icone_tipo(band)
+                sel_b = (estado["valor"] == band)
+
+                btn_b = ft.Container(
+                    content=ft.Row(
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        controls=[
+                            ft.Row(
+                                spacing=10,
+                                controls=[
+                                    ft.Container(
+                                        content=ft.Icon(ico_b, color=cor_b, size=18),
+                                        bgcolor=ft.Colors.with_opacity(0.14, cor_b),
+                                        border_radius=8,
+                                        padding=6,
+                                    ),
+                                    ft.Text(band, size=13, weight=ft.FontWeight.W_600 if sel_b else ft.FontWeight.NORMAL, color=pal.text_pri),
+                                ]
+                            ),
+                            ft.Icon(ft.Icons.CHECK_ROUNDED, color=cor_b, size=18) if sel_b else ft.Container(),
+                        ]
+                    ),
+                    bgcolor=ft.Colors.with_opacity(0.12, cor_b) if sel_b else pal.surface,
+                    border=borda_all(1.5 if sel_b else 1, cor_b if sel_b else pal.border),
+                    border_radius=RADIUS_SM,
+                    padding=ft.Padding(12, 10, 12, 10),
+                    ink=True,
+                    on_click=lambda ev, b=band: escolher_bandeira(b),
+                )
+                lista_band_controls.append(btn_b)
+
+            conteudo_modal = ft.Column(
+                spacing=8,
+                scroll=ft.ScrollMode.AUTO,
+                controls=lista_band_controls,
             )
-            container = ft.Container(
+
+            if not mobile:
+                dlg_bandeiras = ft.AlertDialog(
+                    title=ft.Row([
+                        ft.Icon(ft.Icons.CREDIT_CARD_ROUNDED, color=C_PURPLE, size=22),
+                        ft.Text("Escolha a Bandeira / Cartão", weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                    ], spacing=8),
+                    content=ft.Container(content=conteudo_modal, width=min(360, largura_conteudo), height=380),
+                    actions=[ft.TextButton("Cancelar", on_click=fechar_band)],
+                )
+                abrir_dialogo(dlg_bandeiras)
+            else:
+                painel_b = ft.Container(
+                    padding=ft.Padding(20, 12, 20, 30),
+                    bgcolor=pal.sheet_bg,
+                    content=ft.Column(
+                        expand=True,
+                        spacing=12,
+                        controls=[
+                            ft.Container(width=36, height=4, border_radius=2, bgcolor=pal.border_strong, alignment=ft.Alignment(0, 0)),
+                            ft.Row([
+                                ft.Icon(ft.Icons.CREDIT_CARD_ROUNDED, color=C_PURPLE, size=20),
+                                ft.Text("Escolha a Bandeira / Cartão", size=16, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                            ], spacing=8, alignment=ft.MainAxisAlignment.CENTER),
+                            ft.Divider(height=1, color=pal.border),
+                            ft.Container(content=conteudo_modal, expand=True),
+                            ft.TextButton("Cancelar", on_click=fechar_band),
+                        ]
+                    )
+                )
+                sheet_bandeiras = _criar_bottom_sheet(painel_b)
+                abrir_dialogo(sheet_bandeiras)
+
+        def _montar_card_tatil(id_chave: str, titulo: str, subtitulo: str, icone, cor: str, ao_clicar, is_cartao=False):
+            sel = (id_chave == estado["valor"]) or (is_cartao and _eh_cartao(estado["valor"]))
+            sub = estado["cartao_atual"] if is_cartao else subtitulo
+
+            ico_cnt = ft.Container(
+                content=ft.Icon(icone, color=cor if sel else pal.text_sec, size=20),
+                bgcolor=ft.Colors.with_opacity(0.16 if sel else 0.08, cor),
+                border_radius=10,
+                padding=8,
+            )
+
+            txt_tit = ft.Text(titulo, size=13, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+            txt_sub = ft.Text(f"{sub} ▾" if is_cartao else sub, size=10, color=cor if sel else pal.text_ter, weight=ft.FontWeight.W_500)
+
+            check_dot = ft.Container(
+                width=6, height=6, border_radius=3,
+                bgcolor=cor if sel else ft.Colors.TRANSPARENT,
+            )
+
+            card = ft.Container(
                 content=ft.Row(
-                    spacing=6,
-                    tight=True,
-                    alignment=ft.MainAxisAlignment.CENTER,
-                    controls=[icone_ctrl, texto_ctrl],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Row(
+                            spacing=10,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[
+                                ico_cnt,
+                                ft.Column(
+                                    spacing=1,
+                                    alignment=ft.MainAxisAlignment.CENTER,
+                                    controls=[txt_tit, txt_sub],
+                                ),
+                            ]
+                        ),
+                        check_dot,
+                    ]
                 ),
-                bgcolor=estilo["bgcolor"],
-                border_radius=100,
-                border=estilo["border"],
-                height=46,
+                bgcolor=ft.Colors.with_opacity(0.14, cor) if sel else pal.surface,
+                border=borda_all(1.8 if sel else 1, cor if sel else pal.border),
+                border_radius=RADIUS_SM,
+                padding=ft.Padding(12, 8, 12, 8),
                 expand=True,
-                alignment=ft.Alignment(0, 0),
+                height=56,
+                ink=True,
                 on_click=ao_clicar,
                 scale=ft.Scale(scale=1),
                 animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
-                ink=True,
             )
-            
+
             if not mobile and not ios:
-                def hover_chip(e):
-                    e.control.scale = 1.05 if e.data == "true" else 1.0
+                def hover_card(e):
+                    e.control.scale = 1.03 if e.data == "true" else 1.0
                     e.control.update()
-                container.on_hover = hover_chip
-            registro_chips[chave] = (container, icone_ctrl, texto_ctrl)
-            return container
+                card.on_hover = hover_card
 
-        def _chip(tipo: str):
-            selecionado = tipo == estado["valor"]
-            return _montar_chip(
-                tipo, tipo, selecionado, lambda e, t=tipo: selecionar(t)
-            )
-
-        def _chip_cartao():
-            selecionado = _eh_cartao(estado["valor"])
-            return _montar_chip("__cartao__", "Cartão", selecionado, _alternar_cartao)
-
-        bandeiras_novas = ["Fitcard", "Excard", "Amex", "Eucard", "Pix", "Avancard"]
-        bandeiras_tela_venda = [c for c in db.LISTA_CARTOES if c not in bandeiras_novas] + [c for c in bandeiras_novas if c in db.LISTA_CARTOES]
-
-        def _linha(tipos):
-            return ft.Row(spacing=8, controls=[_chip(t) for t in tipos])
+            registro_cards[id_chave] = (card, ico_cnt, txt_tit, txt_sub, check_dot, cor, is_cartao)
+            return card
 
         def construir():
-            registro_chips.clear()
+            registro_cards.clear()
             seletor_col.controls.clear()
 
-            seletor_col.controls.append(_linha([db.TIPO_DINHEIRO, db.TIPO_PIX]))
-            seletor_col.controls.append(_linha([db.TIPO_REQUISICAO, db.TIPO_DEPOSITO_GLOBAL]))
-            seletor_col.controls.append(
-                ft.Row(spacing=8, controls=[_chip(db.TIPO_DESPESA), _chip_cartao()])
-            )
+            card_din = _montar_card_tatil(db.TIPO_DINHEIRO, "Dinheiro", "Espécie", ft.Icons.PAYMENTS_ROUNDED, C_GREEN, lambda e: selecionar(db.TIPO_DINHEIRO))
+            card_pix = _montar_card_tatil(db.TIPO_PIX, "Pag Pix", "Instantâneo", ft.Icons.PIX_ROUNDED, C_BLUE, lambda e: selecionar(db.TIPO_PIX))
 
-            if estado["mostrar_bandeiras"]:
-                seletor_col.controls.append(
-                    ft.Text("Escolha a bandeira", size=12, color=pal.text_ter,
-                            weight=ft.FontWeight.W_600)
-                )
-                for i in range(0, len(bandeiras_tela_venda), 2):
-                    seletor_col.controls.append(_linha(bandeiras_tela_venda[i:i + 2]))
+            def clique_cartao(e):
+                if _eh_cartao(estado["valor"]):
+                    abrir_modal_bandeiras()
+                else:
+                    selecionar(estado["cartao_atual"])
 
-        def _repintar_chip(chave: str, selecionado: bool):
-            registrado = registro_chips.get(chave)
-            if registrado is None:
-                return
-            container, icone_ctrl, texto_ctrl = registrado
-            estilo = _estilo(chave, selecionado)
-            container.bgcolor = estilo["bgcolor"]
-            container.border = estilo["border"]
-            icone_ctrl.color = estilo["cor_conteudo"]
-            texto_ctrl.color = estilo["cor_conteudo"]
-            texto_ctrl.weight = estilo["peso_texto"]
+            card_cart = _montar_card_tatil("__cartao__", "Cartões", estado["cartao_atual"], ft.Icons.CREDIT_CARD_ROUNDED, C_PURPLE, clique_cartao, is_cartao=True)
+            card_req = _montar_card_tatil(db.TIPO_REQUISICAO, "Requisição", "Faturado", ft.Icons.RECEIPT_LONG_ROUNDED, C_AMBER, lambda e: selecionar(db.TIPO_REQUISICAO))
+            card_dep = _montar_card_tatil(db.TIPO_DEPOSITO_GLOBAL, "Depósito", "Bancário", ft.Icons.ACCOUNT_BALANCE_ROUNDED, C_BROWN, lambda e: selecionar(db.TIPO_DEPOSITO_GLOBAL))
+            card_desp = _montar_card_tatil(db.TIPO_DESPESA, "Despesas", "Retirada", ft.Icons.MONEY_OFF_ROUNDED, C_RED, lambda e: selecionar(db.TIPO_DESPESA))
+
+            seletor_col.controls.append(ft.Row(spacing=8, controls=[card_din, card_pix]))
+            seletor_col.controls.append(ft.Row(spacing=8, controls=[card_cart, card_req]))
+            seletor_col.controls.append(ft.Row(spacing=8, controls=[card_dep, card_desp]))
 
         def selecionar(tipo):
-            anterior = estado["valor"]
-            if tipo == anterior:
-                return
             estado["valor"] = tipo
+            if _eh_cartao(tipo):
+                estado["cartao_atual"] = tipo
             salvar_ultimo_tipo(tipo)
 
-            anterior_e_cartao = _eh_cartao(anterior)
-            novo_e_cartao = _eh_cartao(tipo)
+            # Atualiza estados visuais dos cards
+            for k, (card, ico_cnt, txt_tit, txt_sub, check_dot, cor, is_cartao) in registro_cards.items():
+                sel = (k == tipo) or (is_cartao and _eh_cartao(tipo))
+                card.bgcolor = ft.Colors.with_opacity(0.14, cor) if sel else pal.surface
+                card.border = borda_all(1.8 if sel else 1, cor if sel else pal.border)
+                ico_cnt.bgcolor = ft.Colors.with_opacity(0.16 if sel else 0.08, cor)
+                ico_cnt.content.color = cor if sel else pal.text_sec
+                if is_cartao:
+                    txt_sub.value = f"{estado['cartao_atual']} ▾"
+                txt_sub.color = cor if sel else pal.text_ter
+                check_dot.bgcolor = cor if sel else ft.Colors.TRANSPARENT
 
-            if anterior_e_cartao != novo_e_cartao:
-                estado["mostrar_bandeiras"] = novo_e_cartao
-                construir()
-                page.update()
-                return
-
-            _repintar_chip(anterior, False)
-            _repintar_chip(tipo, True)
+            atualizar_calculo_troco()
             page.update()
-
-        def _alternar_cartao(e=None):
-            if _eh_cartao(estado["valor"]):
-                estado["mostrar_bandeiras"] = not estado["mostrar_bandeiras"]
-                construir()
-                page.update()
-            else:
-                selecionar(bandeiras_tela_venda[0])
 
         construir()
         return seletor_col, estado, selecionar, construir
@@ -1459,22 +1487,22 @@ def main(page: ft.Page):
             alignment=ft.MainAxisAlignment.CENTER,
             spacing=10,
             controls=[
-                ft.Icon(ft.Icons.ADD_SHOPPING_CART, color=ft.Colors.WHITE, size=20),
-                ft.Text("Lançar", color=ft.Colors.WHITE, size=16,
-                        weight=ft.FontWeight.W_600),
+                ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, color=ft.Colors.WHITE, size=22),
+                ft.Text("LANÇAR VENDA", color=ft.Colors.WHITE, size=16,
+                        weight=ft.FontWeight.BOLD),
             ],
         ),
         bgcolor=None,
         gradient=ft.LinearGradient(
-            begin=ft.Alignment(-1, -1),
-            end=ft.Alignment(1, 1),
+            begin=ft.Alignment(-1, 0),
+            end=ft.Alignment(1, 0),
             colors=[C_ACCENT, C_ACCENT_DARK],
         ),
         border_radius=RADIUS_SM,
-        height=54,
+        height=52,
         width=largura_conteudo,
         alignment=ft.Alignment(0, 0),
-        shadow=_sombra(C_ACCENT, 20, 0.35, 4),
+        shadow=_sombra(C_ACCENT, 18, 0.35, 4),
         scale=ft.Scale(scale=1),
         animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
         ink=True,
@@ -3835,46 +3863,33 @@ def main(page: ft.Page):
         txt_turno_data.color = pal.text_sec
         txt_operador_nome.color = pal.text_pri
         txt_total_geral.color = pal.text_pri
-        
-        for card, txt_val, lbl, cor_badge in (
-            (stat_din_card, txt_dinheiro, lbl_din, C_GREEN),
-            (stat_pix_card, txt_pix, lbl_pix, C_BLUE),
-            (stat_cart_card, txt_cartoes, lbl_cart, C_PURPLE),
-            (stat_req_card, txt_requisicao, lbl_req, C_AMBER),
-            (stat_dep_card, txt_deposito_global, lbl_dep, C_BROWN),
-            (stat_desp_card, txt_despesas, lbl_desp, C_RED),
-        ):
-            card.bgcolor = pal.surface
-            card.border = borda_all(1, pal.border)
-            txt_val.color = pal.text_pri
-            lbl.color = pal.text_sec
-            badge_cnt = card.content.controls[0].controls[0]
-            badge_cnt.content.color = cor_badge
-            badge_cnt.bgcolor = ft.Colors.with_opacity(0.14, cor_badge)
-            
-        txt_total_geral_label.color = pal.text_sec
-        txt_total_geral_sub.color = pal.text_ter
-        total_geral_card.bgcolor = pal.surface
-        total_geral_card.border = borda_all(1, ft.Colors.with_opacity(0.20, C_ACCENT))
+        txt_dinheiro.color = pal.text_pri
+        txt_pix.color = pal.text_pri
+        txt_cartoes.color = pal.text_pri
+        txt_requisicao.color = pal.text_pri
+        txt_deposito_global.color = pal.text_pri
+        txt_despesas.color = pal.text_pri
+
+        hud_totais_card.bgcolor = pal.surface
+        hud_totais_card.border = borda_all(1, ft.Colors.with_opacity(0.18, C_ACCENT))
+
         txt_header_titulo.color = pal.text_pri
         btn_tema.content.icon_color = pal.text_sec
         btn_tema.bgcolor = pal.surface
         btn_tema.border = borda_all(1, pal.border)
+        btn_bloquear.content.icon_color = pal.text_sec
+        btn_bloquear.bgcolor = pal.surface
+        btn_bloquear.border = borda_all(1, pal.border)
         btn_menu.content.icon_color = pal.text_sec
         btn_menu.bgcolor = pal.surface
         btn_menu.border = borda_all(1, pal.border)
-        for div in (div_top, div_mid, div_bot):
-            div.bgcolor = pal.border
         floating_bottom_bar.bgcolor = pal.sheet_bg
         floating_bottom_bar.border = borda_all(1, pal.border)
 
         controles_scroll = [
             header,
-            info_turno_card,
             banner_alerta_sangria,
-            total_geral_card,
-            stats_grid,
-            div_top,
+            hud_totais_card,
             seletor_col,
             input_valor,
             row_calculadora_troco,
