@@ -1,5 +1,12 @@
 import os
 import sys
+
+try:
+    import certifi
+    os.environ["SSL_CERT_FILE"] = certifi.where()
+except ImportError:
+    pass
+
 import json
 import base64
 import urllib.parse
