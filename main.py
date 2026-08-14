@@ -953,7 +953,6 @@ def main(page: ft.Page):
         label_style=ft.TextStyle(color=pal.text_sec),
         text_style=ft.TextStyle(color=pal.text_pri),
         prefix_icon=ft.Icons.DIRECTIONS_CAR_ROUNDED,
-        prefix_icon_color=pal.text_sec,
         width=largura_conteudo,
         border_radius=RADIUS_MD,
         content_padding=ft.Padding(16, 14, 16, 14),
@@ -3949,7 +3948,6 @@ def main(page: ft.Page):
         input_desc.color = pal.text_pri
         input_desc.text_style = ft.TextStyle(color=pal.text_pri)
         input_desc.label_style = ft.TextStyle(color=pal.text_sec)
-        input_desc.prefix_icon_color = pal.text_sec
 
         txt_header_titulo.color = pal.text_pri
         btn_tema.content.icon_color = pal.text_sec
