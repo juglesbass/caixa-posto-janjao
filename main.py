@@ -422,53 +422,53 @@ def main(page: ft.Page):
     # ════════════════════════════════════════════════════════════════════════
     # INFORMAÇÕES DO TURNO & HUD DE TOTAIS (PDV FIRST BENTO HUD)
     # ════════════════════════════════════════════════════════════════════════
-    txt_operador_nome = ft.Text("", size=14, weight=ft.FontWeight.BOLD, color=pal.text_pri)
-    txt_turno_data = ft.Text("", size=11, color=pal.text_sec)
+    txt_operador_nome = ft.Text("", size=15, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+    txt_turno_data = ft.Text("", size=12, color=pal.text_sec)
 
     badge_turno_pill = ft.Container(
         content=ft.Row(
             spacing=5,
             tight=True,
             controls=[
-                ft.Container(width=7, height=7, border_radius=4, bgcolor=C_GREEN),
-                ft.Text("Turno #1", size=11, weight=ft.FontWeight.BOLD, color=C_GREEN),
+                ft.Container(width=8, height=8, border_radius=4, bgcolor=C_GREEN),
+                ft.Text("Turno #1", size=12, weight=ft.FontWeight.BOLD, color=C_GREEN),
             ]
         ),
         bgcolor=ft.Colors.with_opacity(0.12, C_GREEN),
         border=borda_all(1, ft.Colors.with_opacity(0.30, C_GREEN)),
         border_radius=100,
-        padding=ft.Padding(left=8, right=8, top=3, bottom=3),
+        padding=ft.Padding(left=10, right=10, top=4, bottom=4),
     )
 
     txt_total_geral = ft.Text(
         "R$ 0,00",
-        size=28,
+        size=32,
         weight=ft.FontWeight.BOLD,
         color=pal.text_pri,
     )
 
-    txt_dinheiro = ft.Text("R$ 0,00", size=11, weight=ft.FontWeight.BOLD, color=pal.text_pri)
-    txt_pix = ft.Text("R$ 0,00", size=11, weight=ft.FontWeight.BOLD, color=pal.text_pri)
-    txt_cartoes = ft.Text("R$ 0,00", size=11, weight=ft.FontWeight.BOLD, color=pal.text_pri)
-    txt_requisicao = ft.Text("R$ 0,00", size=11, weight=ft.FontWeight.BOLD, color=pal.text_pri)
-    txt_deposito_global = ft.Text("R$ 0,00", size=11, weight=ft.FontWeight.BOLD, color=pal.text_pri)
-    txt_despesas = ft.Text("R$ 0,00", size=11, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+    txt_dinheiro = ft.Text("R$ 0,00", size=12, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+    txt_pix = ft.Text("R$ 0,00", size=12, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+    txt_cartoes = ft.Text("R$ 0,00", size=12, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+    txt_requisicao = ft.Text("R$ 0,00", size=12, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+    txt_deposito_global = ft.Text("R$ 0,00", size=12, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+    txt_despesas = ft.Text("R$ 0,00", size=12, weight=ft.FontWeight.BOLD, color=pal.text_pri)
 
     def _criar_hud_chip(label: str, cor: str, icone, txt_ctrl, ao_clicar=None):
         c = ft.Container(
             content=ft.Row(
-                spacing=5,
+                spacing=6,
                 tight=True,
                 controls=[
-                    ft.Icon(icone, color=cor, size=13),
-                    ft.Text(label, size=11, color=pal.text_sec, weight=ft.FontWeight.W_500),
+                    ft.Icon(icone, color=cor, size=15),
+                    ft.Text(label, size=12, color=pal.text_sec, weight=ft.FontWeight.W_500),
                     txt_ctrl,
                 ]
             ),
             bgcolor=ft.Colors.with_opacity(0.08, cor),
             border=borda_all(1, ft.Colors.with_opacity(0.20, cor)),
             border_radius=100,
-            padding=ft.Padding(8, 4, 10, 4),
+            padding=ft.Padding(10, 6, 12, 6),
             ink=True,
             on_click=ao_clicar,
         )
@@ -501,25 +501,25 @@ def main(page: ft.Page):
         border=borda_all(1, ft.Colors.with_opacity(0.18, C_ACCENT)),
         blur=_blur_vidro(),
         shadow=_sombra(C_ACCENT, 16, 0.12, 4),
-        padding=ft.Padding(left=16, right=16, top=12, bottom=12),
+        padding=ft.Padding(left=18, right=18, top=14, bottom=14),
         content=ft.Column(
-            spacing=8,
+            spacing=10,
             controls=[
                 ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
                         ft.Row(
-                            spacing=8,
+                            spacing=10,
                             controls=[
                                 ft.Container(
-                                    content=ft.Icon(ft.Icons.PERSON_ROUNDED, color=ft.Colors.WHITE, size=14),
+                                    content=ft.Icon(ft.Icons.PERSON_ROUNDED, color=ft.Colors.WHITE, size=16),
                                     bgcolor=C_ACCENT,
-                                    padding=5,
+                                    padding=6,
                                     border_radius=50,
                                 ),
                                 ft.Column(
-                                    spacing=0,
+                                    spacing=1,
                                     controls=[txt_operador_nome, txt_turno_data],
                                 ),
                             ]
@@ -533,17 +533,17 @@ def main(page: ft.Page):
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
                         ft.Column(
-                            spacing=1,
+                            spacing=2,
                             controls=[
-                                ft.Text("TOTAL GERAL DO TURNO", size=10, weight=ft.FontWeight.BOLD, color=pal.text_sec),
+                                ft.Text("TOTAL GERAL DO TURNO", size=11, weight=ft.FontWeight.BOLD, color=pal.text_sec),
                                 txt_total_geral,
                             ]
                         ),
                         ft.Container(
-                            content=ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET_ROUNDED, color=C_ACCENT_LIGHT, size=22),
+                            content=ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET_ROUNDED, color=C_ACCENT_LIGHT, size=26),
                             bgcolor=ft.Colors.with_opacity(0.12, C_ACCENT),
-                            border_radius=10,
-                            padding=8,
+                            border_radius=12,
+                            padding=10,
                         ),
                     ]
                 ),
@@ -709,17 +709,17 @@ def main(page: ft.Page):
             sub = estado["cartao_atual"] if is_cartao else subtitulo
 
             ico_cnt = ft.Container(
-                content=ft.Icon(icone, color=cor if sel else pal.text_sec, size=20),
+                content=ft.Icon(icone, color=cor if sel else pal.text_sec, size=22),
                 bgcolor=ft.Colors.with_opacity(0.16 if sel else 0.08, cor),
-                border_radius=10,
-                padding=8,
+                border_radius=12,
+                padding=10,
             )
 
-            txt_tit = ft.Text(titulo, size=13, weight=ft.FontWeight.BOLD, color=pal.text_pri)
-            txt_sub = ft.Text(f"{sub} ▾" if is_cartao else sub, size=10, color=cor if sel else pal.text_ter, weight=ft.FontWeight.W_500)
+            txt_tit = ft.Text(titulo, size=14, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+            txt_sub = ft.Text(f"{sub} ▾" if is_cartao else sub, size=11, color=cor if sel else pal.text_ter, weight=ft.FontWeight.W_500)
 
             check_dot = ft.Container(
-                width=6, height=6, border_radius=3,
+                width=8, height=8, border_radius=4,
                 bgcolor=cor if sel else ft.Colors.TRANSPARENT,
             )
 
@@ -734,7 +734,7 @@ def main(page: ft.Page):
                             controls=[
                                 ico_cnt,
                                 ft.Column(
-                                    spacing=1,
+                                    spacing=2,
                                     alignment=ft.MainAxisAlignment.CENTER,
                                     controls=[txt_tit, txt_sub],
                                 ),
@@ -745,10 +745,10 @@ def main(page: ft.Page):
                 ),
                 bgcolor=ft.Colors.with_opacity(0.14, cor) if sel else pal.surface,
                 border=borda_all(1.8 if sel else 1, cor if sel else pal.border),
-                border_radius=RADIUS_SM,
-                padding=ft.Padding(12, 8, 12, 8),
+                border_radius=RADIUS_MD,
+                padding=ft.Padding(14, 10, 14, 10),
                 expand=True,
-                height=56,
+                height=66,
                 ink=True,
                 on_click=ao_clicar,
                 scale=ft.Scale(scale=1),
@@ -826,9 +826,17 @@ def main(page: ft.Page):
         desfocar_campos(input_valor, input_desc, input_recebido)
 
     input_valor = ft.TextField(
-        label="Valor (Ex: 50.00 ou 50,00)",
+        label="Valor da Venda (Ex: 50.00 ou 50,00)",
         width=largura_conteudo,
-        prefix=ft.Text("R$ "),
+        prefix=ft.Text("R$ ", size=18, weight=ft.FontWeight.BOLD),
+        text_size=18,
+        text_style=ft.TextStyle(weight=ft.FontWeight.BOLD),
+        content_padding=ft.Padding(16, 14, 16, 14),
+        border_radius=RADIUS_MD,
+        filled=True,
+        bgcolor=pal.surface,
+        border_color=pal.border,
+        focused_border_color=C_ACCENT,
         keyboard_type=_keyboard_valor,
         adaptive=adaptive_ui,
         autocorrect=False,
@@ -837,21 +845,21 @@ def main(page: ft.Page):
         on_tap_outside=ao_tocar_fora,
     )
 
-    txt_troco_valor = ft.Text("R$ 0,00", size=13, weight=ft.FontWeight.BOLD, color=C_GREEN)
+    txt_troco_valor = ft.Text("R$ 0,00", size=14, weight=ft.FontWeight.BOLD, color=C_GREEN)
     badge_troco_calculado = ft.Container(
         content=ft.Row(
             spacing=6,
             tight=True,
             controls=[
-                ft.Icon(ft.Icons.SAVINGS_ROUNDED, color=C_GREEN, size=15),
-                ft.Text("Troco:", size=12, color=pal.text_sec),
+                ft.Icon(ft.Icons.SAVINGS_ROUNDED, color=C_GREEN, size=16),
+                ft.Text("Troco:", size=13, color=pal.text_sec),
                 txt_troco_valor,
             ]
         ),
         bgcolor=ft.Colors.with_opacity(0.12, C_GREEN),
         border=borda_all(1, ft.Colors.with_opacity(0.30, C_GREEN)),
         border_radius=100,
-        padding=ft.Padding(10, 5, 10, 5),
+        padding=ft.Padding(12, 6, 12, 6),
         visible=False,
     )
 
@@ -883,6 +891,10 @@ def main(page: ft.Page):
         hint_text="Ex: 100,00",
         width=largura_conteudo,
         prefix=ft.Text("R$ "),
+        border_radius=RADIUS_MD,
+        content_padding=ft.Padding(16, 12, 16, 12),
+        filled=True,
+        bgcolor=pal.surface,
         keyboard_type=_keyboard_valor,
         adaptive=adaptive_ui,
         autocorrect=False,
@@ -907,8 +919,13 @@ def main(page: ft.Page):
     )
 
     input_desc = ft.TextField(
-        label="Descrição / Placa (Opcional)",
+        label="Descrição / Placa do Veículo (Opcional)",
+        prefix_icon=ft.Icons.DIRECTIONS_CAR_ROUNDED,
         width=largura_conteudo,
+        border_radius=RADIUS_MD,
+        content_padding=ft.Padding(16, 14, 16, 14),
+        filled=True,
+        bgcolor=pal.surface,
         adaptive=adaptive_ui,
         on_tap_outside=ao_tocar_fora,
     )
@@ -970,20 +987,20 @@ def main(page: ft.Page):
         except ValueError:
             return 0.0
 
-    # ═══════════════════════════════════════════════════════════════[...]
+    # ═══════════════════════════════════════════════════════════════
     # BOTÕES RÁPIDOS
-    # ═══════════════════════════════════════════════════════════════[...]
+    # ═══════════════════════════════════════════════════════════════
     def _pill_btn(label, on_click, is_completou=False):
         cor_borda = ft.Colors.with_opacity(0.40, C_AMBER) if is_completou else pal.border
         cor_texto = C_AMBER if is_completou else pal.text_pri
         cor_bg    = ft.Colors.with_opacity(0.12, C_AMBER) if is_completou else pal.surface
         
         container = ft.Container(
-            content=ft.Text(label, size=13, color=cor_texto, weight=ft.FontWeight.W_600),
+            content=ft.Text(label, size=13, color=cor_texto, weight=ft.FontWeight.BOLD if is_completou else ft.FontWeight.W_600),
             bgcolor=cor_bg,
             border_radius=100,
             border=borda_all(1, cor_borda),
-            padding=ft.Padding(left=16, right=16, top=9, bottom=9),
+            padding=ft.Padding(left=16, right=16, top=10, bottom=10),
             scale=ft.Scale(scale=1),
             animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
             on_click=on_click,
@@ -1018,10 +1035,9 @@ def main(page: ft.Page):
     row_botoes_rapidos = ft.Row(
         wrap=True,
         alignment=ft.MainAxisAlignment.START,
-        spacing=8,
-        run_spacing=8,
+        spacing=6,
+        run_spacing=6,
         width=largura_conteudo,
-        controls=[],
     )
     montar_botoes_rapidos()
 
@@ -1484,8 +1500,8 @@ def main(page: ft.Page):
             alignment=ft.MainAxisAlignment.CENTER,
             spacing=10,
             controls=[
-                ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, color=ft.Colors.WHITE, size=22),
-                ft.Text("LANÇAR VENDA", color=ft.Colors.WHITE, size=16,
+                ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, color=ft.Colors.WHITE, size=24),
+                ft.Text("LANÇAR VENDA", color=ft.Colors.WHITE, size=17,
                         weight=ft.FontWeight.BOLD),
             ],
         ),
@@ -1495,11 +1511,11 @@ def main(page: ft.Page):
             end=ft.Alignment(1, 0),
             colors=[C_ACCENT, C_ACCENT_DARK],
         ),
-        border_radius=RADIUS_SM,
-        height=52,
+        border_radius=RADIUS_MD,
+        height=58,
         width=largura_conteudo,
         alignment=ft.Alignment(0, 0),
-        shadow=_sombra(C_ACCENT, 18, 0.35, 4),
+        shadow=_sombra(C_ACCENT, 20, 0.35, 4),
         scale=ft.Scale(scale=1),
         animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
         ink=True,
@@ -3893,12 +3909,12 @@ def main(page: ft.Page):
             row_botoes_rapidos,
             input_desc,
             btn_lancar,
-            ft.Container(height=85),
+            ft.Container(height=72),
         ]
 
         area_scroll = ft.Column(
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=10,
+            spacing=12,
             controls=controles_scroll,
             scroll=ft.ScrollMode.HIDDEN if mobile else ft.ScrollMode.AUTO,
             expand=True,
@@ -3906,7 +3922,7 @@ def main(page: ft.Page):
 
         rodape_flutuante = ft.Container(
             content=floating_bottom_bar,
-            bottom=16,
+            bottom=12,
             left=0,
             right=0,
             alignment=ft.Alignment(0, 0),
