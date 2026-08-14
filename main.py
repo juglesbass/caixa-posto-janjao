@@ -16,47 +16,60 @@ def _app_mobile() -> bool:
 def criar_paleta(escuro: bool) -> SimpleNamespace:
     if escuro:
         return SimpleNamespace(
-            bg="#0b0d14",
-            surface="#161824",
-            border=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
-            border_strong=ft.Colors.with_opacity(0.25, "#60a5fa"),
-            text_pri="#ffffff",
+            bg="#0b0f19",
+            surface="#131b2e",
+            surface_subtle="#1a243b",
+            border=ft.Colors.with_opacity(0.12, ft.Colors.WHITE),
+            border_strong=ft.Colors.with_opacity(0.28, "#38bdf8"),
+            text_pri="#f8fafc",
             text_sec="#94a3b8",
             text_ter="#64748b",
-            sheet_bg=ft.Colors.with_opacity(0.98, "#12141f"),
+            sheet_bg="#0f172a",
+            card_gradient_start="#161f36",
+            card_gradient_end="#0f172a",
+            hero_bg_start="#172554",
+            hero_bg_end="#0f172a",
         )
     return SimpleNamespace(
-        bg="#f8fafc",
+        bg="#f4f6fb",
         surface="#ffffff",
-        border=ft.Colors.with_opacity(0.10, ft.Colors.BLACK),
+        surface_subtle="#f1f5f9",
+        border=ft.Colors.with_opacity(0.08, ft.Colors.BLACK),
         border_strong=ft.Colors.with_opacity(0.20, "#2563eb"),
         text_pri="#0f172a",
         text_sec="#475569",
         text_ter="#94a3b8",
         sheet_bg="#ffffff",
+        card_gradient_start="#ffffff",
+        card_gradient_end="#f8fafc",
+        hero_bg_start="#eff6ff",
+        hero_bg_end="#ffffff",
     )
 
 # ── Cor principal (Azul Cobalto & Destaques) ───────────────────────────────
 C_ACCENT       = "#2563eb"
 C_ACCENT_DARK  = "#1d4ed8"
-C_ACCENT_LIGHT = "#60a5fa"
-C_LIME         = "#a3e635"
+C_ACCENT_LIGHT = "#38bdf8"
+C_LIME         = "#84cc16"
 
 # ── Acentos por tipo de pagamento ───────────────────────────────────────────
-C_GREEN   = "#34d399"
-C_BLUE    = "#60a5fa"
-C_PURPLE  = "#a78bfa"
-C_ORANGE  = "#fb923c"
-C_BROWN   = "#d4a27a"
-C_TEAL    = "#2dd4bf"
-C_RED     = "#f87171"
-C_INDIGO  = "#818cf8"
-C_INDIGO2 = "#a5b4fc"
-C_AMBER   = "#fbbf24"
-C_AMBER2  = "#fde68a"
+C_GREEN   = "#10b981"
+C_BLUE    = "#06b6d4"
+C_PURPLE  = "#8b5cf6"
+C_ORANGE  = "#f97316"
+C_BROWN   = "#b45309"
+C_TEAL    = "#14b8a6"
+C_RED     = "#ef4444"
+C_INDIGO  = "#6366f1"
+C_INDIGO2 = "#818cf8"
+C_AMBER   = "#f59e0b"
+C_AMBER2  = "#fbbf24"
 
-RADIUS    = 22
-RADIUS_SM = 16
+RADIUS_XL = 24
+RADIUS    = 20
+RADIUS_MD = 14
+RADIUS_SM = 12
+RADIUS_XS = 6
 
 def _saudacao_hora() -> str:
     from datetime import datetime
@@ -323,35 +336,34 @@ def main(page: ft.Page):
             storage_set("caixa_ultimo_tipo", tipo)
 
     CORES = {
-        db.TIPO_DINHEIRO:        C_ACCENT_LIGHT,
-        db.TIPO_PIX:             C_ACCENT_LIGHT,
-        db.TIPO_REQUISICAO:      C_ACCENT_LIGHT,
-        db.TIPO_SODEXO:          C_ACCENT_LIGHT,
-        db.TIPO_DEPOSITO_GLOBAL: C_ACCENT_LIGHT,
+        db.TIPO_DINHEIRO:        C_GREEN,
+        db.TIPO_PIX:             C_BLUE,
+        db.TIPO_REQUISICAO:      C_AMBER,
+        db.TIPO_SODEXO:          C_TEAL,
+        db.TIPO_DEPOSITO_GLOBAL: C_BROWN,
         db.TIPO_DESPESA:         C_RED,
-        "Fitcard":               C_ACCENT_LIGHT,
-        "Excard":                C_ACCENT_LIGHT,
-        "Amex":                  C_ACCENT_LIGHT,
-        "Eucard":                C_ACCENT_LIGHT,
-        "Pix":                   C_ACCENT_LIGHT,
-        "Avancard":              C_ACCENT_LIGHT,
-        "Master Crédito":        C_ACCENT_LIGHT,
-        "Master Débito":         C_ACCENT_LIGHT,
-        "Visa Crédito":          C_ACCENT_LIGHT,
-        "Visa DéBITO":          C_ACCENT_LIGHT,
-        "Visa Débito":           C_ACCENT_LIGHT,
-        "Elo Crédito":           C_ACCENT_LIGHT,
-        "Elo Débito":            C_ACCENT_LIGHT,
-        "Alelo Multibenefícios": C_ACCENT_LIGHT,
+        "Fitcard":               C_TEAL,
+        "Excard":                C_INDIGO,
+        "Amex":                  C_BLUE,
+        "Eucard":                C_PURPLE,
+        "Avancard":              C_INDIGO2,
+        "Master Crédito":        C_RED,
+        "Master Débito":         C_ORANGE,
+        "Visa Crédito":          C_INDIGO,
+        "Visa DéBITO":          C_INDIGO2,
+        "Visa Débito":           C_INDIGO2,
+        "Elo Crédito":           C_AMBER,
+        "Elo Débito":            C_AMBER2,
+        "Alelo Multibenefícios": C_PURPLE,
     }
 
     ICONES = {
-        db.TIPO_DINHEIRO:        ft.Icons.MONEY,
-        db.TIPO_PIX:             ft.Icons.PIX,
-        db.TIPO_REQUISICAO:      ft.Icons.RECEIPT_LONG,
-        db.TIPO_SODEXO:          ft.Icons.LUNCH_DINING,
-        db.TIPO_DEPOSITO_GLOBAL: ft.Icons.ACCOUNT_BALANCE,
-        db.TIPO_DESPESA:         ft.Icons.MONEY_OFF,
+        db.TIPO_DINHEIRO:        ft.Icons.PAYMENTS_ROUNDED,
+        db.TIPO_PIX:             ft.Icons.PIX_ROUNDED,
+        db.TIPO_REQUISICAO:      ft.Icons.RECEIPT_LONG_ROUNDED,
+        db.TIPO_SODEXO:          ft.Icons.LUNCH_DINING_ROUNDED,
+        db.TIPO_DEPOSITO_GLOBAL: ft.Icons.ACCOUNT_BALANCE_ROUNDED,
+        db.TIPO_DESPESA:         ft.Icons.MONEY_OFF_ROUNDED,
     }
 
     def cor_tipo(tipo: str) -> str:
@@ -401,20 +413,23 @@ def main(page: ft.Page):
     # ════════════════════════════════════════════════════════════════════════
     # INFORMAÇÕES DO TURNO (Estilo Kalo Header Badge)
     # ════════════════════════════════════════════════════════════════════════
-    txt_operador_nome = ft.Text("", size=15, weight=ft.FontWeight.W_600, color=pal.text_pri)
+    txt_operador_nome = ft.Text("", size=16, weight=ft.FontWeight.BOLD, color=pal.text_pri)
     txt_turno_data = ft.Text("", size=12, color=pal.text_sec)
     
     badge_turno_pill = ft.Container(
         content=ft.Row(
-            spacing=4,
+            spacing=5,
             tight=True,
             controls=[
-                ft.Icon(ft.Icons.LOCAL_FIRE_DEPARTMENT_ROUNDED, size=15, color=C_AMBER),
-                ft.Text("Turno #1", size=12, weight=ft.FontWeight.BOLD, color=C_AMBER),
+                ft.Container(
+                    width=7, height=7, border_radius=4,
+                    bgcolor=C_GREEN,
+                ),
+                ft.Text("Turno #1", size=12, weight=ft.FontWeight.BOLD, color=C_GREEN),
             ]
         ),
-        bgcolor=ft.Colors.with_opacity(0.12, C_AMBER),
-        border=borda_all(1, ft.Colors.with_opacity(0.25, C_AMBER)),
+        bgcolor=ft.Colors.with_opacity(0.12, C_GREEN),
+        border=borda_all(1, ft.Colors.with_opacity(0.30, C_GREEN)),
         border_radius=100,
         padding=ft.Padding(left=10, right=10, top=5, bottom=5),
     )
@@ -426,15 +441,15 @@ def main(page: ft.Page):
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
             controls=[
                 ft.Row(
-                    spacing=10,
+                    spacing=12,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
                         ft.Container(
-                            content=ft.Icon(ft.Icons.PERSON_ROUNDED, color=ft.Colors.WHITE, size=18),
+                            content=ft.Icon(ft.Icons.PERSON_ROUNDED, color=ft.Colors.WHITE, size=20),
                             bgcolor=C_ACCENT,
-                            padding=8,
+                            padding=9,
                             border_radius=50,
-                            shadow=_sombra(C_ACCENT, 8, 0.25, 2),
+                            shadow=_sombra(C_ACCENT, 10, 0.30, 2),
                         ),
                         ft.Column(
                             spacing=1,
@@ -457,12 +472,12 @@ def main(page: ft.Page):
     def _stat_card(label: str, cor: str, icone):
         badge = ft.Container(
             content=ft.Icon(icone, color=cor, size=16),
-            bgcolor=ft.Colors.with_opacity(0.12, cor),
-            border_radius=8,
-            padding=6,
+            bgcolor=ft.Colors.with_opacity(0.14, cor),
+            border_radius=10,
+            padding=7,
         )
         lbl = ft.Text(label.upper(), size=11, color=pal.text_sec, weight=ft.FontWeight.BOLD)
-        txt = ft.Text("R$ 0,00", size=20, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+        txt = ft.Text("R$ 0,00", size=19, weight=ft.FontWeight.BOLD, color=pal.text_pri)
         card = ft.Container(
             content=ft.Column(
                 spacing=8,
@@ -481,18 +496,19 @@ def main(page: ft.Page):
             scale=ft.Scale(scale=1),
             animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
         )
-        def hover_card(e):
-            e.control.scale = 1.02 if e.data == "true" else 1.0
-            e.control.update()
-        card.on_hover = hover_card
+        if not mobile and not ios:
+            def hover_card(e):
+                e.control.scale = 1.02 if e.data == "true" else 1.0
+                e.control.update()
+            card.on_hover = hover_card
         
         return card, txt, lbl
 
-    stat_din_card, txt_dinheiro, lbl_din = _stat_card("Dinheiro", C_ACCENT_LIGHT, ft.Icons.PAYMENTS_ROUNDED)
-    stat_pix_card, txt_pix, lbl_pix = _stat_card("Pag Pix", C_ACCENT_LIGHT, ft.Icons.PIX_ROUNDED)
-    stat_cart_card, txt_cartoes, lbl_cart = _stat_card("Cartões", C_ACCENT_LIGHT, ft.Icons.CREDIT_CARD_ROUNDED)
-    stat_req_card, txt_requisicao, lbl_req = _stat_card("Requisição", C_ACCENT_LIGHT, ft.Icons.RECEIPT_LONG_ROUNDED)
-    stat_dep_card, txt_deposito_global, lbl_dep = _stat_card("Depósito Global", C_ACCENT_LIGHT, ft.Icons.ACCOUNT_BALANCE_ROUNDED)
+    stat_din_card, txt_dinheiro, lbl_din = _stat_card("Dinheiro", C_GREEN, ft.Icons.PAYMENTS_ROUNDED)
+    stat_pix_card, txt_pix, lbl_pix = _stat_card("Pag Pix", C_BLUE, ft.Icons.PIX_ROUNDED)
+    stat_cart_card, txt_cartoes, lbl_cart = _stat_card("Cartões", C_PURPLE, ft.Icons.CREDIT_CARD_ROUNDED)
+    stat_req_card, txt_requisicao, lbl_req = _stat_card("Requisição", C_AMBER, ft.Icons.RECEIPT_LONG_ROUNDED)
+    stat_dep_card, txt_deposito_global, lbl_dep = _stat_card("Depósito Global", C_BROWN, ft.Icons.ACCOUNT_BALANCE_ROUNDED)
     stat_desp_card, txt_despesas, lbl_desp = _stat_card("Despesas", C_RED, ft.Icons.MONEY_OFF_ROUNDED)
 
     stats_grid = ft.Column(
@@ -527,9 +543,9 @@ def main(page: ft.Page):
         width=largura_conteudo,
         border_radius=RADIUS,
         bgcolor=pal.surface,
-        border=borda_all(1, pal.border),
+        border=borda_all(1, ft.Colors.with_opacity(0.18, C_ACCENT)),
         blur=_blur_vidro(),
-        shadow=_sombra(ft.Colors.BLACK, 15, 0.06, 3),
+        shadow=_sombra(C_ACCENT, 18, 0.12, 4),
         padding=ft.Padding(left=20, right=20, top=18, bottom=18),
         content=ft.Column(
             spacing=6,
@@ -537,10 +553,19 @@ def main(page: ft.Page):
                 ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     controls=[
-                        txt_total_geral_label,
+                        ft.Row(
+                            spacing=6,
+                            controls=[
+                                ft.Container(
+                                    width=8, height=8, border_radius=4,
+                                    bgcolor=C_ACCENT_LIGHT,
+                                ),
+                                txt_total_geral_label,
+                            ]
+                        ),
                         ft.Container(
                             content=ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET_ROUNDED, color=C_ACCENT_LIGHT, size=18),
-                            bgcolor=ft.Colors.with_opacity(0.12, C_ACCENT),
+                            bgcolor=ft.Colors.with_opacity(0.14, C_ACCENT),
                             border_radius=8,
                             padding=6,
                         ),
@@ -553,7 +578,7 @@ def main(page: ft.Page):
                     gradient=ft.LinearGradient(
                         begin=ft.Alignment(-1, 0),
                         end=ft.Alignment(1, 0),
-                        colors=[C_ACCENT, ft.Colors.with_opacity(0.15, C_ACCENT)],
+                        colors=[C_ACCENT, C_ACCENT_LIGHT, ft.Colors.with_opacity(0.10, C_ACCENT)],
                     ),
                     margin=ft.Margin(top=4, bottom=2, left=0, right=0),
                 ),
@@ -636,14 +661,14 @@ def main(page: ft.Page):
                 on_click=ao_clicar,
                 scale=ft.Scale(scale=1),
                 animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
-                animate=_animacao(150, ft.AnimationCurve.EASE_OUT),
+                ink=True,
             )
             
-            def hover_chip(e):
-                e.control.scale = 1.05 if e.data == "true" else 1.0
-                e.control.update()
-                
-            container.on_hover = hover_chip
+            if not mobile and not ios:
+                def hover_chip(e):
+                    e.control.scale = 1.05 if e.data == "true" else 1.0
+                    e.control.update()
+                container.on_hover = hover_chip
             registro_chips[chave] = (container, icone_ctrl, texto_ctrl)
             return container
 
@@ -818,27 +843,27 @@ def main(page: ft.Page):
     # BOTÕES RÁPIDOS
     # ═══════════════════════════════════════════════════════════════[...]
     def _pill_btn(label, on_click, is_completou=False):
-        cor_borda = ft.Colors.with_opacity(0.35, C_AMBER) if is_completou else ft.Colors.with_opacity(0.15, C_ACCENT)
-        cor_texto = C_AMBER if is_completou else pal.text_sec
-        cor_bg    = ft.Colors.with_opacity(0.10, C_AMBER) if is_completou else pal.surface
+        cor_borda = ft.Colors.with_opacity(0.40, C_AMBER) if is_completou else pal.border
+        cor_texto = C_AMBER if is_completou else pal.text_pri
+        cor_bg    = ft.Colors.with_opacity(0.12, C_AMBER) if is_completou else pal.surface
         
         container = ft.Container(
-            content=ft.Text(label, size=14, color=cor_texto, weight=ft.FontWeight.W_500),
+            content=ft.Text(label, size=13, color=cor_texto, weight=ft.FontWeight.W_600),
             bgcolor=cor_bg,
             border_radius=100,
             border=borda_all(1, cor_borda),
             padding=ft.Padding(left=16, right=16, top=9, bottom=9),
             scale=ft.Scale(scale=1),
-            animate_scale=_animacao(200, ft.AnimationCurve.BOUNCE_OUT),
+            animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
             on_click=on_click,
-            animate=_animacao(120, ft.AnimationCurve.EASE_OUT),
+            ink=True,
         )
 
-        def animar_hover(e):
-            e.control.scale = 1.05 if e.data == "true" else 1.0
-            e.control.update()
-
-        container.on_hover = animar_hover
+        if not mobile and not ios:
+            def animar_hover(e):
+                e.control.scale = 1.05 if e.data == "true" else 1.0
+                e.control.update()
+            container.on_hover = animar_hover
         return container
 
     def acao_completou(e):
@@ -851,11 +876,11 @@ def main(page: ft.Page):
 
     def montar_botoes_rapidos():
         row_botoes_rapidos.controls = [
-            _pill_btn("R$ 50", lambda e: set_valor("50.00")),
-            _pill_btn("R$ 100", lambda e: set_valor("100.00")),
-            _pill_btn("R$ 200", lambda e: set_valor("200.00")),
-            _pill_btn("R$ 300", lambda e: set_valor("300.00")),
-            _pill_btn("R$ 500", lambda e: set_valor("500.00")),
+            _pill_btn("+ R$ 10", lambda e: set_valor("10.00")),
+            _pill_btn("+ R$ 20", lambda e: set_valor("20.00")),
+            _pill_btn("+ R$ 50", lambda e: set_valor("50.00")),
+            _pill_btn("+ R$ 100", lambda e: set_valor("100.00")),
+            _pill_btn("+ R$ 200", lambda e: set_valor("200.00")),
             _pill_btn("✓ Completou", acao_completou, is_completou=True),
         ]
 
@@ -1335,26 +1360,27 @@ def main(page: ft.Page):
         ),
         bgcolor=None,
         gradient=ft.LinearGradient(
-            begin=ft.Alignment(-1, 0),
-            end=ft.Alignment(1, 0),
+            begin=ft.Alignment(-1, -1),
+            end=ft.Alignment(1, 1),
             colors=[C_ACCENT, C_ACCENT_DARK],
         ),
-        border_radius=RADIUS,
-        height=56,
+        border_radius=RADIUS_SM,
+        height=54,
         width=largura_conteudo,
         alignment=ft.Alignment(0, 0),
         shadow=_sombra(C_ACCENT, 20, 0.35, 4),
         scale=ft.Scale(scale=1),
         animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
-        animate=_animacao(120, ft.AnimationCurve.EASE_OUT),
+        ink=True,
+        on_click=acao_lancar,
     )
 
-    def animar_hover_lancar(e):
-        if btn_lancar.opacity != 0.5:
-            e.control.scale = 1.02 if e.data == "true" else 1.0
-            e.control.update()
-            
-    btn_lancar.on_hover = animar_hover_lancar
+    if not mobile and not ios:
+        def animar_hover_lancar(e):
+            if btn_lancar.opacity != 0.5:
+                e.control.scale = 1.02 if e.data == "true" else 1.0
+                e.control.update()
+        btn_lancar.on_hover = animar_hover_lancar
 
     def acao_lancar(e=None):
         if btn_lancar.opacity == 0.5 or turno_atual is None:
@@ -2217,10 +2243,11 @@ def main(page: ft.Page):
             animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
         )
 
-        def hover_tile(e):
-            e.control.scale = 1.02 if e.data == "true" else 1.0
-            e.control.update()
-        card.on_hover = hover_tile
+        if not mobile and not ios:
+            def hover_tile(e):
+                e.control.scale = 1.02 if e.data == "true" else 1.0
+                e.control.update()
+            card.on_hover = hover_tile
 
         return card
 
@@ -2589,10 +2616,11 @@ def main(page: ft.Page):
             animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
         )
 
-        def hover_btn_modal(e):
-            e.control.scale = 1.02 if e.data == "true" else 1.0
-            e.control.update()
-        btn_confirmar_modal.on_hover = hover_btn_modal
+        if not mobile and not ios:
+            def hover_btn_modal(e):
+                e.control.scale = 1.02 if e.data == "true" else 1.0
+                e.control.update()
+            btn_confirmar_modal.on_hover = hover_btn_modal
 
         largura_modal = min(440, largura_conteudo)
 
@@ -2700,10 +2728,11 @@ def main(page: ft.Page):
         tooltip="Novo Lançamento (+)",
     )
 
-    def hover_add_btn(e):
-        e.control.scale = 1.08 if e.data == "true" else 1.0
-        e.control.update()
-    btn_floating_add.on_hover = hover_add_btn
+    if not mobile and not ios:
+        def hover_add_btn(e):
+            e.control.scale = 1.08 if e.data == "true" else 1.0
+            e.control.update()
+        btn_floating_add.on_hover = hover_add_btn
 
     # ════════════════════════════════════════════════════════════════════════
     # HISTÓRICO RECENTE DO TURNO ATUAL (Modal / Bottom Sheet)
@@ -3036,28 +3065,28 @@ def main(page: ft.Page):
             ultimo_fechado = db.obter_ultimo_turno_fechado(conn)
             controles_fechado = [
                 topo,
-                ft.Container(height=30),
-                ft.Container(
-                    content=ft.Icon(ft.Icons.LOCAL_GAS_STATION, color=C_ACCENT_LIGHT, size=50),
-                    bgcolor=ft.Colors.with_opacity(0.12, C_ACCENT),
-                    border_radius=30,
-                    padding=20,
-                    border=borda_all(1, ft.Colors.with_opacity(0.20, C_ACCENT)),
-                    shadow=_sombra(C_ACCENT, 20, 0.20, 4),
-                ),
-                ft.Container(height=8),
-                ft.Text("Posto Janjão", size=28, weight=ft.FontWeight.BOLD, color=pal.text_pri),
-                ft.Text("Pronto para começar o dia?", size=14, color=pal.text_sec),
                 ft.Container(height=24),
+                ft.Container(
+                    content=ft.Icon(ft.Icons.LOCAL_GAS_STATION_ROUNDED, color=C_ACCENT_LIGHT, size=54),
+                    bgcolor=ft.Colors.with_opacity(0.12, C_ACCENT),
+                    border_radius=32,
+                    padding=22,
+                    border=borda_all(1, ft.Colors.with_opacity(0.25, C_ACCENT)),
+                    shadow=_sombra(C_ACCENT, 24, 0.25, 4),
+                ),
+                ft.Container(height=12),
+                ft.Text("Posto Janjão", size=30, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                ft.Text("Sistema de Fechamento de Caixa", size=14, color=pal.text_sec),
+                ft.Container(height=28),
                 ft.Container(
                     content=ft.Row(
                         tight=True,
-                        spacing=8,
+                        spacing=10,
                         alignment=ft.MainAxisAlignment.CENTER,
                         controls=[
-                            ft.Icon(ft.Icons.PLAY_ARROW, color=ft.Colors.WHITE, size=20),
-                            ft.Text("Abrir Novo Turno", color=ft.Colors.WHITE, size=15,
-                                    weight=ft.FontWeight.W_600),
+                            ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, color=ft.Colors.WHITE, size=22),
+                            ft.Text("Abrir Novo Turno", color=ft.Colors.WHITE, size=16,
+                                    weight=ft.FontWeight.BOLD),
                         ],
                     ),
                     gradient=ft.LinearGradient(
@@ -3066,24 +3095,22 @@ def main(page: ft.Page):
                         colors=[C_ACCENT, C_ACCENT_DARK],
                     ),
                     border_radius=RADIUS_SM,
-                    padding=ft.Padding(28, 16, 28, 16),
+                    padding=ft.Padding(32, 16, 32, 16),
                     on_click=lambda e: solicitar_identificacao(novo_turno=True),
-                    shadow=_sombra(C_ACCENT, 20, 0.30, 4),
-                    scale=ft.Scale(scale=1),
-                    animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
-                    animate=_animacao(120, ft.AnimationCurve.EASE_OUT),
+                    shadow=_sombra(C_ACCENT, 20, 0.35, 4),
+                    ink=True,
                 ),
             ]
             if ultimo_fechado:
-                controles_fechado.append(ft.Container(height=15))
+                controles_fechado.append(ft.Container(height=16))
                 controles_fechado.append(
                     ft.TextButton(
                         content=ft.Row(
-                            tight=True, spacing=4,
+                            tight=True, spacing=6,
                             alignment=ft.MainAxisAlignment.CENTER,
                             controls=[
-                                ft.Icon(ft.Icons.HISTORY, size=14, color=pal.text_ter),
-                                ft.Text("Histórico de turnos / Reabrir anterior", size=12, color=pal.text_ter),
+                                ft.Icon(ft.Icons.HISTORY_ROUNDED, size=16, color=pal.text_sec),
+                                ft.Text("Histórico de turnos / Reabrir anterior", size=13, color=pal.text_sec),
                             ]
                         ),
                         on_click=acao_historico_turnos,
@@ -3099,11 +3126,6 @@ def main(page: ft.Page):
                 controls=controles_fechado,
             )
 
-            def hover_btn_abrir(e):
-                e.control.scale = 1.05 if e.data == "true" else 1.0
-                e.control.update()
-            tela_fechado.controls[7].on_hover = hover_btn_abrir
-
             if mobile:
                 page.add(ft.SafeArea(tela_fechado))
             else:
@@ -3117,20 +3139,17 @@ def main(page: ft.Page):
 
         btn_tema.content.icon = icone_tema_atual
 
-        cor_accent_atual = C_ACCENT_LIGHT if tema_escuro() else C_ACCENT
-        cor_despesa_atual = ft.Colors.RED_400 if tema_escuro() else ft.Colors.RED_700
-
         txt_turno_data.color = pal.text_sec
         txt_operador_nome.color = pal.text_pri
         txt_total_geral.color = pal.text_pri
         
         for card, txt_val, lbl, cor_badge in (
-            (stat_din_card, txt_dinheiro, lbl_din, cor_accent_atual),
-            (stat_pix_card, txt_pix, lbl_pix, cor_accent_atual),
-            (stat_cart_card, txt_cartoes, lbl_cart, cor_accent_atual),
-            (stat_req_card, txt_requisicao, lbl_req, cor_accent_atual),
-            (stat_dep_card, txt_deposito_global, lbl_dep, cor_accent_atual),
-            (stat_desp_card, txt_despesas, lbl_desp, cor_despesa_atual),
+            (stat_din_card, txt_dinheiro, lbl_din, C_GREEN),
+            (stat_pix_card, txt_pix, lbl_pix, C_BLUE),
+            (stat_cart_card, txt_cartoes, lbl_cart, C_PURPLE),
+            (stat_req_card, txt_requisicao, lbl_req, C_AMBER),
+            (stat_dep_card, txt_deposito_global, lbl_dep, C_BROWN),
+            (stat_desp_card, txt_despesas, lbl_desp, C_RED),
         ):
             card.bgcolor = pal.surface
             card.border = borda_all(1, pal.border)
@@ -3138,12 +3157,12 @@ def main(page: ft.Page):
             lbl.color = pal.text_sec
             badge_cnt = card.content.controls[0].controls[0]
             badge_cnt.content.color = cor_badge
-            badge_cnt.bgcolor = ft.Colors.with_opacity(0.12, cor_badge)
+            badge_cnt.bgcolor = ft.Colors.with_opacity(0.14, cor_badge)
             
         txt_total_geral_label.color = pal.text_sec
         txt_total_geral_sub.color = pal.text_ter
         total_geral_card.bgcolor = pal.surface
-        total_geral_card.border = borda_all(1, pal.border)
+        total_geral_card.border = borda_all(1, ft.Colors.with_opacity(0.20, C_ACCENT))
         txt_header_titulo.color = pal.text_pri
         btn_tema.content.icon_color = pal.text_sec
         btn_tema.bgcolor = pal.surface

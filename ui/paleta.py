@@ -1,30 +1,38 @@
-"""Gerenciamento de cores, temas e paletas de cores."""
+"""Gerenciamento de cores, temas e paletas de cores refinadas para o Caixa Posto Janjão."""
 
 import os
 from types import SimpleNamespace
 import flet as ft
 
-
 # ─────────────────────────────────────────────────────────────────────────────
-# CORES E CONSTANTES
+# CORES E CONSTANTES DE DESIGN SYSTEM
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Acentos (funcionam em ambos os temas)
-C_GREEN   = "#34d399"
-C_BLUE    = "#60a5fa"
-C_PURPLE  = "#a78bfa"
-C_ORANGE  = "#fb923c"
-C_BROWN   = "#d4a27a"
-C_TEAL    = "#2dd4bf"
-C_RED     = "#f87171"
-C_INDIGO  = "#818cf8"
-C_INDIGO2 = "#a5b4fc"
-C_AMBER   = "#fbbf24"
-C_AMBER2  = "#fde68a"
+# Cor Principal / Destaques
+C_ACCENT       = "#2563eb"  # Azul Cobalto Elétrico
+C_ACCENT_DARK  = "#1d4ed8"  # Azul Cobalto Profundo
+C_ACCENT_LIGHT = "#38bdf8"  # Sky Blue / Ciano Claro
+C_LIME         = "#84cc16"  # Verde Lima
 
-# Dimensões
+# Cores Semânticas por Tipo de Pagamento
+C_GREEN   = "#10b981"  # Verde Esmeralda (Dinheiro)
+C_BLUE    = "#06b6d4"  # Ciano / Azul Elétrico (Pix)
+C_PURPLE  = "#8b5cf6"  # Violeta / Roxo (Cartões / Vouchers)
+C_ORANGE  = "#f97316"  # Laranja Intenso (Master Débito)
+C_BROWN   = "#b45309"  # Âmbar Profundo / Depósito Global
+C_TEAL    = "#14b8a6"  # Verde Petróleo (Sodexo / Fitcard)
+C_RED     = "#ef4444"  # Vermelho Coral (Despesas / Master Crédito)
+C_INDIGO  = "#6366f1"  # Índigo / Visa Crédito
+C_INDIGO2 = "#818cf8"  # Azul Índigo Suave / Visa Débito
+C_AMBER   = "#f59e0b"  # Âmbar / Elo Crédito / Requisição
+C_AMBER2  = "#fbbf24"  # Dourado Suave / Elo Débito
+
+# Dimensões e Raios de Curvatura (Design System)
+RADIUS_XL = 24
 RADIUS    = 18
-RADIUS_SM = 12
+RADIUS_MD = 14
+RADIUS_SM = 10
+RADIUS_XS = 6
 
 # Filtro de entrada para valores monetários
 FILTRO_VALOR_MONETARIO = ft.InputFilter(
@@ -33,83 +41,101 @@ FILTRO_VALOR_MONETARIO = ft.InputFilter(
     replacement_string="",
 )
 
-# Mapeamento de cores por tipo de pagamento
+# Mapeamento de cores vibrantes por tipo de pagamento
 CORES_POR_TIPO = {
-    "Dinheiro":             C_GREEN,
-    "Pix":                  C_BLUE,
-    "Requisição":           C_PURPLE,
-    "Sodexo":               C_TEAL,
-    "Depósito Global":      C_BROWN,
-    "Despesas":             C_RED,
-    "Master Crédito":       C_RED,
-    "Master Débito":        C_ORANGE,
-    "Visa Crédito":         C_INDIGO,
-    "Visa Débito":          C_INDIGO2,
-    "Elo Crédito":          C_AMBER,
-    "Elo Débito":           C_AMBER2,
-    "Alelo Multibenefícios": C_PURPLE,
+    "Dinheiro":              C_GREEN,
+    "Pix":                   C_BLUE,
+    "Requisição":            C_AMBER,
+    "Sodexo":                C_TEAL,
+    "Depósito Global":       C_BROWN,
+    "Despesas":              C_RED,
+    "Fitcard":               C_TEAL,
+    "Excard":                C_INDIGO,
+    "Amex":                  C_BLUE,
+    "Eucard":                C_PURPLE,
+    "Avancard":              C_INDIGO2,
+    "Master Crédito":        C_RED,
+    "Master Débito":         C_ORANGE,
+    "Visa Crédito":          C_INDIGO,
+    "Visa Débito":           C_INDIGO2,
+    "Elo Crédito":           C_AMBER,
+    "Elo Débito":            C_AMBER2,
+    "Alelo Multibenefícios":  C_PURPLE,
 }
 
-# Mapeamento de ícones por tipo
+# Mapeamento de ícones modernos por tipo
 ICONES_POR_TIPO = {
-    "Dinheiro":        ft.Icons.MONEY,
-    "Pix":             ft.Icons.PIX,
-    "Requisição":      ft.Icons.RECEIPT_LONG,
-    "Sodexo":          ft.Icons.LUNCH_DINING,
-    "Depósito Global": ft.Icons.ACCOUNT_BALANCE,
-    "Despesas":        ft.Icons.MONEY_OFF,
+    "Dinheiro":              ft.Icons.PAYMENTS_ROUNDED,
+    "Pix":                   ft.Icons.PIX_ROUNDED,
+    "Requisição":            ft.Icons.RECEIPT_LONG_ROUNDED,
+    "Sodexo":                ft.Icons.LUNCH_DINING_ROUNDED,
+    "Depósito Global":       ft.Icons.ACCOUNT_BALANCE_ROUNDED,
+    "Despesas":              ft.Icons.MONEY_OFF_ROUNDED,
+    "Fitcard":               ft.Icons.DIRECTIONS_CAR_ROUNDED,
+    "Excard":                ft.Icons.CREDIT_CARD_ROUNDED,
+    "Amex":                  ft.Icons.CONTACTLESS_ROUNDED,
+    "Eucard":                ft.Icons.CARD_MEMBERSHIP_ROUNDED,
+    "Avancard":              ft.Icons.CREDIT_SCORE_ROUNDED,
+    "Master Crédito":        ft.Icons.CREDIT_CARD_ROUNDED,
+    "Master Débito":         ft.Icons.CREDIT_CARD_ROUNDED,
+    "Visa Crédito":          ft.Icons.CREDIT_CARD_ROUNDED,
+    "Visa Débito":           ft.Icons.CREDIT_CARD_ROUNDED,
+    "Elo Crédito":           ft.Icons.CREDIT_CARD_ROUNDED,
+    "Elo Débito":            ft.Icons.CREDIT_CARD_ROUNDED,
+    "Alelo Multibenefícios":  ft.Icons.LOCAL_GROCERY_STORE_ROUNDED,
 }
 
 
 def _app_mobile() -> bool:
-    """Verifica se está rodando em mobile."""
+    """Verifica se está rodando em mobile nativo."""
     return os.environ.get("FLET_PLATFORM", "") in ("ios", "android")
 
 
 def criar_paleta(escuro: bool) -> SimpleNamespace:
     """
-    Cria uma paleta de cores baseada no tema.
+    Cria uma paleta de cores moderna e refinada baseada no tema ativo.
     
     Args:
-        escuro: True para tema escuro, False para claro
+        escuro: True para tema escuro (Dark Slate), False para claro (Clean iOS)
         
     Returns:
-        SimpleNamespace com cores da paleta
+        SimpleNamespace com tokens de cores
     """
     if escuro:
         return SimpleNamespace(
-            bg="#0a0a0f",
-            surface=ft.Colors.with_opacity(0.06, ft.Colors.WHITE),
-            border=ft.Colors.with_opacity(0.11, ft.Colors.WHITE),
-            border_strong=ft.Colors.with_opacity(0.35, ft.Colors.WHITE),
-            text_pri="#e2e8f0", 
-            text_sec=ft.Colors.with_opacity(0.80, "#e2e8f0"),
-            text_ter=ft.Colors.with_opacity(0.65, "#e2e8f0"),
-            sheet_bg=ft.Colors.with_opacity(0.97, "#1c1c1e"),
+            bg="#0b0f19",
+            surface="#131b2e",
+            surface_subtle="#1a243b",
+            border=ft.Colors.with_opacity(0.12, ft.Colors.WHITE),
+            border_strong=ft.Colors.with_opacity(0.28, "#38bdf8"),
+            text_pri="#f8fafc",
+            text_sec="#94a3b8",
+            text_ter="#64748b",
+            sheet_bg="#0f172a",
+            card_gradient_start="#161f36",
+            card_gradient_end="#0f172a",
+            hero_bg_start="#172554",
+            hero_bg_end="#0f172a",
         )
     return SimpleNamespace(
-        bg="#f2f2f7",
-        surface=ft.Colors.WHITE,
-        border=ft.Colors.with_opacity(0.10, ft.Colors.BLACK),
-        border_strong=ft.Colors.with_opacity(0.20, ft.Colors.BLACK),
-        text_pri="#1c1c1e",
-        text_sec=ft.Colors.with_opacity(0.72, "#1c1c1e"),
-        text_ter=ft.Colors.with_opacity(0.50, "#1c1c1e"),
-        sheet_bg=ft.Colors.WHITE,
+        bg="#f4f6fb",
+        surface="#ffffff",
+        surface_subtle="#f1f5f9",
+        border=ft.Colors.with_opacity(0.08, ft.Colors.BLACK),
+        border_strong=ft.Colors.with_opacity(0.20, "#2563eb"),
+        text_pri="#0f172a",
+        text_sec="#475569",
+        text_ter="#94a3b8",
+        sheet_bg="#ffffff",
+        card_gradient_start="#ffffff",
+        card_gradient_end="#f8fafc",
+        hero_bg_start="#eff6ff",
+        hero_bg_end="#ffffff",
     )
 
 
 def borda_all(largura: float, cor: str) -> ft.Border:
-    """
-    Cria uma borda em todos os lados.
-    
-    Args:
-        largura: Largura da borda em pixels
-        cor: Cor da borda
-        
-    Returns:
-        Objeto Border do Flet
-    """
+    """Cria uma borda uniforme em todos os lados."""
     return ft.Border(
         left=ft.BorderSide(largura, cor),
         right=ft.BorderSide(largura, cor),
@@ -119,40 +145,24 @@ def borda_all(largura: float, cor: str) -> ft.Border:
 
 
 def cor_tipo(tipo: str) -> str:
-    """Retorna a cor para um tipo de pagamento."""
-    return CORES_POR_TIPO.get(tipo, C_ORANGE)
+    """Retorna a cor associada a um tipo de pagamento."""
+    return CORES_POR_TIPO.get(tipo, C_ACCENT)
 
 
 def icone_tipo(tipo: str):
-    """Retorna o ícone para um tipo de pagamento."""
-    return ICONES_POR_TIPO.get(tipo, ft.Icons.CREDIT_CARD)
+    """Retorna o ícone associado a um tipo de pagamento."""
+    return ICONES_POR_TIPO.get(tipo, ft.Icons.CREDIT_CARD_ROUNDED)
 
 
-def glass_container(paleta, content, padding=16, radius=RADIUS_SM, border_color=None, bgcolor=None):
-    """
-    Cria um container com efeito glass (blur).
-    
-    Args:
-        paleta: Paleta de cores
-        content: Conteúdo do container
-        padding: Preenchimento interno
-        radius: Raio da borda
-        border_color: Cor da borda
-        bgcolor: Cor de fundo
-        
-    Returns:
-        Container com efeito glass
-    """
-    if border_color is None:
-        border_color = paleta.border
-    if bgcolor is None:
-        bgcolor = paleta.surface
+def glass_container(paleta, content, padding=16, radius=RADIUS_MD, border_color=None, bgcolor=None):
+    """Cria um container com acabamento refinado."""
+    b_color = border_color if border_color is not None else paleta.border
+    bg_color = bgcolor if bgcolor is not None else paleta.surface
         
     return ft.Container(
         content=content,
-        bgcolor=bgcolor,
+        bgcolor=bg_color,
         border_radius=radius,
-        border=borda_all(1, border_color),
+        border=borda_all(1, b_color),
         padding=padding,
-        blur=ft.Blur(10, 10, ft.BlurTileMode.MIRROR),
     )
