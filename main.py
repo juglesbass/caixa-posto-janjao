@@ -149,7 +149,7 @@ def main(page: ft.Page):
     pal = criar_paleta(tema_escuro())
     page.bgcolor = pal.bg
     page.vertical_alignment = ft.MainAxisAlignment.START
-    page.scroll = ft.ScrollMode.HIDDEN if mobile else ft.ScrollMode.AUTO
+    page.scroll = None
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.padding = (
         ft.Padding(left=16, right=16, top=8, bottom=0 if mobile else 16)
@@ -787,6 +787,7 @@ def main(page: ft.Page):
             seletor_col.controls.append(ft.Row(spacing=8, controls=[card_dep, card_desp]))
 
         def selecionar(tipo):
+            vibrar("selection")
             estado["valor"] = tipo
             if _eh_cartao(tipo):
                 estado["cartao_atual"] = tipo
@@ -995,6 +996,11 @@ def main(page: ft.Page):
         cor_texto = C_AMBER if is_completou else pal.text_pri
         cor_bg    = ft.Colors.with_opacity(0.12, C_AMBER) if is_completou else pal.surface
         
+        def handle_click(e):
+            vibrar("selection")
+            if on_click:
+                on_click(e)
+
         container = ft.Container(
             content=ft.Text(label, size=13, color=cor_texto, weight=ft.FontWeight.BOLD if is_completou else ft.FontWeight.W_600),
             bgcolor=cor_bg,
@@ -1003,7 +1009,7 @@ def main(page: ft.Page):
             padding=ft.Padding(left=16, right=16, top=10, bottom=10),
             scale=ft.Scale(scale=1),
             animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
-            on_click=on_click,
+            on_click=handle_click,
             ink=True,
         )
 
@@ -3909,14 +3915,14 @@ def main(page: ft.Page):
             row_botoes_rapidos,
             input_desc,
             btn_lancar,
-            ft.Container(height=72),
+            ft.Container(height=95),
         ]
 
         area_scroll = ft.Column(
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=12,
             controls=controles_scroll,
-            scroll=ft.ScrollMode.HIDDEN if mobile else ft.ScrollMode.AUTO,
+            scroll=ft.ScrollMode.ADAPTIVE,
             expand=True,
         )
 
