@@ -842,18 +842,23 @@ def main(page: ft.Page):
         except Exception:
             pass
 
+    txt_prefix_valor = ft.Text("R$ ", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+    txt_prefix_recebido = ft.Text("R$ ", size=14, weight=ft.FontWeight.BOLD, color=pal.text_pri)
+
     input_valor = ft.TextField(
         label="Valor da Venda (Ex: 50.00 ou 50,00)",
+        label_style=ft.TextStyle(color=pal.text_sec),
         width=largura_conteudo,
-        prefix=ft.Text("R$ ", size=18, weight=ft.FontWeight.BOLD),
+        prefix=txt_prefix_valor,
         text_size=18,
-        text_style=ft.TextStyle(weight=ft.FontWeight.BOLD),
+        text_style=ft.TextStyle(weight=ft.FontWeight.BOLD, color=pal.text_pri),
         content_padding=ft.Padding(16, 14, 16, 14),
         border_radius=RADIUS_MD,
         filled=True,
         bgcolor=pal.surface,
         border_color=pal.border,
         focused_border_color=C_ACCENT,
+        cursor_color=C_ACCENT,
         keyboard_type=_keyboard_valor,
         adaptive=adaptive_ui,
         autocorrect=False,
@@ -907,12 +912,18 @@ def main(page: ft.Page):
     input_recebido = ft.TextField(
         label="Valor Pago pelo Cliente (Troco)",
         hint_text="Ex: 100,00",
+        hint_style=ft.TextStyle(color=pal.text_ter),
+        label_style=ft.TextStyle(color=pal.text_sec),
+        text_style=ft.TextStyle(color=pal.text_pri),
         width=largura_conteudo,
-        prefix=ft.Text("R$ "),
+        prefix=txt_prefix_recebido,
         border_radius=RADIUS_MD,
         content_padding=ft.Padding(16, 12, 16, 12),
         filled=True,
         bgcolor=pal.surface,
+        border_color=pal.border,
+        focused_border_color=C_ACCENT,
+        cursor_color=C_ACCENT,
         keyboard_type=_keyboard_valor,
         adaptive=adaptive_ui,
         autocorrect=False,
@@ -939,12 +950,18 @@ def main(page: ft.Page):
 
     input_desc = ft.TextField(
         label="Descrição / Placa do Veículo (Opcional)",
+        label_style=ft.TextStyle(color=pal.text_sec),
+        text_style=ft.TextStyle(color=pal.text_pri),
         prefix_icon=ft.Icons.DIRECTIONS_CAR_ROUNDED,
+        prefix_icon_color=pal.text_sec,
         width=largura_conteudo,
         border_radius=RADIUS_MD,
         content_padding=ft.Padding(16, 14, 16, 14),
         filled=True,
         bgcolor=pal.surface,
+        border_color=pal.border,
+        focused_border_color=C_ACCENT,
+        cursor_color=C_ACCENT,
         adaptive=adaptive_ui,
         on_focus=ao_focar_campo,
         on_tap_outside=ao_tocar_fora,
@@ -3910,6 +3927,29 @@ def main(page: ft.Page):
 
         hud_totais_card.bgcolor = pal.surface
         hud_totais_card.border = borda_all(1, ft.Colors.with_opacity(0.18, C_ACCENT))
+
+        txt_prefix_valor.color = pal.text_pri
+        txt_prefix_recebido.color = pal.text_pri
+
+        input_valor.bgcolor = pal.surface
+        input_valor.border_color = pal.border
+        input_valor.color = pal.text_pri
+        input_valor.text_style = ft.TextStyle(weight=ft.FontWeight.BOLD, color=pal.text_pri)
+        input_valor.label_style = ft.TextStyle(color=pal.text_sec)
+
+        input_recebido.bgcolor = pal.surface
+        input_recebido.border_color = pal.border
+        input_recebido.color = pal.text_pri
+        input_recebido.text_style = ft.TextStyle(color=pal.text_pri)
+        input_recebido.label_style = ft.TextStyle(color=pal.text_sec)
+        input_recebido.hint_style = ft.TextStyle(color=pal.text_ter)
+
+        input_desc.bgcolor = pal.surface
+        input_desc.border_color = pal.border
+        input_desc.color = pal.text_pri
+        input_desc.text_style = ft.TextStyle(color=pal.text_pri)
+        input_desc.label_style = ft.TextStyle(color=pal.text_sec)
+        input_desc.prefix_icon_color = pal.text_sec
 
         txt_header_titulo.color = pal.text_pri
         btn_tema.content.icon_color = pal.text_sec
