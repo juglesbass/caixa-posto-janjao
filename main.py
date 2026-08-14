@@ -214,6 +214,34 @@ def main(page: ft.Page):
 
     conn = db.conectar()
     db.inicializar_banco(conn)
+
+    try:
+        if db._is_pyodide() or getattr(page, "web", False):
+            if not db.obter_turno_aberto(conn):
+                b64_client = page.client_storage.get("caixa_db_backup")
+                if b64_client:
+                    import base64
+                    with open(db.caminho_banco(), "wb") as f:
+                        f.write(base64.b64decode(b64_client))
+                    conn = db.conectar()
+    except Exception:
+        pass
+
+    def sincronizar_armazenamento_navegador():
+        try:
+            db.salvar_banco_web_sync(conn)
+            if db._is_pyodide() or getattr(page, "web", False):
+                caminho = db.caminho_banco()
+                if os.path.exists(caminho):
+                    with open(caminho, "rb") as f:
+                        data = f.read()
+                    if len(data) > 0:
+                        import base64
+                        b64 = base64.b64encode(data).decode("utf-8")
+                        page.client_storage.set("caixa_db_backup", b64)
+        except Exception:
+            pass
+
     turno_atual = None
 
     rodape_lancar = None
@@ -1597,6 +1625,7 @@ def main(page: ft.Page):
             atualizar_painel()
             carregar_historico()
             desfocar_campos(input_valor, input_desc)
+            sincronizar_armazenamento_navegador()
         except Exception:
             mostrar_snackbar("Erro ao lançar. Tente novamente.", ft.Colors.RED_800)
         finally:
