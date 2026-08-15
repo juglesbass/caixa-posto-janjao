@@ -2231,27 +2231,38 @@ async def main(page: ft.Page):
                                 byteNumbers[i] = byteCharacters.charCodeAt(i);
                             }}
                             var byteArray = new Uint8Array(byteNumbers);
-                            var file = new File([byteArray], "{nome_arquivo}", {{ type: "{mime_type}" }});
+                            var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
 
-                            if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
-                                await navigator.share({{
-                                    files: [file],
-                                    title: "{nome_arquivo}",
-                                    text: "Resumo do Turno Posto Janjão"
-                                }});
-                            }} else {{
-                                var blob = new Blob([byteArray], {{ type: "{mime_type}" }});
-                                var url = URL.createObjectURL(blob);
-                                var a = document.createElement("a");
-                                a.href = url;
-                                a.download = "{nome_arquivo}";
-                                document.body.appendChild(a);
-                                a.click();
-                                setTimeout(function() {{
-                                    document.body.removeChild(a);
-                                    URL.revokeObjectURL(url);
-                                }}, 2500);
+                            // 1. Em celular (iOS / Android), tenta abrir a folha nativa de compartilhamento
+                            if (isMobile && navigator.canShare) {{
+                                try {{
+                                    var file = new File([byteArray], "{nome_arquivo}", {{ type: "{mime_type}" }});
+                                    if (navigator.canShare({{ files: [file] }})) {{
+                                        await navigator.share({{
+                                            files: [file],
+                                            title: "{nome_arquivo}",
+                                            text: "Fechamento de Turno Posto Janjão"
+                                        }});
+                                        return;
+                                    }}
+                                }} catch (shareErr) {{
+                                    console.log("Web Share fallback:", shareErr);
+                                }}
                             }}
+
+                            // 2. No PC / Computador (ou fallback de celular): Baixa direto na pasta Downloads do computador
+                            var blob = new Blob([byteArray], {{ type: "{mime_type}" }});
+                            var url = URL.createObjectURL(blob);
+                            var a = document.createElement("a");
+                            a.style.display = "none";
+                            a.href = url;
+                            a.download = "{nome_arquivo}";
+                            document.body.appendChild(a);
+                            a.click();
+                            setTimeout(function() {{
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                            }}, 3000);
                         }} catch (err) {{
                             console.error("Erro no Web Share / Download:", err);
                         }}
@@ -2274,6 +2285,15 @@ async def main(page: ft.Page):
             return False
 
         def _abrir_pdf_local(caminho_pdf, nome_pdf):
+            if _is_pyodide_env():
+                try:
+                    with open(caminho_pdf, "rb") as f:
+                        b = f.read()
+                    if _compartilhar_ou_baixar_arquivo_web(nome_pdf, b, "application/pdf"):
+                        mostrar_snackbar(f"PDF baixado para Downloads: {nome_pdf} 📥")
+                        return
+                except Exception:
+                    pass
             try:
                 if sys.platform == "win32":
                     os.startfile(caminho_pdf)
@@ -2986,19 +3006,21 @@ async def main(page: ft.Page):
             with open(caminho_csv, "rb") as f:
                 csv_bytes = f.read()
 
+            # 1. No navegador / PWA (PC ou Mobile)
             if _is_pyodide_env():
                 sucesso = _compartilhar_ou_baixar_arquivo_web(nome_csv, csv_bytes, "text/csv;charset=utf-8;")
                 if sucesso:
                     mostrar_snackbar(f"Planilha exportada: {nome_csv} 📊")
                     return
 
-            if mobile and compartilhar_servico:
+            # 2. No App Nativo iOS / Android
+            if compartilhar_servico:
                 async def _share_csv_async():
                     try:
                         share_file = ft.ShareFile(
                             path=caminho_csv,
                             data=csv_bytes,
-                            mime_type="text/csv",
+                            mime_type="application/vnd.ms-excel",
                             name=nome_csv
                         )
                         await compartilhar_servico.share_files(
