@@ -1156,26 +1156,21 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
 
     y -= 54
 
-    # ── 3. TABELA DE CARTÕES, VOUCHERS E PIX POR BANDEIRA ─────────────────────────
-    checar_quebra_pagina(70)
-
-    c.setFont("Helvetica-Bold", 9)
-    c.setFillColor(colors.HexColor("#0F172A"))
-    c.drawString(margem_esq, y, "DETALHAMENTO DE CARTÕES E VOUCHERS")
-    y -= 12
+    # ── 3. SEÇÃO 1: CARTÕES E VOUCHERS ──────────────────────────────────────────
+    checar_quebra_pagina(60)
 
     c.setFillColor(colors.HexColor("#1E293B"))
-    c.rect(margem_esq, y - 16, largura_util, 16, fill=1, stroke=0)
+    c.roundRect(margem_esq, y - 16, largura_util, 16, 3, fill=1, stroke=0)
 
     c.setFont("Helvetica-Bold", 7.5)
     c.setFillColor(colors.HexColor("#FFFFFF"))
-    c.drawString(margem_esq + 8, y - 11, "BANDEIRA / MÁQUINA")
-    c.drawCentredString(margem_esq + 215, y - 11, "QTD")
-    c.drawRightString(margem_dir - 8, y - 11, "SUBTOTAL (R$)")
+    c.drawString(margem_esq + 8, y - 11.5, "CARTÕES E VOUCHERS (POR MÁQUINA)")
+    c.drawCentredString(margem_esq + 225, y - 11.5, "QTD")
+    c.drawRightString(margem_dir - 8, y - 11.5, "VALOR (R$)")
 
     y -= 16
 
-    col_qtd_x = margem_esq + 215
+    col_qtd_x = margem_esq + 225
     par = False
     cartoes_ativos = {b: (v, q) for b, (v, q) in detalhe_cart.items() if q > 0 or v > 0}
     if not cartoes_ativos:
@@ -1195,41 +1190,47 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
 
         c.setFont("Helvetica", 8)
         c.setFillColor(colors.HexColor("#334155"))
-        c.drawString(margem_esq + 8, y - 10, bandeira[:30])
+        c.drawString(margem_esq + 8, y - 10.5, bandeira[:32])
 
         c.setFont("Helvetica", 8)
         c.setFillColor(colors.HexColor("#64748B") if qtd == 0 else colors.HexColor("#0F172A"))
-        c.drawCentredString(col_qtd_x, y - 10, f"{qtd} un")
+        c.drawCentredString(col_qtd_x, y - 10.5, f"{qtd} un")
 
         c.setFont("Helvetica-Bold" if valor > 0 else "Helvetica", 8)
         c.setFillColor(colors.HexColor("#0F172A") if valor > 0 else colors.HexColor("#94A3B8"))
-        c.drawRightString(margem_dir - 8, y - 10, formatar_moeda(valor))
+        c.drawRightString(margem_dir - 8, y - 10.5, formatar_moeda(valor))
 
         y -= 15
 
-    checar_quebra_pagina(20)
-    y -= 2
+    # Linha Total Cartões
+    y -= 1
     c.setFillColor(colors.HexColor("#EFF6FF"))
     c.setStrokeColor(colors.HexColor("#93C5FD"))
     c.setLineWidth(0.8)
-    c.rect(margem_esq, y - 18, largura_util, 18, fill=1, stroke=1)
+    c.rect(margem_esq, y - 16, largura_util, 16, fill=1, stroke=1)
 
     c.setFont("Helvetica-Bold", 8)
     c.setFillColor(colors.HexColor("#1E40AF"))
-    c.drawString(margem_esq + 8, y - 12, "TOTAL CARTÕES")
-    c.drawCentredString(col_qtd_x, y - 12, f"{totais.qtd_cartoes} un")
-    c.setFont("Helvetica-Bold", 9)
-    c.drawRightString(margem_dir - 8, y - 12, formatar_moeda(totais.cartoes))
+    c.drawString(margem_esq + 8, y - 11.5, "SUBTOTAL CARTÕES")
+    c.drawCentredString(col_qtd_x, y - 11.5, f"{totais.qtd_cartoes} un")
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawRightString(margem_dir - 8, y - 11.5, formatar_moeda(totais.cartoes))
 
-    y -= 26
+    y -= 22
 
-    # ── 4. RESUMO FINANCEIRO (OUTROS LANÇAMENTOS) ──────────────────────────────
-    checar_quebra_pagina(90)
+    # ── 4. SEÇÃO 2: OUTROS MEIOS DE PAGAMENTO ────────────────────────────────────
+    checar_quebra_pagina(80)
 
-    c.setFont("Helvetica-Bold", 9)
-    c.setFillColor(colors.HexColor("#0F172A"))
-    c.drawString(margem_esq, y, "RESUMO DOS OUTROS LANÇAMENTOS")
-    y -= 12
+    c.setFillColor(colors.HexColor("#1E293B"))
+    c.roundRect(margem_esq, y - 16, largura_util, 16, 3, fill=1, stroke=0)
+
+    c.setFont("Helvetica-Bold", 7.5)
+    c.setFillColor(colors.HexColor("#FFFFFF"))
+    c.drawString(margem_esq + 8, y - 11.5, "OUTROS MEIOS DE PAGAMENTO")
+    c.drawCentredString(col_qtd_x, y - 11.5, "QTD")
+    c.drawRightString(margem_dir - 8, y - 11.5, "VALOR (R$)")
+
+    y -= 16
 
     itens_financeiros = [
         ("Pag Pix", totais.pix, totais.qtd_pix, "#2563EB", "#F0F9FF"),
@@ -1240,31 +1241,31 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
     ]
 
     for rotulo, valor, qtd, cor_destaque, bg_item in itens_financeiros:
-        checar_quebra_pagina(18)
+        checar_quebra_pagina(16)
         c.setFillColor(colors.HexColor(bg_item))
         c.setStrokeColor(colors.HexColor("#E2E8F0"))
         c.setLineWidth(0.5)
-        c.rect(margem_esq, y - 16, largura_util, 16, fill=1, stroke=1)
+        c.rect(margem_esq, y - 15, largura_util, 15, fill=1, stroke=1)
 
         c.setFillColor(colors.HexColor(cor_destaque))
-        c.rect(margem_esq, y - 16, 3, 16, fill=1, stroke=0)
+        c.rect(margem_esq, y - 15, 3, 15, fill=1, stroke=0)
 
         c.setFont("Helvetica-Bold", 8)
         c.setFillColor(colors.HexColor("#1E293B"))
-        c.drawString(margem_esq + 10, y - 11, rotulo)
+        c.drawString(margem_esq + 8, y - 10.5, rotulo)
 
         if qtd is not None:
             c.setFont("Helvetica", 7.5)
             c.setFillColor(colors.HexColor("#64748B"))
-            c.drawCentredString(col_qtd_x, y - 11, f"({qtd} un)")
+            c.drawCentredString(col_qtd_x, y - 10.5, f"{qtd} un")
 
         c.setFont("Helvetica-Bold", 8.5)
         c.setFillColor(colors.HexColor(cor_destaque if valor > 0 else "#64748B"))
-        c.drawRightString(margem_dir - 8, y - 11, formatar_moeda(valor))
+        c.drawRightString(margem_dir - 8, y - 10.5, formatar_moeda(valor))
 
-        y -= 18
+        y -= 16
 
-    y -= 6
+    y -= 8
 
     # ── 5. TABELA DE CONCILIAÇÃO DE VENDAS (PISTA vs. SISTEMA) ────────────────
     checar_quebra_pagina(80)
