@@ -1211,7 +1211,7 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
 
     c.setFont("Helvetica-Bold", 8)
     c.setFillColor(colors.HexColor("#1E40AF"))
-    c.drawString(margem_esq + 8, y - 11.5, "SUBTOTAL CARTÕES")
+    c.drawString(margem_esq + 8, y - 11.5, "TOTAL DE CARTÕES")
     c.drawCentredString(col_qtd_x, y - 11.5, f"{totais.qtd_cartoes} un")
     c.setFont("Helvetica-Bold", 8.5)
     c.drawRightString(margem_dir - 8, y - 11.5, formatar_moeda(totais.cartoes))
