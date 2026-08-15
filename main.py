@@ -2189,6 +2189,52 @@ async def main(page: ft.Page):
             fechar_resumo()
             abrir_detalhe_bandeira(tipo, rotulo, ao_fechar=acao_fechar_caixa)
 
+        def _is_pyodide_env() -> bool:
+            if "pyodide" in sys.modules or (hasattr(sys, "platform") and sys.platform == "emscripten"):
+                return True
+            try:
+                import js
+                return True
+            except Exception:
+                return False
+
+        def _baixar_arquivo_web_blob(nome_arquivo: str, conteudo_bytes: bytes, mime_type: str = "application/pdf") -> bool:
+            if not _is_pyodide_env():
+                return False
+            try:
+                import js
+                b64 = base64.b64encode(conteudo_bytes).decode("ascii")
+                js.eval(f"""
+                    (function() {{
+                        try {{
+                            var b64Data = "{b64}";
+                            var byteCharacters = atob(b64Data);
+                            var byteNumbers = new Array(byteCharacters.length);
+                            for (var i = 0; i < byteCharacters.length; i++) {{
+                                byteNumbers[i] = byteCharacters.charCodeAt(i);
+                            }}
+                            var byteArray = new Uint8Array(byteNumbers);
+                            var blob = new Blob([byteArray], {{ type: "{mime_type}" }});
+                            var url = URL.createObjectURL(blob);
+                            var a = document.createElement("a");
+                            a.href = url;
+                            a.download = "{nome_arquivo}";
+                            document.body.appendChild(a);
+                            a.click();
+                            setTimeout(function() {{
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                            }}, 2000);
+                        }} catch (err) {{
+                            console.error("Erro no download blob:", err);
+                        }}
+                    }})();
+                """)
+                return True
+            except Exception as e:
+                print(f"[Web Blob Download] Erro: {e}")
+                return False
+
         def _abrir_pdf_local(caminho_pdf, nome_pdf):
             try:
                 if sys.platform == "win32":
@@ -2213,7 +2259,14 @@ async def main(page: ft.Page):
                 with open(caminho_pdf, "rb") as f:
                     pdf_bytes = f.read()
 
-                if compartilhar_servico:
+                # Se estiver no navegador Web / PWA, faz download direto via Blob binário legítimo
+                if _is_pyodide_env():
+                    sucesso = _baixar_arquivo_web_blob(nome_pdf, pdf_bytes, "application/pdf")
+                    if sucesso:
+                        mostrar_snackbar(f"PDF baixado: {nome_pdf} 📥")
+                        return
+
+                if mobile and compartilhar_servico:
                     async def _share_pdf_async():
                         try:
                             share_file = ft.ShareFile(
@@ -2895,7 +2948,13 @@ async def main(page: ft.Page):
             with open(caminho_csv, "rb") as f:
                 csv_bytes = f.read()
 
-            if compartilhar_servico:
+            if _is_pyodide_env():
+                sucesso = _baixar_arquivo_web_blob(nome_csv, csv_bytes, "text/csv;charset=utf-8;")
+                if sucesso:
+                    mostrar_snackbar(f"Planilha exportada: {nome_csv} 📊")
+                    return
+
+            if mobile and compartilhar_servico:
                 async def _share_csv_async():
                     try:
                         share_file = ft.ShareFile(

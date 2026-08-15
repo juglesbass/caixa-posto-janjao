@@ -1375,7 +1375,6 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
     c.drawString(margem_esq, 20, "Posto Janjão · Sistema de Gestão de Caixa")
     c.drawRightString(margem_dir, 20, "Página 1 de 1 · Documento Autenticado")
 
-    c.showPage()
     c.save()
 
     return caminho
