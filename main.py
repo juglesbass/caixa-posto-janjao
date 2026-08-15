@@ -2401,16 +2401,28 @@ async def main(page: ft.Page):
                         vibrar("medium")
                         montar_interface()
 
-                        # Envio automático do PDF para o Google Drive em background
+                        # Envio automático do PDF para o Google Drive em background com alta resiliência
                         def _drive_task():
-                            ok, msg = drive_service.enviar_pdf_drive_bg(
-                                caminho_pdf, turno_id_encerrado, operador_encerrado
-                            )
-                            if ok and "sucesso" in msg.lower():
-                                mostrar_snackbar(msg, ft.Colors.GREEN_700)
+                            try:
+                                ok, msg = drive_service.enviar_pdf_drive_bg(
+                                    caminho_pdf, turno_id_encerrado, operador_encerrado
+                                )
+                                if ok and "sucesso" in msg.lower():
+                                    mostrar_snackbar(msg, ft.Colors.GREEN_700)
+                                else:
+                                    mostrar_snackbar("PDF guardado na fila offline. Será enviado ao conectar à internet 📶", ft.Colors.AMBER_800)
+                            except Exception as ex:
+                                print(f"[Drive Task] Erro: {ex}")
+                                mostrar_snackbar("PDF salvo em backup local e na fila offline do Drive 📶")
 
                         async def _run_drive_bg():
-                            await asyncio.to_thread(_drive_task)
+                            if _is_pyodide_env():
+                                _drive_task()
+                            else:
+                                try:
+                                    await asyncio.to_thread(_drive_task)
+                                except Exception:
+                                    _drive_task()
 
                         page.run_task(_run_drive_bg)
 
@@ -3039,6 +3051,33 @@ async def main(page: ft.Page):
         except Exception as ex:
             mostrar_snackbar(f"Erro ao exportar Excel: {ex}", ft.Colors.RED_800)
 
+    def acao_sincronizar_drive(e=None):
+        vibrar("light")
+        mostrar_snackbar("Sincronizando PDFs com o Google Drive... 🔄")
+        def _sync_task():
+            try:
+                sucessos, total = drive_service.sincronizar_pendencias_drive_bg()
+                if total == 0:
+                    mostrar_snackbar("Nenhum PDF pendente. Tudo sincronizado no Google Drive! ✅", ft.Colors.GREEN_700)
+                elif sucessos > 0:
+                    mostrar_snackbar(f"{sucessos} de {total} PDFs enviados com sucesso para o Drive! 🚀", ft.Colors.GREEN_700)
+                else:
+                    mostrar_snackbar(f"Não foi possível sincronizar ({total} pendentes). Verifique a internet.", ft.Colors.AMBER_800)
+            except Exception as ex:
+                mostrar_snackbar(f"Erro na sincronização: {ex}", ft.Colors.RED_800)
+
+        async def _run_sync_bg():
+            if _is_pyodide_env():
+                _sync_task()
+            else:
+                try:
+                    import asyncio
+                    await asyncio.to_thread(_sync_task)
+                except Exception:
+                    _sync_task()
+
+        page.run_task(_run_sync_bg)
+
     def bloquear_tela(e=None):
         fechar_menu()
         campo_pin_desbloqueio = ft.TextField(
@@ -3231,6 +3270,13 @@ async def main(page: ft.Page):
                     "Baixar relatório financeiro formatado para Excel",
                     C_GREEN,
                     acao_wrapper(acao_exportar_excel),
+                ),
+                _menu_action_tile(
+                    ft.Icons.CLOUD_SYNC_ROUNDED,
+                    "Sincronizar Google Drive",
+                    "Reenviar relatórios e PDFs pendentes para o Drive",
+                    C_BLUE,
+                    acao_wrapper(acao_sincronizar_drive),
                 ),
                 _menu_action_tile(
                     ft.Icons.LOCK_ROUNDED,
@@ -4501,6 +4547,23 @@ async def main(page: ft.Page):
     else:
         turno_atual = None
         montar_interface()
+
+    # Sincroniza silenciosamente PDFs que ficaram pendentes na fila offline
+    async def _sync_inicial_bg():
+        try:
+            import asyncio
+            await asyncio.sleep(1.2)
+            if _is_pyodide_env():
+                drive_service.sincronizar_pendencias_drive_bg()
+            else:
+                try:
+                    await asyncio.to_thread(drive_service.sincronizar_pendencias_drive_bg)
+                except Exception:
+                    drive_service.sincronizar_pendencias_drive_bg()
+        except Exception:
+            pass
+
+    page.run_task(_sync_inicial_bg)
 
 # ---------------------------------------------------------
 # ESCUDO ANTI-TELA PRETA (Para debug em iOS Sandboxed)
