@@ -2198,53 +2198,62 @@ async def main(page: ft.Page):
             except Exception:
                 return False
 
-        def _baixar_arquivo_web_blob(nome_arquivo: str, conteudo_bytes: bytes, mime_type: str = "application/pdf") -> bool:
-            b64 = base64.b64encode(conteudo_bytes).decode("ascii")
-            data_url = f"data:{mime_type};base64,{b64}"
-
-            # 1. Estratégia Principal: Pyodide JS Bridge / FFI
+        def _compartilhar_ou_baixar_arquivo_web(nome_arquivo: str, conteudo_bytes: bytes, mime_type: str = "application/pdf") -> bool:
+            if not _is_pyodide_env():
+                return False
             try:
                 import js
+                b64 = base64.b64encode(conteudo_bytes).decode("ascii")
+                js_code = f"""
+                    (async function() {{
+                        try {{
+                            var b64Data = "{b64}";
+                            var byteCharacters = atob(b64Data);
+                            var byteNumbers = new Array(byteCharacters.length);
+                            for (var i = 0; i < byteCharacters.length; i++) {{
+                                byteNumbers[i] = byteCharacters.charCodeAt(i);
+                            }}
+                            var byteArray = new Uint8Array(byteNumbers);
+                            var file = new File([byteArray], "{nome_arquivo}", {{ type: "{mime_type}" }});
+
+                            if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
+                                await navigator.share({{
+                                    files: [file],
+                                    title: "{nome_arquivo}",
+                                    text: "Resumo do Turno Posto Janjão"
+                                }});
+                            }} else {{
+                                var blob = new Blob([byteArray], {{ type: "{mime_type}" }});
+                                var url = URL.createObjectURL(blob);
+                                var a = document.createElement("a");
+                                a.href = url;
+                                a.download = "{nome_arquivo}";
+                                document.body.appendChild(a);
+                                a.click();
+                                setTimeout(function() {{
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                }}, 2500);
+                            }}
+                        }} catch (err) {{
+                            console.error("Erro no Web Share / Download:", err);
+                        }}
+                    }})();
+                """
                 try:
-                    from pyodide.ffi import to_js
-                    uint8 = js.Uint8Array.new(to_js(conteudo_bytes))
-                    blob = js.Blob.new([uint8], js.Object.from_entries([["type", mime_type]]))
-                    blob_url = js.URL.createObjectURL(blob)
-                    link = js.document.createElement("a")
-                    link.href = blob_url
-                    link.download = nome_arquivo
-                    js.document.body.appendChild(link)
-                    link.click()
-                    js.document.body.removeChild(link)
+                    js.window.eval(js_code)
                     return True
                 except Exception:
                     pass
 
-                # 2. Estratégia Secundária: js.window.eval com Data URL
                 try:
-                    js.window.eval(f"""
-                        (function() {{
-                            var a = document.createElement('a');
-                            a.href = '{data_url}';
-                            a.download = '{nome_arquivo}';
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                        }})();
-                    """)
+                    import pyodide
+                    pyodide.code.run_js(js_code)
                     return True
                 except Exception:
                     pass
-            except Exception:
-                pass
-
-            # 3. Estratégia Fallback: page.launch_url
-            try:
-                page.launch_url(data_url)
-                return True
-            except Exception:
-                pass
-
+            except Exception as e:
+                print(f"[Web Share/Download] Erro: {e}")
             return False
 
         def _abrir_pdf_local(caminho_pdf, nome_pdf):
@@ -2271,7 +2280,14 @@ async def main(page: ft.Page):
                 with open(caminho_pdf, "rb") as f:
                     pdf_bytes = f.read()
 
-                if compartilhar_servico:
+                # Se estiver no Web / Safari / PWA, usa a Web Share API com objeto File binário legítimo
+                if _is_pyodide_env():
+                    sucesso = _compartilhar_ou_baixar_arquivo_web(nome_pdf, pdf_bytes, "application/pdf")
+                    if sucesso:
+                        mostrar_snackbar(f"PDF pronto: {nome_pdf} 📥")
+                        return
+
+                if mobile and compartilhar_servico:
                     async def _share_pdf_async():
                         try:
                             share_file = ft.ShareFile(
@@ -2289,13 +2305,11 @@ async def main(page: ft.Page):
                             mostrar_snackbar(f"PDF pronto: {nome_pdf} 📥")
                         except Exception as ex:
                             print(f"Erro no share_files: {ex}")
-                            if not _baixar_arquivo_web_blob(nome_pdf, pdf_bytes, "application/pdf"):
-                                _abrir_pdf_local(caminho_pdf, nome_pdf)
+                            _abrir_pdf_local(caminho_pdf, nome_pdf)
 
                     page.run_task(_share_pdf_async)
                 else:
-                    if not _baixar_arquivo_web_blob(nome_pdf, pdf_bytes, "application/pdf"):
-                        _abrir_pdf_local(caminho_pdf, nome_pdf)
+                    _abrir_pdf_local(caminho_pdf, nome_pdf)
 
             except Exception as ex:
                 mostrar_snackbar(f"Erro ao gerar PDF: {ex}", ft.Colors.RED_800)
@@ -2955,7 +2969,13 @@ async def main(page: ft.Page):
             with open(caminho_csv, "rb") as f:
                 csv_bytes = f.read()
 
-            if compartilhar_servico:
+            if _is_pyodide_env():
+                sucesso = _compartilhar_ou_baixar_arquivo_web(nome_csv, csv_bytes, "text/csv;charset=utf-8;")
+                if sucesso:
+                    mostrar_snackbar(f"Planilha exportada: {nome_csv} 📊")
+                    return
+
+            if mobile and compartilhar_servico:
                 async def _share_csv_async():
                     try:
                         share_file = ft.ShareFile(
@@ -2973,12 +2993,10 @@ async def main(page: ft.Page):
                         mostrar_snackbar(f"Planilha exportada: {nome_csv} 📊")
                     except Exception as ex:
                         print(f"Erro share csv: {ex}")
-                        if not _baixar_arquivo_web_blob(nome_csv, csv_bytes, "text/csv;charset=utf-8;"):
-                            _abrir_pdf_local(caminho_csv, nome_csv)
+                        _abrir_pdf_local(caminho_csv, nome_csv)
                 page.run_task(_share_csv_async)
             else:
-                if not _baixar_arquivo_web_blob(nome_csv, csv_bytes, "text/csv;charset=utf-8;"):
-                    _abrir_pdf_local(caminho_csv, nome_csv)
+                _abrir_pdf_local(caminho_csv, nome_csv)
         except Exception as ex:
             mostrar_snackbar(f"Erro ao exportar Excel: {ex}", ft.Colors.RED_800)
 
