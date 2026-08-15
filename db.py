@@ -1042,18 +1042,18 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
 
     data_geracao = datetime.now().strftime("%d/%m/%Y às %H:%M")
 
-    w, h = A4
-    margem_esq = 36
-    margem_dir = w - 36
+    w, h = 380, 680
+    margem_esq = 16
+    margem_dir = w - 16
     largura_util = margem_dir - margem_esq
     y = h
 
-    c = canvas.Canvas(caminho, pagesize=A4)
+    c = canvas.Canvas(caminho, pagesize=(w, h))
 
     def desenhar_marca_dagua_bomba(c, w, h):
         """Desenha a marca d'água colorida com bico de combustível e gotas de gasolina douradas."""
         cx = w / 2.0
-        cy = (h / 2.0) - 75.0
+        cy = (h / 2.0) - 45.0
 
         base_dir = os.path.dirname(os.path.abspath(__file__))
         caminho_img = os.path.join(base_dir, "assets", "bico_gold.jpg")
@@ -1063,16 +1063,14 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
         if os.path.exists(caminho_img):
             try:
                 c.saveState()
-
-                # Corta qualquer parte da imagem abaixo de y = 125.0 (garante que nunca toque na assinatura)
-                y_corte_assinatura = 125.0
+                y_corte_assinatura = 95.0
                 clip_p = c.beginPath()
                 clip_p.rect(0, y_corte_assinatura, w, h - y_corte_assinatura)
                 c.clipPath(clip_p, stroke=0, fill=0)
 
-                c.setFillAlpha(0.28)
-                largura_img = 310
-                altura_img = 310
+                c.setFillAlpha(0.22)
+                largura_img = 210
+                altura_img = 210
                 c.drawImage(
                     caminho_img,
                     cx - (largura_img / 2.0),
@@ -1091,153 +1089,147 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
         c.saveState()
         c.setStrokeColor(colors.HexColor("#F1F5F9"))
         c.setFillColor(colors.HexColor("#F8FAFC"))
-        c.setLineWidth(1.2)
-        c.roundRect(cx - 70, cy - 110, 140, 220, 12, fill=1, stroke=1)
+        c.setLineWidth(1.0)
+        c.roundRect(cx - 50, cy - 80, 100, 160, 10, fill=1, stroke=1)
         c.restoreState()
 
     # Desenha a marca d'água no fundo
     desenhar_marca_dagua_bomba(c, w, h)
 
-    def checar_quebra_pagina(espaco_necessario=30):
+    def checar_quebra_pagina(espaco_necessario=25):
         nonlocal y
-        if y < 50 + espaco_necessario:
+        if y < 40 + espaco_necessario:
             c.showPage()
             desenhar_marca_dagua_bomba(c, w, h)
-            y = h - 40
+            y = h - 35
 
     # ── 1. CABEÇALHO COM BANNER SUPERIOR ──────────────────────────────────────────
     c.setFillColor(colors.HexColor("#0F172A"))
-    c.rect(0, h - 60, w, 60, fill=1, stroke=0)
+    c.rect(0, h - 52, w, 52, fill=1, stroke=0)
 
     c.setFillColor(colors.HexColor("#16A34A"))
-    c.rect(0, h - 64, w, 4, fill=1, stroke=0)
+    c.rect(0, h - 55, w, 3, fill=1, stroke=0)
 
     c.setFillColor(colors.HexColor("#FFFFFF"))
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(margem_esq, h - 34, "POSTO JANJÃO")
-    c.setFont("Helvetica", 9)
-    c.setFillColor(colors.HexColor("#94A3B8"))
-    c.drawString(margem_esq, h - 48, "FECHAMENTO DE TURNO · RELATÓRIO FINANCEIRO")
-
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(margem_esq, h - 26, "POSTO JANJÃO")
     c.setFont("Helvetica", 8)
-    c.setFillColor(colors.HexColor("#CBD5E1"))
-    c.drawRightString(margem_dir, h - 34, f"Emitido em: {data_geracao}")
-    c.drawRightString(margem_dir, h - 48, f"Documento #PDF-{turno.numero_do_dia:04d}")
+    c.setFillColor(colors.HexColor("#94A3B8"))
+    c.drawString(margem_esq, h - 40, "FECHAMENTO DE TURNO · RELATÓRIO")
 
-    y = h - 82
+    c.setFont("Helvetica", 7.5)
+    c.setFillColor(colors.HexColor("#CBD5E1"))
+    c.drawRightString(margem_dir, h - 26, f"{data_geracao}")
+    c.drawRightString(margem_dir, h - 40, f"#PDF-{turno.numero_do_dia:04d}")
+
+    y = h - 68
 
     fechado_em_texto = turno.fechado_em if (turno.fechado_em and turno.fechado_em.strip()) else datetime.now().strftime("%d/%m/%Y %H:%M")
 
     # ── 2. CARD DE METADADOS DO TURNO (KPI BOX) ──────────────────────────────────
     c.setFillColor(colors.HexColor("#F8FAFC"))
     c.setStrokeColor(colors.HexColor("#E2E8F0"))
-    c.setLineWidth(1)
-    c.roundRect(margem_esq, y - 42, largura_util, 42, 6, fill=1, stroke=1)
+    c.setLineWidth(0.8)
+    c.roundRect(margem_esq, y - 44, largura_util, 44, 6, fill=1, stroke=1)
 
     c.setFont("Helvetica-Bold", 7.5)
     c.setFillColor(colors.HexColor("#64748B"))
-    c.drawString(margem_esq + 10, y - 15, "Nº TURNO")
-    c.setFont("Helvetica-Bold", 11)
-    c.setFillColor(colors.HexColor("#0F172A"))
-    c.drawString(margem_esq + 10, y - 31, f"Turno #{turno.numero_do_dia}")
-
-    c.setFont("Helvetica-Bold", 7.5)
-    c.setFillColor(colors.HexColor("#64748B"))
-    c.drawString(margem_esq + 95, y - 15, "OPERADOR CAIXA")
-    c.setFont("Helvetica-Bold", 10)
-    c.setFillColor(colors.HexColor("#0F172A"))
-    c.drawString(margem_esq + 95, y - 31, turno.operador[:22])
-
-    c.setFont("Helvetica-Bold", 7.5)
-    c.setFillColor(colors.HexColor("#64748B"))
-    c.drawString(margem_esq + 245, y - 15, "ABERTURA")
-    c.setFont("Helvetica", 9.5)
-    c.setFillColor(colors.HexColor("#1E293B"))
-    c.drawString(margem_esq + 245, y - 31, turno.aberto_em)
-
-    c.setFont("Helvetica-Bold", 7.5)
-    c.setFillColor(colors.HexColor("#16A34A"))
-    c.drawString(margem_esq + 380, y - 15, "FECHAMENTO")
+    c.drawString(margem_esq + 8, y - 13, "TURNO")
     c.setFont("Helvetica-Bold", 9.5)
     c.setFillColor(colors.HexColor("#0F172A"))
-    c.drawString(margem_esq + 380, y - 31, fechado_em_texto)
+    c.drawString(margem_esq + 8, y - 24, f"Turno #{turno.numero_do_dia}")
 
-    y -= 62
+    c.setFont("Helvetica-Bold", 7.5)
+    c.setFillColor(colors.HexColor("#64748B"))
+    c.drawString(margem_esq + 110, y - 13, "OPERADOR")
+    c.setFont("Helvetica-Bold", 9.5)
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.drawString(margem_esq + 110, y - 24, turno.operador[:24])
+
+    c.setFont("Helvetica", 7)
+    c.setFillColor(colors.HexColor("#64748B"))
+    c.drawString(margem_esq + 8, y - 37, f"Aberto em: {turno.aberto_em}")
+
+    c.setFont("Helvetica-Bold", 7)
+    c.setFillColor(colors.HexColor("#16A34A"))
+    c.drawRightString(margem_dir - 8, y - 37, f"Fechado: {fechado_em_texto}")
+
+    y -= 54
 
     # ── 3. TABELA DE CARTÕES, VOUCHERS E PIX POR BANDEIRA ─────────────────────────
-    checar_quebra_pagina(100)
+    checar_quebra_pagina(70)
 
-    c.setFont("Helvetica-Bold", 11)
+    c.setFont("Helvetica-Bold", 9)
     c.setFillColor(colors.HexColor("#0F172A"))
-    c.drawString(margem_esq, y, "DETALHAMENTO DE CARTÕES, VOUCHERS E PIX POR BANDEIRA")
-    y -= 14
+    c.drawString(margem_esq, y, "DETALHAMENTO DE CARTÕES E VOUCHERS")
+    y -= 12
 
     c.setFillColor(colors.HexColor("#1E293B"))
-    c.rect(margem_esq, y - 18, largura_util, 18, fill=1, stroke=0)
+    c.rect(margem_esq, y - 16, largura_util, 16, fill=1, stroke=0)
 
-    c.setFont("Helvetica-Bold", 8.5)
+    c.setFont("Helvetica-Bold", 7.5)
     c.setFillColor(colors.HexColor("#FFFFFF"))
-    c.drawString(margem_esq + 12, y - 12, "BANDEIRA / MEIO DE PAGAMENTO")
-    c.drawCentredString(margem_esq + 300, y - 12, "QTD. COMPROVANTES")
-    c.drawRightString(margem_dir - 12, y - 12, "SUBTOTAL (R$)")
+    c.drawString(margem_esq + 8, y - 11, "BANDEIRA / MÁQUINA")
+    c.drawCentredString(margem_esq + 215, y - 11, "QTD")
+    c.drawRightString(margem_dir - 8, y - 11, "SUBTOTAL (R$)")
 
-    y -= 18
+    y -= 16
 
-    col_qtd_x = margem_esq + 300
+    col_qtd_x = margem_esq + 215
     par = False
     cartoes_ativos = {b: (v, q) for b, (v, q) in detalhe_cart.items() if q > 0 or v > 0}
     if not cartoes_ativos:
         cartoes_ativos = {"Nenhum cartão lançado no turno": (0.0, 0)}
 
     for bandeira, (valor, qtd) in cartoes_ativos.items():
-        checar_quebra_pagina(18)
+        checar_quebra_pagina(16)
         bg_cor = "#F8FAFC" if par else "#FFFFFF"
         par = not par
 
         c.setFillColor(colors.HexColor(bg_cor))
-        c.rect(margem_esq, y - 16, largura_util, 16, fill=1, stroke=0)
+        c.rect(margem_esq, y - 15, largura_util, 15, fill=1, stroke=0)
 
         c.setStrokeColor(colors.HexColor("#F1F5F9"))
         c.setLineWidth(0.5)
-        c.line(margem_esq, y - 16, margem_dir, y - 16)
+        c.line(margem_esq, y - 15, margem_dir, y - 15)
 
-        c.setFont("Helvetica", 9)
+        c.setFont("Helvetica", 8)
         c.setFillColor(colors.HexColor("#334155"))
-        c.drawString(margem_esq + 12, y - 11, bandeira)
+        c.drawString(margem_esq + 8, y - 10, bandeira[:30])
 
-        c.setFont("Helvetica", 9)
+        c.setFont("Helvetica", 8)
         c.setFillColor(colors.HexColor("#64748B") if qtd == 0 else colors.HexColor("#0F172A"))
-        c.drawCentredString(col_qtd_x, y - 11, f"{qtd} un")
+        c.drawCentredString(col_qtd_x, y - 10, f"{qtd} un")
 
-        c.setFont("Helvetica-Bold" if valor > 0 else "Helvetica", 9)
+        c.setFont("Helvetica-Bold" if valor > 0 else "Helvetica", 8)
         c.setFillColor(colors.HexColor("#0F172A") if valor > 0 else colors.HexColor("#94A3B8"))
-        c.drawRightString(margem_dir - 12, y - 11, formatar_moeda(valor))
+        c.drawRightString(margem_dir - 8, y - 10, formatar_moeda(valor))
 
-        y -= 16
+        y -= 15
 
-    checar_quebra_pagina(22)
+    checar_quebra_pagina(20)
     y -= 2
     c.setFillColor(colors.HexColor("#EFF6FF"))
     c.setStrokeColor(colors.HexColor("#93C5FD"))
-    c.setLineWidth(1)
-    c.rect(margem_esq, y - 20, largura_util, 20, fill=1, stroke=1)
+    c.setLineWidth(0.8)
+    c.rect(margem_esq, y - 18, largura_util, 18, fill=1, stroke=1)
 
-    c.setFont("Helvetica-Bold", 9.5)
+    c.setFont("Helvetica-Bold", 8)
     c.setFillColor(colors.HexColor("#1E40AF"))
-    c.drawString(margem_esq + 12, y - 13, "TOTAL DE CARTÕES E VOUCHERS")
-    c.drawCentredString(col_qtd_x, y - 13, f"{totais.qtd_cartoes} comprovantes")
-    c.setFont("Helvetica-Bold", 10.5)
-    c.drawRightString(margem_dir - 12, y - 13, formatar_moeda(totais.cartoes))
+    c.drawString(margem_esq + 8, y - 12, "TOTAL CARTÕES")
+    c.drawCentredString(col_qtd_x, y - 12, f"{totais.qtd_cartoes} un")
+    c.setFont("Helvetica-Bold", 9)
+    c.drawRightString(margem_dir - 8, y - 12, formatar_moeda(totais.cartoes))
 
-    y -= 32
+    y -= 26
 
     # ── 4. RESUMO FINANCEIRO (OUTROS LANÇAMENTOS) ──────────────────────────────
-    checar_quebra_pagina(120)
+    checar_quebra_pagina(90)
 
-    c.setFont("Helvetica-Bold", 11)
+    c.setFont("Helvetica-Bold", 9)
     c.setFillColor(colors.HexColor("#0F172A"))
-    c.drawString(margem_esq, y, "RESUMO DOS OUTROS LANÇAMENTOS DO TURNO")
-    y -= 14
+    c.drawString(margem_esq, y, "RESUMO DOS OUTROS LANÇAMENTOS")
+    y -= 12
 
     itens_financeiros = [
         ("Pag Pix", totais.pix, totais.qtd_pix, "#2563EB", "#F0F9FF"),
@@ -1248,66 +1240,66 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
     ]
 
     for rotulo, valor, qtd, cor_destaque, bg_item in itens_financeiros:
-        checar_quebra_pagina(20)
+        checar_quebra_pagina(18)
         c.setFillColor(colors.HexColor(bg_item))
         c.setStrokeColor(colors.HexColor("#E2E8F0"))
         c.setLineWidth(0.5)
-        c.rect(margem_esq, y - 18, largura_util, 18, fill=1, stroke=1)
+        c.rect(margem_esq, y - 16, largura_util, 16, fill=1, stroke=1)
 
         c.setFillColor(colors.HexColor(cor_destaque))
-        c.rect(margem_esq, y - 18, 4, 18, fill=1, stroke=0)
+        c.rect(margem_esq, y - 16, 3, 16, fill=1, stroke=0)
 
-        c.setFont("Helvetica-Bold", 9)
+        c.setFont("Helvetica-Bold", 8)
         c.setFillColor(colors.HexColor("#1E293B"))
-        c.drawString(margem_esq + 14, y - 12, rotulo)
+        c.drawString(margem_esq + 10, y - 11, rotulo)
 
         if qtd is not None:
-            c.setFont("Helvetica", 8.5)
+            c.setFont("Helvetica", 7.5)
             c.setFillColor(colors.HexColor("#64748B"))
-            c.drawCentredString(col_qtd_x, y - 12, f"({qtd} un)")
+            c.drawCentredString(col_qtd_x, y - 11, f"({qtd} un)")
 
-        c.setFont("Helvetica-Bold", 9.5)
+        c.setFont("Helvetica-Bold", 8.5)
         c.setFillColor(colors.HexColor(cor_destaque if valor > 0 else "#64748B"))
-        c.drawRightString(margem_dir - 12, y - 12, formatar_moeda(valor))
+        c.drawRightString(margem_dir - 8, y - 11, formatar_moeda(valor))
 
-        y -= 22
+        y -= 18
 
-    y -= 10
+    y -= 6
 
     # ── 5. TABELA DE CONCILIAÇÃO DE VENDAS (PISTA vs. SISTEMA) ────────────────
-    checar_quebra_pagina(110)
+    checar_quebra_pagina(80)
 
     # 1. TOTAL DE VENDAS PISTA
     c.setFillColor(colors.HexColor("#3730A3"))
     c.setStrokeColor(colors.HexColor("#6366F1"))
-    c.setLineWidth(1.2)
-    c.roundRect(margem_esq, y - 26, largura_util, 26, 4, fill=1, stroke=1)
+    c.setLineWidth(1.0)
+    c.roundRect(margem_esq, y - 22, largura_util, 22, 4, fill=1, stroke=1)
 
-    c.setFont("Helvetica-Bold", 9)
+    c.setFont("Helvetica-Bold", 8)
     c.setFillColor(colors.HexColor("#E0E7FF"))
-    c.drawString(margem_esq + 14, y - 17, "TOTAL DE VENDAS PISTA:")
+    c.drawString(margem_esq + 10, y - 14, "TOTAL DE VENDAS PISTA:")
 
-    c.setFont("Helvetica-Bold", 12)
+    c.setFont("Helvetica-Bold", 10.5)
     c.setFillColor(colors.HexColor("#FFFFFF"))
-    c.drawRightString(margem_dir - 14, y - 17, formatar_moeda(totais.total_geral))
+    c.drawRightString(margem_dir - 10, y - 14, formatar_moeda(totais.total_geral))
 
-    y -= 30
+    y -= 25
 
     # 2. TOTAL DE VENDAS SISTEMA
     c.setFillColor(colors.HexColor("#1E293B"))
     c.setStrokeColor(colors.HexColor("#475569"))
-    c.setLineWidth(1)
-    c.roundRect(margem_esq, y - 26, largura_util, 26, 4, fill=1, stroke=1)
+    c.setLineWidth(0.8)
+    c.roundRect(margem_esq, y - 22, largura_util, 22, 4, fill=1, stroke=1)
 
-    c.setFont("Helvetica-Bold", 9)
+    c.setFont("Helvetica-Bold", 8)
     c.setFillColor(colors.HexColor("#CBD5E1"))
-    c.drawString(margem_esq + 14, y - 17, "TOTAL DE VENDAS SISTEMA:")
+    c.drawString(margem_esq + 10, y - 14, "TOTAL DE VENDAS SISTEMA:")
 
-    c.setFont("Helvetica-Bold", 11.5)
+    c.setFont("Helvetica-Bold", 10)
     c.setFillColor(colors.HexColor("#F8FAFC"))
-    c.drawRightString(margem_dir - 14, y - 17, formatar_moeda(turno.vendas_sistema))
+    c.drawRightString(margem_dir - 10, y - 14, formatar_moeda(turno.vendas_sistema))
 
-    y -= 30
+    y -= 25
 
     # 3. DIFERENÇA (PISTA - SISTEMA)
     diferenca = totais.total_geral - turno.vendas_sistema
@@ -1317,67 +1309,67 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
 
     c.setFillColor(colors.HexColor(cor_dif_bg))
     c.setStrokeColor(colors.HexColor(cor_dif_border))
-    c.setLineWidth(1.2)
-    c.roundRect(margem_esq, y - 26, largura_util, 26, 4, fill=1, stroke=1)
+    c.setLineWidth(1.0)
+    c.roundRect(margem_esq, y - 22, largura_util, 22, 4, fill=1, stroke=1)
 
-    c.setFont("Helvetica-Bold", 9.5)
+    c.setFont("Helvetica-Bold", 8.5)
     c.setFillColor(colors.HexColor(cor_dif_texto))
     label_dif = "DIFERENÇA:"
-    c.drawString(margem_esq + 14, y - 17, label_dif)
+    c.drawString(margem_esq + 10, y - 14, label_dif)
 
-    c.setFont("Helvetica-Bold", 12)
-    c.drawRightString(margem_dir - 14, y - 17, formatar_moeda(diferenca))
+    c.setFont("Helvetica-Bold", 10.5)
+    c.drawRightString(margem_dir - 10, y - 14, formatar_moeda(diferenca))
 
-    y -= 36
+    y -= 28
 
     # ── 5.1 SEÇÃO DE OBSERVAÇÕES / JUSTIFICATIVA ─────────────────────────────────
     if turno.observacao and turno.observacao.strip():
         obs_linhas = [l.strip() for l in turno.observacao.strip().split("\n") if l.strip()]
-        alt_obs = max(32, 18 + len(obs_linhas) * 12)
-        checar_quebra_pagina(alt_obs + 15)
+        alt_obs = max(28, 16 + len(obs_linhas) * 11)
+        checar_quebra_pagina(alt_obs + 10)
 
         c.setFillColor(colors.HexColor("#F8FAFC"))
         c.setStrokeColor(colors.HexColor("#CBD5E1"))
-        c.setLineWidth(0.8)
+        c.setLineWidth(0.7)
         c.roundRect(margem_esq, y - alt_obs, largura_util, alt_obs, 4, fill=1, stroke=1)
 
-        c.setFont("Helvetica-Bold", 8.5)
+        c.setFont("Helvetica-Bold", 7.5)
         c.setFillColor(colors.HexColor("#475569"))
-        c.drawString(margem_esq + 12, y - 13, "OBSERVAÇÕES / JUSTIFICATIVA:")
+        c.drawString(margem_esq + 8, y - 11, "OBSERVAÇÕES / JUSTIFICATIVA:")
 
-        c.setFont("Helvetica", 8.5)
+        c.setFont("Helvetica", 7.5)
         c.setFillColor(colors.HexColor("#0F172A"))
-        y_text = y - 25
-        for lin in obs_linhas[:4]:
-            c.drawString(margem_esq + 12, y_text, lin[:95])
-            y_text -= 12
+        y_text = y - 21
+        for lin in obs_linhas[:3]:
+            c.drawString(margem_esq + 8, y_text, lin[:70])
+            y_text -= 10
 
-        y -= (alt_obs + 16)
+        y -= (alt_obs + 12)
     else:
-        y -= 10
+        y -= 6
 
     # ── 6. CAMPOS DE ASSINATURA E AUDITORIA ────────────────────────────────────
-    checar_quebra_pagina(50)
+    checar_quebra_pagina(40)
     c.setStrokeColor(colors.HexColor("#CBD5E1"))
-    c.setLineWidth(0.8)
+    c.setLineWidth(0.6)
 
-    largura_campo = (largura_util - 40) / 2
-    x_ass1 = margem_esq + 10
-    x_ass2 = x_ass1 + largura_campo + 20
+    largura_campo = (largura_util - 20) / 2
+    x_ass1 = margem_esq + 5
+    x_ass2 = x_ass1 + largura_campo + 10
 
-    c.line(x_ass1, y - 20, x_ass1 + largura_campo, y - 20)
-    c.line(x_ass2, y - 20, x_ass2 + largura_campo, y - 20)
+    c.line(x_ass1, y - 14, x_ass1 + largura_campo, y - 14)
+    c.line(x_ass2, y - 14, x_ass2 + largura_campo, y - 14)
 
-    c.setFont("Helvetica", 8)
+    c.setFont("Helvetica", 7)
     c.setFillColor(colors.HexColor("#64748B"))
-    c.drawCentredString(x_ass1 + (largura_campo / 2), y - 30, f"Assinatura: {turno.operador}")
-    c.drawCentredString(x_ass2 + (largura_campo / 2), y - 30, "Assinatura: Gerência / Conferência")
+    c.drawCentredString(x_ass1 + (largura_campo / 2), y - 23, f"Assinatura: {turno.operador[:18]}")
+    c.drawCentredString(x_ass2 + (largura_campo / 2), y - 23, "Assinatura: Gerência")
 
     # ── 7. RODAPÉ FIXO ────────────────────────────────────────────────────────
-    c.setFont("Helvetica", 7.5)
+    c.setFont("Helvetica", 6.5)
     c.setFillColor(colors.HexColor("#94A3B8"))
-    c.drawString(margem_esq, 20, "Posto Janjão · Sistema de Gestão de Caixa")
-    c.drawRightString(margem_dir, 20, "Página 1 de 1 · Documento Autenticado")
+    c.drawString(margem_esq, 14, "Posto Janjão · Sistema de Gestão")
+    c.drawRightString(margem_dir, 14, "Documento Autenticado · 1/1")
 
     c.save()
 
