@@ -1835,40 +1835,57 @@ async def main(page: ft.Page):
             )
         )
 
-        # ── Detalhe de Cartões & Vouchers ──
+        # ── Detalhe de Cartões & Vouchers (Dinâmico: apenas bandeiras com vendas) ──
         linhas_bandeiras = []
-        for bandeira, (valor, qtd) in detalhe_cartoes.items():
-            cor   = cor_tipo(bandeira)
-            icone = icone_tipo(bandeira)
-            cor_valor = pal.text_pri if valor > 0 else pal.text_ter
-            peso_valor = ft.FontWeight.BOLD if valor > 0 else ft.FontWeight.NORMAL
+        cartoes_ativos = {b: (v, q) for b, (v, q) in detalhe_cartoes.items() if q > 0 or v > 0}
 
-            row_controls = [
-                ft.Container(
-                    content=ft.Icon(icone, color=cor, size=14),
-                    bgcolor=ft.Colors.with_opacity(0.12, cor),
-                    border_radius=6,
-                    padding=4,
-                ),
-                ft.Text(
-                    bandeira, size=13, width=130, color=pal.text_sec,
-                    max_lines=1, overflow=ft.TextOverflow.ELLIPSIS, weight=ft.FontWeight.W_500,
-                ),
-                ft.Text(f"({qtd} un)", size=12, width=55, color=pal.text_ter),
-                ft.Text(formatar_moeda(valor), size=14, color=cor_valor, weight=peso_valor, expand=True, text_align=ft.TextAlign.RIGHT),
-                ft.Icon(ft.Icons.CHEVRON_RIGHT_ROUNDED, color=pal.text_ter, size=16),
-            ]
-
+        if not cartoes_ativos:
             linhas_bandeiras.append(
                 ft.Container(
-                    content=ft.Row(row_controls, spacing=8),
-                    border_radius=8,
-                    padding=ft.Padding(left=6, right=6, top=6, bottom=6),
-                    ink=True,
-                    tooltip="Toque para ver e editar os lançamentos desta bandeira",
-                    on_click=lambda e, b=bandeira: ao_abrir_detalhe(b),
+                    content=ft.Row(
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        controls=[
+                            ft.Icon(ft.Icons.CREDIT_CARD_OFF_ROUNDED, size=16, color=pal.text_ter),
+                            ft.Text("Nenhum cartão lançado no turno", size=12, color=pal.text_ter),
+                        ],
+                        spacing=6,
+                    ),
+                    padding=ft.Padding(0, 8, 0, 8),
                 )
             )
+        else:
+            for bandeira, (valor, qtd) in cartoes_ativos.items():
+                cor   = cor_tipo(bandeira)
+                icone = icone_tipo(bandeira)
+                cor_valor = pal.text_pri if valor > 0 else pal.text_ter
+                peso_valor = ft.FontWeight.BOLD if valor > 0 else ft.FontWeight.NORMAL
+
+                row_controls = [
+                    ft.Container(
+                        content=ft.Icon(icone, color=cor, size=14),
+                        bgcolor=ft.Colors.with_opacity(0.12, cor),
+                        border_radius=6,
+                        padding=4,
+                    ),
+                    ft.Text(
+                        bandeira, size=13, width=130, color=pal.text_sec,
+                        max_lines=1, overflow=ft.TextOverflow.ELLIPSIS, weight=ft.FontWeight.W_500,
+                    ),
+                    ft.Text(f"({qtd} un)", size=12, width=55, color=pal.text_ter),
+                    ft.Text(formatar_moeda(valor), size=14, color=cor_valor, weight=peso_valor, expand=True, text_align=ft.TextAlign.RIGHT),
+                    ft.Icon(ft.Icons.CHEVRON_RIGHT_ROUNDED, color=pal.text_ter, size=16),
+                ]
+
+                linhas_bandeiras.append(
+                    ft.Container(
+                        content=ft.Row(row_controls, spacing=8),
+                        border_radius=8,
+                        padding=ft.Padding(left=6, right=6, top=6, bottom=6),
+                        ink=True,
+                        tooltip="Toque para ver e editar os lançamentos desta bandeira",
+                        on_click=lambda e, b=bandeira: ao_abrir_detalhe(b),
+                    )
+                )
 
         caixa_cartoes = ft.Container(
             bgcolor=pal.surface,

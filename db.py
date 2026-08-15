@@ -1185,7 +1185,11 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
 
     col_qtd_x = margem_esq + 300
     par = False
-    for bandeira, (valor, qtd) in detalhe_cart.items():
+    cartoes_ativos = {b: (v, q) for b, (v, q) in detalhe_cart.items() if q > 0 or v > 0}
+    if not cartoes_ativos:
+        cartoes_ativos = {"Nenhum cartão lançado no turno": (0.0, 0)}
+
+    for bandeira, (valor, qtd) in cartoes_ativos.items():
         checar_quebra_pagina(18)
         bg_cor = "#F8FAFC" if par else "#FFFFFF"
         par = not par
