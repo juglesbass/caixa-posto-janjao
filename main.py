@@ -2199,41 +2199,53 @@ async def main(page: ft.Page):
                 return False
 
         def _baixar_arquivo_web_blob(nome_arquivo: str, conteudo_bytes: bytes, mime_type: str = "application/pdf") -> bool:
-            if not _is_pyodide_env():
-                return False
+            b64 = base64.b64encode(conteudo_bytes).decode("ascii")
+            data_url = f"data:{mime_type};base64,{b64}"
+
+            # 1. Estratégia Principal: Pyodide JS Bridge / FFI
             try:
                 import js
-                b64 = base64.b64encode(conteudo_bytes).decode("ascii")
-                js.eval(f"""
-                    (function() {{
-                        try {{
-                            var b64Data = "{b64}";
-                            var byteCharacters = atob(b64Data);
-                            var byteNumbers = new Array(byteCharacters.length);
-                            for (var i = 0; i < byteCharacters.length; i++) {{
-                                byteNumbers[i] = byteCharacters.charCodeAt(i);
-                            }}
-                            var byteArray = new Uint8Array(byteNumbers);
-                            var blob = new Blob([byteArray], {{ type: "{mime_type}" }});
-                            var url = URL.createObjectURL(blob);
-                            var a = document.createElement("a");
-                            a.href = url;
-                            a.download = "{nome_arquivo}";
+                try:
+                    from pyodide.ffi import to_js
+                    uint8 = js.Uint8Array.new(to_js(conteudo_bytes))
+                    blob = js.Blob.new([uint8], js.Object.from_entries([["type", mime_type]]))
+                    blob_url = js.URL.createObjectURL(blob)
+                    link = js.document.createElement("a")
+                    link.href = blob_url
+                    link.download = nome_arquivo
+                    js.document.body.appendChild(link)
+                    link.click()
+                    js.document.body.removeChild(link)
+                    return True
+                except Exception:
+                    pass
+
+                # 2. Estratégia Secundária: js.window.eval com Data URL
+                try:
+                    js.window.eval(f"""
+                        (function() {{
+                            var a = document.createElement('a');
+                            a.href = '{data_url}';
+                            a.download = '{nome_arquivo}';
                             document.body.appendChild(a);
                             a.click();
-                            setTimeout(function() {{
-                                document.body.removeChild(a);
-                                URL.revokeObjectURL(url);
-                            }}, 2000);
-                        }} catch (err) {{
-                            console.error("Erro no download blob:", err);
-                        }}
-                    }})();
-                """)
+                            document.body.removeChild(a);
+                        }})();
+                    """)
+                    return True
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+            # 3. Estratégia Fallback: page.launch_url
+            try:
+                page.launch_url(data_url)
                 return True
-            except Exception as e:
-                print(f"[Web Blob Download] Erro: {e}")
-                return False
+            except Exception:
+                pass
+
+            return False
 
         def _abrir_pdf_local(caminho_pdf, nome_pdf):
             try:
