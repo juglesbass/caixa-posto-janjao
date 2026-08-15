@@ -660,10 +660,101 @@ async def main(page: ft.Page):
             txt_rodape_resumo.value = f"Total geral · {formatar_moeda(totais.total_geral)}"
 
     # ════════════════════════════════════════════════════════════════════════
+    # MÁQUINA ATIVA (REDE / CIELO)
+    # ════════════════════════════════════════════════════════════════════════
+    def carregar_maquina_ativa() -> str:
+        try:
+            m = page.client_storage.get("caixa_maquina_ativa")
+            if m in (db.MAQUINA_REDE, db.MAQUINA_CIELO):
+                return m
+        except Exception:
+            pass
+        return db.MAQUINA_REDE
+
+    maquina_ativa = carregar_maquina_ativa()
+
+    btn_maq_rede = ft.Container(
+        content=ft.Row(
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=8,
+            controls=[
+                ft.Icon(ft.Icons.POINT_OF_SALE_ROUNDED, size=18),
+                ft.Text("Máquina REDE", size=13, weight=ft.FontWeight.BOLD),
+            ]
+        ),
+        border_radius=RADIUS_SM,
+        padding=ft.Padding(12, 10, 12, 10),
+        expand=True,
+        ink=True,
+        scale=ft.Scale(scale=1),
+        animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
+        on_click=lambda e: selecionar_maquina(db.MAQUINA_REDE),
+    )
+
+    btn_maq_cielo = ft.Container(
+        content=ft.Row(
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=8,
+            controls=[
+                ft.Icon(ft.Icons.POINT_OF_SALE_ROUNDED, size=18),
+                ft.Text("Máquina CIELO", size=13, weight=ft.FontWeight.BOLD),
+            ]
+        ),
+        border_radius=RADIUS_SM,
+        padding=ft.Padding(12, 10, 12, 10),
+        expand=True,
+        ink=True,
+        scale=ft.Scale(scale=1),
+        animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
+        on_click=lambda e: selecionar_maquina(db.MAQUINA_CIELO),
+    )
+
+    def atualizar_maquinas_ui():
+        sel_rede = (maquina_ativa == db.MAQUINA_REDE)
+        btn_maq_rede.bgcolor = ft.Colors.with_opacity(0.18, C_REDE) if sel_rede else pal.surface
+        btn_maq_rede.border = borda_all(1.8 if sel_rede else 1, C_REDE if sel_rede else pal.border)
+        btn_maq_rede.content.controls[0].color = C_REDE if sel_rede else pal.text_sec
+        btn_maq_rede.content.controls[1].color = C_REDE if sel_rede else pal.text_pri
+
+        sel_cielo = (maquina_ativa == db.MAQUINA_CIELO)
+        btn_maq_cielo.bgcolor = ft.Colors.with_opacity(0.18, C_CIELO) if sel_cielo else pal.surface
+        btn_maq_cielo.border = borda_all(1.8 if sel_cielo else 1, C_CIELO if sel_cielo else pal.border)
+        btn_maq_cielo.content.controls[0].color = C_CIELO if sel_cielo else pal.text_sec
+        btn_maq_cielo.content.controls[1].color = C_CIELO if sel_cielo else pal.text_pri
+        try:
+            page.update()
+        except Exception:
+            pass
+
+    def salvar_maquina_ativa(maquina: str):
+        nonlocal maquina_ativa
+        maquina_ativa = maquina
+        try:
+            page.client_storage.set("caixa_maquina_ativa", maquina)
+        except Exception:
+            pass
+        atualizar_maquinas_ui()
+
+    def selecionar_maquina(m: str):
+        vibrar("light")
+        salvar_maquina_ativa(m)
+
+    secao_maquinas = ft.Container(
+        width=largura_conteudo,
+        content=ft.Column(
+            spacing=6,
+            controls=[
+                ft.Text("MÁQUINA ATIVA", size=11, weight=ft.FontWeight.BOLD, color=pal.text_ter),
+                ft.Row(spacing=8, controls=[btn_maq_rede, btn_maq_cielo]),
+            ]
+        )
+    )
+
+    # ════════════════════════════════════════════════════════════════════════
     # GRADE TÁTIL DE FORMAS DE PAGAMENTO (6 CARDS TÁTEIS)
     # ════════════════════════════════════════════════════════════════════════
     def _eh_cartao(t: str) -> bool:
-        return t in db.LISTA_CARTOES
+        return db.eh_cartao(t)
 
     bandeiras_disponiveis = [
         "Pix",
@@ -672,8 +763,17 @@ async def main(page: ft.Page):
         "Fitcard", "Excard", "Amex", "Eucard", "Avancard"
     ]
 
+    def _extrair_bandeira_base(t: str) -> str:
+        if not t:
+            return "Master Débito"
+        if t.startswith("Rede "):
+            return t[5:]
+        if t.startswith("Cielo "):
+            return t[6:]
+        return t
+
     def criar_seletor_tipo(valor_inicial: str):
-        cartao_escolhido = valor_inicial if _eh_cartao(valor_inicial) else "Master Débito"
+        cartao_escolhido = _extrair_bandeira_base(valor_inicial) if _eh_cartao(valor_inicial) else "Master Débito"
         estado = {
             "valor": valor_inicial,
             "cartao_atual": cartao_escolhido,
@@ -698,7 +798,7 @@ async def main(page: ft.Page):
             for band in bandeiras_disponiveis:
                 cor_b = cor_tipo(band)
                 ico_b = icone_tipo(band)
-                sel_b = (estado["valor"] == band)
+                sel_b = (_extrair_bandeira_base(estado["valor"]) == band and _eh_cartao(estado["valor"]))
 
                 btn_b = ft.Container(
                     content=ft.Row(
@@ -1636,14 +1736,19 @@ async def main(page: ft.Page):
 
         try:
             garantir_conexao()
+            tipo_lancar = estado_tipo["valor"]
+            if db.eh_cartao(tipo_lancar):
+                if not tipo_lancar.startswith("Rede ") and not tipo_lancar.startswith("Cielo "):
+                    tipo_lancar = f"{maquina_ativa} {tipo_lancar}"
+
             db.inserir_lancamento(
                 conn, turno_atual.id,
-                estado_tipo["valor"], valor_float, input_desc.value or "",
+                tipo_lancar, valor_float, input_desc.value or "",
             )
             input_valor.value = ""
             input_desc.value  = ""
             input_valor.error_text = None
-            mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {estado_tipo['valor']}")
+            mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {tipo_lancar}")
             vibrar("light")
             salvar_ultimo_tipo(estado_tipo["valor"])
             atualizar_painel()
@@ -4024,10 +4129,13 @@ async def main(page: ft.Page):
         floating_bottom_bar.bgcolor = pal.sheet_bg
         floating_bottom_bar.border = borda_all(1, pal.border)
 
+        atualizar_maquinas_ui()
+
         controles_scroll = [
             header,
             banner_alerta_sangria,
             hud_totais_card,
+            secao_maquinas,
             seletor_col,
             input_valor,
             row_calculadora_troco,

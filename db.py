@@ -67,6 +67,11 @@ def salvar_banco_web_sync(conn: Optional[sqlite3.Connection] = None) -> None:
         logger.error(f"[DB WebStorage] Erro ao salvar no localStorage: {e}")
 
 
+# ── Constantes de máquinas e tipos ─────────────────────────────────────────
+MAQUINA_REDE = "Rede"
+MAQUINA_CIELO = "Cielo"
+MAQUINAS = [MAQUINA_REDE, MAQUINA_CIELO]
+
 # ── Constantes de tipo (evita strings soltas espalhadas pelo código) ───────
 TIPO_DINHEIRO = "Dinheiro"
 TIPO_PIX = "Pag Pix"
@@ -77,7 +82,7 @@ TIPO_DESPESA = "Despesas"
 TIPO_SANGRIA = "Sangria"
 TIPO_SUPRIMENTO = "Suprimento"
 
-LISTA_CARTOES = [
+BANDEIRAS_BASE = [
     "Fitcard",
     "Excard",
     "Amex",
@@ -93,6 +98,30 @@ LISTA_CARTOES = [
     TIPO_SODEXO,
     "Alelo Multibenefícios",
 ]
+
+LISTA_CARTOES_REDE = [f"Rede {b}" for b in BANDEIRAS_BASE]
+LISTA_CARTOES_CIELO = [f"Cielo {b}" for b in BANDEIRAS_BASE]
+LISTA_CARTOES = [*LISTA_CARTOES_REDE, *LISTA_CARTOES_CIELO, *BANDEIRAS_BASE]
+
+
+def eh_cartao(tipo: str) -> bool:
+    """Verifica se uma forma de pagamento é cartão/voucher."""
+    if not tipo:
+        return False
+    if tipo in (
+        TIPO_DINHEIRO,
+        TIPO_PIX,
+        TIPO_REQUISICAO,
+        TIPO_DEPOSITO_GLOBAL,
+        TIPO_DESPESA,
+        TIPO_SANGRIA,
+        TIPO_SUPRIMENTO,
+    ):
+        return False
+    if tipo.startswith("Rede ") or tipo.startswith("Cielo "):
+        return True
+    return tipo in BANDEIRAS_BASE or tipo in LISTA_CARTOES
+
 
 _vistos_td = set()
 TIPOS_DROPDOWN = []
@@ -470,8 +499,14 @@ def obter_totais(conn: sqlite3.Connection, turno_id: int) -> Totais:
     sangrias = totais_centavos.get(TIPO_SANGRIA, 0) / 100.0
     suprimento = totais_centavos.get(TIPO_SUPRIMENTO, 0) / 100.0
 
-    total_cartoes = sum(totais_centavos.get(cartao, 0) for cartao in LISTA_CARTOES) / 100.0
-    qtd_cartoes = sum(totais_qtd.get(cartao, 0) for cartao in LISTA_CARTOES)
+    total_cartoes = sum(
+        val for k, val in totais_centavos.items()
+        if k not in (TIPO_DINHEIRO, TIPO_PIX, TIPO_REQUISICAO, TIPO_DEPOSITO_GLOBAL, TIPO_DESPESA, TIPO_SANGRIA, TIPO_SUPRIMENTO)
+    ) / 100.0
+    qtd_cartoes = sum(
+        qtd for k, qtd in totais_qtd.items()
+        if k not in (TIPO_DINHEIRO, TIPO_PIX, TIPO_REQUISICAO, TIPO_DEPOSITO_GLOBAL, TIPO_DESPESA, TIPO_SANGRIA, TIPO_SUPRIMENTO)
+    )
     qtd_pix = totais_qtd.get(TIPO_PIX, 0)
     qtd_sangrias = totais_qtd.get(TIPO_SANGRIA, 0)
 
@@ -513,13 +548,13 @@ def obter_detalhe_cartoes(conn: sqlite3.Connection, turno_id: int) -> dict[str, 
     totais_centavos = {linha[0]: (linha[1] or 0) for linha in resultados}
     totais_qtd = {linha[0]: linha[2] for linha in resultados}
 
-    return {
-        cartao: (
-            totais_centavos.get(cartao, 0) / 100.0,
-            totais_qtd.get(cartao, 0)
-        )
-        for cartao in LISTA_CARTOES
-    }
+    detalhe = {}
+    for c in LISTA_CARTOES_REDE + LISTA_CARTOES_CIELO:
+        detalhe[c] = (totais_centavos.get(c, 0) / 100.0, totais_qtd.get(c, 0))
+    for c in BANDEIRAS_BASE:
+        if c in totais_centavos:
+            detalhe[c] = (totais_centavos.get(c, 0) / 100.0, totais_qtd.get(c, 0))
+    return detalhe
 
 
 def obter_encerrantes(conn: sqlite3.Connection, turno_id: int) -> list[Encerrante]:

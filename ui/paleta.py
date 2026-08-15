@@ -146,14 +146,36 @@ def borda_all(largura: float, cor: str) -> ft.Border:
     )
 
 
+# Cores específicas de Máquinas
+C_REDE        = "#ef4444"  # Vermelho Rede
+C_CIELO       = "#0284c7"  # Azul Cielo
+C_REDE_TEXT   = "#dc2626"
+C_CIELO_TEXT  = "#0369a1"
+
+
 def cor_tipo(tipo: str) -> str:
     """Retorna a cor associada a um tipo de pagamento."""
+    if not tipo:
+        return C_ACCENT
+    if tipo.startswith("Rede "):
+        bandeira = tipo[5:]
+        return CORES_POR_TIPO.get(bandeira, C_REDE)
+    if tipo.startswith("Cielo "):
+        bandeira = tipo[6:]
+        return CORES_POR_TIPO.get(bandeira, C_CIELO)
     return CORES_POR_TIPO.get(tipo, C_ACCENT)
 
 
 def icone_tipo(tipo: str):
     """Retorna o ícone associado a um tipo de pagamento."""
-    return ICONES_POR_TIPO.get(tipo, ft.Icons.CREDIT_CARD_ROUNDED)
+    if not tipo:
+        return ft.Icons.CREDIT_CARD_ROUNDED
+    limpo = tipo
+    if tipo.startswith("Rede "):
+        limpo = tipo[5:]
+    elif tipo.startswith("Cielo "):
+        limpo = tipo[6:]
+    return ICONES_POR_TIPO.get(limpo, ft.Icons.CREDIT_CARD_ROUNDED)
 
 
 def glass_container(paleta, content, padding=16, radius=RADIUS_MD, border_color=None, bgcolor=None):
