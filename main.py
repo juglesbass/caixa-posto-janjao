@@ -71,6 +71,8 @@ C_INDIGO  = "#6366f1"
 C_INDIGO2 = "#818cf8"
 C_AMBER   = "#f59e0b"
 C_AMBER2  = "#fbbf24"
+C_REDE    = "#ef4444"
+C_CIELO   = "#0284c7"
 
 RADIUS_XL = 24
 RADIUS    = 20
@@ -430,10 +432,25 @@ async def main(page: ft.Page):
     }
 
     def cor_tipo(tipo: str) -> str:
+        if not tipo:
+            return C_ORANGE
+        if tipo.startswith("Rede "):
+            bandeira = tipo[5:]
+            return CORES.get(bandeira, C_REDE)
+        if tipo.startswith("Cielo "):
+            bandeira = tipo[6:]
+            return CORES.get(bandeira, C_CIELO)
         return CORES.get(tipo, C_ORANGE)
 
     def icone_tipo(tipo: str):
-        return ICONES.get(tipo, ft.Icons.CREDIT_CARD)
+        if not tipo:
+            return ft.Icons.CREDIT_CARD
+        limpo = tipo
+        if tipo.startswith("Rede "):
+            limpo = tipo[5:]
+        elif tipo.startswith("Cielo "):
+            limpo = tipo[6:]
+        return ICONES.get(limpo, ft.Icons.CREDIT_CARD)
 
     def formatar_moeda(valor: float) -> str:
         return db.formatar_moeda(valor)
