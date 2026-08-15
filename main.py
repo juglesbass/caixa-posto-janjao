@@ -2271,14 +2271,7 @@ async def main(page: ft.Page):
                 with open(caminho_pdf, "rb") as f:
                     pdf_bytes = f.read()
 
-                # Se estiver no navegador Web / PWA, faz download direto via Blob binário legítimo
-                if _is_pyodide_env():
-                    sucesso = _baixar_arquivo_web_blob(nome_pdf, pdf_bytes, "application/pdf")
-                    if sucesso:
-                        mostrar_snackbar(f"PDF baixado: {nome_pdf} 📥")
-                        return
-
-                if mobile and compartilhar_servico:
+                if compartilhar_servico:
                     async def _share_pdf_async():
                         try:
                             share_file = ft.ShareFile(
@@ -2296,11 +2289,13 @@ async def main(page: ft.Page):
                             mostrar_snackbar(f"PDF pronto: {nome_pdf} 📥")
                         except Exception as ex:
                             print(f"Erro no share_files: {ex}")
-                            _abrir_pdf_local(caminho_pdf, nome_pdf)
+                            if not _baixar_arquivo_web_blob(nome_pdf, pdf_bytes, "application/pdf"):
+                                _abrir_pdf_local(caminho_pdf, nome_pdf)
 
                     page.run_task(_share_pdf_async)
                 else:
-                    _abrir_pdf_local(caminho_pdf, nome_pdf)
+                    if not _baixar_arquivo_web_blob(nome_pdf, pdf_bytes, "application/pdf"):
+                        _abrir_pdf_local(caminho_pdf, nome_pdf)
 
             except Exception as ex:
                 mostrar_snackbar(f"Erro ao gerar PDF: {ex}", ft.Colors.RED_800)
@@ -2960,13 +2955,7 @@ async def main(page: ft.Page):
             with open(caminho_csv, "rb") as f:
                 csv_bytes = f.read()
 
-            if _is_pyodide_env():
-                sucesso = _baixar_arquivo_web_blob(nome_csv, csv_bytes, "text/csv;charset=utf-8;")
-                if sucesso:
-                    mostrar_snackbar(f"Planilha exportada: {nome_csv} 📊")
-                    return
-
-            if mobile and compartilhar_servico:
+            if compartilhar_servico:
                 async def _share_csv_async():
                     try:
                         share_file = ft.ShareFile(
@@ -2984,10 +2973,12 @@ async def main(page: ft.Page):
                         mostrar_snackbar(f"Planilha exportada: {nome_csv} 📊")
                     except Exception as ex:
                         print(f"Erro share csv: {ex}")
-                        _abrir_pdf_local(caminho_csv, nome_csv)
+                        if not _baixar_arquivo_web_blob(nome_csv, csv_bytes, "text/csv;charset=utf-8;"):
+                            _abrir_pdf_local(caminho_csv, nome_csv)
                 page.run_task(_share_csv_async)
             else:
-                _abrir_pdf_local(caminho_csv, nome_csv)
+                if not _baixar_arquivo_web_blob(nome_csv, csv_bytes, "text/csv;charset=utf-8;"):
+                    _abrir_pdf_local(caminho_csv, nome_csv)
         except Exception as ex:
             mostrar_snackbar(f"Erro ao exportar Excel: {ex}", ft.Colors.RED_800)
 
