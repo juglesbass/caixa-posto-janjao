@@ -2219,90 +2219,103 @@ async def main(page: ft.Page):
             if not _is_pyodide_env():
                 return False
             try:
-                import js
                 b64 = base64.b64encode(conteudo_bytes).decode("ascii")
-                js.window._temp_b64 = b64
-                js.window._temp_filename = nome_arquivo
-                js.window._temp_mime = mime_type
-
-                js_code = """
-                    (function() {
-                        try {
-                            var b64Data = window._temp_b64;
-                            var filename = window._temp_filename || "relatorio.pdf";
-                            var mimeType = window._temp_mime || "application/pdf";
-                            delete window._temp_b64;
-                            delete window._temp_filename;
-                            delete window._temp_mime;
+                js_code = f"""
+                    (function() {{
+                        try {{
+                            var b64Data = "{b64}";
+                            var filename = "{nome_arquivo}";
+                            var mimeType = "{mime_type}";
 
                             var binaryString = atob(b64Data);
                             var len = binaryString.length;
                             var bytes = new Uint8Array(len);
-                            for (var i = 0; i < len; i++) {
+                            for (var i = 0; i < len; i++) {{
                                 bytes[i] = binaryString.charCodeAt(i);
-                            }
+                            }}
 
-                            var blob = new Blob([bytes.buffer], { type: mimeType });
+                            var blob = new Blob([bytes.buffer], {{ type: mimeType }});
                             var blobUrl = URL.createObjectURL(blob);
 
-                            function executarDownload() {
+                            function _baixarArquivo(url, name) {{
                                 var a = document.createElement("a");
                                 a.style.display = "none";
-                                a.href = blobUrl;
-                                a.download = filename;
+                                a.href = url;
+                                a.download = name;
                                 a.target = "_blank";
-                                document.body.appendChild(a);
+                                (document.body || document.documentElement).appendChild(a);
                                 a.click();
-                                setTimeout(function() {
-                                    try { document.body.removeChild(a); } catch(e) {}
-                                }, 10000);
-                            }
+                                setTimeout(function() {{
+                                    try {{ (document.body || document.documentElement).removeChild(a); }} catch(e) {{}}
+                                }}, 10000);
+                            }}
 
                             var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-                            if (isMobile && navigator.canShare) {
-                                try {
-                                    var file = new File([bytes], filename, {
+                            if (isMobile && navigator.canShare) {{
+                                try {{
+                                    var file = new File([bytes], filename, {{
                                         type: mimeType,
                                         lastModified: Date.now()
-                                    });
-                                    if (navigator.canShare({ files: [file] })) {
-                                        navigator.share({
+                                    }});
+                                    if (navigator.canShare({{ files: [file] }})) {{
+                                        navigator.share({{
                                             files: [file],
                                             title: filename,
                                             text: "Fechamento de Turno - Posto Janjão"
-                                        }).then(function() {
+                                        }}).then(function() {{
                                             console.log("Compartilhado com sucesso!");
-                                        }).catch(function(err) {
-                                            console.log("Compartilhamento cancelado ou não suportado, acionando download:", err);
-                                            executarDownload();
-                                        });
+                                        }}).catch(function(err) {{
+                                            console.log("Share fallback:", err);
+                                            _baixarArquivo(blobUrl, filename);
+                                        }});
                                         return;
-                                    }
-                                } catch (shareErr) {
-                                    console.warn("Erro ao preparar Web Share:", shareErr);
-                                }
-                            }
+                                    }}
+                                }} catch (shareErr) {{
+                                    console.warn("Share error:", shareErr);
+                                }}
+                            }}
 
-                            executarDownload();
-                        } catch (err) {
-                            console.error("Erro ao processar PDF no navegador:", err);
-                        }
-                    })();
+                            _baixarArquivo(blobUrl, filename);
+                        }} catch (err) {{
+                            console.error("Erro no download JS:", err);
+                        }}
+                    }})();
                 """
-                try:
-                    js.window.eval(js_code)
-                    return True
-                except Exception:
-                    pass
 
+                executou = False
                 try:
-                    import pyodide
-                    pyodide.code.run_js(js_code)
-                    return True
-                except Exception:
-                    pass
+                    import js
+                    if hasattr(js, "eval"):
+                        js.eval(js_code)
+                        executou = True
+                    elif hasattr(js, "window") and hasattr(js.window, "eval"):
+                        js.window.eval(js_code)
+                        executou = True
+                    elif hasattr(js, "globalThis") and hasattr(js.globalThis, "eval"):
+                        js.globalThis.eval(js_code)
+                        executou = True
+                except Exception as e_js:
+                    print(f"js.eval erro: {e_js}")
+
+                if not executou:
+                    try:
+                        import pyodide
+                        pyodide.code.run_js(js_code)
+                        executou = True
+                    except Exception as e_pyo:
+                        print(f"pyodide.code.run_js erro: {e_pyo}")
+
+                if not executou:
+                    try:
+                        data_url = f"data:{mime_type};base64,{b64}"
+                        page.launch_url(data_url)
+                        executou = True
+                    except Exception as e_url:
+                        print(f"page.launch_url erro: {e_url}")
+
+                return executou
             except Exception as e:
-                print(f"[Web Share/Download] Erro: {e}")
+                print(f"[Web Share/Download] Erro geral: {e}")
             return False
 
         def _abrir_pdf_local(caminho_pdf, nome_pdf):
@@ -2310,11 +2323,12 @@ async def main(page: ft.Page):
                 try:
                     with open(caminho_pdf, "rb") as f:
                         b = f.read()
-                    if _compartilhar_ou_baixar_arquivo_web(nome_pdf, b, "application/pdf"):
-                        mostrar_snackbar(f"PDF baixado para Downloads: {nome_pdf} 📥")
-                        return
-                except Exception:
-                    pass
+                    _compartilhar_ou_baixar_arquivo_web(nome_pdf, b, "application/pdf")
+                    mostrar_snackbar(f"PDF baixado para Downloads: {nome_pdf} 📥")
+                except Exception as ex_web:
+                    mostrar_snackbar(f"PDF pronto: {nome_pdf} 📥")
+                return
+
             try:
                 if sys.platform == "win32":
                     os.startfile(caminho_pdf)
