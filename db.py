@@ -983,7 +983,9 @@ def exportar_turno_csv(conn: sqlite3.Connection, turno_id: int) -> str:
 
 
 def obter_imagem_bico_bytes() -> Optional[bytes]:
-    """Recupera os bytes da imagem do bico de combustível para a marca d'água."""
+    """Recupera os bytes da imagem do bico de combustível para a marca d'água em apps nativos."""
+    if _is_pyodide():
+        return None
     base_dir = os.path.dirname(os.path.abspath(__file__))
     caminhos_tentar = [
         os.path.join(base_dir, "assets", "bico_gold.jpg"),
@@ -996,13 +998,6 @@ def obter_imagem_bico_bytes() -> Optional[bytes]:
                     return f.read()
             except Exception:
                 pass
-
-    # Fallback embutido no PWA / WebAssembly / Pyodide
-    try:
-        from bico_asset import BICO_GOLD_BASE64
-        return base64.b64decode(BICO_GOLD_BASE64)
-    except Exception:
-        pass
     return None
 
 
@@ -1076,7 +1071,11 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
     c = canvas.Canvas(caminho, pagesize=(w, h))
 
     def desenhar_marca_dagua_bomba(c, w, h):
-        """Desenha a marca d'água colorida com bico de combustível e gotas de gasolina douradas."""
+        """Desenha a marca d'água colorida com bico de combustível apenas em ambientes nativos."""
+        if _is_pyodide():
+            # No PWA / WebAssembly, não desenha imagem de fundo para evitar problemas e garantir arquivo ultra-leve
+            return
+
         cx = w / 2.0
         cy = (h / 2.0) - 45.0
 
