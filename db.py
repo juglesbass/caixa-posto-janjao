@@ -1120,54 +1120,76 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
     c.setFillColor(colors.HexColor("#0F172A"))
     c.rect(0, h - 52, w, 52, fill=1, stroke=0)
 
-    c.setFillColor(colors.HexColor("#16A34A"))
+    c.setFillColor(colors.HexColor("#10B981"))
     c.rect(0, h - 55, w, 3, fill=1, stroke=0)
 
     c.setFillColor(colors.HexColor("#FFFFFF"))
-    c.setFont("Helvetica-Bold", 14)
+    c.setFont("Helvetica-Bold", 13.5)
     c.drawString(margem_esq, h - 26, "POSTO JANJÃO")
-    c.setFont("Helvetica", 8)
+    c.setFont("Helvetica", 7)
     c.setFillColor(colors.HexColor("#94A3B8"))
-    c.drawString(margem_esq, h - 40, "FECHAMENTO DE TURNO · RELATÓRIO")
-
-    c.setFont("Helvetica", 7.5)
-    c.setFillColor(colors.HexColor("#CBD5E1"))
-    c.drawRightString(margem_dir, h - 26, f"{data_geracao}")
-    c.drawRightString(margem_dir, h - 40, f"#PDF-{turno.numero_do_dia:04d}")
-
-    y = h - 68
-
-    fechado_em_texto = turno.fechado_em if (turno.fechado_em and turno.fechado_em.strip()) else datetime.now().strftime("%d/%m/%Y %H:%M")
-
-    # ── 2. CARD DE METADADOS DO TURNO (KPI BOX) ──────────────────────────────────
-    c.setFillColor(colors.HexColor("#F8FAFC"))
-    c.setStrokeColor(colors.HexColor("#E2E8F0"))
-    c.setLineWidth(0.8)
-    c.roundRect(margem_esq, y - 44, largura_util, 44, 6, fill=1, stroke=1)
-
-    c.setFont("Helvetica-Bold", 7.5)
-    c.setFillColor(colors.HexColor("#64748B"))
-    c.drawString(margem_esq + 8, y - 13, "TURNO")
-    c.setFont("Helvetica-Bold", 9.5)
-    c.setFillColor(colors.HexColor("#0F172A"))
-    c.drawString(margem_esq + 8, y - 24, f"Turno #{turno.numero_do_dia}")
-
-    c.setFont("Helvetica-Bold", 7.5)
-    c.setFillColor(colors.HexColor("#64748B"))
-    c.drawString(margem_esq + 110, y - 13, "OPERADOR")
-    c.setFont("Helvetica-Bold", 9.5)
-    c.setFillColor(colors.HexColor("#0F172A"))
-    c.drawString(margem_esq + 110, y - 24, turno.operador[:24])
+    c.drawString(margem_esq, h - 40, "FECHAMENTO DE TURNO · RELATÓRIO FINANCEIRO")
 
     c.setFont("Helvetica", 7)
+    c.setFillColor(colors.HexColor("#CBD5E1"))
+    c.drawRightString(margem_dir, h - 26, f"Emitido em: {data_geracao}")
+    c.drawRightString(margem_dir, h - 40, f"Documento #PDF-{turno.numero_do_dia:04d}")
+
+    y = h - 66
+
+    def _fmt_dt(dt_str: str) -> str:
+        if not dt_str:
+            return "--/--/---- --:--"
+        partes = dt_str.strip().split()
+        if len(partes) >= 2:
+            return f"{partes[0]} {partes[1][:5]}"
+        return dt_str[:16]
+
+    aberto_em_texto = _fmt_dt(turno.aberto_em)
+    fechado_em_texto = _fmt_dt(turno.fechado_em) if (turno.fechado_em and turno.fechado_em.strip()) else datetime.now().strftime("%d/%m/%Y %H:%M")
+
+    # ── 2. CARD DE METADADOS DO TURNO (KPI BOX) ──────────────────────────────────
+    c.setFillColor(colors.HexColor("#FFFFFF"))
+    c.setStrokeColor(colors.HexColor("#E2E8F0"))
+    c.setLineWidth(0.8)
+    c.roundRect(margem_esq, y - 36, largura_util, 36, 6, fill=1, stroke=1)
+
+    # Coluna 1: Nº TURNO
+    c.setFont("Helvetica-Bold", 6.5)
     c.setFillColor(colors.HexColor("#64748B"))
-    c.drawString(margem_esq + 8, y - 37, f"Aberto em: {turno.aberto_em}")
+    c.drawString(margem_esq + 8, y - 13, "Nº TURNO")
+    c.setFont("Helvetica-Bold", 8.5)
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.drawString(margem_esq + 8, y - 26, f"Turno #{turno.numero_do_dia}")
 
-    c.setFont("Helvetica-Bold", 7)
-    c.setFillColor(colors.HexColor("#16A34A"))
-    c.drawRightString(margem_dir - 8, y - 37, f"Fechado: {fechado_em_texto}")
+    # Coluna 2: OPERADOR CAIXA
+    col2_x = margem_esq + 65
+    c.setFont("Helvetica-Bold", 6.5)
+    c.setFillColor(colors.HexColor("#64748B"))
+    c.drawString(col2_x, y - 13, "OPERADOR CAIXA")
+    c.setFont("Helvetica-Bold", 8.5)
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.drawString(col2_x, y - 26, turno.operador[:22])
 
-    y -= 54
+    # Coluna 3: ABERTURA
+    col3_x = margem_esq + 172
+    c.setFont("Helvetica-Bold", 6.5)
+    c.setFillColor(colors.HexColor("#64748B"))
+    c.drawString(col3_x, y - 13, "ABERTURA")
+    c.setFont("Helvetica-Bold", 8)
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.drawString(col3_x, y - 26, aberto_em_texto)
+
+    # Coluna 4: FECHAMENTO
+    col4_x = margem_esq + 258
+    c.setFont("Helvetica-Bold", 6.5)
+    c.setFillColor(colors.HexColor("#10B981"))
+    c.drawString(col4_x, y - 13, "FECHAMENTO")
+    c.setFont("Helvetica-Bold", 8)
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.drawString(col4_x, y - 26, fechado_em_texto)
+
+    y -= 46
 
     # ── 3. SEÇÃO 1: CARTÕES E VOUCHERS ──────────────────────────────────────────
     checar_quebra_pagina(60)
