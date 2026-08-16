@@ -2221,52 +2221,66 @@ async def main(page: ft.Page):
             try:
                 import js
                 b64 = base64.b64encode(conteudo_bytes).decode("ascii")
-                js_code = f"""
-                    (async function() {{
-                        try {{
-                            var b64Data = "{b64}";
+                js.window._temp_b64 = b64
+                js.window._temp_filename = nome_arquivo
+                js.window._temp_mime = mime_type
+
+                js_code = """
+                    (function() {
+                        try {
+                            var b64Data = window._temp_b64;
+                            var filename = window._temp_filename;
+                            var mimeType = window._temp_mime || "application/pdf";
+                            delete window._temp_b64;
+                            delete window._temp_filename;
+                            delete window._temp_mime;
+
                             var byteCharacters = atob(b64Data);
-                            var byteNumbers = new Array(byteCharacters.length);
-                            for (var i = 0; i < byteCharacters.length; i++) {{
+                            var byteNumbers = new Uint8Array(byteCharacters.length);
+                            for (var i = 0; i < byteCharacters.length; i++) {
                                 byteNumbers[i] = byteCharacters.charCodeAt(i);
-                            }}
-                            var byteArray = new Uint8Array(byteNumbers);
+                            }
+                            var blob = new Blob([byteNumbers], { type: mimeType });
+
+                            function _baixarDireto(b, name) {
+                                var url = URL.createObjectURL(b);
+                                var a = document.createElement("a");
+                                a.style.display = "none";
+                                a.href = url;
+                                a.download = name;
+                                document.body.appendChild(a);
+                                a.click();
+                                setTimeout(function() {
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                }, 4000);
+                            }
+
                             var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-
-                            // 1. Em celular (iOS / Android), tenta abrir a folha nativa de compartilhamento
-                            if (isMobile && navigator.canShare) {{
-                                try {{
-                                    var file = new File([byteArray], "{nome_arquivo}", {{ type: "{mime_type}" }});
-                                    if (navigator.canShare({{ files: [file] }})) {{
-                                        await navigator.share({{
+                            if (isMobile && navigator.canShare) {
+                                try {
+                                    var file = new File([blob], filename, { type: mimeType });
+                                    if (navigator.canShare({ files: [file] })) {
+                                        navigator.share({
                                             files: [file],
-                                            title: "{nome_arquivo}",
+                                            title: filename,
                                             text: "Fechamento de Turno Posto Janjão"
-                                        }});
+                                        }).catch(function(err) {
+                                            console.log("Share cancelado ou falhou, acionando download direto:", err);
+                                            _baixarDireto(blob, filename);
+                                        });
                                         return;
-                                    }}
-                                }} catch (shareErr) {{
-                                    console.log("Web Share fallback:", shareErr);
-                                }}
-                            }}
+                                    }
+                                } catch (shareErr) {
+                                    console.log("Share API fallback:", shareErr);
+                                }
+                            }
 
-                            // 2. No PC / Computador (ou fallback de celular): Baixa direto na pasta Downloads do computador
-                            var blob = new Blob([byteArray], {{ type: "{mime_type}" }});
-                            var url = URL.createObjectURL(blob);
-                            var a = document.createElement("a");
-                            a.style.display = "none";
-                            a.href = url;
-                            a.download = "{nome_arquivo}";
-                            document.body.appendChild(a);
-                            a.click();
-                            setTimeout(function() {{
-                                document.body.removeChild(a);
-                                URL.revokeObjectURL(url);
-                            }}, 3000);
-                        }} catch (err) {{
-                            console.error("Erro no Web Share / Download:", err);
-                        }}
-                    }})();
+                            _baixarDireto(blob, filename);
+                        } catch (err) {
+                            console.error("Erro no processamento do arquivo Web:", err);
+                        }
+                    })();
                 """
                 try:
                     js.window.eval(js_code)
