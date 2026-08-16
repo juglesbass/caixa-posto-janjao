@@ -982,6 +982,30 @@ def exportar_turno_csv(conn: sqlite3.Connection, turno_id: int) -> str:
     return caminho
 
 
+def obter_imagem_bico_bytes() -> Optional[bytes]:
+    """Recupera os bytes da imagem do bico de combustível para a marca d'água."""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    caminhos_tentar = [
+        os.path.join(base_dir, "assets", "bico_gold.jpg"),
+        os.path.join(os.getcwd(), "assets", "bico_gold.jpg"),
+    ]
+    for p in caminhos_tentar:
+        if os.path.exists(p):
+            try:
+                with open(p, "rb") as f:
+                    return f.read()
+            except Exception:
+                pass
+
+    # Fallback embutido no PWA / WebAssembly / Pyodide
+    try:
+        from bico_asset import BICO_GOLD_BASE64
+        return base64.b64decode(BICO_GOLD_BASE64)
+    except Exception:
+        pass
+    return None
+
+
 # --- Exportar resumo em PDF -------------------------------------------------
 def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
     """Gera um PDF altamente profissional com o resumo do turno."""
@@ -989,6 +1013,7 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import A4
         from reportlab.pdfgen import canvas
+        from reportlab.lib.utils import ImageReader
     except Exception as e:
         raise RuntimeError("reportlab não está instalado. Execute: pip install reportlab")
 
@@ -1055,13 +1080,10 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
         cx = w / 2.0
         cy = (h / 2.0) - 45.0
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        caminho_img = os.path.join(base_dir, "assets", "bico_gold.jpg")
-        if not os.path.exists(caminho_img):
-            caminho_img = os.path.join(os.getcwd(), "assets", "bico_gold.jpg")
-
-        if os.path.exists(caminho_img):
+        img_bytes = obter_imagem_bico_bytes()
+        if img_bytes:
             try:
+                import io
                 c.saveState()
                 y_corte_assinatura = 95.0
                 clip_p = c.beginPath()
@@ -1071,8 +1093,9 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
                 c.setFillAlpha(0.22)
                 largura_img = 210
                 altura_img = 210
+                reader = ImageReader(io.BytesIO(img_bytes))
                 c.drawImage(
-                    caminho_img,
+                    reader,
                     cx - (largura_img / 2.0),
                     cy - (altura_img / 2.0),
                     width=largura_img,
@@ -1081,17 +1104,8 @@ def exportar_turno_pdf(conn: sqlite3.Connection, turno_id: int) -> str:
                     mask="auto",
                 )
                 c.restoreState()
-                return
-            except Exception:
-                pass
-
-        # Fallback vetorial caso a imagem não esteja presente
-        c.saveState()
-        c.setStrokeColor(colors.HexColor("#F1F5F9"))
-        c.setFillColor(colors.HexColor("#F8FAFC"))
-        c.setLineWidth(1.0)
-        c.roundRect(cx - 50, cy - 80, 100, 160, 10, fill=1, stroke=1)
-        c.restoreState()
+            except Exception as e:
+                logger.error(f"[Marca d'água] Erro ao renderizar: {e}")
 
     # Desenha a marca d'água no fundo
     desenhar_marca_dagua_bomba(c, w, h)
