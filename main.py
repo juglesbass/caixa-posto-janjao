@@ -2229,56 +2229,63 @@ async def main(page: ft.Page):
                     (function() {
                         try {
                             var b64Data = window._temp_b64;
-                            var filename = window._temp_filename;
+                            var filename = window._temp_filename || "relatorio.pdf";
                             var mimeType = window._temp_mime || "application/pdf";
                             delete window._temp_b64;
                             delete window._temp_filename;
                             delete window._temp_mime;
 
-                            var byteCharacters = atob(b64Data);
-                            var byteNumbers = new Uint8Array(byteCharacters.length);
-                            for (var i = 0; i < byteCharacters.length; i++) {
-                                byteNumbers[i] = byteCharacters.charCodeAt(i);
+                            var binaryString = atob(b64Data);
+                            var len = binaryString.length;
+                            var bytes = new Uint8Array(len);
+                            for (var i = 0; i < len; i++) {
+                                bytes[i] = binaryString.charCodeAt(i);
                             }
-                            var blob = new Blob([byteNumbers], { type: mimeType });
 
-                            function _baixarDireto(b, name) {
-                                var url = URL.createObjectURL(b);
+                            var blob = new Blob([bytes.buffer], { type: mimeType });
+                            var blobUrl = URL.createObjectURL(blob);
+
+                            function executarDownload() {
                                 var a = document.createElement("a");
                                 a.style.display = "none";
-                                a.href = url;
-                                a.download = name;
+                                a.href = blobUrl;
+                                a.download = filename;
+                                a.target = "_blank";
                                 document.body.appendChild(a);
                                 a.click();
                                 setTimeout(function() {
-                                    document.body.removeChild(a);
-                                    URL.revokeObjectURL(url);
-                                }, 4000);
+                                    try { document.body.removeChild(a); } catch(e) {}
+                                }, 10000);
                             }
 
                             var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
                             if (isMobile && navigator.canShare) {
                                 try {
-                                    var file = new File([blob], filename, { type: mimeType });
+                                    var file = new File([bytes], filename, {
+                                        type: mimeType,
+                                        lastModified: Date.now()
+                                    });
                                     if (navigator.canShare({ files: [file] })) {
                                         navigator.share({
                                             files: [file],
                                             title: filename,
-                                            text: "Fechamento de Turno Posto Janjão"
+                                            text: "Fechamento de Turno - Posto Janjão"
+                                        }).then(function() {
+                                            console.log("Compartilhado com sucesso!");
                                         }).catch(function(err) {
-                                            console.log("Share cancelado ou falhou, acionando download direto:", err);
-                                            _baixarDireto(blob, filename);
+                                            console.log("Compartilhamento cancelado ou não suportado, acionando download:", err);
+                                            executarDownload();
                                         });
                                         return;
                                     }
                                 } catch (shareErr) {
-                                    console.log("Share API fallback:", shareErr);
+                                    console.warn("Erro ao preparar Web Share:", shareErr);
                                 }
                             }
 
-                            _baixarDireto(blob, filename);
+                            executarDownload();
                         } catch (err) {
-                            console.error("Erro no processamento do arquivo Web:", err);
+                            console.error("Erro ao processar PDF no navegador:", err);
                         }
                     })();
                 """
