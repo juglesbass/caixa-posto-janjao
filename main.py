@@ -120,13 +120,7 @@ async def main(page: ft.Page):
     adaptive_ui = mobile or ios
 
     def _criar_bottom_sheet(conteudo):
-        return ft.BottomSheet(
-            content=ft.SafeArea(conteudo, top=False, bottom=True) if (mobile or ios) else conteudo,
-            dismissible=True,
-            show_drag_handle=True,
-            scrollable=True,
-            fullscreen=True,
-        )
+        return ft.BottomSheet(content=conteudo, dismissible=True, show_drag_handle=True, scrollable=True, fullscreen=True)
 
     page.title = "Caixa - Posto Janjão"
     if adaptive_ui:
@@ -1331,7 +1325,7 @@ async def main(page: ft.Page):
 
         if mobile:
             painel_sheet = ft.Container(
-                padding=ft.Padding(left=18, top=10, right=18, bottom=24),
+                padding=ft.Padding(left=18, top=10, right=18, bottom=40),
                 bgcolor=pal.sheet_bg,
                 width=largura_conteudo,
                 content=ft.Column(
@@ -1368,7 +1362,6 @@ async def main(page: ft.Page):
                                 ),
                             ]
                         ),
-                        ft.Container(height=8),
                     ]
                 )
             )
