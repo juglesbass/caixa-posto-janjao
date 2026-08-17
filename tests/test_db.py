@@ -1,6 +1,6 @@
 """Testes para o módulo de banco de dados."""
 
-import pytest
+import unittest
 import sqlite3
 import tempfile
 import os
@@ -10,195 +10,183 @@ from datetime import datetime
 import db
 
 
-@pytest.fixture
-def temp_db():
-    """Cria um banco de dados temporário para testes."""
-    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
-        db_path = f.name
-    
-    # Mockar o caminho do banco
-    original_caminho = db.caminho_banco
-    db.caminho_banco = lambda: db_path
-    
-    # Criar conexão
-    conn = db.conectar()
-    db.inicializar_banco(conn)
-    
-    yield conn
-    
-    # Cleanup
-    conn.close()
-    if os.path.exists(db_path):
-        os.unlink(db_path)
-    
-    # Restaurar função original
-    db.caminho_banco = original_caminho
-
-
-class TestFormatarMoeda:
+class TestFormatarMoeda(unittest.TestCase):
     """Testes para formatação de valores monetários."""
-    
+
     def test_formatacao_simples(self):
         """Testa formatação de valor simples."""
-        assert db.formatar_moeda(50.0) == "R$ 50,00"
-    
+        self.assertEqual(db.formatar_moeda(50.0), "R$ 50,00")
+
     def test_formatacao_com_centavos(self):
         """Testa formatação com centavos."""
-        assert db.formatar_moeda(50.99) == "R$ 50,99"
-    
+        self.assertEqual(db.formatar_moeda(50.99), "R$ 50,99")
+
     def test_formatacao_grande(self):
         """Testa formatação de valor grande com separador de milhar."""
-        assert db.formatar_moeda(1234.56) == "R$ 1.234,56"
-    
+        self.assertEqual(db.formatar_moeda(1234.56), "R$ 1.234,56")
+
     def test_formatacao_zero(self):
         """Testa formatação do zero."""
-        assert db.formatar_moeda(0.0) == "R$ 0,00"
-    
+        self.assertEqual(db.formatar_moeda(0.0), "R$ 0,00")
+
     def test_formatacao_negativa(self):
         """Testa formatação de valor negativo."""
-        assert db.formatar_moeda(-50.0) == "R$ -50,00"
+        self.assertEqual(db.formatar_moeda(-50.0), "R$ -50,00")
 
 
-class TestTurno:
+class BaseDBTestCase(unittest.TestCase):
+    """Base para testes que necessitam de banco de dados SQLite temporário."""
+
+    def setUp(self):
+        self.conn = sqlite3.connect(":memory:")
+        self.conn.row_factory = sqlite3.Row
+        db.inicializar_banco(self.conn)
+
+    def tearDown(self):
+        self.conn.close()
+
+
+class TestTurno(BaseDBTestCase):
     """Testes para operações de turno."""
-    
-    def test_abrir_novo_turno(self, temp_db):
+
+    def test_abrir_novo_turno(self):
         """Testa abertura de novo turno."""
-        turno = db.abrir_novo_turno(temp_db, "João")
-        
-        assert turno.id == 1
-        assert turno.operador == "João"
-        assert turno.aberto_em is not None
-        assert turno.fechado_em is None
-    
-    def test_obter_turno_aberto(self, temp_db):
+        turno = db.abrir_novo_turno(self.conn, "João")
+
+        self.assertEqual(turno.id, 1)
+        self.assertEqual(turno.operador, "João")
+        self.assertIsNotNone(turno.aberto_em)
+        self.assertIsNone(turno.fechado_em)
+
+    def test_obter_turno_aberto(self):
         """Testa recuperação de turno aberto."""
-        db.abrir_novo_turno(temp_db, "Maria")
-        turno = db.obter_turno_aberto(temp_db)
-        
-        assert turno is not None
-        assert turno.operador == "Maria"
-    
-    def test_nao_ha_turno_aberto(self, temp_db):
+        db.abrir_novo_turno(self.conn, "Maria")
+        turno = db.obter_turno_aberto(self.conn)
+
+        self.assertIsNotNone(turno)
+        self.assertEqual(turno.operador, "Maria")
+
+    def test_nao_ha_turno_aberto(self):
         """Testa quando não há turno aberto."""
-        turno = db.obter_turno_aberto(temp_db)
-        assert turno is None
+        turno = db.obter_turno_aberto(self.conn)
+        self.assertIsNone(turno)
 
 
-class TestLancamentos:
+class TestLancamentos(BaseDBTestCase):
     """Testes para operações de lançamentos."""
-    
-    def test_inserir_lancamento(self, temp_db):
+
+    def test_inserir_lancamento(self):
         """Testa inserção de lançamento."""
-        turno = db.abrir_novo_turno(temp_db, "João")
+        turno = db.abrir_novo_turno(self.conn, "João")
         db.inserir_lancamento(
-            temp_db, turno.id, 
+            self.conn, turno.id,
             db.TIPO_DINHEIRO, 50.0, "Teste"
         )
-        
-        historico = db.listar_historico(temp_db, turno.id)
-        assert len(historico) == 1
-        assert historico[0]["tipo"] == db.TIPO_DINHEIRO
-        assert historico[0]["valor"] == 50.0
-    
-    def test_deletar_lancamento(self, temp_db):
+
+        historico = db.listar_historico(self.conn, turno.id)
+        self.assertEqual(len(historico), 1)
+        self.assertEqual(historico[0]["tipo"], db.TIPO_DINHEIRO)
+        self.assertEqual(historico[0]["valor"], 50.0)
+
+    def test_deletar_lancamento(self):
         """Testa exclusão de lançamento."""
-        turno = db.abrir_novo_turno(temp_db, "João")
-        db.inserir_lancamento(temp_db, turno.id, db.TIPO_DINHEIRO, 50.0, "")
-        
-        historico = db.listar_historico(temp_db, turno.id)
+        turno = db.abrir_novo_turno(self.conn, "João")
+        db.inserir_lancamento(self.conn, turno.id, db.TIPO_DINHEIRO, 50.0, "")
+
+        historico = db.listar_historico(self.conn, turno.id)
         lancamento_id = historico[0]["id"]
-        
+
         # Deletar
-        sucesso = db.deletar_lancamento(temp_db, lancamento_id, turno.id)
-        assert sucesso is True
-        
+        sucesso = db.deletar_lancamento(self.conn, lancamento_id, turno.id)
+        self.assertTrue(sucesso)
+
         # Verificar que foi deletado
-        historico = db.listar_historico(temp_db, turno.id)
-        assert len(historico) == 0
-    
-    def test_atualizar_lancamento(self, temp_db):
+        historico = db.listar_historico(self.conn, turno.id)
+        self.assertEqual(len(historico), 0)
+
+    def test_atualizar_lancamento(self):
         """Testa atualização de lançamento."""
-        turno = db.abrir_novo_turno(temp_db, "João")
-        db.inserir_lancamento(temp_db, turno.id, db.TIPO_DINHEIRO, 50.0, "Original")
-        
-        historico = db.listar_historico(temp_db, turno.id)
+        turno = db.abrir_novo_turno(self.conn, "João")
+        db.inserir_lancamento(self.conn, turno.id, db.TIPO_DINHEIRO, 50.0, "Original")
+
+        historico = db.listar_historico(self.conn, turno.id)
         lancamento_id = historico[0]["id"]
-        
+
         # Atualizar
         sucesso = db.atualizar_lancamento(
-            temp_db, lancamento_id, turno.id,
+            self.conn, lancamento_id, turno.id,
             db.TIPO_PIX, 100.0, "Atualizado"
         )
-        assert sucesso is True
-        
+        self.assertTrue(sucesso)
+
         # Verificar atualização
-        historico = db.listar_historico(temp_db, turno.id)
-        assert historico[0]["tipo"] == db.TIPO_PIX
-        assert historico[0]["valor"] == 100.0
+        historico = db.listar_historico(self.conn, turno.id)
+        self.assertEqual(historico[0]["tipo"], db.TIPO_PIX)
+        self.assertEqual(historico[0]["valor"], 100.0)
 
 
-class TestTotais:
+class TestTotais(BaseDBTestCase):
     """Testes para cálculo de totais."""
-    
-    def test_obter_totais_vazio(self, temp_db):
+
+    def test_obter_totais_vazio(self):
         """Testa totais de turno sem lançamentos."""
-        turno = db.abrir_novo_turno(temp_db, "João")
-        totais = db.obter_totais(temp_db, turno.id)
-        
-        assert totais.fisico == 0.0
-        assert totais.pix == 0.0
-        assert totais.cartoes == 0.0
-        assert totais.total_geral == 0.0
-    
-    def test_obter_totais_com_lancamentos(self, temp_db):
+        turno = db.abrir_novo_turno(self.conn, "João")
+        totais = db.obter_totais(self.conn, turno.id)
+
+        self.assertEqual(totais.fisico, 0.0)
+        self.assertEqual(totais.pix, 0.0)
+        self.assertEqual(totais.cartoes, 0.0)
+        self.assertEqual(totais.total_geral, 0.0)
+
+    def test_obter_totais_com_lancamentos(self):
         """Testa totais com vários lançamentos."""
-        turno = db.abrir_novo_turno(temp_db, "João")
-        
-        db.inserir_lancamento(temp_db, turno.id, db.TIPO_DINHEIRO, 100.0, "")
-        db.inserir_lancamento(temp_db, turno.id, db.TIPO_PIX, 50.0, "")
-        db.inserir_lancamento(temp_db, turno.id, "Visa Crédito", 30.0, "")
-        
-        totais = db.obter_totais(temp_db, turno.id)
-        
-        assert totais.fisico == 100.0
-        assert totais.pix == 50.0
-        assert totais.cartoes == 30.0
-        assert totais.total_geral == 180.0
-        assert totais.qtd_cartoes == 1
+        turno = db.abrir_novo_turno(self.conn, "João")
+
+        db.inserir_lancamento(self.conn, turno.id, db.TIPO_DINHEIRO, 100.0, "")
+        db.inserir_lancamento(self.conn, turno.id, db.TIPO_PIX, 50.0, "")
+        db.inserir_lancamento(self.conn, turno.id, "Visa Crédito", 30.0, "")
+        db.inserir_lancamento(self.conn, turno.id, "VR Multibenefícios", 45.0, "")
+
+        totais = db.obter_totais(self.conn, turno.id)
+
+        self.assertEqual(totais.fisico, 100.0)
+        self.assertEqual(totais.pix, 50.0)
+        self.assertEqual(totais.cartoes, 75.0)
+        self.assertEqual(totais.total_geral, 225.0)
+        self.assertEqual(totais.qtd_cartoes, 2)
 
 
-class TestAuditoriaConciliacao:
+class TestAuditoriaConciliacao(BaseDBTestCase):
     """Testes para conciliação de caixa e observações."""
 
-    def test_salvar_e_recuperar_auditoria(self, temp_db):
+    def test_salvar_e_recuperar_auditoria(self):
         """Testa salvação e recuperação de vendas_sistema e observações."""
-        turno = db.abrir_novo_turno(temp_db, "Operador Teste")
-        db.salvar_auditoria_turno(temp_db, turno.id, 4354.68, "Turno sem alterações e com sobras da pista.")
+        turno = db.abrir_novo_turno(self.conn, "Operador Teste")
+        db.salvar_auditoria_turno(self.conn, turno.id, 4354.68, "Turno sem alterações e com sobras da pista.")
 
-        turno_rec = db.obter_turno_por_id(temp_db, turno.id)
-        assert turno_rec is not None
-        assert turno_rec.vendas_sistema == 4354.68
-        assert turno_rec.observacao == "Turno sem alterações e com sobras da pista."
+        turno_rec = db.obter_turno_por_id(self.conn, turno.id)
+        self.assertIsNotNone(turno_rec)
+        self.assertEqual(turno_rec.vendas_sistema, 4354.68)
+        self.assertEqual(turno_rec.observacao, "Turno sem alterações e com sobras da pista.")
 
-    def test_numero_turno_do_dia_reset_diario(self, temp_db):
+    def test_numero_turno_do_dia_reset_diario(self):
         """Testa se a numeração do turno reseta para 1 a cada nova data."""
-        t1 = db.abrir_novo_turno(temp_db, "Agildo")
-        t2 = db.abrir_novo_turno(temp_db, "João")
-        assert t1.numero_do_dia == 1
-    def test_reabrir_ultimo_turno(self, temp_db):
-        """Testa o fechamento e posterior reabertura do turno."""
-        t1 = db.abrir_novo_turno(temp_db, "Agildo")
-        totais = db.obter_totais(temp_db, t1.id)
-        db.fechar_turno(temp_db, t1.id, totais)
-        assert db.obter_turno_aberto(temp_db) is None
+        t1 = db.abrir_novo_turno(self.conn, "Agildo")
+        self.assertEqual(t1.numero_do_dia, 1)
 
-        t_reaberto = db.reabrir_turno_por_id(temp_db, t1.id)
-        assert t_reaberto is not None
-        assert t_reaberto.id == t1.id
-        assert t_reaberto.fechado_em is None
-        assert db.obter_turno_aberto(temp_db) is not None
+    def test_reabrir_ultimo_turno(self):
+        """Testa o fechamento e posterior reabertura do turno."""
+        t1 = db.abrir_novo_turno(self.conn, "Agildo")
+        totais = db.obter_totais(self.conn, t1.id)
+        db.fechar_turno(self.conn, t1.id, totais)
+        self.assertIsNone(db.obter_turno_aberto(self.conn))
+
+        t_reaberto = db.reabrir_turno_por_id(self.conn, t1.id)
+        self.assertIsNotNone(t_reaberto)
+        self.assertEqual(t_reaberto.id, t1.id)
+        self.assertIsNone(t_reaberto.fechado_em)
+        self.assertIsNotNone(db.obter_turno_aberto(self.conn))
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+    unittest.main()

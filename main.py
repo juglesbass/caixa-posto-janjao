@@ -415,7 +415,6 @@ async def main(page: ft.Page):
         "Master Crédito":        C_RED,
         "Master Débito":         C_ORANGE,
         "Visa Crédito":          C_INDIGO,
-        "Visa DéBITO":          C_INDIGO2,
         "Visa Débito":           C_INDIGO2,
         "Elo Crédito":           C_AMBER,
         "Elo Débito":            C_AMBER2,
