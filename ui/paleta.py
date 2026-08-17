@@ -63,6 +63,7 @@ CORES_POR_TIPO = {
     "Elo Crédito":           C_AMBER,
     "Elo Débito":            C_AMBER2,
     "Alelo Multibenefícios":  C_PURPLE,
+    "VR Multibenefícios":     C_LIME,
 }
 
 # Mapeamento de ícones modernos por tipo
@@ -87,6 +88,7 @@ ICONES_POR_TIPO = {
     "Elo Crédito":           ft.Icons.CREDIT_CARD_ROUNDED,
     "Elo Débito":            ft.Icons.CREDIT_CARD_ROUNDED,
     "Alelo Multibenefícios":  ft.Icons.LOCAL_GROCERY_STORE_ROUNDED,
+    "VR Multibenefícios":     ft.Icons.CARD_MEMBERSHIP_ROUNDED,
 }
 
 
