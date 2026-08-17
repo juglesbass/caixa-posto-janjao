@@ -120,7 +120,13 @@ async def main(page: ft.Page):
     adaptive_ui = mobile or ios
 
     def _criar_bottom_sheet(conteudo):
-        return ft.BottomSheet(content=conteudo, dismissible=True, show_drag_handle=True, scrollable=True, fullscreen=True)
+        return ft.BottomSheet(
+            content=ft.SafeArea(conteudo, top=False, bottom=True) if (mobile or ios) else conteudo,
+            dismissible=True,
+            show_drag_handle=True,
+            scrollable=True,
+            fullscreen=True,
+        )
 
     page.title = "Caixa - Posto Janjão"
     if adaptive_ui:
@@ -1325,14 +1331,13 @@ async def main(page: ft.Page):
 
         if mobile:
             painel_sheet = ft.Container(
-                padding=ft.Padding(18, 12, 18, 24),
+                padding=ft.Padding(left=18, top=10, right=18, bottom=24),
                 bgcolor=pal.sheet_bg,
                 width=largura_conteudo,
                 content=ft.Column(
                     expand=True,
-                    spacing=12,
+                    spacing=10,
                     controls=[
-                        ft.Container(width=36, height=4, border_radius=2, bgcolor=pal.border_strong, alignment=ft.Alignment(0, 0)),
                         ft.Row([
                             ft.Icon(ft.Icons.EDIT_ROUNDED, color=C_ACCENT, size=20),
                             ft.Text("Editar Lançamento", size=17, weight=ft.FontWeight.BOLD, color=pal.text_pri),
@@ -1349,7 +1354,7 @@ async def main(page: ft.Page):
                                     on_click=fechar_modal_edit,
                                     style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=RADIUS_SM)),
                                     expand=True,
-                                    height=44,
+                                    height=46,
                                 ),
                                 ft.ElevatedButton(
                                     "Salvar",
@@ -1359,10 +1364,11 @@ async def main(page: ft.Page):
                                     on_click=salvar_edicao,
                                     style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=RADIUS_SM)),
                                     expand=True,
-                                    height=44,
+                                    height=46,
                                 ),
                             ]
-                        )
+                        ),
+                        ft.Container(height=8),
                     ]
                 )
             )
@@ -1625,6 +1631,10 @@ async def main(page: ft.Page):
                         ao_salvar_callback=carregar_lista_detalhe,
                     )
 
+                cor_item = cor_tipo(row["tipo"])
+                ico_item = icone_tipo(row["tipo"])
+                nome_item = row["tipo"]
+
                 lista_detalhe.controls.append(
                     ft.Container(
                         content=ft.Row(
@@ -1636,8 +1646,8 @@ async def main(page: ft.Page):
                                     expand=True,
                                     controls=[
                                         ft.Container(
-                                            content=ft.Icon(icone, color=cor, size=15),
-                                            bgcolor=ft.Colors.with_opacity(0.13, cor),
+                                            content=ft.Icon(ico_item, color=cor_item, size=16),
+                                            bgcolor=ft.Colors.with_opacity(0.13, cor_item),
                                             border_radius=8,
                                             padding=6,
                                         ),
@@ -1645,11 +1655,26 @@ async def main(page: ft.Page):
                                             spacing=2,
                                             expand=True,
                                             controls=[
-                                                ft.Text(
-                                                    f"{formatar_moeda(row['valor'])}{desc_texto}",
-                                                    color=cor, size=13, weight=ft.FontWeight.W_600,
+                                                ft.Row(
+                                                    spacing=6,
+                                                    tight=True,
+                                                    controls=[
+                                                        ft.Text(
+                                                            formatar_moeda(row["valor"]),
+                                                            color=pal.text_pri, size=13, weight=ft.FontWeight.BOLD,
+                                                        ),
+                                                        ft.Container(
+                                                            content=ft.Text(nome_item, size=11, weight=ft.FontWeight.W_600, color=cor_item),
+                                                            bgcolor=ft.Colors.with_opacity(0.12, cor_item),
+                                                            border_radius=6,
+                                                            padding=ft.Padding(5, 2, 5, 2),
+                                                        ),
+                                                    ]
                                                 ),
-                                                ft.Text(row["data"], color=pal.text_ter, size=11),
+                                                ft.Text(
+                                                    f"{row['data']}{desc_texto}",
+                                                    color=pal.text_ter, size=11,
+                                                ),
                                             ],
                                         ),
                                     ],
@@ -1677,7 +1702,7 @@ async def main(page: ft.Page):
                         ),
                         bgcolor=pal.surface,
                         border_radius=RADIUS_SM,
-                        border=borda_all(1, ft.Colors.with_opacity(0.14, cor)),
+                        border=borda_all(1, ft.Colors.with_opacity(0.14, cor_item)),
                         blur=_blur_vidro(),
                         padding=ft.Padding(left=12, right=4, top=10, bottom=10),
                     )
