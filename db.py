@@ -97,6 +97,7 @@ BANDEIRAS_BASE = [
     "Elo Débito",
     TIPO_SODEXO,
     "Alelo Multibenefícios",
+    "VR Multibenefícios",
 ]
 
 LISTA_CARTOES_REDE = [f"Rede {b}" for b in BANDEIRAS_BASE]
