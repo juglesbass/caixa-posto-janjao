@@ -420,6 +420,7 @@ async def main(page: ft.Page):
         "Elo Crédito":           C_AMBER,
         "Elo Débito":            C_AMBER2,
         "Alelo Multibenefícios": C_PURPLE,
+        "VR Multibenefícios":    C_LIME,
     }
 
     ICONES = {
@@ -776,7 +777,7 @@ async def main(page: ft.Page):
     bandeiras_disponiveis = [
         "Pix",
         "Master Débito", "Master Crédito", "Visa Débito", "Visa Crédito",
-        "Elo Débito", "Elo Crédito", "Alelo Multibenefícios", "Sodexo",
+        "Elo Débito", "Elo Crédito", "Alelo Multibenefícios", "VR Multibenefícios", "Sodexo",
         "Fitcard", "Excard", "Amex", "Eucard", "Avancard"
     ]
 
