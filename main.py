@@ -1475,7 +1475,7 @@ async def main(page: ft.Page):
                                         expand=True,
                                         controls=[
                                             ft.Text(
-                                                f"{formatar_moeda(row['valor'])} · {row['tipo']}{desc_texto}",
+                                                f"{row['tipo']} · {formatar_moeda(row['valor'])}{desc_texto}",
                                                 color=pal.text_pri, size=13, weight=ft.FontWeight.W_600,
                                             ),
                                             ft.Text(row["data"], color=pal.text_ter, size=11),
@@ -1626,7 +1626,6 @@ async def main(page: ft.Page):
 
                 cor_item = cor_tipo(row["tipo"])
                 ico_item = icone_tipo(row["tipo"])
-                nome_item = row["tipo"]
 
                 lista_detalhe.controls.append(
                     ft.Container(
@@ -1639,35 +1638,20 @@ async def main(page: ft.Page):
                                     expand=True,
                                     controls=[
                                         ft.Container(
-                                            content=ft.Icon(ico_item, color=cor_item, size=16),
+                                            content=ft.Icon(ico_item, color=cor_item, size=15),
                                             bgcolor=ft.Colors.with_opacity(0.13, cor_item),
-                                            border_radius=8,
-                                            padding=6,
+                                            border_radius=50,
+                                            padding=7,
                                         ),
                                         ft.Column(
                                             spacing=2,
                                             expand=True,
                                             controls=[
-                                                ft.Row(
-                                                    spacing=6,
-                                                    tight=True,
-                                                    controls=[
-                                                        ft.Text(
-                                                            formatar_moeda(row["valor"]),
-                                                            color=pal.text_pri, size=13, weight=ft.FontWeight.BOLD,
-                                                        ),
-                                                        ft.Container(
-                                                            content=ft.Text(nome_item, size=11, weight=ft.FontWeight.W_600, color=cor_item),
-                                                            bgcolor=ft.Colors.with_opacity(0.12, cor_item),
-                                                            border_radius=6,
-                                                            padding=ft.Padding(5, 2, 5, 2),
-                                                        ),
-                                                    ]
-                                                ),
                                                 ft.Text(
-                                                    f"{row['data']}{desc_texto}",
-                                                    color=pal.text_ter, size=11,
+                                                    f"{row['tipo']} · {formatar_moeda(row['valor'])}{desc_texto}",
+                                                    color=pal.text_pri, size=13, weight=ft.FontWeight.W_600,
                                                 ),
+                                                ft.Text(row["data"], color=pal.text_ter, size=11),
                                             ],
                                         ),
                                     ],
@@ -1677,7 +1661,7 @@ async def main(page: ft.Page):
                                     controls=[
                                         ft.IconButton(
                                             icon=ft.Icons.EDIT_OUTLINED,
-                                            icon_color=C_BLUE,
+                                            icon_color=pal.text_ter,
                                             icon_size=17,
                                             tooltip="Editar",
                                             on_click=abrir_edicao_detalhe,
@@ -1695,7 +1679,12 @@ async def main(page: ft.Page):
                         ),
                         bgcolor=pal.surface,
                         border_radius=RADIUS_SM,
-                        border=borda_all(1, ft.Colors.with_opacity(0.14, cor_item)),
+                        border=ft.Border(
+                            left=ft.BorderSide(3, cor_item),
+                            right=ft.BorderSide(1, ft.Colors.with_opacity(0.08, cor_item)),
+                            top=ft.BorderSide(1, ft.Colors.with_opacity(0.08, cor_item)),
+                            bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.08, cor_item)),
+                        ),
                         blur=_blur_vidro(),
                         padding=ft.Padding(left=12, right=4, top=10, bottom=10),
                     )
@@ -4002,7 +3991,7 @@ async def main(page: ft.Page):
                                             expand=True,
                                             controls=[
                                                 ft.Text(
-                                                    f"{formatar_moeda(row['valor'])} · {row['tipo']}{desc_texto}",
+                                                    f"{row['tipo']} · {formatar_moeda(row['valor'])}{desc_texto}",
                                                     color=pal.text_pri, size=13, weight=ft.FontWeight.W_600,
                                                 ),
                                                 ft.Text(row["data"], color=pal.text_ter, size=11),
