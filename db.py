@@ -928,10 +928,24 @@ def listar_historico_por_tipo(
 ) -> list[sqlite3.Row]:
     """Lista todos os lançamentos de um turno filtrados por uma bandeira/tipo específico.
 
-    Usado pela tela de detalhe da bandeira no resumo do turno, para permitir
-    localizar e editar lançamentos antigos que já saíram do histórico recente.
+    Usado pela tela de detalhe da bandeira no resumo do turno e no HUD da tela inicial.
     """
     cursor = conn.cursor()
+    if tipo in ("Cartões", "Cartao", "Cartão", "cartoes", "cartao", "__cartao__"):
+        placeholders = ",".join("?" for _ in LISTA_CARTOES)
+        query = f"""
+            SELECT id, tipo, valor_centavos / 100.0 AS valor, descricao, data
+            FROM lancamentos
+            WHERE turno_id = ? AND (
+                tipo IN ({placeholders})
+                OR tipo LIKE 'Rede %'
+                OR tipo LIKE 'Cielo %'
+            )
+            ORDER BY id DESC
+            LIMIT ?
+        """
+        return cursor.execute(query, [turno_id, *LISTA_CARTOES, limite]).fetchall()
+
     return cursor.execute(
         """
         SELECT id, tipo, valor_centavos / 100.0 AS valor, descricao, data

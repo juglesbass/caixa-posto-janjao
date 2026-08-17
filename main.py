@@ -420,6 +420,8 @@ async def main(page: ft.Page):
         "Elo Débito":            C_AMBER2,
         "Alelo Multibenefícios": C_PURPLE,
         "VR Multibenefícios":    C_LIME,
+        "Cartões":               C_PURPLE,
+        "Cartão":                C_PURPLE,
     }
 
     ICONES = {
@@ -429,6 +431,8 @@ async def main(page: ft.Page):
         db.TIPO_SODEXO:          ft.Icons.LUNCH_DINING_ROUNDED,
         db.TIPO_DEPOSITO_GLOBAL: ft.Icons.ACCOUNT_BALANCE_ROUNDED,
         db.TIPO_DESPESA:         ft.Icons.MONEY_OFF_ROUNDED,
+        "Cartões":               ft.Icons.CREDIT_CARD_ROUNDED,
+        "Cartão":                ft.Icons.CREDIT_CARD_ROUNDED,
     }
 
     def cor_tipo(tipo: str) -> str:
@@ -888,17 +892,17 @@ async def main(page: ft.Page):
             sub = estado["cartao_atual"] if is_cartao else subtitulo
 
             ico_cnt = ft.Container(
-                content=ft.Icon(icone, color=cor if sel else pal.text_sec, size=22),
+                content=ft.Icon(icone, color=cor if sel else pal.text_sec, size=18),
                 bgcolor=ft.Colors.with_opacity(0.16 if sel else 0.08, cor),
-                border_radius=12,
-                padding=10,
+                border_radius=10,
+                padding=7,
             )
 
-            txt_tit = ft.Text(titulo, size=14, weight=ft.FontWeight.BOLD, color=pal.text_pri)
-            txt_sub = ft.Text(f"{sub} ▾" if is_cartao else sub, size=11, color=cor if sel else pal.text_ter, weight=ft.FontWeight.W_500)
+            txt_tit = ft.Text(titulo, size=13, weight=ft.FontWeight.BOLD, color=pal.text_pri, no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS)
+            txt_sub = ft.Text(f"{sub} ▾" if is_cartao else sub, size=10, color=cor if sel else pal.text_ter, weight=ft.FontWeight.W_500, no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS)
 
             check_dot = ft.Container(
-                width=8, height=8, border_radius=4,
+                width=6, height=6, border_radius=3,
                 bgcolor=cor if sel else ft.Colors.TRANSPARENT,
             )
 
@@ -908,13 +912,15 @@ async def main(page: ft.Page):
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
                         ft.Row(
-                            spacing=10,
+                            spacing=8,
                             vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            expand=True,
                             controls=[
                                 ico_cnt,
                                 ft.Column(
-                                    spacing=2,
+                                    spacing=1,
                                     alignment=ft.MainAxisAlignment.CENTER,
+                                    expand=True,
                                     controls=[txt_tit, txt_sub],
                                 ),
                             ]
@@ -925,9 +931,9 @@ async def main(page: ft.Page):
                 bgcolor=ft.Colors.with_opacity(0.14, cor) if sel else pal.surface,
                 border=borda_all(1.8 if sel else 1, cor if sel else pal.border),
                 border_radius=RADIUS_MD,
-                padding=ft.Padding(14, 10, 14, 10),
+                padding=ft.Padding(10, 8, 10, 8),
                 expand=True,
-                height=66,
+                height=60,
                 ink=True,
                 on_click=ao_clicar,
                 scale=ft.Scale(scale=1),
@@ -1224,6 +1230,160 @@ async def main(page: ft.Page):
             container.on_hover = animar_hover
         return container
 
+    # ════════════════════════════════════════════════════════════════════════
+    # MODAL UNIFICADO E RESPONSIVO DE EDIÇÃO DE LANÇAMENTO
+    # ════════════════════════════════════════════════════════════════════════
+    def abrir_modal_editar_lancamento(
+        rid: int,
+        tipo_atual: str,
+        valor_atual: float,
+        descricao_atual: str,
+        ao_salvar_callback=None,
+    ):
+        if turno_atual is None:
+            return
+
+        seletor_edit, estado_edit, _sel_edit, _rec_edit = criar_seletor_tipo(tipo_atual)
+        seletor_edit.width = largura_conteudo
+
+        def ao_tocar_fora_edicao(e):
+            desfocar_campos(campo_valor_edit, campo_desc_edit)
+
+        campo_valor_edit = ft.TextField(
+            label="Valor",
+            value=f"{valor_atual:.2f}".replace(".", ","),
+            prefix=ft.Text("R$ ", color=pal.text_pri),
+            width=largura_conteudo,
+            adaptive=adaptive_ui,
+            autocorrect=False,
+            enable_suggestions=False,
+            input_filter=FILTRO_VALOR_MONETARIO,
+            bgcolor=pal.surface,
+            border_color=pal.border,
+            color=pal.text_pri,
+            text_style=ft.TextStyle(weight=ft.FontWeight.BOLD, color=pal.text_pri),
+            label_style=ft.TextStyle(color=pal.text_sec),
+            on_tap_outside=ao_tocar_fora_edicao,
+        )
+        campo_desc_edit = ft.TextField(
+            label="Descrição / Placa (Opcional)",
+            value=descricao_atual or "",
+            width=largura_conteudo,
+            adaptive=adaptive_ui,
+            bgcolor=pal.surface,
+            border_color=pal.border,
+            color=pal.text_pri,
+            text_style=ft.TextStyle(color=pal.text_pri),
+            label_style=ft.TextStyle(color=pal.text_sec),
+            on_tap_outside=ao_tocar_fora_edicao,
+        )
+
+        modal_ref = {"ctrl": None}
+
+        def fechar_modal_edit(x=None):
+            if modal_ref["ctrl"]:
+                fechar_dialogo(modal_ref["ctrl"])
+
+        def salvar_edicao(x):
+            novo_valor = validar_valor(campo_valor_edit.value or "")
+            if novo_valor is None:
+                campo_valor_edit.error_text = "Informe um valor maior que zero"
+                page.update()
+                return
+            try:
+                garantir_conexao()
+                ok = db.atualizar_lancamento(
+                    conn, rid, turno_atual.id,
+                    estado_edit["valor"], novo_valor, campo_desc_edit.value or "",
+                )
+                if ok:
+                    fechar_modal_edit()
+                    mostrar_snackbar("Lançamento atualizado com sucesso! ✅")
+                    recarregar_listas()
+                    if ao_salvar_callback:
+                        ao_salvar_callback()
+                    page.update()
+                else:
+                    mostrar_snackbar("Não foi possível editar.", ft.Colors.RED_800)
+            except Exception as ex_edit:
+                print(f"[Editar Lançamento] Erro: {ex_edit}")
+                mostrar_snackbar("Erro ao editar. Tente novamente.", ft.Colors.RED_800)
+
+        conteudo_form = ft.Column(
+            [
+                ft.Text("Forma de Pagamento", size=12, weight=ft.FontWeight.W_600, color=pal.text_sec),
+                seletor_edit,
+                ft.Container(height=4),
+                campo_valor_edit,
+                campo_desc_edit,
+            ],
+            tight=True,
+            spacing=8,
+            width=largura_conteudo,
+            scroll=ft.ScrollMode.AUTO,
+        )
+
+        if mobile:
+            painel_sheet = ft.Container(
+                padding=ft.Padding(18, 12, 18, 24),
+                bgcolor=pal.sheet_bg,
+                width=largura_conteudo,
+                content=ft.Column(
+                    expand=True,
+                    spacing=12,
+                    controls=[
+                        ft.Container(width=36, height=4, border_radius=2, bgcolor=pal.border_strong, alignment=ft.Alignment(0, 0)),
+                        ft.Row([
+                            ft.Icon(ft.Icons.EDIT_ROUNDED, color=C_ACCENT, size=20),
+                            ft.Text("Editar Lançamento", size=17, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                        ], spacing=8, alignment=ft.MainAxisAlignment.CENTER),
+                        ft.Divider(height=1, color=pal.border),
+                        ft.Container(content=conteudo_form, expand=True),
+                        ft.Row(
+                            spacing=10,
+                            alignment=ft.MainAxisAlignment.CENTER,
+                            controls=[
+                                ft.OutlinedButton(
+                                    "Cancelar",
+                                    icon=ft.Icons.CLOSE_ROUNDED,
+                                    on_click=fechar_modal_edit,
+                                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=RADIUS_SM)),
+                                    expand=True,
+                                    height=44,
+                                ),
+                                ft.ElevatedButton(
+                                    "Salvar",
+                                    icon=ft.Icons.CHECK_ROUNDED,
+                                    bgcolor=C_ACCENT,
+                                    color=ft.Colors.WHITE,
+                                    on_click=salvar_edicao,
+                                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=RADIUS_SM)),
+                                    expand=True,
+                                    height=44,
+                                ),
+                            ]
+                        )
+                    ]
+                )
+            )
+            sheet_edit = _criar_bottom_sheet(painel_sheet)
+            modal_ref["ctrl"] = sheet_edit
+            abrir_dialogo(sheet_edit)
+        else:
+            dlg_editar = ft.AlertDialog(
+                title=ft.Row([
+                    ft.Icon(ft.Icons.EDIT_ROUNDED, color=C_ACCENT, size=20),
+                    ft.Text("Editar lançamento", weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                ], spacing=8),
+                content=ft.Container(content=conteudo_form, width=min(380, largura_conteudo), height=460),
+                actions=[
+                    ft.TextButton("Cancelar", on_click=fechar_modal_edit),
+                    ft.ElevatedButton("Salvar", bgcolor=C_ACCENT, color=ft.Colors.WHITE, on_click=salvar_edicao),
+                ],
+            )
+            modal_ref["ctrl"] = dlg_editar
+            abrir_dialogo(dlg_editar)
+
     def acao_completou(e):
         selecionar_tipo(db.TIPO_DINHEIRO)
         input_desc.value = "Completou"
@@ -1251,9 +1411,9 @@ async def main(page: ft.Page):
     )
     montar_botoes_rapidos()
 
-    # ═══════════════════════════════════════════════════════════════[...]
+    # ═══════════════════════════════════════════════════════════════
     # LISTA HISTÓRICO
-    # ═══════════════════════════════════════════════════════════════[...]
+    # ═══════════════════════════════════════════════════════════════
     col_historico = ft.Column(spacing=6, width=largura_conteudo)
 
     def carregar_historico():
@@ -1293,70 +1453,7 @@ async def main(page: ft.Page):
                 valor=row["valor"],
                 descricao=row["descricao"],
             ):
-                seletor_edit, estado_edit, _sel_edit, _rec_edit = criar_seletor_tipo(tipo)
-                seletor_edit.width = min(300, largura_conteudo)
-
-                def ao_tocar_fora_edicao(e):
-                    desfocar_campos(campo_valor_edit, campo_desc_edit)
-
-                campo_valor_edit = ft.TextField(
-                    label="Valor",
-                    value=f"{valor:.2f}".replace(".", ","),
-                    prefix=ft.Text("R$ "),
-                    width=min(300, largura_conteudo),
-                    adaptive=adaptive_ui,
-                    autocorrect=False,
-                    enable_suggestions=False,
-                    input_filter=FILTRO_VALOR_MONETARIO,
-                    on_tap_outside=ao_tocar_fora_edicao,
-                )
-                campo_desc_edit = ft.TextField(
-                    label="Descrição / Placa (Opcional)",
-                    value=descricao or "",
-                    width=min(300, largura_conteudo),
-                    adaptive=adaptive_ui,
-                    on_tap_outside=ao_tocar_fora_edicao,
-                )
-                dlg_editar = ft.AlertDialog(
-                    title=ft.Text("Editar lançamento"),
-                    content=ft.Column(
-                        [
-                            ft.Text("Forma de Pagamento", size=12, color=pal.text_sec),
-                            seletor_edit,
-                            campo_valor_edit,
-                            campo_desc_edit,
-                        ],
-                        tight=True, spacing=10,
-                        scroll=ft.ScrollMode.AUTO, height=420,
-                    ),
-                )
-
-                def salvar_edicao(x, lancamento_id=rid):
-                    novo_valor = validar_valor(campo_valor_edit.value or "")
-                    if novo_valor is None:
-                        campo_valor_edit.error_text = "Informe um valor maior que zero"
-                        page.update()
-                        return
-                    try:
-                        garantir_conexao()
-                        ok = db.atualizar_lancamento(
-                            conn, lancamento_id, turno_atual.id,
-                            estado_edit["valor"], novo_valor, campo_desc_edit.value or "",
-                        )
-                        if ok:
-                            fechar_dialogo(dlg_editar)
-                            mostrar_snackbar("Lançamento atualizado.")
-                            recarregar_listas()
-                        else:
-                            mostrar_snackbar("Não foi possível editar.", ft.Colors.RED_800)
-                    except Exception:
-                        mostrar_snackbar("Erro ao editar. Tente novamente.", ft.Colors.RED_800)
-
-                dlg_editar.actions = [
-                    ft.TextButton("Salvar",   on_click=salvar_edicao),
-                    ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_editar)),
-                ]
-                abrir_dialogo(dlg_editar)
+                abrir_modal_editar_lancamento(rid, tipo, valor, descricao)
 
             col_historico.controls.append(
                 ft.Container(
@@ -1513,73 +1610,20 @@ async def main(page: ft.Page):
                     ]
                     abrir_dialogo(dlg_excluir)
 
-                def abrir_edicao_detalhe(e, rid=row["id"], valor=row["valor"], descricao=row["descricao"]):
-                    seletor_edit, estado_edit, _sel_edit, _rec_edit = criar_seletor_tipo(tipo)
-                    seletor_edit.width = min(300, largura_conteudo)
-
-                    def ao_tocar_fora_edicao(e):
-                        desfocar_campos(campo_valor_edit, campo_desc_edit)
-
-                    campo_valor_edit = ft.TextField(
-                        label="Valor",
-                        value=f"{valor:.2f}".replace(".", ","),
-                        prefix=ft.Text("R$ "),
-                        width=min(300, largura_conteudo),
-                        adaptive=adaptive_ui,
-                        autocorrect=False,
-                        enable_suggestions=False,
-                        input_filter=FILTRO_VALOR_MONETARIO,
-                        on_tap_outside=ao_tocar_fora_edicao,
+                def abrir_edicao_detalhe(
+                    e,
+                    rid=row["id"],
+                    tipo_row=row["tipo"],
+                    valor=row["valor"],
+                    descricao=row["descricao"],
+                ):
+                    abrir_modal_editar_lancamento(
+                        rid=rid,
+                        tipo_atual=tipo_row,
+                        valor_atual=valor,
+                        descricao_atual=descricao,
+                        ao_salvar_callback=carregar_lista_detalhe,
                     )
-                    campo_desc_edit = ft.TextField(
-                        label="Descrição / Placa (Opcional)",
-                        value=descricao or "",
-                        width=min(300, largura_conteudo),
-                        adaptive=adaptive_ui,
-                        on_tap_outside=ao_tocar_fora_edicao,
-                    )
-                    dlg_editar = ft.AlertDialog(
-                        title=ft.Text("Editar lançamento"),
-                        content=ft.Column(
-                            [
-                                ft.Text("Forma de Pagamento", size=12, color=pal.text_sec),
-                                seletor_edit,
-                                campo_valor_edit,
-                                campo_desc_edit,
-                            ],
-                            tight=True, spacing=10,
-                            scroll=ft.ScrollMode.AUTO, height=420,
-                        ),
-                    )
-
-                    def salvar_edicao(x, lancamento_id=rid):
-                        novo_valor = validar_valor(campo_valor_edit.value or "")
-                        if novo_valor is None:
-                            campo_valor_edit.error_text = "Informe um valor maior que zero"
-                            page.update()
-                            return
-                        try:
-                            garantir_conexao()
-                            ok = db.atualizar_lancamento(
-                                conn, lancamento_id, turno_atual.id,
-                                estado_edit["valor"], novo_valor, campo_desc_edit.value or "",
-                            )
-                            if ok:
-                                fechar_dialogo(dlg_editar)
-                                mostrar_snackbar("Lançamento atualizado.")
-                                recarregar_listas()
-                                carregar_lista_detalhe()
-                                page.update()
-                            else:
-                                mostrar_snackbar("Não foi possível editar.", ft.Colors.RED_800)
-                        except Exception:
-                            mostrar_snackbar("Erro ao editar. Tente novamente.", ft.Colors.RED_800)
-
-                    dlg_editar.actions = [
-                        ft.TextButton("Salvar", on_click=salvar_edicao),
-                        ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_editar)),
-                    ]
-                    abrir_dialogo(dlg_editar)
 
                 lista_detalhe.controls.append(
                     ft.Container(
@@ -3839,7 +3883,7 @@ async def main(page: ft.Page):
                 # Checa tipo
                 if filtro_t == "Dinheiro" and t != db.TIPO_DINHEIRO: continue
                 elif filtro_t == "Pix" and t != db.TIPO_PIX: continue
-                elif filtro_t == "Cartões" and t not in db.LISTA_CARTOES: continue
+                elif filtro_t == "Cartões" and not db.eh_cartao(t): continue
                 elif filtro_t == "Sangrias" and t != db.TIPO_SANGRIA: continue
                 elif filtro_t == "Despesas" and t != db.TIPO_DESPESA: continue
 
@@ -3903,71 +3947,21 @@ async def main(page: ft.Page):
                 def abrir_edicao(
                     ev,
                     rid=row["id"],
-                    tipo=row["tipo"],
+                    tipo_row=row["tipo"],
                     valor=row["valor"],
                     descricao=row["descricao"],
                 ):
-                    seletor_edit, estado_edit, _sel_edit, _rec_edit = criar_seletor_tipo(tipo)
-                    seletor_edit.width = min(300, largura_conteudo)
+                    def callback_hist():
+                        renderizar_itens()
+                        sincronizar_armazenamento_navegador()
 
-                    campo_valor_edit = ft.TextField(
-                        label="Valor",
-                        value=f"{valor:.2f}".replace(".", ","),
-                        prefix=ft.Text("R$ "),
-                        width=min(300, largura_conteudo),
-                        adaptive=adaptive_ui,
-                        autocorrect=False,
-                        enable_suggestions=False,
-                        input_filter=FILTRO_VALOR_MONETARIO,
+                    abrir_modal_editar_lancamento(
+                        rid=rid,
+                        tipo_atual=tipo_row,
+                        valor_atual=valor,
+                        descricao_atual=descricao,
+                        ao_salvar_callback=callback_hist,
                     )
-                    campo_desc_edit = ft.TextField(
-                        label="Descrição / Placa (Opcional)",
-                        value=descricao or "",
-                        width=min(300, largura_conteudo),
-                        adaptive=adaptive_ui,
-                    )
-                    dlg_editar = ft.AlertDialog(
-                        title=ft.Text("Editar lançamento"),
-                        content=ft.Column(
-                            [
-                                ft.Text("Forma de Pagamento", size=12, color=pal.text_sec),
-                                seletor_edit,
-                                campo_valor_edit,
-                                campo_desc_edit,
-                            ],
-                            tight=True, spacing=10,
-                            scroll=ft.ScrollMode.AUTO, height=420,
-                        ),
-                    )
-
-                    def salvar_edicao(x, lancamento_id=rid):
-                        novo_valor = validar_valor(campo_valor_edit.value or "")
-                        if novo_valor is None:
-                            campo_valor_edit.error_text = "Informe um valor maior que zero"
-                            page.update()
-                            return
-                        try:
-                            garantir_conexao()
-                            ok = db.atualizar_lancamento(
-                                conn, lancamento_id, turno_atual.id,
-                                estado_edit["valor"], novo_valor, campo_desc_edit.value or "",
-                            )
-                            if ok:
-                                fechar_dialogo(dlg_editar)
-                                mostrar_snackbar("Lançamento atualizado.")
-                                recarregar_listas()
-                                renderizar_itens()
-                                sincronizar_armazenamento_navegador()
-                            else:
-                                mostrar_snackbar("Não foi possível editar.", ft.Colors.RED_800)
-                        except Exception:
-                            mostrar_snackbar("Erro ao editar. Tente novamente.", ft.Colors.RED_800)
-
-                    dlg_editar.actions = [
-                        ft.TextButton("Salvar", on_click=salvar_edicao),
-                        ft.TextButton("Cancelar", on_click=lambda x: fechar_dialogo(dlg_editar)),
-                    ]
-                    abrir_dialogo(dlg_editar)
 
                 lista_ctrl.controls.append(
                     ft.Container(
