@@ -1070,14 +1070,6 @@ async def main(page: ft.Page):
         except Exception:
             pass
 
-    btn_lancar_inline = ft.IconButton(
-        icon=ft.Icons.CHECK_CIRCLE_ROUNDED,
-        icon_color=C_ACCENT,
-        icon_size=26,
-        tooltip="Lançar Venda",
-        on_click=lambda e: acao_lancar(e),
-    )
-
     input_valor = ft.TextField(
         label="Valor da Venda",
         hint_text="R$ 0,00",
@@ -1093,7 +1085,6 @@ async def main(page: ft.Page):
         border_color=pal.border,
         focused_border_color=C_ACCENT,
         cursor_color=C_ACCENT,
-        suffix=btn_lancar_inline,
         keyboard_type=_keyboard_valor,
         adaptive=adaptive_ui,
         autocorrect=False,
@@ -3864,13 +3855,6 @@ async def main(page: ft.Page):
             focused_border_color=C_ACCENT,
             input_filter=FILTRO_VALOR_MONETARIO,
             on_change=formatar_moeda_input,
-            suffix=ft.IconButton(
-                icon=ft.Icons.CHECK_CIRCLE_ROUNDED,
-                icon_color=C_ACCENT,
-                icon_size=26,
-                tooltip="Confirmar Lançamento",
-                on_click=lambda e: confirmar_lancamento_modal(e),
-            ),
         )
 
         campo_desc_modal = ft.TextField(
