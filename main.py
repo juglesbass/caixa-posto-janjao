@@ -1059,7 +1059,7 @@ async def main(page: ft.Page):
 
     # ════════════════════════════════════════════════════════════════════════
     # INPUTS
-    _keyboard_valor = ft.KeyboardType.NUMBER
+    _keyboard_valor = ft.KeyboardType.TEXT if (ios and not _is_pyodide_env()) else ft.KeyboardType.NUMBER
 
     def ao_tocar_fora(e):
         desfocar_campos(input_valor, input_desc, input_recebido)
