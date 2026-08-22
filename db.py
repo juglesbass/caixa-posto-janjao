@@ -333,6 +333,17 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
         """
     )
 
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS drive_pendencias (
+            turno_id INTEGER PRIMARY KEY,
+            caminho_pdf TEXT NOT NULL,
+            operador TEXT NOT NULL,
+            criado_em TEXT NOT NULL
+        )
+        """
+    )
+
     colunas_lanc = {linha[1] for linha in cursor.execute("PRAGMA table_info(lancamentos)")}
 
     if "turno_id" not in colunas_lanc:
@@ -369,6 +380,54 @@ def inicializar_banco(conn: sqlite3.Connection) -> None:
         )
     conn.commit()
     salvar_banco_web_sync(conn)
+
+
+def salvar_pendencia_drive(conn: sqlite3.Connection, turno_id: int, caminho_pdf: str, operador: str) -> None:
+    """Registra um turno na tabela de pendências de envio do Google Drive."""
+    if not turno_id:
+        return
+    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT OR REPLACE INTO drive_pendencias (turno_id, caminho_pdf, operador, criado_em) VALUES (?, ?, ?, ?)",
+        (turno_id, caminho_pdf, operador, data_atual),
+    )
+    conn.commit()
+    salvar_banco_web_sync(conn)
+
+
+def remover_pendencia_drive(conn: sqlite3.Connection, turno_id: int) -> None:
+    """Remove um turno da tabela de pendências de envio após confirmação de entrega."""
+    if not turno_id:
+        return
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM drive_pendencias WHERE turno_id = ?", (turno_id,))
+    conn.commit()
+    salvar_banco_web_sync(conn)
+
+
+def turno_tem_pendencia_drive(conn: sqlite3.Connection, turno_id: int) -> bool:
+    """Verifica diretamente no banco de dados se o turno ainda está pendente de envio ao Drive."""
+    if not turno_id:
+        return False
+    cursor = conn.cursor()
+    row = cursor.execute("SELECT 1 FROM drive_pendencias WHERE turno_id = ? LIMIT 1", (turno_id,)).fetchone()
+    return bool(row)
+
+
+def obter_todas_pendencias_drive(conn: sqlite3.Connection) -> list[dict]:
+    """Retorna todas as pendências de envio gravadas no banco de dados."""
+    cursor = conn.cursor()
+    rows = cursor.execute("SELECT turno_id, caminho_pdf, operador, criado_em FROM drive_pendencias ORDER BY turno_id ASC").fetchall()
+    return [
+        {
+            "turno_id": r["turno_id"],
+            "caminho_pdf": r["caminho_pdf"],
+            "operador": r["operador"],
+            "criado_em": r["criado_em"],
+        }
+        for r in rows
+    ]
 
 
 def obter_turno_aberto(conn: sqlite3.Connection) -> Optional[Turno]:

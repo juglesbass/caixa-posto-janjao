@@ -64,16 +64,16 @@ def _caminho_fila_pendencias() -> str:
 
 
 def obter_pendencias_envio() -> list[dict]:
-    """Retorna a lista de envios pendentes para o Google Drive."""
-    if _is_pyodide():
-        try:
-            import js
-            raw = js.localStorage.getItem("pendencias_drive_json")
-            if raw:
-                return json.loads(str(raw))
-        except Exception:
-            pass
-        return []
+    """Retorna a lista de envios pendentes para o Google Drive a partir do banco de dados SQLite."""
+    try:
+        import db
+        conn = db.conectar()
+        pendencias = db.obter_todas_pendencias_drive(conn)
+        conn.close()
+        if pendencias:
+            return pendencias
+    except Exception:
+        pass
 
     caminho = _caminho_fila_pendencias()
     if not os.path.exists(caminho):
@@ -87,48 +87,63 @@ def obter_pendencias_envio() -> list[dict]:
 
 def salvar_pendencia_envio(caminho_pdf: str, turno_id: int, operador: str) -> None:
     """Adiciona um turno à fila de pendências para reenvio automático."""
-    pendencias = obter_pendencias_envio()
-    for p in pendencias:
-        if p.get("turno_id") == turno_id:
-            return
+    if not turno_id:
+        return
+    try:
+        import db
+        conn = db.conectar()
+        db.salvar_pendencia_drive(conn, turno_id, caminho_pdf, operador)
+        conn.close()
+    except Exception:
+        pass
 
-    pendencias.append({
-        "turno_id": turno_id,
-        "caminho_pdf": caminho_pdf,
-        "operador": operador,
-        "timestamp": time.time(),
-        "tentativas": 0,
-    })
-
-    if _is_pyodide():
-        try:
-            import js
-            js.localStorage.setItem("pendencias_drive_json", json.dumps(pendencias))
-        except Exception:
-            pass
-    else:
-        try:
-            with open(_caminho_fila_pendencias(), "w", encoding="utf-8") as f:
+    try:
+        caminho = _caminho_fila_pendencias()
+        pendencias = []
+        if os.path.exists(caminho):
+            try:
+                with open(caminho, "r", encoding="utf-8") as f:
+                    pendencias = json.load(f)
+            except Exception:
+                pendencias = []
+        if not any(p.get("turno_id") == turno_id for p in pendencias):
+            pendencias.append({
+                "turno_id": turno_id,
+                "caminho_pdf": caminho_pdf,
+                "operador": operador,
+                "timestamp": time.time(),
+            })
+            with open(caminho, "w", encoding="utf-8") as f:
                 json.dump(pendencias, f, indent=2)
-        except Exception as e:
-            logger.error(f"[DriveQueue] Erro ao salvar pendência: {e}")
+    except Exception as e:
+        logger.error(f"[DriveQueue] Erro ao salvar pendência: {e}")
 
 
 def remover_pendencia_envio(turno_id: int) -> None:
     """Remove um turno da fila de pendências após envio confirmado."""
-    pendencias = [p for p in obter_pendencias_envio() if p.get("turno_id") != turno_id]
-    if _is_pyodide():
-        try:
-            import js
-            js.localStorage.setItem("pendencias_drive_json", json.dumps(pendencias))
-        except Exception:
-            pass
-    else:
-        try:
-            with open(_caminho_fila_pendencias(), "w", encoding="utf-8") as f:
-                json.dump(pendencias, f, indent=2)
-        except Exception as e:
-            logger.error(f"[DriveQueue] Erro ao atualizar pendências: {e}")
+    if not turno_id:
+        return
+    try:
+        import db
+        conn = db.conectar()
+        db.remover_pendencia_drive(conn, turno_id)
+        conn.close()
+    except Exception:
+        pass
+
+    try:
+        caminho = _caminho_fila_pendencias()
+        if os.path.exists(caminho):
+            try:
+                with open(caminho, "r", encoding="utf-8") as f:
+                    pendencias = json.load(f)
+                pendencias = [p for p in pendencias if p.get("turno_id") != turno_id]
+                with open(caminho, "w", encoding="utf-8") as f:
+                    json.dump(pendencias, f, indent=2)
+            except Exception:
+                pass
+    except Exception as e:
+        logger.error(f"[DriveQueue] Erro ao atualizar pendências: {e}")
 
 
 async def _enviar_web_js_async(url_webhook: str, payload: dict) -> tuple[bool, str]:

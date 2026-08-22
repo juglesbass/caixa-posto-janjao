@@ -2485,8 +2485,8 @@ async def main(page: ft.Page):
                         await asyncio.sleep(0.35)
                         vibrar("medium")
 
-                        # Registra na fila offline antes de disparar a tentativa
-                        drive_service.salvar_pendencia_envio(caminho_pdf, turno_id_encerrado, operador_encerrado)
+                        # Registra na tabela SQLite de pendências
+                        db.salvar_pendencia_drive(conn, turno_id_encerrado, caminho_pdf, operador_encerrado)
                         montar_interface()
 
                         # Envio automático do PDF para o Google Drive com verificação rigorosa
@@ -2502,6 +2502,7 @@ async def main(page: ft.Page):
                                         caminho_pdf, turno_id_encerrado, operador_encerrado
                                     )
                                 if ok:
+                                    db.remover_pendencia_drive(conn, turno_id_encerrado)
                                     mostrar_snackbar("Turno encerrado e PDF entregue no Google Drive! 🚀", ft.Colors.GREEN_700)
                                     vibrar("light")
                                     montar_interface()
@@ -3174,6 +3175,7 @@ async def main(page: ft.Page):
                         import asyncio
                         ok, msg = await asyncio.to_thread(drive_service.enviar_pdf_drive_bg, caminho_pdf, turno_id, operador)
                     if ok:
+                        db.remover_pendencia_drive(conn, turno_id)
                         fechar_dialogo(dlg_falha_drive)
                         mostrar_snackbar("PDF entregue com sucesso no Google Drive do Gerente! 🚀", ft.Colors.GREEN_700)
                         vibrar("light")
@@ -3214,6 +3216,7 @@ async def main(page: ft.Page):
                     import asyncio
                     ok, msg = await asyncio.to_thread(drive_service.enviar_pdf_drive_bg, caminho_pdf, turno_id, operador)
                 if ok:
+                    db.remover_pendencia_drive(conn, turno_id)
                     mostrar_snackbar("PDF entregue com sucesso no Google Drive do Gerente! 🚀", ft.Colors.GREEN_700)
                     vibrar("light")
                     montar_interface()
@@ -4321,7 +4324,7 @@ async def main(page: ft.Page):
                 ft.Text("Sistema de Fechamento de Caixa", size=13, color=pal.text_sec),
             ]
 
-            if ultimo_fechado and drive_service.turno_tem_pendencia_drive(ultimo_fechado.id):
+            if ultimo_fechado and db.turno_tem_pendencia_drive(conn, ultimo_fechado.id):
                 controles_fechado.extend([
                     ft.Container(height=14),
                     ft.Container(
