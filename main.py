@@ -101,6 +101,15 @@ def borda_all(largura, cor) -> ft.Border:
         bottom=ft.BorderSide(largura, cor),
     )
 
+def _is_pyodide_env() -> bool:
+    if "pyodide" in sys.modules or (hasattr(sys, "platform") and sys.platform == "emscripten"):
+        return True
+    try:
+        import js
+        return True
+    except Exception:
+        return False
+
 def _plataforma_mobile(page: ft.Page) -> bool:
     if os.environ.get("FLET_PLATFORM", "") in ("ios", "android"):
         return True
