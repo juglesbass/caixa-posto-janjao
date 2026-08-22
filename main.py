@@ -1060,7 +1060,7 @@ async def main(page: ft.Page):
     # ════════════════════════════════════════════════════════════════════════
     # INPUTS
     # ════════════════════════════════════════════════════════════════════════
-    _keyboard_valor = ft.KeyboardType.PHONE
+    _keyboard_valor = ft.KeyboardType.DATETIME
 
     def ao_tocar_fora(e):
         desfocar_campos(input_valor, input_desc, input_recebido)
@@ -1070,6 +1070,14 @@ async def main(page: ft.Page):
             area_scroll.scroll_to(offset=240, duration=200)
         except Exception:
             pass
+
+    btn_lancar_inline = ft.IconButton(
+        icon=ft.Icons.CHECK_CIRCLE_ROUNDED,
+        icon_color=C_ACCENT,
+        icon_size=26,
+        tooltip="Lançar Venda",
+        on_click=lambda e: acao_lancar(e),
+    )
 
     input_valor = ft.TextField(
         label="Valor da Venda",
@@ -1086,6 +1094,7 @@ async def main(page: ft.Page):
         border_color=pal.border,
         focused_border_color=C_ACCENT,
         cursor_color=C_ACCENT,
+        suffix=btn_lancar_inline,
         keyboard_type=_keyboard_valor,
         adaptive=adaptive_ui,
         autocorrect=False,
@@ -3856,6 +3865,13 @@ async def main(page: ft.Page):
             focused_border_color=C_ACCENT,
             input_filter=FILTRO_VALOR_MONETARIO,
             on_change=formatar_moeda_input,
+            suffix=ft.IconButton(
+                icon=ft.Icons.CHECK_CIRCLE_ROUNDED,
+                icon_color=C_ACCENT,
+                icon_size=26,
+                tooltip="Confirmar Lançamento",
+                on_click=lambda e: confirmar_lancamento_modal(e),
+            ),
         )
 
         campo_desc_modal = ft.TextField(
