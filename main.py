@@ -4611,9 +4611,6 @@ async def main(page: ft.Page):
         hud_totais_card.bgcolor = pal.surface
         hud_totais_card.border = borda_all(1, ft.Colors.with_opacity(0.18, C_ACCENT))
 
-        txt_prefix_valor.color = pal.text_pri
-        txt_prefix_recebido.color = pal.text_pri
-
         input_valor.bgcolor = pal.surface
         input_valor.border_color = pal.border
         input_valor.color = pal.text_pri
