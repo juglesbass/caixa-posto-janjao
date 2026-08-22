@@ -1066,7 +1066,7 @@ async def main(page: ft.Page):
 
     def ao_focar_campo(e):
         try:
-            area_scroll.scroll_to(offset=240, duration=200)
+            area_scroll.scroll_to(offset=380, duration=250)
         except Exception:
             pass
 
@@ -4652,9 +4652,9 @@ async def main(page: ft.Page):
             seletor_col,
             input_valor,
             row_calculadora_troco,
+            btn_lancar,
             row_botoes_rapidos,
             input_desc,
-            btn_lancar,
             ft.Container(height=16),
         ]
 
