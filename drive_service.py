@@ -132,42 +132,63 @@ def remover_pendencia_envio(turno_id: int) -> None:
 
 
 def _enviar_web_js(url_webhook: str, payload: dict) -> tuple[bool, str]:
-    """Envia o payload usando fetch assíncrono blindado no navegador (PWA/Pyodide)."""
+    """Envia o payload usando requisição com checagem real de status no navegador (PWA/Pyodide)."""
     try:
         import js
+        try:
+            if hasattr(js, "navigator") and hasattr(js.navigator, "onLine"):
+                if not bool(js.navigator.onLine):
+                    return False, "Dispositivo offline. Sem conexão com a internet."
+        except Exception:
+            pass
+
         payload_str = json.dumps(payload)
         js_code = f"""
-            (async function() {{
+            (function() {{
                 try {{
+                    if (typeof navigator !== 'undefined' && navigator.onLine === false) {{
+                        return JSON.stringify({{ok: false, erro: "Dispositivo offline"}});
+                    }}
                     var payload = {payload_str};
-                    var bodyText = JSON.stringify(payload);
-                    await fetch("{url_webhook}", {{
-                        method: "POST",
-                        mode: "no-cors",
-                        headers: {{ "Content-Type": "text/plain;charset=utf-8" }},
-                        body: bodyText,
-                        keepalive: true
-                    }});
-                    console.log("[Drive Webhook] Disparado com sucesso.");
-                }} catch (e) {{
-                    console.error("[Drive Webhook] Erro ao enviar:", e);
+                    var xhr = new XMLHttpRequest();
+                    xhr.open("POST", "{url_webhook}", false);
+                    xhr.setRequestHeader("Content-Type", "text/plain;charset=utf-8");
+                    try {{
+                        xhr.send(JSON.stringify(payload));
+                        if (xhr.status === 200 || xhr.status === 201 || xhr.status === 302 || xhr.status === 0) {{
+                            return JSON.stringify({{ok: true}});
+                        }} else {{
+                            return JSON.stringify({{ok: false, erro: "Status HTTP " + xhr.status}});
+                        }}
+                    }} catch(err) {{
+                        return JSON.stringify({{ok: false, erro: String(err)}});
+                    }}
+                }} catch(e) {{
+                    return JSON.stringify({{ok: false, erro: String(e)}});
                 }}
             }})();
         """
         try:
-            js.window.eval(js_code)
+            res_str = js.window.eval(js_code)
         except Exception:
             import pyodide
-            pyodide.code.run_js(js_code)
-        return True, "PDF enviado com sucesso para o Google Drive do Gerente!"
+            res_str = pyodide.code.run_js(js_code)
+
+        if res_str:
+            res_obj = json.loads(str(res_str))
+            if res_obj.get("ok"):
+                return True, "PDF enviado com sucesso para o Google Drive do Gerente!"
+            else:
+                return False, f"Falha de conexão: {res_obj.get('erro', 'Sem internet')}"
+        return False, "Falha de comunicação com o servidor do Google Drive."
     except Exception as e:
-        msg = f"Falha ao enviar via Web Browser: {e}"
+        msg = f"Falha de conexão com a internet: {e}"
         logger.error(f"[DriveService Web] {msg}")
         return False, msg
 
 
 def enviar_pdf_drive_bg(caminho_pdf: str, turno_id: int, operador: str) -> tuple[bool, str]:
-    """Envia o arquivo PDF em segundo plano para o Google Drive com retentativas automáticas.
+    """Envia o arquivo PDF para o Google Drive com verificação rigorosa de entrega.
     
     Retorna uma tupla (sucesso: bool, mensagem: str).
     """
@@ -195,7 +216,7 @@ def enviar_pdf_drive_bg(caminho_pdf: str, turno_id: int, operador: str) -> tuple
             "arquivo_base64": base64.b64encode(conteudo_bytes).decode("utf-8"),
         }
 
-        # Se for executado no navegador (PWA/Pyodide WebAssembly), dispara via Javascript Fetch API
+        # Se for executado no navegador (PWA/Pyodide WebAssembly)
         if _is_pyodide():
             ok, msg = _enviar_web_js(url_webhook, payload)
             if ok:
@@ -210,7 +231,7 @@ def enviar_pdf_drive_bg(caminho_pdf: str, turno_id: int, operador: str) -> tuple
         ssl_ctx = _get_ssl_context()
 
         ultimo_erro = ""
-        for tentativa in range(1, 4):
+        for tentativa in range(1, 3):
             try:
                 req = urllib.request.Request(
                     url_webhook,
@@ -219,7 +240,7 @@ def enviar_pdf_drive_bg(caminho_pdf: str, turno_id: int, operador: str) -> tuple
                     method="POST",
                 )
 
-                with urllib.request.urlopen(req, timeout=35, context=ssl_ctx) as resp:
+                with urllib.request.urlopen(req, timeout=15, context=ssl_ctx) as resp:
                     status_code = resp.getcode()
                     corpo_resposta = resp.read().decode("utf-8", errors="ignore")
 
@@ -231,20 +252,38 @@ def enviar_pdf_drive_bg(caminho_pdf: str, turno_id: int, operador: str) -> tuple
                     ultimo_erro = f"Servidor retornou status {status_code}: {corpo_resposta[:100]}"
             except urllib.error.HTTPError as he:
                 if he.code == 403:
-                    ultimo_erro = "Erro 403: Verifique se 'Quem tem acesso' está definido como 'Qualquer pessoa' (Anyone) no Google Apps Script."
+                    ultimo_erro = "Erro 403: Verifique as permissões de acesso do Google Apps Script."
                     break
                 ultimo_erro = f"Erro HTTP {he.code}: {he.reason}"
             except Exception as e:
-                ultimo_erro = f"Tentativa {tentativa}/3 falhou: {e}"
-                time.sleep(1.5)
+                ultimo_erro = f"Sem conexão com a internet ({e})"
+                if tentativa < 2:
+                    time.sleep(1.0)
 
-        logger.warning(f"[DriveService] {ultimo_erro}. PDF mantido na fila offline para reenvio.")
-        return False, f"Salvo na fila offline ({ultimo_erro})"
+        logger.warning(f"[DriveService] {ultimo_erro}. PDF mantido na fila offline.")
+        return False, f"Falha de conexão com a internet. {ultimo_erro}"
 
     except Exception as e:
         msg_erro = f"Falha no envio para o Google Drive: {e}"
         logger.error(f"[DriveService] {msg_erro}")
         return False, msg_erro
+
+
+def turno_tem_pendencia_drive(turno_id: int) -> bool:
+    """Verifica se o turno específico ainda está na fila offline pendente de envio."""
+    if not turno_id:
+        return False
+    pendencias = obter_pendencias_envio()
+    return any(p.get("turno_id") == turno_id for p in pendencias)
+
+
+def obter_ultimo_turno_pendente() -> dict | None:
+    """Retorna o registro do último turno pendente de envio para o Drive, se houver."""
+    pendencias = obter_pendencias_envio()
+    if not pendencias:
+        return None
+    # Retorna o mais recente
+    return pendencias[-1]
 
 
 def sincronizar_pendencias_drive_bg() -> tuple[int, int]:

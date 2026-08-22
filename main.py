@@ -2483,23 +2483,26 @@ async def main(page: ft.Page):
                     async def _finalizar_encerramento():
                         import asyncio
                         await asyncio.sleep(0.35)
-                        mostrar_snackbar("Turno encerrado com sucesso. Caixa Fechado.")
                         vibrar("medium")
                         montar_interface()
 
-                        # Envio automático do PDF para o Google Drive em background com alta resiliência
+                        # Envio automático do PDF para o Google Drive com verificação rigorosa
                         def _drive_task():
                             try:
                                 ok, msg = drive_service.enviar_pdf_drive_bg(
                                     caminho_pdf, turno_id_encerrado, operador_encerrado
                                 )
-                                if ok and "sucesso" in msg.lower():
-                                    mostrar_snackbar(msg, ft.Colors.GREEN_700)
+                                if ok:
+                                    mostrar_snackbar("Turno encerrado e PDF entregue no Google Drive! 🚀", ft.Colors.GREEN_700)
+                                    montar_interface()
                                 else:
-                                    mostrar_snackbar("PDF guardado na fila offline. Será enviado ao conectar à internet 📶", ft.Colors.AMBER_800)
+                                    mostrar_snackbar("Caixa Fechado. Falha ao enviar PDF para o Drive.", ft.Colors.AMBER_800)
+                                    mostrar_modal_falha_drive(caminho_pdf, turno_id_encerrado, operador_encerrado)
+                                    montar_interface()
                             except Exception as ex:
                                 print(f"[Drive Task] Erro: {ex}")
-                                mostrar_snackbar("PDF salvo em backup local e na fila offline do Drive 📶")
+                                mostrar_modal_falha_drive(caminho_pdf, turno_id_encerrado, operador_encerrado)
+                                montar_interface()
 
                         async def _run_drive_bg():
                             if _is_pyodide_env():
@@ -3137,6 +3140,99 @@ async def main(page: ft.Page):
         except Exception as ex:
             mostrar_snackbar(f"Erro ao exportar Excel: {ex}", ft.Colors.RED_800)
 
+    def mostrar_modal_falha_drive(caminho_pdf: str, turno_id: int, operador: str):
+        vibrar("medium")
+        dlg_falha_drive = ft.AlertDialog(
+            modal=True,
+            title=ft.Row(
+                spacing=8,
+                tight=True,
+                controls=[
+                    ft.Icon(ft.Icons.CLOUD_OFF_ROUNDED, color=C_RED, size=22),
+                    ft.Text("PDF Não Enviado ao Google Drive", size=15, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                ]
+            ),
+            content=ft.Column(
+                tight=True,
+                spacing=6,
+                controls=[
+                    ft.Text("Sem conexão com a internet.", size=13, color=pal.text_sec),
+                    ft.Text("Conecte-se e tente novamente:", size=13, weight=ft.FontWeight.W_600, color=pal.text_pri),
+                ]
+            ),
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+
+        def _tentar_reenviar_modal(e):
+            mostrar_snackbar("Tentando reenviar ao Google Drive... 🔄")
+            def _task():
+                try:
+                    ok, msg = drive_service.enviar_pdf_drive_bg(caminho_pdf, turno_id, operador)
+                    if ok:
+                        fechar_dialogo(dlg_falha_drive)
+                        mostrar_snackbar("PDF entregue com sucesso no Google Drive do Gerente! 🚀", ft.Colors.GREEN_700)
+                        vibrar("light")
+                        montar_interface()
+                    else:
+                        mostrar_snackbar("Ainda sem conexão. Conecte-se à internet e tente novamente.", ft.Colors.RED_800)
+                        vibrar("medium")
+                except Exception as ex:
+                    mostrar_snackbar(f"Erro: {ex}", ft.Colors.RED_800)
+
+            async def _run():
+                if _is_pyodide_env():
+                    _task()
+                else:
+                    try:
+                        import asyncio
+                        await asyncio.to_thread(_task)
+                    except Exception:
+                        _task()
+            page.run_task(_run)
+
+        dlg_falha_drive.actions = [
+            ft.OutlinedButton(
+                "Fechar",
+                on_click=lambda x: fechar_dialogo(dlg_falha_drive),
+                style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=RADIUS_SM)),
+            ),
+            ft.ElevatedButton(
+                "🔄 Reenviar Agora",
+                bgcolor=C_ACCENT,
+                color=ft.Colors.WHITE,
+                on_click=_tentar_reenviar_modal,
+                style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=RADIUS_SM)),
+            ),
+        ]
+        abrir_dialogo(dlg_falha_drive)
+
+    def acao_reenviar_pdf_turno(turno_id: int, operador: str):
+        vibrar("light")
+        mostrar_snackbar("Reenviando PDF para o Google Drive... 🔄")
+        def _task():
+            try:
+                caminho_pdf = db.exportar_turno_pdf(conn, turno_id)
+                ok, msg = drive_service.enviar_pdf_drive_bg(caminho_pdf, turno_id, operador)
+                if ok:
+                    mostrar_snackbar("PDF entregue com sucesso no Google Drive do Gerente! 🚀", ft.Colors.GREEN_700)
+                    vibrar("light")
+                    montar_interface()
+                else:
+                    mostrar_modal_falha_drive(caminho_pdf, turno_id, operador)
+            except Exception as ex:
+                mostrar_snackbar(f"Erro ao reenviar: {ex}", ft.Colors.RED_800)
+
+        async def _run():
+            if _is_pyodide_env():
+                _task()
+            else:
+                try:
+                    import asyncio
+                    await asyncio.to_thread(_task)
+                except Exception:
+                    _task()
+        page.run_task(_run)
+
     def acao_sincronizar_drive(e=None):
         vibrar("light")
         mostrar_snackbar("Sincronizando PDFs com o Google Drive... 🔄")
@@ -3147,6 +3243,7 @@ async def main(page: ft.Page):
                     mostrar_snackbar("Nenhum PDF pendente. Tudo sincronizado no Google Drive! ✅", ft.Colors.GREEN_700)
                 elif sucessos > 0:
                     mostrar_snackbar(f"{sucessos} de {total} PDFs enviados com sucesso para o Drive! 🚀", ft.Colors.GREEN_700)
+                    montar_interface()
                 else:
                     mostrar_snackbar(f"Não foi possível sincronizar ({total} pendentes). Verifique a internet.", ft.Colors.AMBER_800)
             except Exception as ex:
@@ -4225,19 +4322,75 @@ async def main(page: ft.Page):
             ultimo_fechado = db.obter_ultimo_turno_fechado(conn)
             controles_fechado = [
                 topo,
-                ft.Container(height=24),
+                ft.Container(height=18),
                 ft.Container(
-                    content=ft.Icon(ft.Icons.LOCAL_GAS_STATION_ROUNDED, color=C_ACCENT_LIGHT, size=54),
+                    content=ft.Icon(ft.Icons.LOCAL_GAS_STATION_ROUNDED, color=C_ACCENT_LIGHT, size=52),
                     bgcolor=ft.Colors.with_opacity(0.12, C_ACCENT),
                     border_radius=32,
-                    padding=22,
+                    padding=20,
                     border=borda_all(1, ft.Colors.with_opacity(0.25, C_ACCENT)),
                     shadow=_sombra(C_ACCENT, 24, 0.25, 4),
                 ),
-                ft.Container(height=12),
-                ft.Text("Posto Janjão", size=30, weight=ft.FontWeight.BOLD, color=pal.text_pri),
-                ft.Text("Sistema de Fechamento de Caixa", size=14, color=pal.text_sec),
-                ft.Container(height=28),
+                ft.Container(height=8),
+                ft.Text("Posto Janjão", size=28, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+                ft.Text("Sistema de Fechamento de Caixa", size=13, color=pal.text_sec),
+            ]
+
+            if ultimo_fechado and drive_service.turno_tem_pendencia_drive(ultimo_fechado.id):
+                controles_fechado.extend([
+                    ft.Container(height=14),
+                    ft.Container(
+                        content=ft.Column(
+                            spacing=6,
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[
+                                ft.Row(
+                                    alignment=ft.MainAxisAlignment.CENTER,
+                                    spacing=6,
+                                    tight=True,
+                                    controls=[
+                                        ft.Icon(ft.Icons.CLOUD_OFF_ROUNDED, color=C_RED, size=18),
+                                        ft.Text("PDF do Último Turno NÃO Enviado", color=C_RED, weight=ft.FontWeight.BOLD, size=13),
+                                    ]
+                                ),
+                                ft.Text(
+                                    f"Turno #{ultimo_fechado.numero_do_dia} ({ultimo_fechado.operador}) • Sem conexão no fechamento",
+                                    size=11, color=pal.text_sec, text_align=ft.TextAlign.CENTER,
+                                ),
+                                ft.Container(height=2),
+                                ft.ElevatedButton(
+                                    "🔄 Reenviar PDF para o Google Drive",
+                                    icon=ft.Icons.CLOUD_UPLOAD_ROUNDED,
+                                    bgcolor=C_RED,
+                                    color=ft.Colors.WHITE,
+                                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=RADIUS_SM)),
+                                    on_click=lambda e, tid=ultimo_fechado.id, op=ultimo_fechado.operador: acao_reenviar_pdf_turno(tid, op),
+                                )
+                            ]
+                        ),
+                        bgcolor=ft.Colors.with_opacity(0.08, C_RED),
+                        border=borda_all(1, ft.Colors.with_opacity(0.3, C_RED)),
+                        border_radius=RADIUS_SM,
+                        padding=ft.Padding(16, 12, 16, 12),
+                        width=min(360, largura_conteudo),
+                    )
+                ])
+            elif ultimo_fechado:
+                controles_fechado.extend([
+                    ft.Container(height=10),
+                    ft.Row(
+                        tight=True,
+                        spacing=6,
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        controls=[
+                            ft.Icon(ft.Icons.CLOUD_DONE_ROUNDED, size=14, color=C_GREEN),
+                            ft.Text(f"PDF do Turno #{ultimo_fechado.numero_do_dia} entregue no Google Drive", size=11, color=pal.text_sec),
+                        ]
+                    )
+                ])
+
+            controles_fechado.extend([
+                ft.Container(height=20),
                 ft.Container(
                     content=ft.Row(
                         tight=True,
@@ -4260,9 +4413,9 @@ async def main(page: ft.Page):
                     shadow=_sombra(C_ACCENT, 20, 0.35, 4),
                     ink=True,
                 ),
-            ]
+            ])
             if ultimo_fechado:
-                controles_fechado.append(ft.Container(height=16))
+                controles_fechado.append(ft.Container(height=14))
                 controles_fechado.append(
                     ft.TextButton(
                         content=ft.Row(
