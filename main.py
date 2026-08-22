@@ -284,6 +284,7 @@ async def main(page: ft.Page):
         if shared_preferences:
             async def _salvar_sp():
                 try:
+                    from datetime import datetime as _dt
                     conn.commit()
                     caminho = db.caminho_banco()
                     if os.path.exists(caminho):
@@ -293,7 +294,7 @@ async def main(page: ft.Page):
                             import base64
                             b64 = base64.b64encode(data).decode("utf-8")
                             await shared_preferences.set("caixa_db_backup", b64)
-                            await shared_preferences.set("caixa_db_last_sync", datetime.now().isoformat())
+                            await shared_preferences.set("caixa_db_last_sync", _dt.now().isoformat())
                 except Exception as ex:
                     print(f"[SharedPreferences] Erro ao salvar: {ex}")
             page.run_task(_salvar_sp)
@@ -2119,10 +2120,49 @@ async def main(page: ft.Page):
                 except Exception:
                     pass
 
+        _auditoria_debounce_task = {"task": None}
+
+        def _on_auditoria_change(e=None):
+            """Atualiza visual instantaneamente, mas salva no banco com debounce de 800ms."""
+            v_val = validar_valor_monetario(input_vendas_sistema.value or "0")
+            _atualizar_estilo_dif()
+            page.update()
+            if turno_atual:
+                turno_atual.vendas_sistema = v_val
+                turno_atual.observacao = input_observacao.value or ""
+
+                # Cancela debounce anterior se existir
+                if _auditoria_debounce_task["task"]:
+                    try:
+                        _auditoria_debounce_task["task"].cancel()
+                    except Exception:
+                        pass
+
+                async def _salvar_com_debounce():
+                    import asyncio
+                    await asyncio.sleep(0.8)
+                    try:
+                        db.salvar_auditoria_turno(conn, turno_atual.id, v_val, input_observacao.value or "")
+                    except Exception:
+                        pass
+
+                _auditoria_debounce_task["task"] = page.run_task(_salvar_com_debounce)
+
+        def _on_auditoria_blur(e=None):
+            """Salva imediatamente ao perder foco (safety net)."""
+            if turno_atual:
+                v_val = validar_valor_monetario(input_vendas_sistema.value or "0")
+                turno_atual.vendas_sistema = v_val
+                turno_atual.observacao = input_observacao.value or ""
+                try:
+                    db.salvar_auditoria_turno(conn, turno_atual.id, v_val, input_observacao.value or "")
+                except Exception:
+                    pass
+
         input_vendas_sistema.on_change = _on_auditoria_change
-        input_vendas_sistema.on_blur = _on_auditoria_change
+        input_vendas_sistema.on_blur = _on_auditoria_blur
         input_observacao.on_change = _on_auditoria_change
-        input_observacao.on_blur = _on_auditoria_change
+        input_observacao.on_blur = _on_auditoria_blur
 
         linhas_totais_resumo = [
             header_turno_resumo,
@@ -3182,10 +3222,30 @@ async def main(page: ft.Page):
                         mostrar_snackbar(f"Planilha exportada: {nome_csv} 📊")
                     except Exception as ex:
                         print(f"Erro share csv: {ex}")
-                        _abrir_pdf_local(caminho_csv, nome_csv)
+                        # Fallback: abre com o app nativo do SO (funciona para CSV)
+                        try:
+                            if sys.platform == "win32":
+                                os.startfile(caminho_csv)
+                            elif sys.platform == "darwin":
+                                subprocess.Popen(["open", caminho_csv])
+                            else:
+                                subprocess.Popen(["xdg-open", caminho_csv])
+                            mostrar_snackbar(f"Planilha aberta: {nome_csv} 📊")
+                        except Exception:
+                            mostrar_snackbar(f"Planilha salva em: {caminho_csv}")
                 page.run_task(_share_csv_async)
             else:
-                _abrir_pdf_local(caminho_csv, nome_csv)
+                # Fallback desktop: abre com o app nativo do SO
+                try:
+                    if sys.platform == "win32":
+                        os.startfile(caminho_csv)
+                    elif sys.platform == "darwin":
+                        subprocess.Popen(["open", caminho_csv])
+                    else:
+                        subprocess.Popen(["xdg-open", caminho_csv])
+                    mostrar_snackbar(f"Planilha aberta: {nome_csv} 📊")
+                except Exception:
+                    mostrar_snackbar(f"Planilha salva em: {caminho_csv}")
         except Exception as ex:
             mostrar_snackbar(f"Erro ao exportar Excel: {ex}", ft.Colors.RED_800)
 
@@ -3266,11 +3326,13 @@ async def main(page: ft.Page):
         mostrar_snackbar("Reenviando PDF para o Google Drive... 🔄")
         async def _task():
             try:
-                caminho_pdf = db.exportar_turno_pdf(conn, turno_id)
+                import asyncio
+                # Gera PDF em thread separada para não bloquear o event loop
                 if _is_pyodide_env():
+                    caminho_pdf = db.exportar_turno_pdf(conn, turno_id)
                     ok, msg = await drive_service.enviar_pdf_drive_async(caminho_pdf, turno_id, operador)
                 else:
-                    import asyncio
+                    caminho_pdf = await asyncio.to_thread(db.exportar_turno_pdf, conn, turno_id)
                     ok, msg = await asyncio.to_thread(drive_service.enviar_pdf_drive_bg, caminho_pdf, turno_id, operador)
                 _enviando_drive_turno["id"] = None
                 if ok:
