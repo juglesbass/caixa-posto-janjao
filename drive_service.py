@@ -11,7 +11,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-logger = logging.getLogger("caixa_app")
+logger = logging.getLogger("caixa")
 
 # URL do Webhook do Google Apps Script ou Cloud Function do Posto Janjão
 DRIVE_WEBHOOK_URL = os.environ.get(

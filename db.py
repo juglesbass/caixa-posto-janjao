@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-logger = logging.getLogger("caixa_app")
+logger = logging.getLogger("caixa")
 
 
 def _is_pyodide() -> bool:
@@ -915,42 +915,27 @@ def fechar_turno(
 ) -> None:
     agora = datetime.now().strftime("%d/%m/%Y %H:%M")
     cursor = conn.cursor()
-    if vendas_sistema is not None and observacao is not None:
-        cursor.execute(
-            """
-            UPDATE turnos
-            SET fechado_em = ?, fisico = ?, pix = ?, cartoes = ?, requisicao = ?, total_geral = ?, vendas_sistema = ?, observacao = ?
-            WHERE id = ?
-            """,
-            (
-                agora,
-                totais.fisico,
-                totais.pix,
-                totais.cartoes,
-                totais.requisicao,
-                totais.total_geral,
-                vendas_sistema,
-                observacao,
-                turno_id,
-            ),
-        )
-    else:
-        cursor.execute(
-            """
-            UPDATE turnos
-            SET fechado_em = ?, fisico = ?, pix = ?, cartoes = ?, requisicao = ?, total_geral = ?
-            WHERE id = ?
-            """,
-            (
-                agora,
-                totais.fisico,
-                totais.pix,
-                totais.cartoes,
-                totais.requisicao,
-                totais.total_geral,
-                turno_id,
-            ),
-        )
+    # Salva vendas_sistema e observacao independentemente, usando defaults quando None
+    v_sistema = vendas_sistema if vendas_sistema is not None else 0.0
+    obs = observacao if observacao is not None else ""
+    cursor.execute(
+        """
+        UPDATE turnos
+        SET fechado_em = ?, fisico = ?, pix = ?, cartoes = ?, requisicao = ?, total_geral = ?, vendas_sistema = ?, observacao = ?
+        WHERE id = ?
+        """,
+        (
+            agora,
+            totais.fisico,
+            totais.pix,
+            totais.cartoes,
+            totais.requisicao,
+            totais.total_geral,
+            v_sistema,
+            obs,
+            turno_id,
+        ),
+    )
     conn.commit()
     salvar_banco_web_sync(conn)
 

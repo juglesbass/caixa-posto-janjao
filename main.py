@@ -2209,7 +2209,11 @@ async def main(page: ft.Page):
 
             async def _abrir_wa_async():
                 try:
-                    texto_enc = urllib.parse.quote(resumo)
+                    # Limita o texto para evitar estouro do limite de URL (~2000 chars)
+                    texto_wa = resumo
+                    if len(texto_wa) > 1800:
+                        texto_wa = texto_wa[:1800] + "\n\n... (resumo truncado, use 'Copiar' para o texto completo)"
+                    texto_enc = urllib.parse.quote(texto_wa)
 
                     # 1. No mobile / iOS, o Share Sheet nativo abre com o WhatsApp no topo
                     # e também tenta invocar o aplicativo do WhatsApp diretamente
@@ -2251,6 +2255,9 @@ async def main(page: ft.Page):
                 try:
                     if clipboard_service:
                         await clipboard_service.set(resumo)
+                        copiado = True
+                    elif hasattr(page, "set_clipboard"):
+                        await page.set_clipboard(resumo)
                         copiado = True
                     elif hasattr(page, "clipboard") and page.clipboard:
                         await page.clipboard.set(resumo)
@@ -2804,16 +2811,19 @@ async def main(page: ft.Page):
                 campo_val_sangria.error_text = "Informe um valor válido maior que zero"
                 page.update()
                 return
-            garantir_conexao()
-            db.inserir_lancamento(
-                conn, turno_atual.id,
-                db.TIPO_SANGRIA, v, campo_motivo_sangria.value or "Sangria para Cofre"
-            )
-            fechar_sang()
-            mostrar_snackbar(f"Sangria de {formatar_moeda(v)} realizada com sucesso!", ft.Colors.ORANGE_800)
-            vibrar("medium")
-            recarregar_listas()
-            sincronizar_armazenamento_navegador()
+            try:
+                garantir_conexao()
+                db.inserir_lancamento(
+                    conn, turno_atual.id,
+                    db.TIPO_SANGRIA, v, campo_motivo_sangria.value or "Sangria para Cofre"
+                )
+                fechar_sang()
+                mostrar_snackbar(f"Sangria de {formatar_moeda(v)} realizada com sucesso!", ft.Colors.ORANGE_800)
+                vibrar("medium")
+                recarregar_listas()
+                sincronizar_armazenamento_navegador()
+            except Exception as err:
+                mostrar_snackbar(f"Erro ao registrar sangria: {err}", ft.Colors.RED_800)
 
         conteudo_sang = ft.Column(
             tight=True, spacing=12,
@@ -2967,19 +2977,22 @@ async def main(page: ft.Page):
                 ),
             )
             def salvar_bico(x):
-                ini_val = validar_valor_monetario(c_ini.value or "0")
-                fim_val = validar_valor_monetario(c_fim.value or "0")
-                prc_val = validar_valor_monetario(c_prc.value or "0")
-                db.salvar_encerrante(
-                    conn, turno_atual.id,
-                    c_bico.value or "Bico", c_comb.value or "Combustível",
-                    ini_val, fim_val, prc_val,
-                    encerrante_id=bico_existente.id if bico_existente else None
-                )
-                fechar_dialogo(dlg_fb)
-                recarregar_bicos()
-                sincronizar_armazenamento_navegador()
-                mostrar_snackbar("Bico salvo com sucesso!")
+                try:
+                    ini_val = validar_valor_monetario(c_ini.value or "0")
+                    fim_val = validar_valor_monetario(c_fim.value or "0")
+                    prc_val = validar_valor_monetario(c_prc.value or "0")
+                    db.salvar_encerrante(
+                        conn, turno_atual.id,
+                        c_bico.value or "Bico", c_comb.value or "Combustível",
+                        ini_val, fim_val, prc_val,
+                        encerrante_id=bico_existente.id if bico_existente else None
+                    )
+                    fechar_dialogo(dlg_fb)
+                    recarregar_bicos()
+                    sincronizar_armazenamento_navegador()
+                    mostrar_snackbar("Bico salvo com sucesso!")
+                except Exception as err:
+                    mostrar_snackbar(f"Erro ao salvar bico: {err}", ft.Colors.RED_800)
 
             dlg_fb.actions = [
                 ft.TextButton("Salvar", on_click=salvar_bico),
@@ -3347,8 +3360,9 @@ async def main(page: ft.Page):
                 conn.commit()
                 db.salvar_banco_web_sync()
                 turno_atual.operador = "Não informado"
-            except Exception:
-                pass
+            except Exception as err:
+                print(f"Erro ao desconectar operador: {err}")
+                mostrar_snackbar(f"Aviso: erro ao salvar desconexão: {err}", ft.Colors.ORANGE_800)
             mostrar_snackbar("Operador desconectado com sucesso.")
             turno_atual = None
             solicitar_identificacao(novo_turno=False)
