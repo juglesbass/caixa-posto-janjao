@@ -1187,6 +1187,11 @@ async def main(page: ft.Page):
             limpo = limpo.replace(".", "").replace(",", ".")
         elif "," in limpo:
             limpo = limpo.replace(",", ".")
+        elif "." in limpo:
+            # Ponto como separador de milhar (ex: "1.000" = mil)
+            import re
+            if re.match(r'^\d{1,3}(\.\d{3})+$', limpo):
+                limpo = limpo.replace(".", "")
         try:
             valor = float(limpo)
         except ValueError:
@@ -1201,6 +1206,11 @@ async def main(page: ft.Page):
             limpo = limpo.replace(".", "").replace(",", ".")
         elif "," in limpo:
             limpo = limpo.replace(",", ".")
+        elif "." in limpo:
+            # Ponto como separador de milhar (ex: "1.000" = mil)
+            import re
+            if re.match(r'^\d{1,3}(\.\d{3})+$', limpo):
+                limpo = limpo.replace(".", "")
         try:
             valor = float(limpo)
             return round(valor, 2) if valor >= 0 else 0.0
@@ -2480,11 +2490,11 @@ async def main(page: ft.Page):
                     turno_id_encerrado = turno_atual.id
                     operador_encerrado = turno_atual.operador
 
-                    # Gera o PDF antes de fechar para garantir os dados
-                    caminho_pdf = db.exportar_turno_pdf(conn, turno_id_encerrado)
-
-                    # Fecha o turno no banco de dados
+                    # Fecha o turno no banco de dados ANTES de gerar o PDF
                     db.fechar_turno(conn, turno_id_encerrado, totais, vendas_sistema=v_val, observacao=obs_val)
+
+                    # Gera o PDF após fechar para incluir horário de fechamento e dados finais
+                    caminho_pdf = db.exportar_turno_pdf(conn, turno_id_encerrado)
                     turno_atual = None
                     sincronizar_armazenamento_navegador()
                     fechar_resumo()
@@ -3292,7 +3302,7 @@ async def main(page: ft.Page):
 
         def desbloquear(x=None):
             pin_inf = (campo_pin_desbloqueio.value or "").strip()
-            if not pin_configurado or pin_inf == pin_configurado or pin_inf == "1234":
+            if not pin_configurado or pin_inf == pin_configurado:
                 fechar_dialogo(dlg_bloqueio)
                 mostrar_snackbar("Caixa desbloqueado! Bom trabalho.", ft.Colors.GREEN_700)
                 vibrar("light")

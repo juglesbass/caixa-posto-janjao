@@ -727,7 +727,7 @@ def obter_movimento_por_hora(conn: sqlite3.Connection, turno_id: int) -> list[tu
     cursor = conn.cursor()
     rows = cursor.execute(
         """
-        SELECT substr(data, 12, 2) as hora, COUNT(*), SUM(valor_centavos)
+        SELECT substr(data, 1, 2) as hora, COUNT(*), SUM(valor_centavos)
         FROM lancamentos
         WHERE turno_id = ? AND data IS NOT NULL AND length(data) >= 13
         GROUP BY hora
