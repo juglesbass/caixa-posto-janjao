@@ -184,6 +184,14 @@ def formatar_moeda(valor: float) -> str:
     return f"R$ {texto}"
 
 
+def parse_moeda_float(valor_str: str) -> float:
+    """Extrai apenas os dígitos numéricos e converte centavos em float com 2 casas decimais."""
+    digitos = "".join(filter(str.isdigit, str(valor_str) or ""))
+    if not digitos:
+        return 0.0
+    return round(int(digitos) / 100.0, 2)
+
+
 @dataclass
 class Totais:
     fisico: float

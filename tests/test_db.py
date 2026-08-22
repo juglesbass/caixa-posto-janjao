@@ -2,8 +2,7 @@
 
 import unittest
 import sqlite3
-import tempfile
-import os
+from unittest.mock import patch
 from datetime import datetime
 
 # Importar os módulos a testar
@@ -34,15 +33,41 @@ class TestFormatarMoeda(unittest.TestCase):
         self.assertEqual(db.formatar_moeda(-50.0), "R$ -50,00")
 
 
+class TestParseMoedaFloat(unittest.TestCase):
+    """Testes para conversão de strings monetárias em float."""
+
+    def test_parse_vazio(self):
+        self.assertEqual(db.parse_moeda_float(""), 0.0)
+        self.assertEqual(db.parse_moeda_float(None), 0.0)
+
+    def test_parse_formatado_reais(self):
+        self.assertEqual(db.parse_moeda_float("R$ 50,00"), 50.0)
+        self.assertEqual(db.parse_moeda_float("R$ 10,00"), 10.0)
+        self.assertEqual(db.parse_moeda_float("R$ 500,00"), 500.0)
+
+    def test_parse_com_centavos(self):
+        self.assertEqual(db.parse_moeda_float("R$ 47,75"), 47.75)
+        self.assertEqual(db.parse_moeda_float("4775"), 47.75)
+        self.assertEqual(db.parse_moeda_float("5"), 0.05)
+        self.assertEqual(db.parse_moeda_float("50"), 0.50)
+
+    def test_parse_milhar(self):
+        self.assertEqual(db.parse_moeda_float("R$ 1.234,56"), 1234.56)
+
+
 class BaseDBTestCase(unittest.TestCase):
     """Base para testes que necessitam de banco de dados SQLite temporário."""
 
     def setUp(self):
         self.conn = sqlite3.connect(":memory:")
         self.conn.row_factory = sqlite3.Row
+        # Mocka salvar_banco_web_sync para evitar leitura do disco em testes
+        self._patcher = patch("db.salvar_banco_web_sync")
+        self._patcher.start()
         db.inicializar_banco(self.conn)
 
     def tearDown(self):
+        self._patcher.stop()
         self.conn.close()
 
 

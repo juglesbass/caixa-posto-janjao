@@ -89,9 +89,36 @@ def _saudacao_hora() -> str:
 
 FILTRO_VALOR_MONETARIO = ft.InputFilter(
     allow=True,
-    regex_string=r"^[\d.,]*$",
+    regex_string=r"^[\d., R$]*$",
     replacement_string="",
 )
+
+def parse_moeda_float(valor_str: str) -> float:
+    """Extrai apenas os dígitos numéricos, converte centavos em float e retorna float com 2 casas. Se vazio, retorna 0.0."""
+    digitos = "".join(filter(str.isdigit, str(valor_str) or ""))
+    if not digitos:
+        return 0.0
+    return round(int(digitos) / 100.0, 2)
+
+def formatar_moeda_input(e: ft.ControlEvent) -> None:
+    """Aplica máscara de moeda brasileira em tempo real no campo de entrada."""
+    if not e or not hasattr(e, "control") or e.control is None:
+        return
+    digitos = "".join(filter(str.isdigit, str(e.control.value or "")))
+    if not digitos:
+        e.control.value = ""
+        try:
+            e.control.update()
+        except Exception:
+            pass
+        return
+    val_float = int(digitos) / 100.0
+    texto_fmt = f"{val_float:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
+    e.control.value = f"R$ {texto_fmt}"
+    try:
+        e.control.update()
+    except Exception:
+        pass
 
 def borda_all(largura, cor) -> ft.Border:
     return ft.Border(
@@ -1030,10 +1057,10 @@ async def main(page: ft.Page):
     tipo_inicial = carregar_ultimo_tipo()
     seletor_col, estado_tipo, selecionar_tipo, reconstruir_seletor = criar_seletor_tipo(tipo_inicial)
 
-    # ═══════════════════════════════════════════════════════════════[...]
+    # ════════════════════════════════════════════════════════════════════════
     # INPUTS
-    # ═══════════════════════════════════════════════════════════════[...]
-    _keyboard_valor = ft.KeyboardType.DATETIME
+    # ════════════════════════════════════════════════════════════════════════
+    _keyboard_valor = ft.KeyboardType.PHONE
 
     def ao_tocar_fora(e):
         desfocar_campos(input_valor, input_desc, input_recebido)
@@ -1044,14 +1071,12 @@ async def main(page: ft.Page):
         except Exception:
             pass
 
-    txt_prefix_valor = ft.Text("R$ ", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri)
-    txt_prefix_recebido = ft.Text("R$ ", size=14, weight=ft.FontWeight.BOLD, color=pal.text_pri)
-
     input_valor = ft.TextField(
-        label="Valor da Venda (Ex: 50.00 ou 50,00)",
+        label="Valor da Venda",
+        hint_text="R$ 0,00",
+        hint_style=ft.TextStyle(color=pal.text_ter),
         label_style=ft.TextStyle(color=pal.text_sec),
         width=largura_conteudo,
-        prefix=txt_prefix_valor,
         text_size=18,
         text_style=ft.TextStyle(weight=ft.FontWeight.BOLD, color=pal.text_pri),
         content_padding=ft.Padding(16, 14, 16, 14),
@@ -1098,11 +1123,11 @@ async def main(page: ft.Page):
                 pass
             return
         input_recebido.visible = True
-        val_dev = validar_valor_monetario(input_valor.value or "")
-        val_rec = validar_valor_monetario(input_recebido.value or "")
+        val_dev = parse_moeda_float(input_valor.value or "")
+        val_rec = parse_moeda_float(input_recebido.value or "")
         if val_dev > 0 and val_rec >= val_dev:
             troco = round(val_rec - val_dev, 2)
-            txt_troco_valor.value = formatar_moeda(troco)
+            txt_troco_valor.value = db.formatar_moeda(troco)
             badge_troco_calculado.visible = True
         else:
             badge_troco_calculado.visible = False
@@ -1111,14 +1136,23 @@ async def main(page: ft.Page):
         except Exception:
             pass
 
+    def ao_mudar_valor_principal(e):
+        formatar_moeda_input(e)
+        atualizar_calculo_troco()
+
+    def ao_mudar_valor_recebido(e):
+        formatar_moeda_input(e)
+        atualizar_calculo_troco()
+
+    input_valor.on_change = ao_mudar_valor_principal
+
     input_recebido = ft.TextField(
         label="Valor Pago pelo Cliente (Troco)",
-        hint_text="Ex: 100,00",
+        hint_text="R$ 0,00",
         hint_style=ft.TextStyle(color=pal.text_ter),
         label_style=ft.TextStyle(color=pal.text_sec),
         text_style=ft.TextStyle(color=pal.text_pri),
         width=largura_conteudo,
-        prefix=txt_prefix_recebido,
         border_radius=RADIUS_MD,
         content_padding=ft.Padding(16, 12, 16, 12),
         filled=True,
@@ -1132,12 +1166,10 @@ async def main(page: ft.Page):
         enable_suggestions=False,
         input_filter=FILTRO_VALOR_MONETARIO,
         visible=(tipo_inicial == db.TIPO_DINHEIRO),
-        on_change=atualizar_calculo_troco,
+        on_change=ao_mudar_valor_recebido,
         on_focus=ao_focar_campo,
         on_tap_outside=ao_tocar_fora,
     )
-
-    input_valor.on_change = atualizar_calculo_troco
 
     row_calculadora_troco = ft.Row(
         spacing=8,
@@ -1190,58 +1222,40 @@ async def main(page: ft.Page):
         page.run_task(_desfocar)
 
     def set_valor(val, desc=""):
-        input_valor.value = val
+        if isinstance(val, (int, float)):
+            input_valor.value = db.formatar_moeda(float(val))
+        elif isinstance(val, str):
+            if val.startswith("R$"):
+                input_valor.value = val
+            else:
+                input_valor.value = db.formatar_moeda(parse_moeda_float(val))
+        else:
+            input_valor.value = ""
+        input_valor.error_text = None
         if desc:
             input_desc.value = desc
         atualizar_calculo_troco()
         desfocar_campos(input_valor, input_desc, input_recebido)
+        try:
+            input_valor.update()
+        except Exception:
+            pass
         page.update()
 
-    def validar_valor(texto: str):
-        if not texto or not texto.strip():
-            return None
-        limpo = texto.strip().replace("R$", "").replace(" ", "")
-        if "," in limpo and "." in limpo:
-            limpo = limpo.replace(".", "").replace(",", ".")
-        elif "," in limpo:
-            limpo = limpo.replace(",", ".")
-        elif "." in limpo:
-            # Ponto como separador de milhar (ex: "1.000" = mil)
-            import re
-            if re.match(r'^\d{1,3}(\.\d{3})+$', limpo):
-                limpo = limpo.replace(".", "")
-        try:
-            valor = float(limpo)
-        except ValueError:
-            return None
-        return round(valor, 2) if valor > 0 else None
+    def validar_valor(texto: str) -> float | None:
+        val = parse_moeda_float(texto)
+        return val if val > 0 else None
 
     def validar_valor_monetario(texto: str) -> float:
-        if not texto or not texto.strip():
-            return 0.0
-        limpo = texto.strip().replace("R$", "").replace(" ", "")
-        if "," in limpo and "." in limpo:
-            limpo = limpo.replace(".", "").replace(",", ".")
-        elif "," in limpo:
-            limpo = limpo.replace(",", ".")
-        elif "." in limpo:
-            # Ponto como separador de milhar (ex: "1.000" = mil)
-            import re
-            if re.match(r'^\d{1,3}(\.\d{3})+$', limpo):
-                limpo = limpo.replace(".", "")
-        try:
-            valor = float(limpo)
-            return round(valor, 2) if valor >= 0 else 0.0
-        except ValueError:
-            return 0.0
+        return parse_moeda_float(texto)
 
-    # ═══════════════════════════════════════════════════════════════
+    # ════════════════════════════════════════════════════════════════════════
     # BOTÕES RÁPIDOS
-    # ═══════════════════════════════════════════════════════════════
-    def _pill_btn(label, on_click, is_completou=False):
-        cor_borda = ft.Colors.with_opacity(0.40, C_AMBER) if is_completou else pal.border
-        cor_texto = C_AMBER if is_completou else pal.text_pri
-        cor_bg    = ft.Colors.with_opacity(0.12, C_AMBER) if is_completou else pal.surface
+    # ════════════════════════════════════════════════════════════════════════
+    def _pill_btn(label, on_click):
+        cor_borda = pal.border
+        cor_texto = pal.text_pri
+        cor_bg    = pal.surface
         
         def handle_click(e):
             vibrar("light")
@@ -1249,11 +1263,11 @@ async def main(page: ft.Page):
                 on_click(e)
 
         container = ft.Container(
-            content=ft.Text(label, size=13, color=cor_texto, weight=ft.FontWeight.BOLD if is_completou else ft.FontWeight.W_600),
+            content=ft.Text(label, size=13, color=cor_texto, weight=ft.FontWeight.W_600),
             bgcolor=cor_bg,
             border_radius=100,
             border=borda_all(1, cor_borda),
-            padding=ft.Padding(left=16, right=16, top=10, bottom=10),
+            padding=ft.Padding(left=14, right=14, top=9, bottom=9),
             scale=ft.Scale(scale=1),
             animate_scale=_animacao(150, ft.AnimationCurve.EASE_OUT),
             on_click=handle_click,
@@ -1285,8 +1299,9 @@ async def main(page: ft.Page):
 
         campo_valor_edit = ft.TextField(
             label="Valor",
-            value=f"{valor_atual:.2f}".replace(".", ","),
-            prefix=ft.Text("R$ ", color=pal.text_pri),
+            value=db.formatar_moeda(valor_atual),
+            hint_text="R$ 0,00",
+            hint_style=ft.TextStyle(color=pal.text_ter),
             width=largura_conteudo,
             keyboard_type=_keyboard_valor,
             adaptive=adaptive_ui,
@@ -1298,6 +1313,7 @@ async def main(page: ft.Page):
             color=pal.text_pri,
             text_style=ft.TextStyle(color=pal.text_pri),
             label_style=ft.TextStyle(color=pal.text_sec),
+            on_change=formatar_moeda_input,
             on_tap_outside=ao_tocar_fora_edicao,
         )
         campo_desc_edit = ft.TextField(
@@ -1313,71 +1329,83 @@ async def main(page: ft.Page):
             on_tap_outside=ao_tocar_fora_edicao,
         )
 
-        def salvar_edicao(e=None):
-            garantir_conexao()
-            val_txt = campo_valor_edit.value or ""
-            val_num = validar_valor(val_txt)
-            if val_num is None:
+        modal_ref = {"ctrl": None}
+
+        def fechar_modal_edit(x=None):
+            if modal_ref["ctrl"]:
+                fechar_dialogo(modal_ref["ctrl"])
+
+        def salvar_edicao(x):
+            novo_valor = parse_moeda_float(campo_valor_edit.value or "")
+            if novo_valor <= 0:
                 campo_valor_edit.error_text = "Informe um valor maior que zero"
                 page.update()
                 return
-            try:
-                garantir_conexao()
-                ok = db.atualizar_lancamento(
-                    conn, rid, turno_atual.id,
-                    estado_edit["valor"], novo_valor, campo_desc_edit.value or "",
-                )
-                if ok:
-                    fechar_modal_edit()
-                    mostrar_snackbar("Lançamento atualizado com sucesso! ✅")
-                    recarregar_listas()
-                    if ao_salvar_callback:
-                        ao_salvar_callback()
-                    page.update()
-                else:
-                    mostrar_snackbar("Não foi possível editar.", ft.Colors.RED_800)
-            except Exception as ex_edit:
-                print(f"[Editar Lançamento] Erro: {ex_edit}")
-                mostrar_snackbar("Erro ao editar. Tente novamente.", ft.Colors.RED_800)
+
+            garantir_conexao()
+            tipo_edit = estado_edit["valor"]
+            if db.eh_cartao(tipo_edit):
+                if not tipo_edit.startswith("Rede ") and not tipo_edit.startswith("Cielo "):
+                    tipo_edit = f"{maquina_ativa} {tipo_edit}"
+
+            if db.atualizar_lancamento(
+                conn,
+                rid,
+                turno_atual.id,
+                tipo_edit,
+                novo_valor,
+                campo_desc_edit.value or "",
+            ):
+                fechar_modal_edit()
+                recarregar_listas()
+                mostrar_snackbar(f"Lançamento atualizado para {formatar_moeda(novo_valor)}")
+                vibrar("light")
+                if ao_salvar_callback:
+                    ao_salvar_callback()
+                sincronizar_armazenamento_navegador()
+            else:
+                mostrar_snackbar("Erro ao atualizar lançamento.", ft.Colors.RED_800)
 
         conteudo_form = ft.Column(
-            [
-                ft.Text("Forma de Pagamento", size=12, weight=ft.FontWeight.W_600, color=pal.text_sec),
+            spacing=14,
+            tight=True,
+            controls=[
                 seletor_edit,
-                ft.Container(height=4),
                 campo_valor_edit,
                 campo_desc_edit,
-            ],
-            tight=True,
-            spacing=8,
-            width=largura_conteudo,
-            scroll=ft.ScrollMode.AUTO,
+            ]
         )
 
-        if mobile:
+        if mobile or ios:
             painel_sheet = ft.Container(
-                padding=ft.Padding(left=18, top=10, right=18, bottom=40),
+                expand=True,
+                padding=ft.Padding(20, 12, 20, 30),
                 bgcolor=pal.sheet_bg,
-                width=largura_conteudo,
                 content=ft.Column(
                     expand=True,
-                    spacing=10,
+                    spacing=14,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
-                        ft.Row([
-                            ft.Icon(ft.Icons.EDIT_ROUNDED, color=C_ACCENT, size=20),
-                            ft.Text("Editar Lançamento", size=17, weight=ft.FontWeight.BOLD, color=pal.text_pri),
-                        ], spacing=8, alignment=ft.MainAxisAlignment.CENTER),
+                        ft.Container(width=36, height=4, border_radius=2, bgcolor=pal.border_strong),
+                        ft.Row(
+                            [ft.Icon(ft.Icons.EDIT_ROUNDED, color=C_ACCENT, size=20),
+                             ft.Text("Editar Lançamento", size=17, weight=ft.FontWeight.BOLD, color=pal.text_pri)],
+                            spacing=8,
+                        ),
                         ft.Divider(height=1, color=pal.border),
-                        ft.Container(content=conteudo_form, expand=True),
+                        conteudo_form,
                         ft.Row(
                             spacing=10,
-                            alignment=ft.MainAxisAlignment.CENTER,
                             controls=[
                                 ft.OutlinedButton(
                                     "Cancelar",
                                     icon=ft.Icons.CLOSE_ROUNDED,
                                     on_click=fechar_modal_edit,
-                                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=RADIUS_SM)),
+                                    style=ft.ButtonStyle(
+                                        shape=ft.RoundedRectangleBorder(radius=RADIUS_SM),
+                                        side=ft.BorderSide(1, pal.border),
+                                        color=pal.text_sec,
+                                    ),
                                     expand=True,
                                     height=46,
                                 ),
@@ -1414,22 +1442,11 @@ async def main(page: ft.Page):
             modal_ref["ctrl"] = dlg_editar
             abrir_dialogo(dlg_editar)
 
-    def acao_completou(e):
-        selecionar_tipo(db.TIPO_DINHEIRO)
-        input_desc.value = "Completou"
-        input_valor.value = ""
-        input_valor.error_text = None
-        desfocar_campos(input_valor, input_desc)
-        page.update()
-
     def montar_botoes_rapidos():
+        valores_atalhos = [10, 20, 30, 40, 50, 100, 200, 500]
         row_botoes_rapidos.controls = [
-            _pill_btn("+ R$ 10", lambda e: set_valor("10.00")),
-            _pill_btn("+ R$ 20", lambda e: set_valor("20.00")),
-            _pill_btn("+ R$ 50", lambda e: set_valor("50.00")),
-            _pill_btn("+ R$ 100", lambda e: set_valor("100.00")),
-            _pill_btn("+ R$ 200", lambda e: set_valor("200.00")),
-            _pill_btn("✓ Completou", acao_completou, is_completou=True),
+            _pill_btn(f"+ R$ {v}", lambda e, val=float(v): set_valor(val))
+            for v in valores_atalhos
         ]
 
     row_botoes_rapidos = ft.Row(
@@ -1824,8 +1841,8 @@ async def main(page: ft.Page):
     def acao_lancar(e=None):
         if btn_lancar.opacity == 0.5 or turno_atual is None:
             return
-        valor_float = validar_valor(input_valor.value or "")
-        if valor_float is None:
+        valor_float = parse_moeda_float(input_valor.value or "")
+        if valor_float <= 0:
             input_valor.error_text = "Informe um valor maior que zero"
             page.update()
             return
@@ -1846,13 +1863,15 @@ async def main(page: ft.Page):
             )
             input_valor.value = ""
             input_desc.value  = ""
+            input_recebido.value = ""
+            badge_troco_calculado.visible = False
             input_valor.error_text = None
             mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {tipo_lancar}")
             vibrar("light")
             salvar_ultimo_tipo(estado_tipo["valor"])
             atualizar_painel()
             carregar_historico()
-            desfocar_campos(input_valor, input_desc)
+            desfocar_campos(input_valor, input_desc, input_recebido)
             sincronizar_armazenamento_navegador()
         except Exception:
             mostrar_snackbar("Erro ao lançar. Tente novamente.", ft.Colors.RED_800)
@@ -2027,16 +2046,16 @@ async def main(page: ft.Page):
 
         input_vendas_sistema = ft.TextField(
             label="TOTAL DE VENDAS SISTEMA (PDV)",
-            value=f"{v_sis_ini:.2f}".replace(".", ",") if v_sis_ini > 0 else "",
+            value=db.formatar_moeda(v_sis_ini) if v_sis_ini > 0 else "",
             keyboard_type=_keyboard_valor,
             input_filter=FILTRO_VALOR_MONETARIO,
-            hint_text="0,00",
+            hint_text="R$ 0,00",
+            hint_style=ft.TextStyle(color=pal.text_ter),
             filled=True,
             bgcolor=pal.surface,
             border_radius=RADIUS_SM,
             border_color=pal.border,
             focused_border_color=C_ACCENT,
-            prefix=ft.Text("R$ ", size=16, weight=ft.FontWeight.BOLD, color=pal.text_pri),
             text_size=16,
             text_style=ft.TextStyle(weight=ft.FontWeight.BOLD, color=pal.text_pri),
         )
@@ -2060,7 +2079,7 @@ async def main(page: ft.Page):
             ao_registrar_inputs(input_vendas_sistema, input_observacao)
 
         def _calc_dif():
-            val = validar_valor_monetario(input_vendas_sistema.value or "0")
+            val = parse_moeda_float(input_vendas_sistema.value or "0")
             return totais.total_geral - val
 
         txt_dif_valor = ft.Text(
@@ -2108,23 +2127,13 @@ async def main(page: ft.Page):
 
         _atualizar_estilo_dif()
 
-        def _on_auditoria_change(e=None):
-            v_val = validar_valor_monetario(input_vendas_sistema.value or "0")
-            _atualizar_estilo_dif()
-            page.update()
-            if turno_atual:
-                turno_atual.vendas_sistema = v_val
-                turno_atual.observacao = input_observacao.value or ""
-                try:
-                    db.salvar_auditoria_turno(conn, turno_atual.id, v_val, input_observacao.value or "")
-                except Exception:
-                    pass
-
         _auditoria_debounce_task = {"task": None}
 
         def _on_auditoria_change(e=None):
             """Atualiza visual instantaneamente, mas salva no banco com debounce de 800ms."""
-            v_val = validar_valor_monetario(input_vendas_sistema.value or "0")
+            if e and hasattr(e, "control") and e.control == input_vendas_sistema:
+                formatar_moeda_input(e)
+            v_val = parse_moeda_float(input_vendas_sistema.value or "0")
             _atualizar_estilo_dif()
             page.update()
             if turno_atual:
@@ -2151,7 +2160,7 @@ async def main(page: ft.Page):
         def _on_auditoria_blur(e=None):
             """Salva imediatamente ao perder foco (safety net)."""
             if turno_atual:
-                v_val = validar_valor_monetario(input_vendas_sistema.value or "0")
+                v_val = parse_moeda_float(input_vendas_sistema.value or "0")
                 turno_atual.vendas_sistema = v_val
                 turno_atual.observacao = input_observacao.value or ""
                 try:
@@ -2832,8 +2841,8 @@ async def main(page: ft.Page):
         
         campo_val_sangria = ft.TextField(
             label="Valor da Sangria (R$)",
-            hint_text="0,00",
-            prefix=ft.Text("R$ ", size=16, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+            hint_text="R$ 0,00",
+            hint_style=ft.TextStyle(color=pal.text_ter),
             keyboard_type=_keyboard_valor,
             input_filter=FILTRO_VALOR_MONETARIO,
             filled=True,
@@ -2842,6 +2851,7 @@ async def main(page: ft.Page):
             border_color=pal.border,
             focused_border_color=C_ORANGE,
             autofocus=True,
+            on_change=formatar_moeda_input,
         )
         campo_motivo_sangria = ft.TextField(
             label="Destino / Justificativa",
@@ -3832,8 +3842,8 @@ async def main(page: ft.Page):
 
         campo_valor_modal = ft.TextField(
             label="Valor",
-            hint_text="0,00",
-            prefix=ft.Text("R$ ", size=18, weight=ft.FontWeight.BOLD, color=pal.text_pri),
+            hint_text="R$ 0,00",
+            hint_style=ft.TextStyle(color=pal.text_ter),
             text_size=22,
             text_style=ft.TextStyle(weight=ft.FontWeight.BOLD, color=pal.text_pri),
             keyboard_type=_keyboard_valor,
@@ -3845,6 +3855,7 @@ async def main(page: ft.Page):
             border_color=pal.border,
             focused_border_color=C_ACCENT,
             input_filter=FILTRO_VALOR_MONETARIO,
+            on_change=formatar_moeda_input,
         )
 
         campo_desc_modal = ft.TextField(
@@ -3872,37 +3883,21 @@ async def main(page: ft.Page):
                 pass
 
         def set_valor_modal(v: float):
-            campo_valor_modal.value = f"{v:.2f}".replace(".", ",")
+            campo_valor_modal.value = db.formatar_moeda(float(v))
             campo_valor_modal.error_text = None
             try:
                 campo_valor_modal.update()
             except Exception:
                 pass
 
-        def inserir_virgula_modal(e=None):
-            vibrar("light")
-            atual = (campo_valor_modal.value or "").strip()
-            if not atual:
-                campo_valor_modal.value = "0,"
-            elif "," not in atual and "." not in atual:
-                campo_valor_modal.value = f"{atual},"
-            try:
-                campo_valor_modal.update()
-            except Exception:
-                pass
-
+        valores_atalhos_modal = [10, 20, 30, 40, 50, 100, 200, 500]
         botoes_rapidos_modal = ft.Row(
             wrap=True,
             spacing=8,
             alignment=ft.MainAxisAlignment.CENTER,
             controls=[
-                _pill_btn("+ R$ 20", lambda e: set_valor_modal(20.0)),
-                _pill_btn("+ R$ 50", lambda e: set_valor_modal(50.0)),
-                _pill_btn("+ R$ 100", lambda e: set_valor_modal(100.0)),
-                _pill_btn("+ R$ 150", lambda e: set_valor_modal(150.0)),
-                _pill_btn("+ R$ 200", lambda e: set_valor_modal(200.0)),
-                _pill_btn("Completou", lambda e: set_valor_modal(50.0), is_completou=True),
-                _pill_btn(", (vírgula)", inserir_virgula_modal),
+                _pill_btn(f"+ R$ {v}", lambda e, val=float(v): set_valor_modal(val))
+                for v in valores_atalhos_modal
             ]
         )
 
@@ -4752,8 +4747,8 @@ async def main(page: ft.Page):
 
         campo_fundo = ft.TextField(
             label="Fundo de Caixa / Troco Inicial",
-            hint_text="Ex: 200,00 (Opcional)",
-            prefix=ft.Text("R$ "),
+            hint_text="R$ 0,00 (Opcional)",
+            hint_style=ft.TextStyle(color=pal.text_ter),
             keyboard_type=_keyboard_valor,
             input_filter=FILTRO_VALOR_MONETARIO,
             width=280,
@@ -4763,6 +4758,7 @@ async def main(page: ft.Page):
             border_color=pal.border,
             focused_border_color=C_GREEN,
             visible=novo_turno,
+            on_change=formatar_moeda_input,
         )
 
         texto_erro = ft.Text("", color=ft.Colors.RED_400, size=12, weight=ft.FontWeight.W_600)
