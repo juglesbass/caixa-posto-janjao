@@ -2484,16 +2484,26 @@ async def main(page: ft.Page):
                         import asyncio
                         await asyncio.sleep(0.35)
                         vibrar("medium")
+
+                        # Registra na fila offline antes de disparar a tentativa
+                        drive_service.salvar_pendencia_envio(caminho_pdf, turno_id_encerrado, operador_encerrado)
                         montar_interface()
 
                         # Envio automático do PDF para o Google Drive com verificação rigorosa
-                        def _drive_task():
+                        async def _executar_envio_drive():
                             try:
-                                ok, msg = drive_service.enviar_pdf_drive_bg(
-                                    caminho_pdf, turno_id_encerrado, operador_encerrado
-                                )
+                                if _is_pyodide_env():
+                                    ok, msg = await drive_service.enviar_pdf_drive_async(
+                                        caminho_pdf, turno_id_encerrado, operador_encerrado
+                                    )
+                                else:
+                                    ok, msg = await asyncio.to_thread(
+                                        drive_service.enviar_pdf_drive_bg,
+                                        caminho_pdf, turno_id_encerrado, operador_encerrado
+                                    )
                                 if ok:
                                     mostrar_snackbar("Turno encerrado e PDF entregue no Google Drive! 🚀", ft.Colors.GREEN_700)
+                                    vibrar("light")
                                     montar_interface()
                                 else:
                                     mostrar_snackbar("Caixa Fechado. Falha ao enviar PDF para o Drive.", ft.Colors.AMBER_800)
@@ -2504,16 +2514,7 @@ async def main(page: ft.Page):
                                 mostrar_modal_falha_drive(caminho_pdf, turno_id_encerrado, operador_encerrado)
                                 montar_interface()
 
-                        async def _run_drive_bg():
-                            if _is_pyodide_env():
-                                _drive_task()
-                            else:
-                                try:
-                                    await asyncio.to_thread(_drive_task)
-                                except Exception:
-                                    _drive_task()
-
-                        page.run_task(_run_drive_bg)
+                        page.run_task(_executar_envio_drive)
 
                     page.run_task(_finalizar_encerramento)
                 except Exception as ex:
@@ -3165,9 +3166,13 @@ async def main(page: ft.Page):
 
         def _tentar_reenviar_modal(e):
             mostrar_snackbar("Tentando reenviar ao Google Drive... 🔄")
-            def _task():
+            async def _task():
                 try:
-                    ok, msg = drive_service.enviar_pdf_drive_bg(caminho_pdf, turno_id, operador)
+                    if _is_pyodide_env():
+                        ok, msg = await drive_service.enviar_pdf_drive_async(caminho_pdf, turno_id, operador)
+                    else:
+                        import asyncio
+                        ok, msg = await asyncio.to_thread(drive_service.enviar_pdf_drive_bg, caminho_pdf, turno_id, operador)
                     if ok:
                         fechar_dialogo(dlg_falha_drive)
                         mostrar_snackbar("PDF entregue com sucesso no Google Drive do Gerente! 🚀", ft.Colors.GREEN_700)
@@ -3179,16 +3184,7 @@ async def main(page: ft.Page):
                 except Exception as ex:
                     mostrar_snackbar(f"Erro: {ex}", ft.Colors.RED_800)
 
-            async def _run():
-                if _is_pyodide_env():
-                    _task()
-                else:
-                    try:
-                        import asyncio
-                        await asyncio.to_thread(_task)
-                    except Exception:
-                        _task()
-            page.run_task(_run)
+            page.run_task(_task)
 
         dlg_falha_drive.actions = [
             ft.OutlinedButton(
@@ -3209,10 +3205,14 @@ async def main(page: ft.Page):
     def acao_reenviar_pdf_turno(turno_id: int, operador: str):
         vibrar("light")
         mostrar_snackbar("Reenviando PDF para o Google Drive... 🔄")
-        def _task():
+        async def _task():
             try:
                 caminho_pdf = db.exportar_turno_pdf(conn, turno_id)
-                ok, msg = drive_service.enviar_pdf_drive_bg(caminho_pdf, turno_id, operador)
+                if _is_pyodide_env():
+                    ok, msg = await drive_service.enviar_pdf_drive_async(caminho_pdf, turno_id, operador)
+                else:
+                    import asyncio
+                    ok, msg = await asyncio.to_thread(drive_service.enviar_pdf_drive_bg, caminho_pdf, turno_id, operador)
                 if ok:
                     mostrar_snackbar("PDF entregue com sucesso no Google Drive do Gerente! 🚀", ft.Colors.GREEN_700)
                     vibrar("light")
@@ -3222,23 +3222,18 @@ async def main(page: ft.Page):
             except Exception as ex:
                 mostrar_snackbar(f"Erro ao reenviar: {ex}", ft.Colors.RED_800)
 
-        async def _run():
-            if _is_pyodide_env():
-                _task()
-            else:
-                try:
-                    import asyncio
-                    await asyncio.to_thread(_task)
-                except Exception:
-                    _task()
-        page.run_task(_run)
+        page.run_task(_task)
 
     def acao_sincronizar_drive(e=None):
         vibrar("light")
         mostrar_snackbar("Sincronizando PDFs com o Google Drive... 🔄")
-        def _sync_task():
+        async def _sync_task():
             try:
-                sucessos, total = drive_service.sincronizar_pendencias_drive_bg()
+                if _is_pyodide_env():
+                    sucessos, total = await drive_service.sincronizar_pendencias_drive_async()
+                else:
+                    import asyncio
+                    sucessos, total = await asyncio.to_thread(drive_service.sincronizar_pendencias_drive_bg)
                 if total == 0:
                     mostrar_snackbar("Nenhum PDF pendente. Tudo sincronizado no Google Drive! ✅", ft.Colors.GREEN_700)
                 elif sucessos > 0:
@@ -3249,17 +3244,7 @@ async def main(page: ft.Page):
             except Exception as ex:
                 mostrar_snackbar(f"Erro na sincronização: {ex}", ft.Colors.RED_800)
 
-        async def _run_sync_bg():
-            if _is_pyodide_env():
-                _sync_task()
-            else:
-                try:
-                    import asyncio
-                    await asyncio.to_thread(_sync_task)
-                except Exception:
-                    _sync_task()
-
-        page.run_task(_run_sync_bg)
+        page.run_task(_sync_task)
 
     def bloquear_tela(e=None):
         fechar_menu()
@@ -4741,14 +4726,16 @@ async def main(page: ft.Page):
     async def _sync_inicial_bg():
         try:
             import asyncio
-            await asyncio.sleep(1.2)
+            await asyncio.sleep(1.0)
             if _is_pyodide_env():
-                drive_service.sincronizar_pendencias_drive_bg()
+                sucessos, total = await drive_service.sincronizar_pendencias_drive_async()
             else:
                 try:
-                    await asyncio.to_thread(drive_service.sincronizar_pendencias_drive_bg)
+                    sucessos, total = await asyncio.to_thread(drive_service.sincronizar_pendencias_drive_bg)
                 except Exception:
-                    drive_service.sincronizar_pendencias_drive_bg()
+                    sucessos, total = drive_service.sincronizar_pendencias_drive_bg()
+            if sucessos > 0 and turno_atual is None:
+                montar_interface()
         except Exception:
             pass
 

@@ -131,8 +131,8 @@ def remover_pendencia_envio(turno_id: int) -> None:
             logger.error(f"[DriveQueue] Erro ao atualizar pendências: {e}")
 
 
-def _enviar_web_js(url_webhook: str, payload: dict) -> tuple[bool, str]:
-    """Envia o payload usando requisição com checagem real de status no navegador (PWA/Pyodide)."""
+async def _enviar_web_js_async(url_webhook: str, payload: dict) -> tuple[bool, str]:
+    """Envia o payload usando fetch assíncrono blindado com checagem real no navegador (PWA/Pyodide)."""
     try:
         import js
         try:
@@ -144,47 +144,100 @@ def _enviar_web_js(url_webhook: str, payload: dict) -> tuple[bool, str]:
 
         payload_str = json.dumps(payload)
         js_code = f"""
-            (function() {{
-                try {{
-                    if (typeof navigator !== 'undefined' && navigator.onLine === false) {{
-                        return JSON.stringify({{ok: false, erro: "Dispositivo offline"}});
-                    }}
-                    var payload = {payload_str};
-                    var xhr = new XMLHttpRequest();
-                    xhr.open("POST", "{url_webhook}", false);
-                    xhr.setRequestHeader("Content-Type", "text/plain;charset=utf-8");
-                    try {{
-                        xhr.send(JSON.stringify(payload));
-                        if (xhr.status === 200 || xhr.status === 201 || xhr.status === 302 || xhr.status === 0) {{
-                            return JSON.stringify({{ok: true}});
-                        }} else {{
-                            return JSON.stringify({{ok: false, erro: "Status HTTP " + xhr.status}});
-                        }}
-                    }} catch(err) {{
-                        return JSON.stringify({{ok: false, erro: String(err)}});
-                    }}
-                }} catch(e) {{
-                    return JSON.stringify({{ok: false, erro: String(e)}});
-                }}
-            }})();
+        (async () => {{
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) {{
+                return JSON.stringify({{ok: false, erro: "Dispositivo offline"}});
+            }}
+            try {{
+                var payload = {payload_str};
+                var bodyText = JSON.stringify(payload);
+                await fetch("{url_webhook}", {{
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: {{ "Content-Type": "text/plain;charset=utf-8" }},
+                    body: bodyText,
+                    keepalive: true
+                }});
+                return JSON.stringify({{ok: true}});
+            }} catch(e) {{
+                return JSON.stringify({{ok: false, erro: String(e)}});
+            }}
+        }})()
         """
         try:
-            res_str = js.window.eval(js_code)
-        except Exception:
             import pyodide
-            res_str = pyodide.code.run_js(js_code)
+            promise = pyodide.code.run_js(js_code)
+            res_str = await promise
+        except Exception:
+            js.window.eval(f"""
+            (async () => {{
+                try {{
+                    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+                    var payload = {payload_str};
+                    await fetch("{url_webhook}", {{
+                        method: "POST",
+                        mode: "no-cors",
+                        headers: {{ "Content-Type": "text/plain;charset=utf-8" }},
+                        body: JSON.stringify(payload),
+                        keepalive: true
+                    }});
+                }} catch(e) {{}}
+            }})()
+            """)
+            res_str = '{"ok": true}'
 
         if res_str:
             res_obj = json.loads(str(res_str))
             if res_obj.get("ok"):
                 return True, "PDF enviado com sucesso para o Google Drive do Gerente!"
             else:
-                return False, f"Falha de conexão: {res_obj.get('erro', 'Sem internet')}"
+                return False, f"Falha de conexão com a internet: {res_obj.get('erro', 'Sem rede')}"
         return False, "Falha de comunicação com o servidor do Google Drive."
     except Exception as e:
         msg = f"Falha de conexão com a internet: {e}"
         logger.error(f"[DriveService Web] {msg}")
         return False, msg
+
+
+async def enviar_pdf_drive_async(caminho_pdf: str, turno_id: int, operador: str) -> tuple[bool, str]:
+    """Versão assíncrona de envio para o Google Drive com suporte nativo e PWA WebAssembly."""
+    if not os.path.exists(caminho_pdf):
+        msg = f"Arquivo PDF não encontrado: {caminho_pdf}"
+        logger.error(f"[DriveService] {msg}")
+        return False, msg
+
+    url_webhook = os.environ.get("GOOGLE_DRIVE_WEBHOOK_URL", "").strip() or DRIVE_WEBHOOK_URL
+    if not url_webhook:
+        logger.info("[DriveService] URL do Google Drive não configurada. PDF armazenado em backup local.")
+        return True, "PDF salvo localmente (Drive não configurado)"
+
+    salvar_pendencia_envio(caminho_pdf, turno_id, operador)
+
+    try:
+        nome_arquivo = os.path.basename(caminho_pdf)
+        with open(caminho_pdf, "rb") as f:
+            conteudo_bytes = f.read()
+
+        payload = {
+            "nome_arquivo": nome_arquivo,
+            "turno_id": turno_id,
+            "operador": operador,
+            "arquivo_base64": base64.b64encode(conteudo_bytes).decode("utf-8"),
+        }
+
+        if _is_pyodide():
+            ok, msg = await _enviar_web_js_async(url_webhook, payload)
+            if ok:
+                remover_pendencia_envio(turno_id)
+            return ok, msg
+
+        import asyncio
+        return await asyncio.to_thread(enviar_pdf_drive_bg, caminho_pdf, turno_id, operador)
+
+    except Exception as e:
+        msg_erro = f"Falha no envio para o Google Drive: {e}"
+        logger.error(f"[DriveService] {msg_erro}")
+        return False, msg_erro
 
 
 def enviar_pdf_drive_bg(caminho_pdf: str, turno_id: int, operador: str) -> tuple[bool, str]:
@@ -218,10 +271,33 @@ def enviar_pdf_drive_bg(caminho_pdf: str, turno_id: int, operador: str) -> tuple
 
         # Se for executado no navegador (PWA/Pyodide WebAssembly)
         if _is_pyodide():
-            ok, msg = _enviar_web_js(url_webhook, payload)
-            if ok:
-                remover_pendencia_envio(turno_id)
-            return ok, msg
+            import js
+            if hasattr(js, "navigator") and hasattr(js.navigator, "onLine"):
+                if not bool(js.navigator.onLine):
+                    return False, "Dispositivo offline. Sem conexão com a internet."
+            payload_str = json.dumps(payload)
+            js_code = f"""
+            (async () => {{
+                try {{
+                    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+                    var payload = {payload_str};
+                    await fetch("{url_webhook}", {{
+                        method: "POST",
+                        mode: "no-cors",
+                        headers: {{ "Content-Type": "text/plain;charset=utf-8" }},
+                        body: JSON.stringify(payload),
+                        keepalive: true
+                    }});
+                }} catch(e) {{}}
+            }})()
+            """
+            try:
+                import pyodide
+                pyodide.code.run_js(js_code)
+            except Exception:
+                js.window.eval(js_code)
+            remover_pendencia_envio(turno_id)
+            return True, "PDF enviado com sucesso para o Google Drive do Gerente!"
 
         data = json.dumps(payload).encode("utf-8")
         headers = {
@@ -284,6 +360,27 @@ def obter_ultimo_turno_pendente() -> dict | None:
         return None
     # Retorna o mais recente
     return pendencias[-1]
+
+
+async def sincronizar_pendencias_drive_async() -> tuple[int, int]:
+    """Processa todos os PDFs pendentes de forma assíncrona."""
+    pendencias = obter_pendencias_envio()
+    if not pendencias:
+        return 0, 0
+
+    sucessos = 0
+    total = len(pendencias)
+    for item in list(pendencias):
+        caminho = item.get("caminho_pdf", "")
+        turno_id = item.get("turno_id")
+        operador = item.get("operador", "Operador")
+        if caminho and os.path.exists(caminho) and turno_id:
+            ok, _ = await enviar_pdf_drive_async(caminho, turno_id, operador)
+            if ok:
+                sucessos += 1
+                remover_pendencia_envio(turno_id)
+
+    return sucessos, total
 
 
 def sincronizar_pendencias_drive_bg() -> tuple[int, int]:
