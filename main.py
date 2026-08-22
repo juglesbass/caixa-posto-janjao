@@ -114,14 +114,34 @@ def _plataforma_mobile(page: ft.Page) -> bool:
     if os.environ.get("FLET_PLATFORM", "") in ("ios", "android"):
         return True
     plat = getattr(page, "platform", None)
-    if plat is not None and hasattr(plat, "is_mobile"):
+    if plat in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS):
+        return True
+    if plat is not None and hasattr(plat, "is_mobile") and callable(plat.is_mobile):
         return plat.is_mobile()
+    if _is_pyodide_env():
+        try:
+            import js
+            ua = str(getattr(js.navigator, "userAgent", "")).lower()
+            if any(m in ua for m in ("android", "iphone", "ipad", "ipod", "mobile")):
+                return True
+        except Exception:
+            pass
     return False
 
 def _plataforma_ios(page: ft.Page) -> bool:
     if os.environ.get("FLET_PLATFORM", "") == "ios":
         return True
-    return getattr(page, "platform", None) == ft.PagePlatform.IOS
+    if getattr(page, "platform", None) == ft.PagePlatform.IOS:
+        return True
+    if _is_pyodide_env():
+        try:
+            import js
+            ua = str(getattr(js.navigator, "userAgent", "")).lower()
+            if any(m in ua for m in ("iphone", "ipad", "ipod")):
+                return True
+        except Exception:
+            pass
+    return False
 
 async def main(page: ft.Page):
     mobile = _plataforma_mobile(page)
@@ -1012,11 +1032,7 @@ async def main(page: ft.Page):
     # ═══════════════════════════════════════════════════════════════[...]
     # INPUTS
     # ═══════════════════════════════════════════════════════════════[...]
-    _keyboard_valor = (
-        ft.KeyboardType.DATETIME
-        if (ios or mobile or page.platform == ft.PagePlatform.IOS)
-        else ft.KeyboardType.NUMBER
-    )
+    _keyboard_valor = ft.KeyboardType.DATETIME
 
     def ao_tocar_fora(e):
         desfocar_campos(input_valor, input_desc, input_recebido)
@@ -1250,9 +1266,6 @@ async def main(page: ft.Page):
             container.on_hover = animar_hover
         return container
 
-    # ════════════════════════════════════════════════════════════════════════
-    # MODAL UNIFICADO E RESPONSIVO DE EDIÇÃO DE LANÇAMENTO
-    # ════════════════════════════════════════════════════════════════════════
     def abrir_modal_editar_lancamento(
         rid: int,
         tipo_atual: str,
@@ -1274,6 +1287,7 @@ async def main(page: ft.Page):
             value=f"{valor_atual:.2f}".replace(".", ","),
             prefix=ft.Text("R$ ", color=pal.text_pri),
             width=largura_conteudo,
+            keyboard_type=_keyboard_valor,
             adaptive=adaptive_ui,
             autocorrect=False,
             enable_suggestions=False,
@@ -1281,7 +1295,7 @@ async def main(page: ft.Page):
             bgcolor=pal.surface,
             border_color=pal.border,
             color=pal.text_pri,
-            text_style=ft.TextStyle(weight=ft.FontWeight.BOLD, color=pal.text_pri),
+            text_style=ft.TextStyle(color=pal.text_pri),
             label_style=ft.TextStyle(color=pal.text_sec),
             on_tap_outside=ao_tocar_fora_edicao,
         )
@@ -1298,15 +1312,11 @@ async def main(page: ft.Page):
             on_tap_outside=ao_tocar_fora_edicao,
         )
 
-        modal_ref = {"ctrl": None}
-
-        def fechar_modal_edit(x=None):
-            if modal_ref["ctrl"]:
-                fechar_dialogo(modal_ref["ctrl"])
-
-        def salvar_edicao(x):
-            novo_valor = validar_valor(campo_valor_edit.value or "")
-            if novo_valor is None:
+        def salvar_edicao(e=None):
+            garantir_conexao()
+            val_txt = campo_valor_edit.value or ""
+            val_num = validar_valor(val_txt)
+            if val_num is None:
                 campo_valor_edit.error_text = "Informe um valor maior que zero"
                 page.update()
                 return
@@ -3807,6 +3817,18 @@ async def main(page: ft.Page):
             except Exception:
                 pass
 
+        def inserir_virgula_modal(e=None):
+            vibrar("light")
+            atual = (campo_valor_modal.value or "").strip()
+            if not atual:
+                campo_valor_modal.value = "0,"
+            elif "," not in atual and "." not in atual:
+                campo_valor_modal.value = f"{atual},"
+            try:
+                campo_valor_modal.update()
+            except Exception:
+                pass
+
         botoes_rapidos_modal = ft.Row(
             wrap=True,
             spacing=8,
@@ -3818,6 +3840,7 @@ async def main(page: ft.Page):
                 _pill_btn("+ R$ 150", lambda e: set_valor_modal(150.0)),
                 _pill_btn("+ R$ 200", lambda e: set_valor_modal(200.0)),
                 _pill_btn("Completou", lambda e: set_valor_modal(50.0), is_completou=True),
+                _pill_btn(", (vírgula)", inserir_virgula_modal),
             ]
         )
 
