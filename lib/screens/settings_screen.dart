@@ -52,10 +52,10 @@ class SettingsScreen extends StatelessWidget {
     if (res != null) {
       final db = DatabaseService.instance;
       await db.inserirLancamento(
-        turnoId: turno!.id!,
-        tipo: 'Sangria',
-        valor: res['valor'] as double,
-        descricao: res['motivo'] as String,
+        turno!.id!,
+        'Sangria',
+        res['valor'] as double,
+        res['motivo'] as String,
       );
       onRecarregar();
       if (context.mounted) {
