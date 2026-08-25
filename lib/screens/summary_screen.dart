@@ -76,6 +76,11 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
   double get _diferencaAtual => widget.totais.totalGeral - _vendasSistema;
 
+  TotaisTurno get _totaisAtualizados => widget.totais.copyWith(
+        vendasSistema: _vendasSistema,
+        diferenca: _diferencaAtual,
+      );
+
   Rect _obterOrigemCompartilhamento(BuildContext context) {
     final box = context.findRenderObject() as RenderBox?;
     if (box != null && box.hasSize && box.size.width > 0 && box.size.height > 0) {
