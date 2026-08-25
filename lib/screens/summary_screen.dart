@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../dialogs/close_shift_dialog.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
 import '../services/csv_service.dart';
@@ -57,7 +56,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
   @override
   void didUpdateWidget(covariant SummaryScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.turno.id != widget.turno.id) {
+    if (oldWidget.turno.id != widget.turno.id || oldWidget.turno.vendasSistema != widget.turno.vendasSistema) {
       _vendasSistema = widget.turno.vendasSistema;
       _observacao = widget.turno.observacao;
       _vendasSistemaController.text = _vendasSistema > 0 ? CurrencyFormatter.formatar(_vendasSistema) : '';
@@ -74,12 +73,21 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
   double get _diferencaAtual => widget.totais.totalGeral - _vendasSistema;
 
+  Rect _obterOrigemCompartilhamento(BuildContext context) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize && box.size.width > 0 && box.size.height > 0) {
+      final pos = box.localToGlobal(Offset.zero);
+      return pos & box.size;
+    }
+    final size = MediaQuery.of(context).size;
+    return Rect.fromLTWH(0, size.height / 2, size.width, 100);
+  }
+
   void _atualizarVendasSistema(String text) {
     final valor = CurrencyFormatter.parse(text);
     setState(() {
       _vendasSistema = valor;
     });
-    // Salva auditoria temporária no banco
     DatabaseService.instance.salvarAuditoria(widget.turno.id!, _vendasSistema, _observacao);
   }
 
@@ -88,7 +96,6 @@ class _SummaryScreenState extends State<SummaryScreen> {
     DatabaseService.instance.salvarAuditoria(widget.turno.id!, _vendasSistema, _observacao);
   }
 
-  /// Gera o texto completo e estruturado do fechamento de turno
   String _montarTextoResumo() {
     final buffer = StringBuffer();
     buffer.writeln('⛽ *POSTO JANJÃO - FECHAMENTO DE TURNO*');
@@ -101,7 +108,6 @@ class _SummaryScreenState extends State<SummaryScreen> {
     }
     buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // Cartões
     buffer.writeln('💳 *CARTÕES E VOUCHERS:*');
     if (widget.totais.detalheCartoes.isEmpty) {
       buffer.writeln('  _Nenhum cartão registrado_');
@@ -113,7 +119,6 @@ class _SummaryScreenState extends State<SummaryScreen> {
     buffer.writeln('  👉 *Subtotal Cartões:* ${CurrencyFormatter.formatar(widget.totais.cartoes)} (${widget.totais.qtdCartoes} un)');
     buffer.writeln('');
 
-    // Outros Meios
     buffer.writeln('💵 *OUTROS MEIOS:*');
     buffer.writeln('  • Pag Pix: ${CurrencyFormatter.formatar(widget.totais.pix)}');
     buffer.writeln('  • Sobra de Dinheiro: ${CurrencyFormatter.formatar(widget.totais.dinheiro)}');
@@ -128,7 +133,6 @@ class _SummaryScreenState extends State<SummaryScreen> {
     }
     buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // Conciliação
     buffer.writeln('🧮 *TOTAL VENDAS PISTA:* ${CurrencyFormatter.formatar(widget.totais.totalGeral)}');
     if (_vendasSistema > 0) {
       buffer.writeln('🖥️ *VENDAS SISTEMA (PDV):* ${CurrencyFormatter.formatar(_vendasSistema)}');
@@ -153,9 +157,21 @@ class _SummaryScreenState extends State<SummaryScreen> {
   }
 
   // 1. WhatsApp
-  void _compartilharWhatsApp() async {
+  void _compartilharWhatsApp(BuildContext btnContext) async {
     final texto = _montarTextoResumo();
-    await Share.share(texto, subject: 'Fechamento Turno #${widget.turno.numero} - ${widget.turno.operador}');
+    final origin = _obterOrigemCompartilhamento(btnContext);
+    try {
+      await Share.share(
+        texto,
+        subject: 'Fechamento Turno #${widget.turno.numero} - ${widget.turno.operador}',
+        sharePositionOrigin: origin,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao compartilhar: $e'), backgroundColor: AppColors.red),
+      );
+    }
   }
 
   // 2. Copiar Texto
@@ -173,8 +189,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
   }
 
   // 3. Baixar PDF
-  void _baixarPdf() async {
+  void _baixarPdf(BuildContext btnContext) async {
     setState(() => _processando = true);
+    final origin = _obterOrigemCompartilhamento(btnContext);
+
     try {
       final db = DatabaseService.instance;
       final lancamentos = await db.obterLancamentos(widget.turno.id!);
@@ -200,14 +218,19 @@ class _SummaryScreenState extends State<SummaryScreen> {
         await Share.shareXFiles(
           [XFile(caminhoLocal)],
           subject: 'Fechamento de Turno - ${widget.turno.operador}',
+          sharePositionOrigin: origin,
         );
       } else {
-        await Printing.sharePdf(bytes: pdfBytes, filename: nomeArquivo);
+        await Printing.sharePdf(
+          bytes: pdfBytes,
+          filename: nomeArquivo,
+          bounds: origin,
+        );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao gerar PDF: $e'), backgroundColor: AppColors.red),
+        SnackBar(content: Text('Erro ao gerar/compartilhar PDF: $e'), backgroundColor: AppColors.red),
       );
     } finally {
       if (mounted) setState(() => _processando = false);
@@ -215,8 +238,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
   }
 
   // 4. Excel (CSV)
-  void _exportarExcel() async {
+  void _exportarExcel(BuildContext btnContext) async {
     setState(() => _processando = true);
+    final origin = _obterOrigemCompartilhamento(btnContext);
+
     try {
       final db = DatabaseService.instance;
       final lancamentos = await db.obterLancamentos(widget.turno.id!);
@@ -384,7 +409,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
             ),
             const Divider(height: 1, color: Color(0xFF1E293B)),
 
-            // ── Conteúdo com Scroll ──
+            // ── Conteúdo com Scroll Dinâmico e Botões Integrados ──
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -641,98 +666,93 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       onChanged: _atualizarObservacao,
                     ),
                     const SizedBox(height: 16),
+
+                    // ── 6 Botões de Ação Integrados Dinamicamente na Página ──
+                    Builder(
+                      builder: (btnCtx) => Column(
+                        children: [
+                          // Linha 1: WhatsApp | Copiar Texto | Baixar PDF
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _botaoAcao(
+                                  icon: Icons.chat_rounded,
+                                  label: 'WhatsApp',
+                                  corFundo: const Color(0xFF16A34A),
+                                  corTexto: Colors.white,
+                                  onPressed: _processando ? null : () => _compartilharWhatsApp(btnCtx),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _botaoAcao(
+                                  icon: Icons.copy_rounded,
+                                  label: 'Copiar Texto',
+                                  corFundo: const Color(0xFF1E293B),
+                                  corTexto: Colors.white,
+                                  onPressed: _copiarTexto,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _botaoAcao(
+                                  icon: Icons.picture_as_pdf_rounded,
+                                  label: 'Baixar PDF',
+                                  corFundo: const Color(0xFF1E293B),
+                                  corTexto: Colors.white,
+                                  onPressed: _processando ? null : () => _baixarPdf(btnCtx),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Linha 2: Excel (CSV) | Encerrar Turno | Fechar
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _botaoAcao(
+                                  icon: Icons.table_chart_rounded,
+                                  label: 'Excel (CSV)',
+                                  corFundo: const Color(0xFF0D9488),
+                                  corTexto: Colors.white,
+                                  onPressed: _processando ? null : () => _exportarExcel(btnCtx),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _botaoAcao(
+                                  icon: Icons.lock_rounded,
+                                  label: widget.turno.aberto ? 'Encerrar Turno' : 'Turno Fechado',
+                                  corFundo: widget.turno.aberto ? const Color(0xFF2563EB) : const Color(0xFF475569),
+                                  corTexto: Colors.white,
+                                  onPressed: _processando ? null : _encerrarTurno,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _botaoAcao(
+                                  icon: Icons.close_rounded,
+                                  label: 'Fechar',
+                                  corFundo: const Color(0xFF1E293B),
+                                  corTexto: const Color(0xFFE2E8F0),
+                                  onPressed: () {
+                                    if (widget.onFechar != null) {
+                                      widget.onFechar!();
+                                    } else {
+                                      Navigator.maybePop(context);
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                   ],
                 ),
-              ),
-            ),
-
-            // ── Barra de 6 Botões de Ação na Base (2 Linhas de 3 Botões) ──
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: const BoxDecoration(
-                color: Color(0xFF090D16),
-                border: Border(top: BorderSide(color: Color(0xFF1E293B), width: 1)),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Linha 1: WhatsApp | Copiar Texto | Baixar PDF
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _botaoAcao(
-                          icon: Icons.chat_rounded,
-                          label: 'WhatsApp',
-                          corFundo: const Color(0xFF16A34A),
-                          corTexto: Colors.white,
-                          onPressed: _processando ? null : _compartilharWhatsApp,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _botaoAcao(
-                          icon: Icons.copy_rounded,
-                          label: 'Copiar Texto',
-                          corFundo: const Color(0xFF1E293B),
-                          corTexto: Colors.white,
-                          onPressed: _copiarTexto,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _botaoAcao(
-                          icon: Icons.picture_as_pdf_rounded,
-                          label: 'Baixar PDF',
-                          corFundo: const Color(0xFF1E293B),
-                          corTexto: Colors.white,
-                          onPressed: _processando ? null : _baixarPdf,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Linha 2: Excel (CSV) | Encerrar Turno | Fechar
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _botaoAcao(
-                          icon: Icons.table_chart_rounded,
-                          label: 'Excel (CSV)',
-                          corFundo: const Color(0xFF0D9488),
-                          corTexto: Colors.white,
-                          onPressed: _processando ? null : _exportarExcel,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _botaoAcao(
-                          icon: Icons.lock_rounded,
-                          label: widget.turno.aberto ? 'Encerrar Turno' : 'Turno Fechado',
-                          corFundo: widget.turno.aberto ? const Color(0xFF2563EB) : const Color(0xFF475569),
-                          corTexto: Colors.white,
-                          onPressed: _processando ? null : _encerrarTurno,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _botaoAcao(
-                          icon: Icons.close_rounded,
-                          label: 'Fechar',
-                          corFundo: const Color(0xFF1E293B),
-                          corTexto: const Color(0xFFE2E8F0),
-                          onPressed: () {
-                            if (widget.onFechar != null) {
-                              widget.onFechar!();
-                            } else {
-                              Navigator.maybePop(context);
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ),
             ),
           ],

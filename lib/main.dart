@@ -112,23 +112,33 @@ class _MainShellState extends State<MainShell> {
 
   void _inicializarApp() async {
     setState(() => _carregando = true);
-    final db = DatabaseService.instance;
-    final turnoAberto = await db.obterTurnoAberto();
+    try {
+      final db = DatabaseService.instance;
+      final turnoAberto = await db.obterTurnoAberto();
 
-    if (turnoAberto == null) {
-      setState(() {
-        _carregando = false;
-      });
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _solicitarIdentificacao(novoTurno: true);
-      });
-    } else {
-      final totais = await db.obterTotaisTurno(turnoAberto.id!);
-      setState(() {
-        _turnoAtual = turnoAberto;
-        _totais = totais;
-        _carregando = false;
-      });
+      if (turnoAberto == null) {
+        setState(() {
+          _carregando = false;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _solicitarIdentificacao(novoTurno: true);
+        });
+      } else {
+        final totais = await db.obterTotaisTurno(turnoAberto.id!);
+        setState(() {
+          _turnoAtual = turnoAberto;
+          _totais = totais;
+          _carregando = false;
+        });
+      }
+    } catch (e, stack) {
+      debugPrint('Aviso ao inicializar app: $e\n$stack');
+      if (mounted) {
+        setState(() => _carregando = false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _solicitarIdentificacao(novoTurno: true);
+        });
+      }
     }
   }
 
@@ -267,7 +277,10 @@ class _MainShellState extends State<MainShell> {
       ),
       bottomNavigationBar: BottomNavBar(
         indiceAtual: _indiceAba,
-        onTrocarAba: (i) => setState(() => _indiceAba = i),
+        onTrocarAba: (i) {
+          setState(() => _indiceAba = i);
+          _recarregarDados();
+        },
         onAbrirLancamentoRapido: _abrirLancamentoRapido,
       ),
     );

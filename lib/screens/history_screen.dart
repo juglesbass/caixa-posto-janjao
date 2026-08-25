@@ -32,14 +32,28 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _carregar();
   }
 
-  void _carregar() async {
+  @override
+  void didUpdateWidget(covariant HistoryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _carregar();
+  }
+
+  Future<void> _carregar() async {
     setState(() => _carregando = true);
-    final db = DatabaseService.instance;
-    final lista = await db.obterLancamentos(widget.turno.id!);
-    setState(() {
-      _lancamentos = lista;
-      _carregando = false;
-    });
+    try {
+      final db = DatabaseService.instance;
+      final lista = await db.obterLancamentos(widget.turno.id!);
+      if (mounted) {
+        setState(() {
+          _lancamentos = lista;
+          _carregando = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _carregando = false);
+      }
+    }
   }
 
   List<Lancamento> get _lancamentosFiltrados {
@@ -47,7 +61,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (_filtroTipo == 'Cartões') {
       return _lancamentos.where((l) => PaymentTypes.ehCartao(l.tipo)).toList();
     }
-    return _lancamentos.where((l) => l.tipo.contains(_filtroTipo)).toList();
+    return _lancamentos.where((l) => l.tipo.toLowerCase().contains(_filtroTipo.toLowerCase())).toList();
   }
 
   void _abrirEdicao(Lancamento lancamento) async {
@@ -94,6 +108,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
           'Histórico de Vendas (${_lancamentos.length})',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: AppColors.accentLight),
+            tooltip: 'Atualizar Lista',
+            onPressed: _carregar,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -126,96 +147,107 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
           Divider(height: 1, color: borderColor),
 
-          // ── Lista de Lançamentos ──
+          // ── Lista de Lançamentos com RefreshIndicator ──
           Expanded(
             child: _carregando
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator(color: AppColors.accentLight))
                 : _lancamentosFiltrados.isEmpty
                     ? Center(
-                        child: Text(
-                          'Nenhum lançamento encontrado.',
-                          style: TextStyle(color: textSec),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.receipt_long_outlined, size: 48, color: textSec.withOpacity(0.5)),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Nenhum lançamento encontrado neste turno.',
+                              style: TextStyle(color: textSec, fontSize: 13),
+                            ),
+                          ],
                         ),
                       )
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: _lancamentosFiltrados.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) {
-                          final l = _lancamentosFiltrados[index];
-                          final cor = AppColors.getCorTipo(l.tipo);
-                          final icone = AppColors.getIconeTipo(l.tipo);
+                    : RefreshIndicator(
+                        onRefresh: _carregar,
+                        color: AppColors.accentLight,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.all(12),
+                          itemCount: _lancamentosFiltrados.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final l = _lancamentosFiltrados[index];
+                            final cor = AppColors.getCorTipo(l.tipo);
+                            final icone = AppColors.getIconeTipo(l.tipo);
 
-                          return InkWell(
-                            onTap: () => _abrirEdicao(l),
-                            borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: surfaceColor,
-                                borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                                border: Border.all(color: borderColor),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: cor.withOpacity(0.14),
-                                      borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                            return InkWell(
+                              onTap: () => _abrirEdicao(l),
+                              borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: surfaceColor,
+                                  borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                                  border: Border.all(color: borderColor),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: cor.withOpacity(0.14),
+                                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                                      ),
+                                      child: Icon(icone, color: cor, size: 20),
                                     ),
-                                    child: Icon(icone, color: cor, size: 20),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          l.tipo,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: textPri,
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            l.tipo,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: textPri,
+                                            ),
                                           ),
-                                        ),
-                                        if (l.descricao.isNotEmpty) ...[
+                                          if (l.descricao.isNotEmpty) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              l.descricao,
+                                              style: TextStyle(fontSize: 12, color: textSec),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
                                           const SizedBox(height: 2),
                                           Text(
-                                            l.descricao,
-                                            style: TextStyle(fontSize: 12, color: textSec),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
+                                            l.hora,
+                                            style: TextStyle(fontSize: 11, color: textSec.withOpacity(0.7)),
                                           ),
                                         ],
-                                        const SizedBox(height: 2),
+                                      ),
+                                    ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
                                         Text(
-                                          l.hora,
-                                          style: TextStyle(fontSize: 11, color: textSec.withOpacity(0.7)),
+                                          CurrencyFormatter.formatar(l.valor),
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w900,
+                                            color: cor,
+                                          ),
                                         ),
+                                        const SizedBox(height: 2),
+                                        Icon(Icons.edit_outlined, size: 14, color: textSec.withOpacity(0.5)),
                                       ],
                                     ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        CurrencyFormatter.formatar(l.valor),
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w900,
-                                          color: cor,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Icon(Icons.edit_outlined, size: 14, color: textSec.withOpacity(0.5)),
-                                    ],
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
           ),
         ],
