@@ -11,7 +11,6 @@ class AppTheme {
         primary: AppColors.accent,
         secondary: AppColors.accentLight,
         surface: AppColors.darkSurface,
-        background: AppColors.darkBg,
         error: AppColors.red,
       ),
       fontFamily: 'Roboto',
@@ -26,7 +25,7 @@ class AppTheme {
         ),
         iconTheme: IconThemeData(color: AppColors.darkTextPri),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.darkSurface,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -34,7 +33,7 @@ class AppTheme {
           side: const BorderSide(color: AppColors.darkBorder, width: 1),
         ),
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: AppColors.darkSurface,
         elevation: 8,
         shape: RoundedRectangleBorder(
@@ -60,7 +59,6 @@ class AppTheme {
         primary: AppColors.accent,
         secondary: AppColors.accentLight,
         surface: AppColors.lightSurface,
-        background: AppColors.lightBg,
         error: AppColors.red,
       ),
       fontFamily: 'Roboto',
@@ -75,7 +73,7 @@ class AppTheme {
         ),
         iconTheme: IconThemeData(color: AppColors.lightTextPri),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.lightSurface,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -83,7 +81,7 @@ class AppTheme {
           side: const BorderSide(color: AppColors.lightBorder, width: 1),
         ),
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: AppColors.lightSurface,
         elevation: 8,
         shape: RoundedRectangleBorder(
