@@ -39,10 +39,6 @@ class DriveService {
 
       final bodyJson = jsonEncode(payload);
 
-      // Salva pendência preventiva antes do disparo
-      await db.salvarPendenciaDrive(turnoId, nomeArquivo, operador);
-      await NotificationService.atualizarPendencias();
-
       // Usando text/plain para evitar bloqueio de CORS preflight em navegadores Web (PWA)
       final response = await http
           .post(
@@ -56,7 +52,7 @@ class DriveService {
           response.statusCode == 201 ||
           response.statusCode == 302 ||
           response.statusCode == 0) {
-        // Envio confirmado com sucesso: remove da fila offline
+        // Envio confirmado com sucesso: remove qualquer pendência residual
         await db.removerPendenciaDrive(turnoId);
         await NotificationService.atualizarPendencias();
         return (
@@ -64,6 +60,9 @@ class DriveService {
           mensagem: 'PDF enviado com sucesso para o Google Drive do Gerente!'
         );
       } else {
+        // Falha no servidor: salva na fila offline e notifica
+        await db.salvarPendenciaDrive(turnoId, nomeArquivo, operador);
+        await NotificationService.atualizarPendencias();
         NotificationService.notificarPendenciaDrive(
           turnoNumero: numeroTurnoExibicao,
           operador: operador,
@@ -77,7 +76,7 @@ class DriveService {
       if (kDebugMode) {
         print('[DriveService] Erro no envio: $e');
       }
-      // Garante que está registrado na fila
+      // Falha de conexão real: salva na fila offline e notifica
       await db.salvarPendenciaDrive(turnoId, nomeArquivo, operador);
       await NotificationService.atualizarPendencias();
       NotificationService.notificarPendenciaDrive(
