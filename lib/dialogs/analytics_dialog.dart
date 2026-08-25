@@ -16,6 +16,14 @@ class AnalyticsDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgDialog = isDark ? const Color(0xFF0F172A) : AppColors.lightSurface;
+    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+    final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
+    final cardBg = isDark ? const Color(0xFF1E293B).withOpacity(0.6) : const Color(0xFFF1F5F9);
+    final cardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
+
     final totalGeral = totais.totalGeral > 0 ? totais.totalGeral : 1.0;
     final percCartoes = (totais.cartoes / totalGeral) * 100;
     final percPix = (totais.pix / totalGeral) * 100;
@@ -23,8 +31,11 @@ class AnalyticsDialog extends StatelessWidget {
     final percOutros = ((totais.requisicao + totais.depositoGlobal) / totalGeral) * 100;
 
     return Dialog(
-      backgroundColor: const Color(0xFF0F172A),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      backgroundColor: bgDialog,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: borderCol),
+      ),
       child: Container(
         padding: const EdgeInsets.all(16),
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
@@ -41,28 +52,28 @@ class AnalyticsDialog extends StatelessWidget {
                   child: const Icon(Icons.auto_graph_rounded, color: Color(0xFFA855F7), size: 22),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Analytics & Desempenho',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri),
                       ),
                       Text(
                         'Gráficos de vendas e distribuição do turno',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                        style: TextStyle(fontSize: 11, color: textSec),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                  icon: Icon(Icons.close_rounded, color: textSec),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
-            const Divider(color: Color(0xFF1E293B), height: 20),
+            Divider(color: borderCol, height: 20),
 
             Expanded(
               child: SingleChildScrollView(
@@ -73,9 +84,9 @@ class AnalyticsDialog extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B).withOpacity(0.6),
+                        color: cardBg,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF334155)),
+                        border: Border.all(color: cardBorder),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -83,7 +94,7 @@ class AnalyticsDialog extends StatelessWidget {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Total Vendido no Turno', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                              Text('Total Vendido no Turno', style: TextStyle(color: textSec, fontSize: 12)),
                               const SizedBox(height: 4),
                               Text(
                                 CurrencyFormatter.formatar(totais.totalGeral),
@@ -94,92 +105,94 @@ class AnalyticsDialog extends StatelessWidget {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              const Text('Qtd Lançamentos', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                              Text('Qtd Lançamentos', style: TextStyle(color: textSec, fontSize: 12)),
                               const SizedBox(height: 4),
                               Text(
                                 '${totais.qtdCartoes + (totais.pix > 0 ? 1 : 0) + (totais.dinheiro > 0 ? 1 : 0)} un',
-                                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                style: TextStyle(color: textPri, fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
 
-                    const Text(
-                      'DISTRIBUIÇÃO POR MEIO DE PAGAMENTO',
-                      style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                    ),
+                    Text('DISTRIBUIÇÃO DE FORMAS DE PAGAMENTO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textSec)),
                     const SizedBox(height: 10),
 
-                    // Barra Progresso Visual
+                    // Barra Visual de Progresso Multicolorida
                     ClipRRect(
                       borderRadius: BorderRadius.circular(6),
                       child: SizedBox(
-                        height: 14,
+                        height: 12,
                         child: Row(
                           children: [
                             if (percCartoes > 0)
                               Expanded(
-                                flex: (percCartoes * 10).toInt().clamp(1, 1000),
+                                flex: (percCartoes * 10).toInt(),
                                 child: Container(color: const Color(0xFF3B82F6)),
                               ),
                             if (percPix > 0)
                               Expanded(
-                                flex: (percPix * 10).toInt().clamp(1, 1000),
-                                child: Container(color: const Color(0xFF06B6D4)),
+                                flex: (percPix * 10).toInt(),
+                                child: Container(color: const Color(0xFF10B981)),
                               ),
                             if (percDinheiro > 0)
                               Expanded(
-                                flex: (percDinheiro * 10).toInt().clamp(1, 1000),
-                                child: Container(color: const Color(0xFF10B981)),
+                                flex: (percDinheiro * 10).toInt(),
+                                child: Container(color: const Color(0xFFF59E0B)),
                               ),
                             if (percOutros > 0)
                               Expanded(
-                                flex: (percOutros * 10).toInt().clamp(1, 1000),
-                                child: Container(color: const Color(0xFFF59E0B)),
+                                flex: (percOutros * 10).toInt(),
+                                child: Container(color: const Color(0xFFA855F7)),
                               ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
 
-                    _itemBarra(
-                      label: 'Cartões e Vouchers',
+                    // Itens da Distribuição
+                    _itemMetrica(
+                      titulo: 'Cartões',
                       valor: totais.cartoes,
                       percentual: percCartoes,
                       cor: const Color(0xFF3B82F6),
-                      icon: Icons.credit_card_rounded,
+                      quantidade: '${totais.qtdCartoes} vendas',
+                      isDark: isDark,
                     ),
-                    const SizedBox(height: 8),
-
-                    _itemBarra(
-                      label: 'Pag Pix',
+                    _itemMetrica(
+                      titulo: 'Pix (Caixa/Direto)',
                       valor: totais.pix,
                       percentual: percPix,
-                      cor: const Color(0xFF06B6D4),
-                      icon: Icons.qr_code_2_rounded,
+                      cor: const Color(0xFF10B981),
+                      isDark: isDark,
                     ),
-                    const SizedBox(height: 8),
-
-                    _itemBarra(
-                      label: 'Sobra de Dinheiro',
+                    _itemMetrica(
+                      titulo: 'Dinheiro Pista',
                       valor: totais.dinheiro,
                       percentual: percDinheiro,
-                      cor: const Color(0xFF10B981),
-                      icon: Icons.payments_rounded,
-                    ),
-                    const SizedBox(height: 8),
-
-                    _itemBarra(
-                      label: 'Outros Meios (Req / Dep)',
-                      valor: totais.requisicao + totais.depositoGlobal,
-                      percentual: percOutros,
                       cor: const Color(0xFFF59E0B),
-                      icon: Icons.account_balance_rounded,
+                      isDark: isDark,
                     ),
+                    if (totais.requisicao > 0)
+                      _itemMetrica(
+                        titulo: 'Requisição / Faturado',
+                        valor: totais.requisicao,
+                        percentual: (totais.requisicao / totalGeral) * 100,
+                        cor: const Color(0xFFA855F7),
+                        isDark: isDark,
+                      ),
+                    if (totais.depositoGlobal > 0)
+                      _itemMetrica(
+                        titulo: 'Depósito Global',
+                        valor: totais.depositoGlobal,
+                        percentual: (totais.depositoGlobal / totalGeral) * 100,
+                        cor: const Color(0xFF06B6D4),
+                        isDark: isDark,
+                      ),
                   ],
                 ),
               ),
@@ -188,13 +201,13 @@ class AnalyticsDialog extends StatelessWidget {
 
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              child: OutlinedButton(
                 onPressed: () => Navigator.of(context).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E293B),
-                  foregroundColor: Colors.white,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: textSec,
+                  side: BorderSide(color: borderCol),
                 ),
-                child: const Text('Fechar Analytics'),
+                child: const Text('Fechar'),
               ),
             ),
           ],
@@ -203,38 +216,54 @@ class AnalyticsDialog extends StatelessWidget {
     );
   }
 
-  Widget _itemBarra({
-    required String label,
+  Widget _itemMetrica({
+    required String titulo,
     required double valor,
     required double percentual,
     required Color cor,
-    required IconData icon,
+    String? quantidade,
+    required bool isDark,
   }) {
+    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+    final cardBg = isDark ? const Color(0xFF1E293B).withOpacity(0.4) : const Color(0xFFF8FAFC);
+    final cardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+
     return Container(
+      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withOpacity(0.4),
+        color: cardBg,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF334155)),
+        border: Border.all(color: cardBorder),
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, color: cor, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-            ),
+          Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(color: cor, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(titulo, style: TextStyle(color: textPri, fontWeight: FontWeight.bold, fontSize: 13)),
+                  if (quantidade != null)
+                    Text(quantidade, style: TextStyle(color: textSec, fontSize: 10)),
+                ],
+              ),
+            ],
           ),
-          Text(
-            '${percentual.toStringAsFixed(1)}%',
-            style: TextStyle(color: cor, fontWeight: FontWeight.bold, fontSize: 12),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            CurrencyFormatter.formatar(valor),
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(CurrencyFormatter.formatar(valor), style: TextStyle(color: textPri, fontWeight: FontWeight.bold, fontSize: 13)),
+              Text('${percentual.toStringAsFixed(1)}%', style: TextStyle(color: cor, fontSize: 11, fontWeight: FontWeight.bold)),
+            ],
           ),
         ],
       ),

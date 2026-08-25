@@ -27,18 +27,19 @@ class DatabaseService {
   }
 
   Future<Database> _initDatabase() async {
+    Database db;
     if (kIsWeb) {
       try {
         databaseFactory = databaseFactoryFfiWebNoWebWorker;
-        return await openDatabase(
-          inMemoryDatabasePath,
+        db = await openDatabase(
+          'caixa_posto_janjao_web.db',
           version: 1,
           onCreate: _onCreate,
         );
       } catch (e) {
         debugPrint('Aviso Web DB: $e -> Usando inMemoryDatabasePath como fallback');
         databaseFactory = databaseFactoryFfiWebNoWebWorker;
-        return await openDatabase(
+        db = await openDatabase(
           inMemoryDatabasePath,
           version: 1,
           onCreate: _onCreate,
@@ -47,12 +48,28 @@ class DatabaseService {
     } else {
       final dbPath = await getDatabasesPath();
       final path = p.join(dbPath, 'caixa_posto_janjao.db');
-      return await openDatabase(
+      db = await openDatabase(
         path,
         version: 1,
         onCreate: _onCreate,
       );
     }
+    await _garantirTabelas(db);
+    return db;
+  }
+
+  Future<void> _garantirTabelas(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS encerrantes (
+        turno_id INTEGER NOT NULL,
+        bico TEXT NOT NULL,
+        combustivel TEXT NOT NULL,
+        inicial REAL DEFAULT 0.0,
+        final REAL DEFAULT 0.0,
+        preco REAL DEFAULT 0.0,
+        PRIMARY KEY (turno_id, bico)
+      )
+    ''');
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -97,6 +114,18 @@ class DatabaseService {
         caminho_pdf TEXT NOT NULL,
         operador TEXT NOT NULL,
         criado_em TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS encerrantes (
+        turno_id INTEGER NOT NULL,
+        bico TEXT NOT NULL,
+        combustivel TEXT NOT NULL,
+        inicial REAL DEFAULT 0.0,
+        final REAL DEFAULT 0.0,
+        preco REAL DEFAULT 0.0,
+        PRIMARY KEY (turno_id, bico)
       )
     ''');
 

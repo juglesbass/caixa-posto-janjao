@@ -15,6 +15,12 @@ class _BloqueioDialogState extends State<BloqueioDialog> {
   final _pinController = TextEditingController();
   String? _erro;
 
+  @override
+  void dispose() {
+    _pinController.dispose();
+    super.dispose();
+  }
+
   void _desbloquear() async {
     final db = DatabaseService.instance;
     final pinSalvo = await db.getConfig('pin_acesso');
@@ -31,10 +37,16 @@ class _BloqueioDialogState extends State<BloqueioDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async => false, // Impede fechar pelo botão voltar sem PIN
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgScaffold = isDark ? const Color(0xFF090D16) : AppColors.lightBg;
+    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+    final inputBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
+
+    return PopScope(
+      canPop: false, // Impede fechar pelo botão voltar sem PIN
       child: Dialog.fullscreen(
-        backgroundColor: const Color(0xFF090D16),
+        backgroundColor: bgScaffold,
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -51,19 +63,19 @@ class _BloqueioDialogState extends State<BloqueioDialog> {
                   child: const Icon(Icons.lock_rounded, size: 54, color: Color(0xFF38BDF8)),
                 ),
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'CAIXA BLOQUEADO',
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
-                    color: Colors.white,
+                    color: textPri,
                     letterSpacing: 1.5,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   'Operador: ${widget.operador}',
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
+                  style: TextStyle(fontSize: 14, color: textSec),
                 ),
                 const SizedBox(height: 30),
 
@@ -74,13 +86,13 @@ class _BloqueioDialogState extends State<BloqueioDialog> {
                     obscureText: true,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 8, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: textPri, fontSize: 20, letterSpacing: 8, fontWeight: FontWeight.bold),
                     decoration: InputDecoration(
                       hintText: 'PIN',
-                      hintStyle: const TextStyle(color: Color(0xFF64748B), letterSpacing: 1),
+                      hintStyle: TextStyle(color: textSec.withOpacity(0.6), letterSpacing: 1),
                       errorText: _erro,
                       filled: true,
-                      fillColor: const Color(0xFF131C2E),
+                      fillColor: inputBg,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onSubmitted: (_) => _desbloquear(),
@@ -100,7 +112,10 @@ class _BloqueioDialogState extends State<BloqueioDialog> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                       ),
                       icon: const Icon(Icons.lock_open_rounded, color: Colors.white),
-                      label: const Text('Desbloquear Caixa', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Desbloquear Caixa',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
                     ),
                   ),
                 ),

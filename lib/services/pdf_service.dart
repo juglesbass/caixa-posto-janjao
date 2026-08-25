@@ -62,8 +62,15 @@ class PdfService {
   }) async {
     final doc = pw.Document();
 
-    final fontRegular = await PdfGoogleFonts.robotoRegular();
-    final fontBold = await PdfGoogleFonts.robotoBold();
+    pw.Font fontRegular;
+    pw.Font fontBold;
+    try {
+      fontRegular = await PdfGoogleFonts.robotoRegular();
+      fontBold = await PdfGoogleFonts.robotoBold();
+    } catch (_) {
+      fontRegular = pw.Font.helvetica();
+      fontBold = pw.Font.helveticaBold();
+    }
 
     final corAzulEscuro = PdfColor.fromHex('#1e3a8a');
     final corVerde = PdfColor.fromHex('#16a34a');

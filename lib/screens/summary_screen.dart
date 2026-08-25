@@ -207,7 +207,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
       final nomeArquivo = PdfService.gerarNomeArquivo(turno: turnoAtualizado);
       final pdfBytes = await PdfService.gerarPdfFechamento(
         turno: turnoAtualizado,
-        totais: widget.totais,
+        totais: _totaisAtualizados,
         lancamentos: lancamentos,
       );
 
@@ -242,7 +242,6 @@ class _SummaryScreenState extends State<SummaryScreen> {
   // 4. Excel (CSV)
   void _exportarExcel(BuildContext btnContext) async {
     setState(() => _processando = true);
-    final origin = _obterOrigemCompartilhamento(btnContext);
 
     try {
       final db = DatabaseService.instance;
@@ -254,7 +253,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
       await CsvService.exportarECompartilharCsv(
         turno: turnoAtualizado,
-        totais: widget.totais,
+        totais: _totaisAtualizados,
         lancamentos: lancamentos,
       );
     } catch (e) {
@@ -276,16 +275,27 @@ class _SummaryScreenState extends State<SummaryScreen> {
       return;
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF0F172A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Row(
+        backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.lightSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder),
+        ),
+        title: Row(
           children: [
-            Icon(Icons.lock_rounded, color: Color(0xFF38BDF8)),
-            SizedBox(width: 8),
-            Text('Encerrar Turno?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17)),
+            const Icon(Icons.lock_rounded, color: Color(0xFF38BDF8)),
+            const SizedBox(width: 8),
+            Text(
+              'Encerrar Turno?',
+              style: TextStyle(
+                color: isDark ? Colors.white : AppColors.lightTextPri,
+                fontWeight: FontWeight.bold,
+                fontSize: 17,
+              ),
+            ),
           ],
         ),
         content: Text(
@@ -293,12 +303,19 @@ class _SummaryScreenState extends State<SummaryScreen> {
           'Total Pista: ${CurrencyFormatter.formatar(widget.totais.totalGeral)}\n'
           'Vendas Sistema: ${CurrencyFormatter.formatar(_vendasSistema)}\n'
           'Diferença: ${CurrencyFormatter.formatar(_diferencaAtual)}',
-          style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, height: 1.4),
+          style: TextStyle(
+            color: isDark ? const Color(0xFFCBD5E1) : AppColors.lightTextSec,
+            fontSize: 13,
+            height: 1.4,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar', style: TextStyle(color: Color(0xFF94A3B8))),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -322,21 +339,23 @@ class _SummaryScreenState extends State<SummaryScreen> {
       builder: (ctx) => PopScope(
         canPop: false,
         child: Dialog(
-          backgroundColor: const Color(0xFF0F172A),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.lightSurface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder),
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
             child: ValueListenableBuilder<String>(
               valueListenable: progressoNotifier,
-              builder: (_, status, __) {
+              builder: (context, status, _) {
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 64,
-                      height: 64,
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2563EB).withOpacity(0.15),
+                        color: const Color(0xFF1E3A8A).withOpacity(0.3),
                         shape: BoxShape.circle,
                         border: Border.all(color: const Color(0xFF38BDF8), width: 2),
                       ),
@@ -348,10 +367,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text(
+                    Text(
                       'ENCERRANDO TURNO',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: isDark ? Colors.white : AppColors.lightTextPri,
                         fontWeight: FontWeight.w900,
                         fontSize: 16,
                         letterSpacing: 1,
@@ -361,7 +380,11 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     Text(
                       status,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+                      style: TextStyle(
+                        color: isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
                     ),
                   ],
                 );
@@ -393,7 +416,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
       final nomeArquivo = PdfService.gerarNomeArquivo(turno: turnoFechado);
       final pdfBytes = await PdfService.gerarPdfFechamento(
         turno: turnoFechado,
-        totais: widget.totais,
+        totais: _totaisAtualizados,
         lancamentos: lancamentos,
       );
 

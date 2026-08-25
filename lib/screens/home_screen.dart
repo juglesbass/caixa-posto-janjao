@@ -130,6 +130,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
       HapticFeedback.lightImpact();
 
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${CurrencyFormatter.formatar(valor)} lançado em $tipoFinal'),
@@ -149,16 +151,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
       widget.onRecarregar();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao lançar: $e'),
-          backgroundColor: AppColors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao lançar: $e'),
+            backgroundColor: AppColors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() {
-        _enviando = false;
-      });
+      if (mounted) {
+        setState(() {
+          _enviando = false;
+        });
+      }
     }
   }
 
@@ -183,6 +189,8 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       HapticFeedback.mediumImpact();
+
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

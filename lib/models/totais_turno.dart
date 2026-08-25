@@ -54,4 +54,40 @@ class TotaisTurno {
   bool get temDiferenca => diferenca.abs() >= 0.01;
   bool get ehSobra => diferenca > 0.009;
   bool get ehFalta => diferenca < -0.009;
+
+  TotaisTurno copyWith({
+    double? dinheiro,
+    double? pix,
+    double? cartoes,
+    int? qtdCartoes,
+    double? requisicao,
+    double? depositoGlobal,
+    double? despesas,
+    double? sangrias,
+    int? qtdSangrias,
+    double? fundoCaixa,
+    double? totalGeral,
+    double? diferenca,
+    double? vendasSistema,
+    double? dinheiroGaveta,
+    Map<String, ({double total, int qtd})>? detalheCartoes,
+  }) {
+    return TotaisTurno(
+      dinheiro: dinheiro ?? this.dinheiro,
+      pix: pix ?? this.pix,
+      cartoes: cartoes ?? this.cartoes,
+      qtdCartoes: qtdCartoes ?? this.qtdCartoes,
+      requisicao: requisicao ?? this.requisicao,
+      depositoGlobal: depositoGlobal ?? this.depositoGlobal,
+      despesas: despesas ?? this.despesas,
+      sangrias: sangrias ?? this.sangrias,
+      qtdSangrias: qtdSangrias ?? this.qtdSangrias,
+      fundoCaixa: fundoCaixa ?? this.fundoCaixa,
+      totalGeral: totalGeral ?? this.totalGeral,
+      diferenca: diferenca ?? this.diferenca,
+      vendasSistema: vendasSistema ?? this.vendasSistema,
+      dinheiroGaveta: dinheiroGaveta ?? this.dinheiroGaveta,
+      detalheCartoes: detalheCartoes ?? this.detalheCartoes,
+    );
+  }
 }

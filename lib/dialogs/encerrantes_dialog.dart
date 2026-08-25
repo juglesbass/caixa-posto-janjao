@@ -32,6 +32,11 @@ class _BicoItem {
   double get finalLitros => double.tryParse(controllerFinal.text.replaceAll(',', '.')) ?? 0.0;
   double get litrosVendidos => (finalLitros - inicial) > 0 ? (finalLitros - inicial) : 0.0;
   double get totalReais => litrosVendidos * precoPadrao;
+
+  void dispose() {
+    controllerInicial.dispose();
+    controllerFinal.dispose();
+  }
 }
 
 class _EncerrantesDialogState extends State<EncerrantesDialog> {
@@ -46,6 +51,14 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
   void initState() {
     super.initState();
     _carregarSalvos();
+  }
+
+  @override
+  void dispose() {
+    for (final b in _bicos) {
+      b.dispose();
+    }
+    super.dispose();
   }
 
   void _carregarSalvos() async {
@@ -91,9 +104,21 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgDialog = isDark ? const Color(0xFF0F172A) : AppColors.lightSurface;
+    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+    final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
+    final cardBg = isDark ? const Color(0xFF1E293B).withOpacity(0.5) : const Color(0xFFF8FAFC);
+    final cardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final inputBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+
     return Dialog(
-      backgroundColor: const Color(0xFF0F172A),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      backgroundColor: bgDialog,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: borderCol),
+      ),
       child: Container(
         padding: const EdgeInsets.all(16),
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 650),
@@ -110,28 +135,28 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                   child: const Icon(Icons.local_gas_station_rounded, color: Color(0xFFF59E0B), size: 22),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Encerrantes de Bombas',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri),
                       ),
                       Text(
                         'Conferência de litros e bicos da pista',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                        style: TextStyle(fontSize: 11, color: textSec),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                  icon: Icon(Icons.close_rounded, color: textSec),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
-            const Divider(color: Color(0xFF1E293B), height: 20),
+            Divider(color: borderCol, height: 20),
 
             // ── Lista de Bicos ──
             Expanded(
@@ -143,9 +168,9 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                   return Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B).withOpacity(0.5),
+                      color: cardBg,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF334155)),
+                      border: Border.all(color: cardBorder),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,7 +180,7 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                           children: [
                             Text(
                               '${bico.bico} • ${bico.combustivel}',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                              style: TextStyle(color: textPri, fontWeight: FontWeight.bold, fontSize: 13),
                             ),
                             Text(
                               'R\$ ${bico.precoPadrao.toStringAsFixed(2)}/L',
@@ -170,14 +195,14 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                               child: TextField(
                                 controller: bico.controllerInicial,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: const TextStyle(color: Colors.white, fontSize: 13),
-                                decoration: const InputDecoration(
+                                style: TextStyle(color: textPri, fontSize: 13),
+                                decoration: InputDecoration(
                                   labelText: 'Leitura Inicial',
-                                  labelStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                                  labelStyle: TextStyle(color: textSec, fontSize: 11),
                                   isDense: true,
                                   filled: true,
-                                  fillColor: Color(0xFF0F172A),
-                                  border: OutlineInputBorder(),
+                                  fillColor: inputBg,
+                                  border: const OutlineInputBorder(),
                                 ),
                                 onChanged: (_) => setState(() {}),
                               ),
@@ -187,14 +212,14 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                               child: TextField(
                                 controller: bico.controllerFinal,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: const TextStyle(color: Colors.white, fontSize: 13),
-                                decoration: const InputDecoration(
+                                style: TextStyle(color: textPri, fontSize: 13),
+                                decoration: InputDecoration(
                                   labelText: 'Leitura Final',
-                                  labelStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                                  labelStyle: TextStyle(color: textSec, fontSize: 11),
                                   isDense: true,
                                   filled: true,
-                                  fillColor: Color(0xFF0F172A),
-                                  border: OutlineInputBorder(),
+                                  fillColor: inputBg,
+                                  border: const OutlineInputBorder(),
                                 ),
                                 onChanged: (_) => setState(() {}),
                               ),
@@ -207,11 +232,11 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                           children: [
                             Text(
                               'Litros: ${bico.litrosVendidos.toStringAsFixed(2)} L',
-                              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                              style: TextStyle(color: textSec, fontSize: 12),
                             ),
                             Text(
                               'Total: ${CurrencyFormatter.formatar(bico.totalReais)}',
-                              style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 13),
+                              style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 13),
                             ),
                           ],
                         ),
@@ -236,7 +261,7 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                 children: [
                   Text(
                     'Total Litros: ${_totalLitrosGeral.toStringAsFixed(2)} L',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    style: TextStyle(color: textPri, fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   Text(
                     'Valor: ${CurrencyFormatter.formatar(_totalReaisGeral)}',
@@ -253,8 +278,8 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF94A3B8),
-                      side: const BorderSide(color: Color(0xFF334155)),
+                      foregroundColor: textSec,
+                      side: BorderSide(color: borderCol),
                     ),
                     child: const Text('Voltar'),
                   ),
