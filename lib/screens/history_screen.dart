@@ -1,0 +1,225 @@
+import 'package:flutter/material.dart';
+import '../dialogs/edit_launch_dialog.dart';
+import '../models/lancamento.dart';
+import '../models/turno.dart';
+import '../services/database_service.dart';
+import '../theme/app_colors.dart';
+import '../utils/currency_formatter.dart';
+import '../utils/payment_types.dart';
+
+class HistoryScreen extends StatefulWidget {
+  final Turno turno;
+  final VoidCallback onAtualizado;
+
+  const HistoryScreen({
+    super.key,
+    required this.turno,
+    required this.onAtualizado,
+  });
+
+  @override
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
+
+class _HistoryScreenState extends State<HistoryScreen> {
+  List<Lancamento> _lancamentos = [];
+  String _filtroTipo = 'Todos';
+  bool _carregando = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregar();
+  }
+
+  void _carregar() async {
+    setState(() => _carregando = true);
+    final db = DatabaseService.instance;
+    final lista = await db.obterLancamentos(widget.turno.id!);
+    setState(() {
+      _lancamentos = lista;
+      _carregando = false;
+    });
+  }
+
+  List<Lancamento> get _lancamentosFiltrados {
+    if (_filtroTipo == 'Todos') return _lancamentos;
+    if (_filtroTipo == 'Cartões') {
+      return _lancamentos.where((l) => PaymentTypes.ehCartao(l.tipo)).toList();
+    }
+    return _lancamentos.where((l) => l.tipo.contains(_filtroTipo)).toList();
+  }
+
+  void _abrirEdicao(Lancamento lancamento) async {
+    await showDialog(
+      context: context,
+      builder: (ctx) => EditLaunchDialog(
+        lancamento: lancamento,
+        maquinaAtiva: PaymentTypes.maquinaRede,
+        onSalvar: (dados) async {
+          final db = DatabaseService.instance;
+          await db.atualizarLancamento(
+            lancamento.id!,
+            widget.turno.id!,
+            dados.tipo,
+            dados.valor,
+            dados.descricao,
+          );
+          _carregar();
+          widget.onAtualizado();
+        },
+        onDeletar: () async {
+          final db = DatabaseService.instance;
+          await db.deletarLancamento(lancamento.id!, widget.turno.id!);
+          _carregar();
+          widget.onAtualizado();
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+
+    final filtros = ['Todos', 'Dinheiro', 'Pix', 'Cartões', 'Sangria', 'Despesas'];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Histórico de Vendas (${_lancamentos.length})',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ),
+      body: Column(
+        children: [
+          // ── Barra de Filtros ──
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: filtros.map((f) {
+                final selecionado = _filtroTipo == f;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    label: Text(f),
+                    selected: selecionado,
+                    onSelected: (_) {
+                      setState(() => _filtroTipo = f);
+                    },
+                    selectedColor: AppColors.accent.withOpacity(0.2),
+                    checkmarkColor: AppColors.accentLight,
+                    labelStyle: TextStyle(
+                      fontSize: 12,
+                      fontWeight: selecionado ? FontWeight.bold : FontWeight.normal,
+                      color: selecionado ? AppColors.accentLight : textSec,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          Divider(height: 1, color: borderColor),
+
+          // ── Lista de Lançamentos ──
+          Expanded(
+            child: _carregando
+                ? const Center(child: CircularProgressIndicator())
+                : _lancamentosFiltrados.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Nenhum lançamento encontrado.',
+                          style: TextStyle(color: textSec),
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _lancamentosFiltrados.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final l = _lancamentosFiltrados[index];
+                          final cor = AppColors.getCorTipo(l.tipo);
+                          final icone = AppColors.getIconeTipo(l.tipo);
+
+                          return InkWell(
+                            onTap: () => _abrirEdicao(l),
+                            borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: surfaceColor,
+                                borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                                border: Border.all(color: borderColor),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: cor.withOpacity(0.14),
+                                      borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                                    ),
+                                    child: Icon(icone, color: cor, size: 20),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          l.tipo,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: textPri,
+                                          ),
+                                        ),
+                                        if (l.descricao.isNotEmpty) ...[
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            l.descricao,
+                                            style: TextStyle(fontSize: 12, color: textSec),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          l.hora,
+                                          style: TextStyle(fontSize: 11, color: textSec.withOpacity(0.7)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        CurrencyFormatter.formatar(l.valor),
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w900,
+                                          color: cor,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Icon(Icons.edit_outlined, size: 14, color: textSec.withOpacity(0.5)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
