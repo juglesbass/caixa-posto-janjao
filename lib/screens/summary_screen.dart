@@ -379,11 +379,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
       progressoNotifier.value = 'Gerando relatório PDF corporativo...';
       final lancamentos = await db.obterLancamentos(widget.turno.id!);
+      final dataHoraFechamento = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
       final turnoFechado = widget.turno.copyWith(
         aberto: false,
         vendasSistema: _vendasSistema,
         observacao: _observacao,
-        fechadoEm: 'Agora',
+        fechadoEm: dataHoraFechamento,
       );
 
       final nomeArquivo = PdfService.gerarNomeArquivo(turno: turnoFechado);

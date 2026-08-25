@@ -73,9 +73,10 @@ class PdfService {
     final corTextoEscuro = PdfColor.fromHex('#0f172a');
 
     final dataEmissao = DateFormat('dd/MM/yyyy à\'s\' HH:mm').format(DateTime.now());
-    final fechadoEmTexto = (turno.fechadoEm != null && turno.fechadoEm!.trim().isNotEmpty)
+    final dataHoraAtual = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+    final fechadoEmTexto = (turno.fechadoEm != null && turno.fechadoEm!.trim().isNotEmpty && turno.fechadoEm != 'Agora')
         ? turno.fechadoEm!
-        : (turno.aberto ? 'Em Aberto' : DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()));
+        : (turno.aberto ? 'Em Aberto' : dataHoraAtual);
 
     final idDoc = 'Documento #PDF-${turno.numero.toString().padLeft(4, '0')}';
 
