@@ -121,6 +121,24 @@ def formatar_moeda_input(e: ft.ControlEvent) -> None:
     except Exception:
         pass
 
+def _definir_erro_campo(campo, msg: str | None):
+    """Define ou limpa o texto de erro de forma compatível com Flet."""
+    if campo is None:
+        return
+    if hasattr(campo, "error"):
+        campo.error = msg
+    elif hasattr(campo, "error_text"):
+        campo.error_text = msg
+    else:
+        try:
+            setattr(campo, "error", msg)
+        except Exception:
+            pass
+
+def _limpar_erro_campo(campo):
+    """Limpa o texto de erro do campo se existir."""
+    _definir_erro_campo(campo, None)
+
 def borda_all(largura, cor) -> ft.Border:
     return ft.Border(
         left=ft.BorderSide(largura, cor),
@@ -1231,7 +1249,7 @@ async def main(page: ft.Page):
                 input_valor.value = db.formatar_moeda(parse_moeda_float(val))
         else:
             input_valor.value = ""
-        input_valor.error_text = None
+        _limpar_erro_campo(input_valor)
         if desc:
             input_desc.value = desc
         atualizar_calculo_troco()
@@ -1338,7 +1356,7 @@ async def main(page: ft.Page):
         def salvar_edicao(x):
             novo_valor = parse_moeda_float(campo_valor_edit.value or "")
             if novo_valor <= 0:
-                campo_valor_edit.error_text = "Informe um valor maior que zero"
+                _definir_erro_campo(campo_valor_edit, "Informe um valor maior que zero")
                 page.update()
                 return
 
@@ -1843,7 +1861,7 @@ async def main(page: ft.Page):
             return
         valor_float = parse_moeda_float(input_valor.value or "")
         if valor_float <= 0:
-            input_valor.error_text = "Informe um valor maior que zero"
+            _definir_erro_campo(input_valor, "Informe um valor maior que zero")
             page.update()
             return
 
@@ -1865,7 +1883,7 @@ async def main(page: ft.Page):
             input_desc.value  = ""
             input_recebido.value = ""
             badge_troco_calculado.visible = False
-            input_valor.error_text = None
+            _limpar_erro_campo(input_valor)
             mostrar_snackbar(f"{formatar_moeda(valor_float)} lançado em {tipo_lancar}")
             vibrar("light")
             salvar_ultimo_tipo(estado_tipo["valor"])
@@ -2873,7 +2891,7 @@ async def main(page: ft.Page):
         def confirmar_sangria(x):
             v = validar_valor(campo_val_sangria.value or "")
             if v is None:
-                campo_val_sangria.error_text = "Informe um valor válido maior que zero"
+                _definir_erro_campo(campo_val_sangria, "Informe um valor válido maior que zero")
                 page.update()
                 return
             try:
@@ -3884,7 +3902,7 @@ async def main(page: ft.Page):
 
         def set_valor_modal(v: float):
             campo_valor_modal.value = db.formatar_moeda(float(v))
-            campo_valor_modal.error_text = None
+            _limpar_erro_campo(campo_valor_modal)
             try:
                 campo_valor_modal.update()
             except Exception:
@@ -3904,7 +3922,7 @@ async def main(page: ft.Page):
         def confirmar_lancamento_modal(e=None):
             val = validar_valor(campo_valor_modal.value or "")
             if val is None:
-                campo_valor_modal.error_text = "Informe um valor maior que zero"
+                _definir_erro_campo(campo_valor_modal, "Informe um valor maior que zero")
                 campo_valor_modal.update()
                 return
 
@@ -4713,8 +4731,8 @@ async def main(page: ft.Page):
         )
 
         def _on_nome_change(e):
-            if campo_nome.error_text:
-                campo_nome.error_text = None
+            if getattr(campo_nome, "error", None) or getattr(campo_nome, "error_text", None):
+                _limpar_erro_campo(campo_nome)
                 campo_nome.update()
 
         campo_nome = ft.TextField(
@@ -4775,13 +4793,13 @@ async def main(page: ft.Page):
             nome_raw = (campo_nome.value or "").strip()
             letras_nome = re.findall(r"[a-zA-ZÀ-ÿ]", nome_raw)
             if len(letras_nome) < 3:
-                campo_nome.error_text = "Digite pelo menos o primeiro nome completo (mín. 3 letras)"
+                _definir_erro_campo(campo_nome, "Digite pelo menos o primeiro nome completo (mín. 3 letras)")
                 mostrar_snackbar("Digite pelo menos o primeiro nome completo (mín. 3 letras)", ft.Colors.RED_800)
                 page.update()
                 return
 
             nome_digitado = nome_raw.title()
-            campo_nome.error_text = None
+            _limpar_erro_campo(campo_nome)
             texto_erro.value = ""
 
             nonlocal turno_atual, autenticado
