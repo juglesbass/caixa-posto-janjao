@@ -1,42 +1,29 @@
-# Banco de dados SQLite
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+dist/
+
+# SQLite & Dados locais
 *.db
 *.db-shm
 *.db-wal
 meu_caixa.db*
-
-# Backups e exports
 /backups/
 *.csv
+*.log
 
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
-
-# Virtual environments
-.venv
-venv/
-env/
-
-# IDE
+# IDE & OS
+.DS_Store
+Thumbs.db
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
 
 # Environment variables
 .env
 .env.local
 .env.*.local
-
-# App-specific
-.local/
-*.log
