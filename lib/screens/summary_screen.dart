@@ -116,7 +116,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
         buffer.writeln('  • ${e.key}: ${CurrencyFormatter.formatar(e.value.total)} (${e.value.qtd} un)');
       }
     }
-    buffer.writeln('  👉 *Subtotal Cartões:* ${CurrencyFormatter.formatar(widget.totais.cartoes)} (${widget.totais.qtdCartoes} un)');
+    buffer.writeln('  👉 *Total Cartões:* ${CurrencyFormatter.formatar(widget.totais.cartoes)} (${widget.totais.qtdCartoes} un)');
     buffer.writeln('');
 
     buffer.writeln('💵 *OUTROS MEIOS:*');
@@ -208,7 +208,6 @@ class _SummaryScreenState extends State<SummaryScreen> {
         lancamentos: lancamentos,
       );
 
-      // Salva localmente via path_provider antes de compartilhar
       final caminhoLocal = await PdfService.salvarArquivoLocal(
         pdfBytes: pdfBytes,
         nomeArquivo: nomeArquivo,
@@ -265,7 +264,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
     }
   }
 
-  // 5. Encerrar Turno
+  // 5. Encerrar Turno com Animação e Feedback Imediato
   void _encerrarTurno() async {
     if (!widget.turno.aberto) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -277,12 +276,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurface,
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: const Row(
           children: [
-            Icon(Icons.lock_rounded, color: AppColors.accentLight),
+            Icon(Icons.lock_rounded, color: Color(0xFF38BDF8)),
             SizedBox(width: 8),
-            Text('Encerrar Turno?', style: TextStyle(color: Colors.white)),
+            Text('Encerrar Turno?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17)),
           ],
         ),
         content: Text(
@@ -290,16 +290,19 @@ class _SummaryScreenState extends State<SummaryScreen> {
           'Total Pista: ${CurrencyFormatter.formatar(widget.totais.totalGeral)}\n'
           'Vendas Sistema: ${CurrencyFormatter.formatar(_vendasSistema)}\n'
           'Diferença: ${CurrencyFormatter.formatar(_diferencaAtual)}',
-          style: const TextStyle(color: AppColors.darkTextSec),
+          style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar', style: TextStyle(color: AppColors.darkTextSec)),
+            child: const Text('Cancelar', style: TextStyle(color: Color(0xFF94A3B8))),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
             child: const Text('Sim, Encerrar Turno', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
@@ -308,7 +311,64 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
     if (confirmar != true) return;
 
-    setState(() => _processando = true);
+    // Diálogo de Progresso Animado
+    final progressoNotifier = ValueNotifier<String>('Fechando turno no banco de dados...');
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: Dialog(
+          backgroundColor: const Color(0xFF0F172A),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            child: ValueListenableBuilder<String>(
+              valueListenable: progressoNotifier,
+              builder: (_, status, __) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2563EB).withOpacity(0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFF38BDF8), width: 2),
+                      ),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF38BDF8),
+                          strokeWidth: 3,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'ENCERRANDO TURNO',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      status,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
     try {
       final db = DatabaseService.instance;
       await db.fecharTurno(
@@ -317,6 +377,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
         observacao: _observacao,
       );
 
+      progressoNotifier.value = 'Gerando relatório PDF corporativo...';
       final lancamentos = await db.obterLancamentos(widget.turno.id!);
       final turnoFechado = widget.turno.copyWith(
         aberto: false,
@@ -332,13 +393,20 @@ class _SummaryScreenState extends State<SummaryScreen> {
         lancamentos: lancamentos,
       );
 
-      // Salva e envia para o Google Drive
+      progressoNotifier.value = 'Enviando PDF para o Google Drive do gerente...';
       final resultadoDrive = await DriveService.enviarPdfDrive(
         pdfBytes: pdfBytes,
         nomeArquivo: nomeArquivo,
         turnoId: widget.turno.id!,
         operador: widget.turno.operador,
       );
+
+      progressoNotifier.value = '✅ Concluído com sucesso!';
+      await Future.delayed(const Duration(milliseconds: 600));
+
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context); // Fecha diálogo de progresso
+      }
 
       if (!mounted) return;
 
@@ -352,12 +420,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
       widget.onTurnoAlterado();
     } catch (e) {
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao encerrar turno: $e'), backgroundColor: AppColors.red),
       );
-    } finally {
-      if (mounted) setState(() => _processando = false);
     }
   }
 
@@ -416,6 +485,35 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Status do Turno (Aberto / Fechado)
+                    if (!widget.turno.aberto) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF7F1D1D).withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFEF4444), width: 1.2),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.lock_rounded, color: Color(0xFFF87171), size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'TURNO ENCERRADO (${widget.turno.fechadoEm ?? "Fechado"})',
+                                style: const TextStyle(
+                                  color: Color(0xFFF87171),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
                     // 1. Sobra de Dinheiro
                     _itemResumoCard(
                       icon: Icons.money_rounded,
@@ -467,12 +565,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     ),
                     const SizedBox(height: 8),
 
-                    // 6. Subtotal Cartões (Expansível)
+                    // 6. Total Cartões (Expansível)
                     _itemResumoCard(
                       icon: Icons.credit_card_rounded,
                       iconColor: const Color(0xFF60A5FA),
                       iconBg: const Color(0xFF1E3A8A).withOpacity(0.5),
-                      titulo: 'Subtotal Cartões',
+                      titulo: 'Total Cartões',
                       subtitulo: '(${widget.totais.qtdCartoes} un)',
                       valor: widget.totais.cartoes,
                       onTap: () => setState(() => _cartoesExpandidos = !_cartoesExpandidos),

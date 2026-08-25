@@ -12,6 +12,7 @@ class PaymentTypes {
   static const String maquinaCielo = 'Cielo';
 
   static const List<String> bandeirasPadrao = [
+    'Pix',
     'Master Débito',
     'Master Crédito',
     'Visa Débito',
@@ -38,14 +39,16 @@ class PaymentTypes {
   ];
 
   static bool ehCartao(String tipo) {
-    if (tipo.startsWith('Rede ') || tipo.startsWith('Cielo ')) return true;
-    return bandeirasPadrao.contains(tipo) || tipo == 'Cartões';
+    if (tipo.startsWith('Rede ') || tipo.startsWith('Cielo ') || tipo.startsWith('Stone ') || tipo.startsWith('PagBank ')) {
+      return true;
+    }
+    return bandeirasPadrao.contains(tipo) || tipo == 'Cartões' || tipo.contains('Débito') || tipo.contains('Crédito');
   }
 
   static bool ehSangria(String tipo) => tipo == sangria;
   static bool ehDespesa(String tipo) => tipo == despesas;
   static bool ehDinheiro(String tipo) => tipo == dinheiro;
-  static bool ehPix(String tipo) => tipo == pix || tipo == 'Pix';
+  static bool ehPix(String tipo) => tipo == pix || tipo == 'Pix Caixa' || tipo == 'Pix Direto';
   static bool ehRequisicao(String tipo) => tipo == requisicao;
   static bool ehDeposito(String tipo) => tipo == depositoGlobal || tipo == 'Depósito Global';
 }

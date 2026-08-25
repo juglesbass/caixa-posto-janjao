@@ -36,7 +36,7 @@ class CsvService {
     buffer.writeln('Item;Quantidade;Valor (R\$)');
     buffer.writeln('Dinheiro em Espécie;-;${totais.dinheiro.toStringAsFixed(2)}');
     buffer.writeln('Pagamento Pix;-;${totais.pix.toStringAsFixed(2)}');
-    buffer.writeln('Subtotal Cartões;${totais.qtdCartoes};${totais.cartoes.toStringAsFixed(2)}');
+    buffer.writeln('Total Cartões;${totais.qtdCartoes};${totais.cartoes.toStringAsFixed(2)}');
     buffer.writeln('Requisição (A Prazo);-;${totais.requisicao.toStringAsFixed(2)}');
     buffer.writeln('Depósito Global;-;${totais.depositoGlobal.toStringAsFixed(2)}');
     buffer.writeln('Despesas;-;${totais.despesas.toStringAsFixed(2)}');

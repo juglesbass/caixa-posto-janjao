@@ -15,6 +15,12 @@ class BottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Se o teclado virtual estiver aberto, ocultar a barra para não sobrepor inputs
+    final tecladoAberto = MediaQuery.of(context).viewInsets.bottom > 0;
+    if (tecladoAberto) {
+      return const SizedBox.shrink();
+    }
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;

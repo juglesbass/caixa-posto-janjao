@@ -272,7 +272,7 @@ class PdfService {
                     );
                   }),
 
-                // Subtotal Cartões
+                // Total Cartões
                 pw.Container(
                   padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
                   decoration: pw.BoxDecoration(
@@ -283,7 +283,7 @@ class PdfService {
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text('SUBTOTAL CARTÕES', style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: PdfColor.fromHex('#1e40af'))),
+                      pw.Text('TOTAL CARTÕES', style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: PdfColor.fromHex('#1e40af'))),
                       pw.Row(
                         children: [
                           pw.Container(
