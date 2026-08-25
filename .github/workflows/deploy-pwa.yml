@@ -25,25 +25,17 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
-          python-version: "3.11"
+          channel: stable
+          cache: true
 
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install flet reportlab requests
+      - name: Install dependencies
+        run: flutter pub get
 
-      - name: Publish Flet PWA
-        run: |
-          flet publish main.py \
-            --app-name "Caixa - Posto Janjão" \
-            --app-short-name "Caixa Janjão" \
-            --base-url "/caixa-posto-janjao/" \
-            --route-url-strategy hash \
-            --pwa-theme-color "#0a0a0f" \
-            --pwa-background-color "#0a0a0f"
+      - name: Build Web PWA
+        run: flutter build web --release --base-href "/caixa-posto-janjao/"
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -51,7 +43,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'dist'
+          path: 'build/web'
 
       - name: Deploy to GitHub Pages
         id: deployment
