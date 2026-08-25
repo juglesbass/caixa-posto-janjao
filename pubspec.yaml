@@ -35,6 +35,9 @@ dependencies:
   # Preferências Locais (Tema, Máquina Ativa, PIN)
   shared_preferences: ^2.2.3
 
+dependency_overrides:
+  sqflite_android: 2.4.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
