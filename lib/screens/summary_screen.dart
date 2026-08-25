@@ -514,95 +514,124 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       const SizedBox(height: 12),
                     ],
 
-                    // ── 1. BANDEIRAS DE CARTÕES INDIVIDUAIS COM VENDAS (Acima da Sobra de Dinheiro) ──
-                    for (final e in widget.totais.detalheCartoes.entries)
-                      if (e.value.total > 0) ...[
+                    // ── 1. SEÇÃO DE CARTÕES E VOUCHERS (Bandeiras com Vendas e Total) ──
+                    if (widget.totais.detalheCartoes.values.any((v) => v.total > 0)) ...[
+                      const Text(
+                        'CARTÕES E VOUCHERS',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF64748B),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      for (final e in widget.totais.detalheCartoes.entries)
+                        if (e.value.total > 0) ...[
+                          _itemResumoCard(
+                            icon: Icons.credit_card_rounded,
+                            iconColor: const Color(0xFF60A5FA),
+                            iconBg: const Color(0xFF1E3A8A).withOpacity(0.5),
+                            titulo: e.key,
+                            subtitulo: '(${e.value.qtd} un)',
+                            valor: e.value.total,
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      if (widget.totais.cartoes > 0 || widget.totais.qtdCartoes > 0) ...[
                         _itemResumoCard(
                           icon: Icons.credit_card_rounded,
-                          iconColor: const Color(0xFF60A5FA),
+                          iconColor: const Color(0xFF38BDF8),
                           iconBg: const Color(0xFF1E3A8A).withOpacity(0.5),
-                          titulo: e.key,
-                          subtitulo: '(${e.value.qtd} un)',
-                          valor: e.value.total,
+                          titulo: 'Total Cartões',
+                          subtitulo: '(${widget.totais.qtdCartoes} un)',
+                          valor: widget.totais.cartoes,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      const SizedBox(height: 8),
+                    ],
+
+                    // ── 2. SEÇÃO DE OUTRAS FORMAS DE PAGAMENTO ──
+                    if (widget.totais.dinheiro > 0 ||
+                        widget.totais.pix > 0 ||
+                        widget.totais.requisicao > 0 ||
+                        widget.totais.depositoGlobal > 0 ||
+                        widget.totais.despesas > 0) ...[
+                      const Text(
+                        'OUTRAS FORMAS DE PAGAMENTO',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF64748B),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Sobra de Dinheiro
+                      if (widget.totais.dinheiro > 0) ...[
+                        _itemResumoCard(
+                          icon: Icons.money_rounded,
+                          iconColor: const Color(0xFF10B981),
+                          iconBg: const Color(0xFF064E3B).withOpacity(0.5),
+                          titulo: 'Sobra de Dinheiro',
+                          valor: widget.totais.dinheiro,
                         ),
                         const SizedBox(height: 8),
                       ],
 
-                    // ── 2. SOBRA DE DINHEIRO (Apenas se lançado > 0) ──
-                    if (widget.totais.dinheiro > 0) ...[
-                      _itemResumoCard(
-                        icon: Icons.money_rounded,
-                        iconColor: const Color(0xFF10B981),
-                        iconBg: const Color(0xFF064E3B).withOpacity(0.5),
-                        titulo: 'Sobra de Dinheiro',
-                        valor: widget.totais.dinheiro,
-                      ),
-                      const SizedBox(height: 8),
+                      // Pag Pix
+                      if (widget.totais.pix > 0) ...[
+                        _itemResumoCard(
+                          icon: Icons.qr_code_2_rounded,
+                          iconColor: const Color(0xFF38BDF8),
+                          iconBg: const Color(0xFF0C4A6E).withOpacity(0.5),
+                          titulo: 'Pag Pix',
+                          subtitulo: '(${widget.totais.pix > 0 ? "1" : "0"} un)',
+                          valor: widget.totais.pix,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
+                      // Requisição
+                      if (widget.totais.requisicao > 0) ...[
+                        _itemResumoCard(
+                          icon: Icons.receipt_long_rounded,
+                          iconColor: const Color(0xFFA855F7),
+                          iconBg: const Color(0xFF581C87).withOpacity(0.5),
+                          titulo: 'Requisição',
+                          valor: widget.totais.requisicao,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
+                      // Depósito Global
+                      if (widget.totais.depositoGlobal > 0) ...[
+                        _itemResumoCard(
+                          icon: Icons.account_balance_rounded,
+                          iconColor: const Color(0xFFF59E0B),
+                          iconBg: const Color(0xFF78350F).withOpacity(0.5),
+                          titulo: 'Depósito Global',
+                          valor: widget.totais.depositoGlobal,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
+                      // Despesas
+                      if (widget.totais.despesas > 0) ...[
+                        _itemResumoCard(
+                          icon: Icons.money_off_rounded,
+                          iconColor: const Color(0xFFEF4444),
+                          iconBg: const Color(0xFF7F1D1D).withOpacity(0.5),
+                          titulo: 'Despesas',
+                          valor: widget.totais.despesas,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                     ],
 
-                    // ── 3. PAG PIX (Apenas se lançado > 0) ──
-                    if (widget.totais.pix > 0) ...[
-                      _itemResumoCard(
-                        icon: Icons.qr_code_2_rounded,
-                        iconColor: const Color(0xFF38BDF8),
-                        iconBg: const Color(0xFF0C4A6E).withOpacity(0.5),
-                        titulo: 'Pag Pix',
-                        subtitulo: '(${widget.totais.pix > 0 ? "1" : "0"} un)',
-                        valor: widget.totais.pix,
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-
-                    // ── 4. REQUIÇÃO (Apenas se lançado > 0) ──
-                    if (widget.totais.requisicao > 0) ...[
-                      _itemResumoCard(
-                        icon: Icons.receipt_long_rounded,
-                        iconColor: const Color(0xFFA855F7),
-                        iconBg: const Color(0xFF581C87).withOpacity(0.5),
-                        titulo: 'Requisição',
-                        valor: widget.totais.requisicao,
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-
-                    // ── 5. DEPÓSITO GLOBAL (Apenas se lançado > 0) ──
-                    if (widget.totais.depositoGlobal > 0) ...[
-                      _itemResumoCard(
-                        icon: Icons.account_balance_rounded,
-                        iconColor: const Color(0xFFF59E0B),
-                        iconBg: const Color(0xFF78350F).withOpacity(0.5),
-                        titulo: 'Depósito Global',
-                        valor: widget.totais.depositoGlobal,
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-
-                    // ── 6. DESPESAS (Apenas se lançado > 0) ──
-                    if (widget.totais.despesas > 0) ...[
-                      _itemResumoCard(
-                        icon: Icons.money_off_rounded,
-                        iconColor: const Color(0xFFEF4444),
-                        iconBg: const Color(0xFF7F1D1D).withOpacity(0.5),
-                        titulo: 'Despesas',
-                        valor: widget.totais.despesas,
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-
-                    // ── 7. TOTAL CARTÕES (Mantido na posição atual) ──
-                    if (widget.totais.cartoes > 0 || widget.totais.qtdCartoes > 0) ...[
-                      _itemResumoCard(
-                        icon: Icons.credit_card_rounded,
-                        iconColor: const Color(0xFF38BDF8),
-                        iconBg: const Color(0xFF1E3A8A).withOpacity(0.5),
-                        titulo: 'Total Cartões',
-                        subtitulo: '(${widget.totais.qtdCartoes} un)',
-                        valor: widget.totais.cartoes,
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-
-                    // ── 8. CASO NADA TENHA SIDO LANÇADO AINDA ──
+                    // ── 3. CASO NADA TENHA SIDO LANÇADO AINDA ──
                     if (widget.totais.totalGeral == 0) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
