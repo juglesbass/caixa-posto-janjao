@@ -1,25 +1,18 @@
-import 'dart:js_interop';
-
-@JS('Notification.requestPermission')
-external JSPromise<JSString>? _requestPermissionJs();
-
-@JS('Notification')
-extension type JSNotification._(JSObject _) implements JSObject {
-  external factory JSNotification(JSString title, [JSObject? options]);
-}
+// ignore_for_file: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 
 void requestNotificationPermission() {
   try {
-    _requestPermissionJs();
+    if (html.Notification.supported) {
+      html.Notification.requestPermission();
+    }
   } catch (_) {}
 }
 
 void showSystemNotification(String title, String body) {
   try {
-    final opts = {
-      'body': body,
-      'icon': 'icons/Icon-192.png',
-    }.jsify();
-    JSNotification(title.toJS, opts as JSObject);
+    if (html.Notification.supported && html.Notification.permission == 'granted') {
+      html.Notification(title, body: body, icon: 'icons/Icon-192.png');
+    }
   } catch (_) {}
 }

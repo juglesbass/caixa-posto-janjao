@@ -125,7 +125,7 @@ class _MainShellState extends State<MainShell> {
     } catch (_) {}
   }
 
-  void _inicializarApp() async {
+  Future<void> _inicializarApp() async {
     setState(() => _carregando = true);
     try {
       final db = DatabaseService.instance;
@@ -159,7 +159,7 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  void _recarregarDados() async {
+  Future<void> _recarregarDados() async {
     final db = DatabaseService.instance;
     final turnoAtualizado = await db.obterTurnoAberto();
     await NotificationService.atualizarPendencias();
