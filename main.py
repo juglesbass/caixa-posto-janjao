@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 
 try:
     import certifi
@@ -4711,6 +4712,11 @@ async def main(page: ft.Page):
             alignment=ft.Alignment(0, 0),
         )
 
+        def _on_nome_change(e):
+            if campo_nome.error_text:
+                campo_nome.error_text = None
+                campo_nome.update()
+
         campo_nome = ft.TextField(
             label="Seu nome",
             hint_text="Como podemos te chamar?",
@@ -4722,7 +4728,8 @@ async def main(page: ft.Page):
             border_radius=RADIUS_SM,
             border_color=pal.border,
             focused_border_color=C_ACCENT,
-            on_submit=lambda e: page.run_task(validar_acesso_async),
+            on_change=_on_nome_change,
+            on_submit=lambda e: validar_acesso(),
         )
 
         tem_pin = bool(pin_configurado) and not novo_turno
@@ -4738,7 +4745,7 @@ async def main(page: ft.Page):
             border_radius=RADIUS_SM,
             border_color=pal.border,
             focused_border_color=C_ACCENT,
-            on_submit=lambda e: page.run_task(validar_acesso_async),
+            on_submit=lambda e: validar_acesso(),
         )
 
         campo_fundo = ft.TextField(
@@ -4760,33 +4767,45 @@ async def main(page: ft.Page):
         texto_erro = ft.Text("", color=ft.Colors.RED_400, size=12, weight=ft.FontWeight.W_600)
 
         def validar_acesso(e=None):
-            if not tem_pin or campo_pin.value == pin_configurado:
-                nonlocal turno_atual, autenticado
-                autenticado = True
-
-                nome_digitado = (campo_nome.value or "").strip() or "Não informado"
-                val_fundo = validar_valor_monetario(campo_fundo.value or "0") if novo_turno else 0.0
-
-                fechar_dialogo(dlg_acesso)
-
-                if novo_turno:
-                    turno_atual = db.abrir_novo_turno(conn, nome_digitado, fundo_caixa=val_fundo)
-                else:
-                    turno_existente = db.obter_turno_aberto(conn)
-                    if turno_existente:
-                        if turno_existente.operador in ("Não informado", "", None) and nome_digitado != "Não informado":
-                            conn.execute("UPDATE turnos SET operador = ? WHERE id = ?", (nome_digitado, turno_existente.id))
-                            conn.commit()
-                            turno_existente.operador = nome_digitado
-                        turno_atual = turno_existente
-                    else:
-                        turno_atual = db.abrir_novo_turno(conn, nome_digitado, fundo_caixa=val_fundo)
-
-                sincronizar_armazenamento_navegador()
-                montar_interface()
-            else:
+            if tem_pin and campo_pin.value != pin_configurado:
                 texto_erro.value = "PIN incorreto"
                 page.update()
+                return
+
+            nome_raw = (campo_nome.value or "").strip()
+            letras_nome = re.findall(r"[a-zA-ZÀ-ÿ]", nome_raw)
+            if len(letras_nome) < 3:
+                campo_nome.error_text = "Digite pelo menos o primeiro nome completo (mín. 3 letras)"
+                mostrar_snackbar("Digite pelo menos o primeiro nome completo (mín. 3 letras)", ft.Colors.RED_800)
+                page.update()
+                return
+
+            nome_digitado = nome_raw.title()
+            campo_nome.error_text = None
+            texto_erro.value = ""
+
+            nonlocal turno_atual, autenticado
+            autenticado = True
+
+            val_fundo = validar_valor_monetario(campo_fundo.value or "0") if novo_turno else 0.0
+
+            fechar_dialogo(dlg_acesso)
+
+            if novo_turno:
+                turno_atual = db.abrir_novo_turno(conn, nome_digitado, fundo_caixa=val_fundo)
+            else:
+                turno_existente = db.obter_turno_aberto(conn)
+                if turno_existente:
+                    if turno_existente.operador in ("Não informado", "", None) and nome_digitado != "Não informado":
+                        conn.execute("UPDATE turnos SET operador = ? WHERE id = ?", (nome_digitado, turno_existente.id))
+                        conn.commit()
+                        turno_existente.operador = nome_digitado
+                    turno_atual = turno_existente
+                else:
+                    turno_atual = db.abrir_novo_turno(conn, nome_digitado, fundo_caixa=val_fundo)
+
+            sincronizar_armazenamento_navegador()
+            montar_interface()
 
         campo_nome.on_submit = validar_acesso
         if tem_pin:
