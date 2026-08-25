@@ -34,21 +34,18 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Setup SQLite Web WASM and Worker
+      - name: Download sqlite3.wasm for Web
         run: |
-          dart run sqflite_common_ffi_web:setup --force || true
-          ls -la web/ || true
+          mkdir -p web
+          curl -sSL -o web/sqlite3.wasm https://github.com/simolus3/sqlite3.dart/releases/download/sqlite3-2.4.6/sqlite3.wasm || true
 
       - name: Build Web PWA
         run: flutter build web --release --base-href "/caixa-posto-janjao/"
 
-      - name: Ensure SQLite WASM and Worker in build/web
+      - name: Ensure sqlite3.wasm in build/web
         run: |
           if [ -f "web/sqlite3.wasm" ]; then
             cp -f web/sqlite3.wasm build/web/
-          fi
-          if [ -f "web/sqflite_sw.js" ]; then
-            cp -f web/sqflite_sw.js build/web/
           fi
           ls -la build/web/
 
