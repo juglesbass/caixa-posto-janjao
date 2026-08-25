@@ -98,12 +98,14 @@ class SettingsScreen extends StatelessWidget {
 
   void _sincronizarDrive(BuildContext context) async {
     try {
-      final pends = await DriveService.sincronizarPendencias();
+      final res = await DriveService.sincronizarTodasPendencias();
+      onRecarregar();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(pends > 0 ? '🔄 $pends relatórios sincronizados com o Google Drive!' : '✅ Google Drive 100% atualizado!'),
-            backgroundColor: AppColors.blue,
+            content: Text(res.mensagem),
+            backgroundColor: res.todosOk ? AppColors.green : AppColors.amber,
+            duration: const Duration(seconds: 4),
           ),
         );
       }

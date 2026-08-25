@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../dialogs/drive_failure_dialog.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
 import '../services/csv_service.dart';
@@ -14,6 +15,7 @@ import '../services/drive_service.dart';
 import '../services/pdf_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/currency_formatter.dart';
+import '../widgets/pending_sync_banner.dart';
 
 class SummaryScreen extends StatefulWidget {
   final Turno turno;
@@ -401,6 +403,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
         nomeArquivo: nomeArquivo,
         turnoId: widget.turno.id!,
         operador: widget.turno.operador,
+        turnoNumero: widget.turno.numero,
       );
 
       progressoNotifier.value = '✅ Concluído com sucesso!';
@@ -412,15 +415,29 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ Turno encerrado com sucesso! ${resultadoDrive.mensagem}'),
-          backgroundColor: AppColors.green,
-          duration: const Duration(seconds: 4),
-        ),
-      );
-
       widget.onTurnoAlterado();
+
+      if (!resultadoDrive.sucesso) {
+        showDialog(
+          context: context,
+          builder: (ctx) => DriveFailureDialog(
+            turnoNumero: widget.turno.numero,
+            operador: widget.turno.operador,
+            mensagemErro: resultadoDrive.mensagem,
+            onSincronizado: () {
+              widget.onTurnoAlterado();
+            },
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Turno encerrado com sucesso! ${resultadoDrive.mensagem}'),
+            backgroundColor: AppColors.green,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
@@ -441,6 +458,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            PendingSyncBanner(onSincronizado: widget.onTurnoAlterado),
             // ── Barra Superior com Ícone de Barras e Fechar 'X' ──
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

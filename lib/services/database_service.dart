@@ -160,6 +160,20 @@ class DatabaseService {
     return null;
   }
 
+  Future<Turno?> obterTurnoPorId(int turnoId) async {
+    final db = await database;
+    final maps = await db.query(
+      'turnos',
+      where: 'id = ?',
+      whereArgs: [turnoId],
+      limit: 1,
+    );
+    if (maps.isNotEmpty) {
+      return Turno.fromMap(maps.first);
+    }
+    return null;
+  }
+
   Future<void> fecharTurno(
     int turnoId, {
     double vendasSistema = 0.0,

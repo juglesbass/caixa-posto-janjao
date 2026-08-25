@@ -11,6 +11,7 @@ import '../utils/payment_types.dart';
 import '../widgets/hud_totais.dart';
 import '../widgets/machine_selector.dart';
 import '../widgets/payment_grid.dart';
+import '../widgets/pending_sync_banner.dart';
 import '../widgets/quick_amount_row.dart';
 import '../widgets/troco_calculator.dart';
 
@@ -232,6 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              PendingSyncBanner(onSincronizado: widget.onRecarregar),
               // ── Banner de Alerta de Sangria ──
               if (alertaGaveta) ...[
                 InkWell(

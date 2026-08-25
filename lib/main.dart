@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dialogs/auth_dialog.dart';
 import 'dialogs/quick_launch_modal.dart';
+import 'dialogs/turnos_anteriores_dialog.dart';
 import 'models/totais_turno.dart';
 import 'models/turno.dart';
 import 'screens/history_screen.dart';
@@ -12,10 +13,13 @@ import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/summary_screen.dart';
 import 'services/database_service.dart';
+import 'services/drive_service.dart';
+import 'services/notification_service.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 import 'utils/payment_types.dart';
 import 'widgets/bottom_nav_bar.dart';
+import 'widgets/pending_sync_banner.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +29,9 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  // Inicializa notificações e fila de sincronização
+  await NotificationService.inicializar();
 
   runApp(const CaixaPostoJanjaoApp());
 }
@@ -108,6 +115,14 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _inicializarApp();
+    _tentarSincronizarFilaInicial();
+  }
+
+  void _tentarSincronizarFilaInicial() async {
+    try {
+      await Future.delayed(const Duration(seconds: 2));
+      await DriveService.sincronizarTodasPendencias();
+    } catch (_) {}
   }
 
   void _inicializarApp() async {
@@ -115,9 +130,11 @@ class _MainShellState extends State<MainShell> {
     try {
       final db = DatabaseService.instance;
       final turnoAberto = await db.obterTurnoAberto();
+      await NotificationService.atualizarPendencias();
 
       if (turnoAberto == null) {
         setState(() {
+          _turnoAtual = null;
           _carregando = false;
         });
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -143,13 +160,21 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _recarregarDados() async {
-    if (_turnoAtual == null) return;
     final db = DatabaseService.instance;
-    final totais = await db.obterTotaisTurno(_turnoAtual!.id!);
     final turnoAtualizado = await db.obterTurnoAberto();
+    await NotificationService.atualizarPendencias();
+
+    if (turnoAtualizado == null) {
+      setState(() {
+        _turnoAtual = null;
+      });
+      return;
+    }
+
+    final totais = await db.obterTotaisTurno(turnoAtualizado.id!);
     setState(() {
+      _turnoAtual = turnoAtualizado;
       _totais = totais;
-      if (turnoAtualizado != null) _turnoAtual = turnoAtualizado;
     });
   }
 
@@ -221,19 +246,64 @@ class _MainShellState extends State<MainShell> {
 
     if (_turnoAtual == null) {
       return Scaffold(
-        body: Center(
+        body: SafeArea(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.local_gas_station_rounded, size: 64, color: AppColors.accentLight),
-              const SizedBox(height: 16),
-              const Text('Nenhum Turno Aberto', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () => _solicitarIdentificacao(novoTurno: true),
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text('Abrir Turno Agora'),
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+              PendingSyncBanner(onSincronizado: _inicializarApp),
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.local_gas_station_rounded, size: 64, color: AppColors.accentLight),
+                        const SizedBox(height: 16),
+                        const Text('Nenhum Turno Aberto', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: () => _solicitarIdentificacao(novoTurno: true),
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: const Text('Abrir Turno Agora'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        TextButton.icon(
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => TurnosAnterioresDialog(
+                                onReabrirTurno: (turnoReaberto) async {
+                                  final db = DatabaseService.instance;
+                                  await db.reabrirTurno(turnoReaberto.id!);
+                                  await _inicializarApp();
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('🔓 Turno #${turnoReaberto.numero} (${turnoReaberto.operador}) reaberto com sucesso!'),
+                                        backgroundColor: AppColors.green,
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.history_rounded, size: 18, color: Color(0xFF94A3B8)),
+                          label: const Text(
+                            'Histórico de Turnos e Reabertura',
+                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
