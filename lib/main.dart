@@ -186,7 +186,7 @@ class _MainShellState extends State<MainShell> {
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (ctx) => AuthDialog(
         novoTurno: novoTurno,
         pinConfigurado: pin,
@@ -194,6 +194,28 @@ class _MainShellState extends State<MainShell> {
     );
 
     if (result != null) {
+      if (result['acao'] == 'historico') {
+        showDialog(
+          context: context,
+          builder: (ctx) => TurnosAnterioresDialog(
+            onReabrirTurno: (turnoReaberto) async {
+              final db = DatabaseService.instance;
+              await db.reabrirTurno(turnoReaberto.id!);
+              await _inicializarApp();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('🔓 Turno #${turnoReaberto.numero} (${turnoReaberto.operador}) reaberto com sucesso!'),
+                    backgroundColor: AppColors.green,
+                  ),
+                );
+              }
+            },
+          ),
+        );
+        return;
+      }
+
       final operador = result['operador'] as String;
       final fundo = (result['fundoCaixa'] as num?)?.toDouble() ?? 0.0;
 
@@ -249,6 +271,26 @@ class _MainShellState extends State<MainShell> {
         body: SafeArea(
           child: Column(
             children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'POSTO JANJÃO',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        widget.isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                        color: widget.isDark ? const Color(0xFFFBBF24) : const Color(0xFF2563EB),
+                      ),
+                      tooltip: widget.isDark ? 'Ativar Tema Claro' : 'Ativar Tema Escuro',
+                      onPressed: () => widget.onMudarTema(!widget.isDark),
+                    ),
+                  ],
+                ),
+              ),
               PendingSyncBanner(onSincronizado: _inicializarApp),
               Expanded(
                 child: Center(
@@ -257,47 +299,76 @@ class _MainShellState extends State<MainShell> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.local_gas_station_rounded, size: 64, color: AppColors.accentLight),
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: AppColors.accent.withOpacity(0.14),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.local_gas_station_rounded, size: 54, color: AppColors.accentLight),
+                        ),
                         const SizedBox(height: 16),
-                        const Text('Nenhum Turno Aberto', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: () => _solicitarIdentificacao(novoTurno: true),
-                          icon: const Icon(Icons.play_arrow_rounded),
-                          label: const Text('Abrir Turno Agora'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.accent,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        const Text(
+                          'Nenhum Turno Aberto',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Abra um novo turno ou reabra um turno anterior para continuar.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: 280,
+                          child: ElevatedButton.icon(
+                            onPressed: () => _solicitarIdentificacao(novoTurno: true),
+                            icon: const Icon(Icons.play_arrow_rounded, color: Colors.white),
+                            label: const Text(
+                              'Abrir Turno Agora',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.accent,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 14),
-                        TextButton.icon(
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => TurnosAnterioresDialog(
-                                onReabrirTurno: (turnoReaberto) async {
-                                  final db = DatabaseService.instance;
-                                  await db.reabrirTurno(turnoReaberto.id!);
-                                  await _inicializarApp();
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('🔓 Turno #${turnoReaberto.numero} (${turnoReaberto.operador}) reaberto com sucesso!'),
-                                        backgroundColor: AppColors.green,
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.history_rounded, size: 18, color: Color(0xFF94A3B8)),
-                          label: const Text(
-                            'Histórico de Turnos e Reabertura',
-                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: 280,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (ctx) => TurnosAnterioresDialog(
+                                  onReabrirTurno: (turnoReaberto) async {
+                                    final db = DatabaseService.instance;
+                                    await db.reabrirTurno(turnoReaberto.id!);
+                                    await _inicializarApp();
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('🔓 Turno #${turnoReaberto.numero} (${turnoReaberto.operador}) reaberto com sucesso!'),
+                                          backgroundColor: AppColors.green,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.history_rounded, size: 18, color: Colors.white),
+                            label: const Text(
+                              'Histórico e Reabrir Turno',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0284C7),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
                           ),
                         ),
                       ],
@@ -321,6 +392,7 @@ class _MainShellState extends State<MainShell> {
             totais: _totais,
             onRecarregar: _recarregarDados,
             onAbrirResumo: () => setState(() => _indiceAba = 2),
+            onMudarTema: widget.onMudarTema,
           ),
 
           // Aba 1: Histórico

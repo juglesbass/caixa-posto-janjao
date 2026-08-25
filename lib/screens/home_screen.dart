@@ -20,6 +20,7 @@ class HomeScreen extends StatefulWidget {
   final TotaisTurno totais;
   final VoidCallback onRecarregar;
   final VoidCallback onAbrirResumo;
+  final ValueChanged<bool>? onMudarTema;
 
   const HomeScreen({
     super.key,
@@ -27,6 +28,7 @@ class HomeScreen extends StatefulWidget {
     required this.totais,
     required this.onRecarregar,
     required this.onAbrirResumo,
+    this.onMudarTema,
   });
 
   @override
@@ -215,6 +217,15 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          if (widget.onMudarTema != null)
+            IconButton(
+              icon: Icon(
+                isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                color: isDark ? const Color(0xFFFBBF24) : const Color(0xFF3B82F6),
+              ),
+              tooltip: isDark ? 'Ativar Tema Claro' : 'Ativar Tema Escuro',
+              onPressed: () => widget.onMudarTema!(!isDark),
+            ),
           IconButton(
             icon: const Icon(Icons.call_made_rounded, color: AppColors.orange),
             tooltip: 'Realizar Sangria',

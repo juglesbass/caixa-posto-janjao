@@ -162,8 +162,13 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bgScaffold = isDark ? const Color(0xFF090D16) : AppColors.lightBg;
+    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+    final textSec = isDark ? const Color(0xFF64748B) : AppColors.lightTextSec;
+    final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF090D16),
+      backgroundColor: bgScaffold,
       body: SafeArea(
         child: Column(
           children: [
@@ -181,7 +186,7 @@ class SettingsScreen extends StatelessWidget {
                     child: const Icon(Icons.tune_rounded, color: Color(0xFF38BDF8), size: 18),
                   ),
                   const SizedBox(width: 10),
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -189,19 +194,19 @@ class SettingsScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: textPri,
                           letterSpacing: 0.2,
                         ),
                       ),
                       Text(
                         'Gerenciamento e ações do turno',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        style: TextStyle(fontSize: 11, color: textSec),
                       ),
                     ],
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                    icon: Icon(Icons.close_rounded, color: textSec),
                     onPressed: () {
                       if (onFechar != null) {
                         onFechar!();
@@ -213,7 +218,7 @@ class SettingsScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const Divider(height: 1, color: Color(0xFF1E293B)),
+            Divider(height: 1, color: borderCol),
 
             // ── Lista de Opções do Menu ──
             Expanded(
@@ -248,29 +253,29 @@ class SettingsScreen extends StatelessWidget {
                     iconColor: const Color(0xFFA855F7),
                     iconBg: const Color(0xFF581C87).withOpacity(0.4),
                     titulo: 'Analytics & Desempenho',
-                    subtitulo: 'Gráficos de vendas e horários de pico',
+                    subtitulo: 'Gráficos de vendas, ticket médio e formas',
                     onTap: () => _abrirAnalytics(context),
                   ),
                   const SizedBox(height: 8),
 
-                  // 4. Exportar para Excel (CSV)
+                  // 4. Exportar Planilha Excel (CSV)
                   _itemMenuCard(
                     icon: Icons.table_chart_rounded,
-                    iconColor: const Color(0xFF0D9488),
-                    iconBg: const Color(0xFF134E4A).withOpacity(0.4),
-                    titulo: 'Exportar para Excel (CSV)',
-                    subtitulo: 'Baixar relatório financeiro formatado para Excel',
+                    iconColor: const Color(0xFF10B981),
+                    iconBg: const Color(0xFF064E3B).withOpacity(0.4),
+                    titulo: 'Exportar Planilha Excel (CSV)',
+                    subtitulo: 'Salvar ou compartilhar dados estruturados',
                     onTap: () => _exportarCsv(context),
                   ),
                   const SizedBox(height: 8),
 
-                  // 5. Sincronizar Google Drive
+                  // 5. Sincronizar com Google Drive
                   _itemMenuCard(
                     icon: Icons.cloud_sync_rounded,
-                    iconColor: const Color(0xFF0284C7),
+                    iconColor: const Color(0xFF38BDF8),
                     iconBg: const Color(0xFF0C4A6E).withOpacity(0.4),
-                    titulo: 'Sincronizar Google Drive',
-                    subtitulo: 'Reenviar relatórios e PDFs pendentes para o Drive',
+                    titulo: 'Sincronizar com Google Drive',
+                    subtitulo: 'Forçar reenvio de relatórios pendentes na fila',
                     onTap: () => _sincronizarDrive(context),
                   ),
                   const SizedBox(height: 8),
@@ -308,7 +313,18 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
 
-                  // 9. Trocar / Sair do Operador
+                  // 9. Alternar Tema Claro / Escuro
+                  _itemMenuCard(
+                    icon: isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                    iconColor: isDark ? const Color(0xFFFBBF24) : const Color(0xFF2563EB),
+                    iconBg: isDark ? const Color(0xFF78350F).withOpacity(0.4) : const Color(0xFFDBEAFE),
+                    titulo: isDark ? 'Ativar Tema Claro' : 'Ativar Tema Escuro',
+                    subtitulo: isDark ? 'Mudar interface para fundo claro' : 'Mudar interface para modo noturno',
+                    onTap: () => onMudarTema(!isDark),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // 10. Trocar / Sair do Operador
                   _itemMenuCard(
                     icon: Icons.person_outline_rounded,
                     iconColor: const Color(0xFFD97706),
@@ -319,7 +335,7 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
 
-                  // 10. Limpar / Zerar Tudo (Destaque Vermelho)
+                  // 11. Limpar / Zerar Tudo (Destaque Vermelho)
                   _itemMenuCard(
                     icon: Icons.delete_forever_rounded,
                     iconColor: const Color(0xFFEF4444),
@@ -368,15 +384,20 @@ class SettingsScreen extends StatelessWidget {
     Color? corBorda,
     Color? corTitulo,
   }) {
+    final cardBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
+    final cardBorder = corBorda ?? (isDark ? const Color(0xFF1E293B) : AppColors.lightBorder);
+    final titleCol = corTitulo ?? (isDark ? Colors.white : AppColors.lightTextPri);
+    final subCol = isDark ? const Color(0xFF64748B) : AppColors.lightTextSec;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF131C2E),
+          color: cardBg,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: corBorda ?? const Color(0xFF1E293B)),
+          border: Border.all(color: cardBorder),
         ),
         child: Row(
           children: [
@@ -398,20 +419,20 @@ class SettingsScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: corTitulo ?? Colors.white,
+                      color: titleCol,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitulo,
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    style: TextStyle(fontSize: 11, color: subCol),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: Color(0xFF64748B), size: 18),
+            Icon(Icons.chevron_right_rounded, color: subCol, size: 18),
           ],
         ),
       ),

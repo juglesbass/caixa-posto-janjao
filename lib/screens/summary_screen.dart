@@ -452,9 +452,14 @@ class _SummaryScreenState extends State<SummaryScreen> {
   @override
   Widget build(BuildContext context) {
     final diferenca = _diferencaAtual;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgScaffold = isDark ? const Color(0xFF0D131F) : AppColors.lightBg;
+    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+    final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D131F),
+      backgroundColor: bgScaffold,
       body: SafeArea(
         child: Column(
           children: [
@@ -473,18 +478,18 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     child: const Icon(Icons.bar_chart_rounded, color: Color(0xFF38BDF8), size: 18),
                   ),
                   const SizedBox(width: 10),
-                  const Text(
+                  Text(
                     'Resumo do Turno',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: textPri,
                       letterSpacing: 0.2,
                     ),
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                    icon: Icon(Icons.close_rounded, color: textSec),
                     onPressed: () {
                       if (widget.onFechar != null) {
                         widget.onFechar!();
@@ -496,7 +501,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 ],
               ),
             ),
-            const Divider(height: 1, color: Color(0xFF1E293B)),
+            Divider(height: 1, color: borderCol),
 
             // ── Conteúdo com Scroll Dinâmico e Botões Integrados ──
             Expanded(

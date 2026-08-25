@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../services/database_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/validator.dart';
@@ -82,45 +81,65 @@ class _AuthDialogState extends State<AuthDialog> {
         !widget.novoTurno;
 
     return AlertDialog(
-      title: Column(
+      backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.lightSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder),
+      ),
+      titlePadding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      title: Stack(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.accent.withOpacity(0.14),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              widget.novoTurno
-                  ? Icons.local_gas_station_rounded
-                  : Icons.waving_hand_rounded,
-              color: AppColors.accentLight,
-              size: 28,
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withOpacity(0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    widget.novoTurno
+                        ? Icons.local_gas_station_rounded
+                        : Icons.waving_hand_rounded,
+                    color: AppColors.accentLight,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  widget.novoTurno ? 'Abrir Novo Turno' : 'Bem-vindo(a) de volta',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: textPri,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.novoTurno
+                      ? 'Informe seu nome para começar o turno.'
+                      : 'Informe seu nome para continuar de onde parou.',
+                  style: TextStyle(fontSize: 12, color: textSec),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            widget.novoTurno ? 'Abrir Novo Turno' : 'Bem-vindo(a) de volta',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: textPri,
+          Positioned(
+            top: -4,
+            right: -4,
+            child: IconButton(
+              icon: Icon(Icons.close_rounded, color: textSec, size: 20),
+              onPressed: () => Navigator.of(context).pop(),
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            widget.novoTurno
-                ? 'Informe seu nome para começar o turno.'
-                : 'Informe seu nome para continuar de onde parou.',
-            style: TextStyle(fontSize: 12, color: textSec),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
       content: SingleChildScrollView(
         child: SizedBox(
-          width: 280,
+          width: 300,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -194,26 +213,53 @@ class _AuthDialogState extends State<AuthDialog> {
         ),
       ),
       actionsAlignment: MainAxisAlignment.center,
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       actions: [
         SizedBox(
-          width: 240,
-          height: 46,
-          child: ElevatedButton.icon(
-            onPressed: _confirmar,
-            icon: Icon(
-              widget.novoTurno ? Icons.play_arrow_rounded : Icons.login_rounded,
-              color: Colors.white,
-            ),
-            label: Text(
-              widget.novoTurno ? 'Abrir Turno' : 'Entrar',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppColors.radiusSm),
+          width: double.infinity,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ElevatedButton.icon(
+                onPressed: _confirmar,
+                icon: Icon(
+                  widget.novoTurno ? Icons.play_arrow_rounded : Icons.login_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                label: Text(
+                  widget.novoTurno ? 'Abrir Turno Agora' : 'Entrar',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
               ),
-            ),
+              if (widget.novoTurno) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).pop({'acao': 'historico'}),
+                  icon: const Icon(Icons.history_rounded, size: 18, color: Color(0xFF06B6D4)),
+                  label: const Text(
+                    'Histórico e Reabrir Turno',
+                    style: TextStyle(
+                      color: Color(0xFF06B6D4),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF06B6D4)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ],

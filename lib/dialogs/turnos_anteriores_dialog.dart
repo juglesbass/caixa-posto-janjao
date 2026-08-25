@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/turno.dart';
 import '../services/database_service.dart';
 import '../theme/app_colors.dart';
-import '../utils/currency_formatter.dart';
 
 class TurnosAnterioresDialog extends StatefulWidget {
   final Function(Turno turno) onReabrirTurno;
@@ -37,9 +36,20 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgDialog = isDark ? const Color(0xFF0F172A) : AppColors.lightSurface;
+    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+    final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
+    final cardBg = isDark ? const Color(0xFF1E293B).withOpacity(0.5) : const Color(0xFFF1F5F9);
+    final cardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
+
     return Dialog(
-      backgroundColor: const Color(0xFF0F172A),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      backgroundColor: bgDialog,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: borderCol),
+      ),
       child: Container(
         padding: const EdgeInsets.all(16),
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
@@ -56,37 +66,37 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
                   child: const Icon(Icons.history_rounded, color: Color(0xFF06B6D4), size: 22),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Histórico de Turnos',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri),
                       ),
                       Text(
-                        'Consultar e gerenciar turnos anteriores',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                        'Consultar e reabrir turnos anteriores',
+                        style: TextStyle(fontSize: 11, color: textSec),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                  icon: Icon(Icons.close_rounded, color: textSec),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
-            const Divider(color: Color(0xFF1E293B), height: 20),
+            Divider(color: borderCol, height: 20),
 
             Expanded(
               child: _carregando
                   ? const Center(child: CircularProgressIndicator(color: Color(0xFF06B6D4)))
                   : _turnos.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Text(
                             'Nenhum turno registrado.',
-                            style: TextStyle(color: Color(0xFF94A3B8)),
+                            style: TextStyle(color: textSec),
                           ),
                         )
                       : ListView.separated(
@@ -99,10 +109,10 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
                             return Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1E293B).withOpacity(0.5),
+                                color: cardBg,
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: statusAberto ? const Color(0xFF10B981) : const Color(0xFF334155),
+                                  color: statusAberto ? const Color(0xFF10B981) : cardBorder,
                                   width: statusAberto ? 1.2 : 1,
                                 ),
                               ),
@@ -113,13 +123,13 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
                                     decoration: BoxDecoration(
                                       color: statusAberto
                                           ? const Color(0xFF064E3B).withOpacity(0.6)
-                                          : const Color(0xFF334155).withOpacity(0.6),
+                                          : (isDark ? const Color(0xFF334155).withOpacity(0.6) : const Color(0xFFE2E8F0)),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
                                       '#${t.numero}',
                                       style: TextStyle(
-                                        color: statusAberto ? const Color(0xFF34D399) : const Color(0xFF94A3B8),
+                                        color: statusAberto ? const Color(0xFF34D399) : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569)),
                                         fontWeight: FontWeight.bold,
                                         fontSize: 13,
                                       ),
@@ -132,18 +142,18 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
                                       children: [
                                         Text(
                                           t.operador,
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                          style: TextStyle(color: textPri, fontWeight: FontWeight.bold, fontSize: 13),
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
                                           'Abertura: ${t.data}',
-                                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                                          style: TextStyle(color: textSec, fontSize: 11),
                                         ),
                                         if (t.fechadoEm != null) ...[
                                           const SizedBox(height: 1),
                                           Text(
                                             'Fechado: ${t.fechadoEm}',
-                                            style: const TextStyle(color: Color(0xFF64748B), fontSize: 10),
+                                            style: TextStyle(color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8), fontSize: 10),
                                           ),
                                         ],
                                       ],
@@ -158,10 +168,10 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: const Color(0xFF2563EB),
                                         foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                       ),
-                                      child: const Text('Reabrir', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      child: const Text('Reabrir', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                     )
                                   else
                                     Container(
@@ -188,8 +198,10 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
               child: OutlinedButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF94A3B8),
-                  side: const BorderSide(color: Color(0xFF334155)),
+                  foregroundColor: textSec,
+                  side: BorderSide(color: borderCol),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 child: const Text('Fechar'),
               ),
