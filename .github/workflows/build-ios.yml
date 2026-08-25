@@ -35,11 +35,13 @@ jobs:
       - name: Configure Flutter iOS Platform
         run: flutter create . --org com.postojanjao --project-name caixa_posto_janjao --platforms ios
 
+      - name: Generate App Icons
+        run: |
+          python3 -m pip install pillow --quiet || true
+          python3 scripts/generate_icons.py
+
       - name: Install dependencies
         run: flutter pub get
-
-      - name: Generate App Icons
-        run: dart run flutter_launcher_icons
 
       - name: Build unsigned iOS app (device)
         run: flutter build ios --release --no-codesign --build-number "${{ github.run_number }}"
@@ -106,11 +108,13 @@ jobs:
           sed -i 's/minSdk = .*/minSdk = 21/g' android/app/build.gradle || true
           sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle || true
 
+      - name: Generate App Icons
+        run: |
+          python3 -m pip install pillow --quiet || true
+          python3 scripts/generate_icons.py
+
       - name: Install dependencies
         run: flutter pub get
-
-      - name: Generate App Icons
-        run: dart run flutter_launcher_icons
 
       - name: Build APK with Gradle
         working-directory: android
