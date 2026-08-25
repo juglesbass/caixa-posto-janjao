@@ -36,9 +36,7 @@ jobs:
         run: flutter create . --org com.postojanjao --project-name caixa_posto_janjao --platforms ios
 
       - name: Generate App Icons
-        run: |
-          python3 -m pip install pillow --quiet || true
-          python3 scripts/generate_icons.py
+        run: python3 scripts/generate_icons.py
 
       - name: Install dependencies
         run: flutter pub get
@@ -110,7 +108,7 @@ jobs:
 
       - name: Generate App Icons
         run: |
-          python3 -m pip install pillow --quiet || true
+          python3 -m pip install pillow --break-system-packages --quiet || true
           python3 scripts/generate_icons.py
 
       - name: Install dependencies
