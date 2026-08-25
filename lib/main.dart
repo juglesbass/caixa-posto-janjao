@@ -254,6 +254,7 @@ class _MainShellState extends State<MainShell> {
             turno: _turnoAtual!,
             totais: _totais,
             onTurnoAlterado: _inicializarApp,
+            onFechar: () => setState(() => _indiceAba = 0),
           ),
 
           // Aba 3: Menu / Configurações

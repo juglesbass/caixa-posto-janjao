@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:caixa_posto_janjao/models/lancamento.dart';
 import 'package:caixa_posto_janjao/models/totais_turno.dart';
 import 'package:caixa_posto_janjao/models/turno.dart';
+import 'package:caixa_posto_janjao/services/pdf_service.dart';
 
 void main() {
   group('Models - Turno, Lancamento e TotaisTurno', () {
@@ -67,6 +68,19 @@ void main() {
       );
       expect(totaisFalta.ehFalta, isTrue);
       expect(totaisFalta.ehSobra, isFalse);
+    });
+
+    test('PdfService.gerarNomeArquivo formato ${operador} ${data_dd-MM-yyyy}.pdf', () {
+      final turno = Turno(
+        id: 1,
+        numero: 1,
+        data: '25/08/2026 10:00',
+        operador: 'João Victor',
+        aberto: true,
+      );
+
+      final nome = PdfService.gerarNomeArquivo(turno: turno);
+      expect(nome, equals('João Victor 25-08-2026.pdf'));
     });
   });
 }

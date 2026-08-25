@@ -1,9 +1,14 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
+
 import '../dialogs/close_shift_dialog.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
+import '../services/csv_service.dart';
 import '../services/database_service.dart';
 import '../services/drive_service.dart';
 import '../services/pdf_service.dart';
@@ -14,12 +19,14 @@ class SummaryScreen extends StatefulWidget {
   final Turno turno;
   final TotaisTurno totais;
   final VoidCallback onTurnoAlterado;
+  final VoidCallback? onFechar;
 
   const SummaryScreen({
     super.key,
     required this.turno,
     required this.totais,
     required this.onTurnoAlterado,
+    this.onFechar,
   });
 
   @override
@@ -27,56 +34,280 @@ class SummaryScreen extends StatefulWidget {
 }
 
 class _SummaryScreenState extends State<SummaryScreen> {
-  bool _gerandoPdf = false;
-  bool _enviandoDrive = false;
+  final _vendasSistemaController = TextEditingController();
+  final _observacaoController = TextEditingController();
 
-  void _fecharTurno() async {
-    await showDialog(
-      context: context,
-      builder: (ctx) => CloseShiftDialog(
-        turno: widget.turno,
-        totais: widget.totais,
-        onConfirmarFechamento: (dados) async {
-          final db = DatabaseService.instance;
-          await db.fecharTurno(
-            widget.turno.id!,
-            vendasSistema: dados.vendasSistema,
-            observacao: dados.observacao,
-          );
+  double _vendasSistema = 0.0;
+  String _observacao = '';
+  bool _processando = false;
+  bool _cartoesExpandidos = false;
 
-          // Gera o PDF e envia para o Google Drive automaticamente
-          _gerarEEnviarPdf(dados.vendasSistema, dados.observacao);
+  @override
+  void initState() {
+    super.initState();
+    _vendasSistema = widget.turno.vendasSistema;
+    _observacao = widget.turno.observacao;
 
-          widget.onTurnoAlterado();
-        },
+    if (_vendasSistema > 0) {
+      _vendasSistemaController.text = CurrencyFormatter.formatar(_vendasSistema);
+    }
+    _observacaoController.text = _observacao;
+  }
+
+  @override
+  void didUpdateWidget(covariant SummaryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.turno.id != widget.turno.id) {
+      _vendasSistema = widget.turno.vendasSistema;
+      _observacao = widget.turno.observacao;
+      _vendasSistemaController.text = _vendasSistema > 0 ? CurrencyFormatter.formatar(_vendasSistema) : '';
+      _observacaoController.text = _observacao;
+    }
+  }
+
+  @override
+  void dispose() {
+    _vendasSistemaController.dispose();
+    _observacaoController.dispose();
+    super.dispose();
+  }
+
+  double get _diferencaAtual => widget.totais.totalGeral - _vendasSistema;
+
+  void _atualizarVendasSistema(String text) {
+    final valor = CurrencyFormatter.parse(text);
+    setState(() {
+      _vendasSistema = valor;
+    });
+    // Salva auditoria temporária no banco
+    DatabaseService.instance.salvarAuditoria(widget.turno.id!, _vendasSistema, _observacao);
+  }
+
+  void _atualizarObservacao(String text) {
+    _observacao = text;
+    DatabaseService.instance.salvarAuditoria(widget.turno.id!, _vendasSistema, _observacao);
+  }
+
+  /// Gera o texto completo e estruturado do fechamento de turno
+  String _montarTextoResumo() {
+    final buffer = StringBuffer();
+    buffer.writeln('⛽ *POSTO JANJÃO - FECHAMENTO DE TURNO*');
+    buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    buffer.writeln('👤 *Operador:* ${widget.turno.operador}');
+    buffer.writeln('📋 *Turno:* #${widget.turno.numero}');
+    buffer.writeln('📅 *Aberto em:* ${widget.turno.data}');
+    if (widget.turno.fechadoEm != null && widget.turno.fechadoEm!.isNotEmpty) {
+      buffer.writeln('⏱️ *Fechado em:* ${widget.turno.fechadoEm}');
+    }
+    buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    // Cartões
+    buffer.writeln('💳 *CARTÕES E VOUCHERS:*');
+    if (widget.totais.detalheCartoes.isEmpty) {
+      buffer.writeln('  _Nenhum cartão registrado_');
+    } else {
+      for (final e in widget.totais.detalheCartoes.entries) {
+        buffer.writeln('  • ${e.key}: ${CurrencyFormatter.formatar(e.value.total)} (${e.value.qtd} un)');
+      }
+    }
+    buffer.writeln('  👉 *Subtotal Cartões:* ${CurrencyFormatter.formatar(widget.totais.cartoes)} (${widget.totais.qtdCartoes} un)');
+    buffer.writeln('');
+
+    // Outros Meios
+    buffer.writeln('💵 *OUTROS MEIOS:*');
+    buffer.writeln('  • Pag Pix: ${CurrencyFormatter.formatar(widget.totais.pix)}');
+    buffer.writeln('  • Sobra de Dinheiro: ${CurrencyFormatter.formatar(widget.totais.dinheiro)}');
+    if (widget.totais.requisicao > 0) {
+      buffer.writeln('  • Requisição: ${CurrencyFormatter.formatar(widget.totais.requisicao)}');
+    }
+    if (widget.totais.depositoGlobal > 0) {
+      buffer.writeln('  • Depósito Global: ${CurrencyFormatter.formatar(widget.totais.depositoGlobal)}');
+    }
+    if (widget.totais.despesas > 0) {
+      buffer.writeln('  • Despesas: ${CurrencyFormatter.formatar(widget.totais.despesas)}');
+    }
+    buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    // Conciliação
+    buffer.writeln('🧮 *TOTAL VENDAS PISTA:* ${CurrencyFormatter.formatar(widget.totais.totalGeral)}');
+    if (_vendasSistema > 0) {
+      buffer.writeln('🖥️ *VENDAS SISTEMA (PDV):* ${CurrencyFormatter.formatar(_vendasSistema)}');
+      final dif = _diferencaAtual;
+      if (dif.abs() < 0.01) {
+        buffer.writeln('✅ *STATUS:* CAIXA 100% BATIDO (SEM DIFERENÇA)');
+      } else if (dif > 0) {
+        buffer.writeln('🔺 *STATUS:* SOBRA DE ${CurrencyFormatter.formatar(dif)}');
+      } else {
+        buffer.writeln('🔻 *STATUS:* FALTA DE ${CurrencyFormatter.formatar(dif)}');
+      }
+    }
+
+    if (_observacao.trim().isNotEmpty) {
+      buffer.writeln('📝 *Observações:* $_observacao');
+    }
+
+    buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    buffer.writeln('📥 *Dinheiro na Gaveta:* ${CurrencyFormatter.formatar(widget.totais.dinheiroGaveta)}');
+
+    return buffer.toString();
+  }
+
+  // 1. WhatsApp
+  void _compartilharWhatsApp() async {
+    final texto = _montarTextoResumo();
+    await Share.share(texto, subject: 'Fechamento Turno #${widget.turno.numero} - ${widget.turno.operador}');
+  }
+
+  // 2. Copiar Texto
+  void _copiarTexto() async {
+    final texto = _montarTextoResumo();
+    await Clipboard.setData(ClipboardData(text: texto));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✅ Resumo copiado para a área de transferência!'),
+        backgroundColor: AppColors.green,
+        duration: Duration(seconds: 2),
       ),
     );
   }
 
-  void _gerarEEnviarPdf([double? vendasSistema, String? obs]) async {
-    setState(() {
-      _gerandoPdf = true;
-      _enviandoDrive = true;
-    });
-
+  // 3. Baixar PDF
+  void _baixarPdf() async {
+    setState(() => _processando = true);
     try {
       final db = DatabaseService.instance;
       final lancamentos = await db.obterLancamentos(widget.turno.id!);
       final turnoAtualizado = widget.turno.copyWith(
-        vendasSistema: vendasSistema ?? widget.turno.vendasSistema,
-        observacao: obs ?? widget.turno.observacao,
-        fechadoEm: widget.turno.fechadoEm ?? 'Agora',
+        vendasSistema: _vendasSistema,
+        observacao: _observacao,
       );
 
+      final nomeArquivo = PdfService.gerarNomeArquivo(turno: turnoAtualizado);
       final pdfBytes = await PdfService.gerarPdfFechamento(
         turno: turnoAtualizado,
         totais: widget.totais,
         lancamentos: lancamentos,
       );
 
-      final nomeArquivo = 'Fechamento_Turno_${widget.turno.numero}_${widget.turno.data.replaceAll('/', '-').replaceAll(':', '').replaceAll(' ', '_')}.pdf';
+      // Salva localmente via path_provider antes de compartilhar
+      final caminhoLocal = await PdfService.salvarArquivoLocal(
+        pdfBytes: pdfBytes,
+        nomeArquivo: nomeArquivo,
+      );
 
-      // 1. Envio para o Google Drive
+      if (!kIsWeb && caminhoLocal != null) {
+        await Share.shareXFiles(
+          [XFile(caminhoLocal)],
+          subject: 'Fechamento de Turno - ${widget.turno.operador}',
+        );
+      } else {
+        await Printing.sharePdf(bytes: pdfBytes, filename: nomeArquivo);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao gerar PDF: $e'), backgroundColor: AppColors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _processando = false);
+    }
+  }
+
+  // 4. Excel (CSV)
+  void _exportarExcel() async {
+    setState(() => _processando = true);
+    try {
+      final db = DatabaseService.instance;
+      final lancamentos = await db.obterLancamentos(widget.turno.id!);
+      final turnoAtualizado = widget.turno.copyWith(
+        vendasSistema: _vendasSistema,
+        observacao: _observacao,
+      );
+
+      await CsvService.exportarECompartilharCsv(
+        turno: turnoAtualizado,
+        totais: widget.totais,
+        lancamentos: lancamentos,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao exportar CSV: $e'), backgroundColor: AppColors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _processando = false);
+    }
+  }
+
+  // 5. Encerrar Turno
+  void _encerrarTurno() async {
+    if (!widget.turno.aberto) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Este turno já está encerrado.'), backgroundColor: AppColors.amber),
+      );
+      return;
+    }
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.darkSurface,
+        title: const Row(
+          children: [
+            Icon(Icons.lock_rounded, color: AppColors.accentLight),
+            SizedBox(width: 8),
+            Text('Encerrar Turno?', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        content: Text(
+          'Deseja fechar o Turno #${widget.turno.numero} do operador ${widget.turno.operador}?\n\n'
+          'Total Pista: ${CurrencyFormatter.formatar(widget.totais.totalGeral)}\n'
+          'Vendas Sistema: ${CurrencyFormatter.formatar(_vendasSistema)}\n'
+          'Diferença: ${CurrencyFormatter.formatar(_diferencaAtual)}',
+          style: const TextStyle(color: AppColors.darkTextSec),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar', style: TextStyle(color: AppColors.darkTextSec)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+            child: const Text('Sim, Encerrar Turno', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    setState(() => _processando = true);
+    try {
+      final db = DatabaseService.instance;
+      await db.fecharTurno(
+        widget.turno.id!,
+        vendasSistema: _vendasSistema,
+        observacao: _observacao,
+      );
+
+      final lancamentos = await db.obterLancamentos(widget.turno.id!);
+      final turnoFechado = widget.turno.copyWith(
+        aberto: false,
+        vendasSistema: _vendasSistema,
+        observacao: _observacao,
+        fechadoEm: 'Agora',
+      );
+
+      final nomeArquivo = PdfService.gerarNomeArquivo(turno: turnoFechado);
+      final pdfBytes = await PdfService.gerarPdfFechamento(
+        turno: turnoFechado,
+        totais: widget.totais,
+        lancamentos: lancamentos,
+      );
+
+      // Salva e envia para o Google Drive
       final resultadoDrive = await DriveService.enviarPdfDrive(
         pdfBytes: pdfBytes,
         nomeArquivo: nomeArquivo,
@@ -84,289 +315,529 @@ class _SummaryScreenState extends State<SummaryScreen> {
         operador: widget.turno.operador,
       );
 
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(resultadoDrive.mensagem),
-          backgroundColor: resultadoDrive.sucesso ? AppColors.green : AppColors.amber,
+          content: Text('✅ Turno encerrado com sucesso! ${resultadoDrive.mensagem}'),
+          backgroundColor: AppColors.green,
           duration: const Duration(seconds: 4),
         ),
       );
 
-      // 2. Opção de Compartilhar no WhatsApp / Imprimir
-      await Printing.sharePdf(bytes: pdfBytes, filename: nomeArquivo);
+      widget.onTurnoAlterado();
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao gerar/enviar PDF: $e'),
-          backgroundColor: AppColors.red,
-        ),
+        SnackBar(content: Text('Erro ao encerrar turno: $e'), backgroundColor: AppColors.red),
       );
     } finally {
-      setState(() {
-        _gerandoPdf = false;
-        _enviandoDrive = false;
-      });
+      if (mounted) setState(() => _processando = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
-    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
-    final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
-    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final diferenca = _diferencaAtual;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Resumo do Turno #${widget.turno.numero}',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.accentLight),
-            tooltip: 'Gerar / Compartilhar PDF',
-            onPressed: _gerandoPdf ? null : () => _gerarEEnviarPdf(),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(14),
+      backgroundColor: const Color(0xFF0D131F),
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Card de Status do Turno ──
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: surfaceColor,
-                borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                border: Border.all(color: borderColor),
-              ),
-              child: Column(
+            // ── Barra Superior com Ícone de Barras e Fechar 'X' ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Operador:', style: TextStyle(color: textSec, fontSize: 13)),
-                      Text(
-                        widget.turno.operador,
-                        style: TextStyle(fontWeight: FontWeight.bold, color: textPri, fontSize: 14),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Aberto em:', style: TextStyle(color: textSec, fontSize: 13)),
-                      Text(
-                        widget.turno.data,
-                        style: TextStyle(fontWeight: FontWeight.w600, color: textPri, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                  if (widget.turno.fechadoEm != null) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Fechado em:', style: TextStyle(color: textSec, fontSize: 13)),
-                        Text(
-                          widget.turno.fechadoEm!,
-                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.red, fontSize: 13),
-                        ),
-                      ],
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E3A8A).withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                  ],
+                    child: const Icon(Icons.bar_chart_rounded, color: Color(0xFF38BDF8), size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Resumo do Turno',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                    onPressed: () {
+                      if (widget.onFechar != null) {
+                        widget.onFechar!();
+                      } else {
+                        Navigator.maybePop(context);
+                      }
+                    },
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+            const Divider(height: 1, color: Color(0xFF1E293B)),
 
-            // ── Detalhamento de Cartões ──
+            // ── Conteúdo com Scroll ──
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 1. Sobra de Dinheiro
+                    _itemResumoCard(
+                      icon: Icons.money_rounded,
+                      iconColor: const Color(0xFF10B981),
+                      iconBg: const Color(0xFF064E3B).withOpacity(0.5),
+                      titulo: 'Sobra de Dinheiro',
+                      valor: widget.totais.dinheiro,
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 2. Pag Pix
+                    _itemResumoCard(
+                      icon: Icons.qr_code_2_rounded,
+                      iconColor: const Color(0xFF38BDF8),
+                      iconBg: const Color(0xFF0C4A6E).withOpacity(0.5),
+                      titulo: 'Pag Pix',
+                      subtitulo: '(${widget.totais.pix > 0 ? "1" : "0"} un)',
+                      valor: widget.totais.pix,
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 3. Requisição
+                    _itemResumoCard(
+                      icon: Icons.receipt_long_rounded,
+                      iconColor: const Color(0xFFA855F7),
+                      iconBg: const Color(0xFF581C87).withOpacity(0.5),
+                      titulo: 'Requisição',
+                      valor: widget.totais.requisicao,
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 4. Depósito Global
+                    _itemResumoCard(
+                      icon: Icons.account_balance_rounded,
+                      iconColor: const Color(0xFFF59E0B),
+                      iconBg: const Color(0xFF78350F).withOpacity(0.5),
+                      titulo: 'Depósito Global',
+                      valor: widget.totais.depositoGlobal,
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 5. Despesas
+                    _itemResumoCard(
+                      icon: Icons.money_off_rounded,
+                      iconColor: const Color(0xFFEF4444),
+                      iconBg: const Color(0xFF7F1D1D).withOpacity(0.5),
+                      titulo: 'Despesas',
+                      valor: widget.totais.despesas,
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 6. Subtotal Cartões (Expansível)
+                    _itemResumoCard(
+                      icon: Icons.credit_card_rounded,
+                      iconColor: const Color(0xFF60A5FA),
+                      iconBg: const Color(0xFF1E3A8A).withOpacity(0.5),
+                      titulo: 'Subtotal Cartões',
+                      subtitulo: '(${widget.totais.qtdCartoes} un)',
+                      valor: widget.totais.cartoes,
+                      onTap: () => setState(() => _cartoesExpandidos = !_cartoesExpandidos),
+                      showChevron: true,
+                    ),
+
+                    if (_cartoesExpandidos && widget.totais.detalheCartoes.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF131C2E),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF1E293B)),
+                        ),
+                        child: Column(
+                          children: widget.totais.detalheCartoes.entries.map((e) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 3),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '${e.key} (${e.value.qtd} un)',
+                                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                                  ),
+                                  Text(
+                                    CurrencyFormatter.formatar(e.value.total),
+                                    style: const TextStyle(color: Color(0xFFF8FAFC), fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+                    const Text(
+                      'CONCILIAÇÃO DE VENDAS DO CAIXA',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF64748B),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // ── Card Total de Vendas Pista ──
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF111C38),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFF2563EB), width: 1.5),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.point_of_sale_rounded, color: Color(0xFF38BDF8), size: 20),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'TOTAL DE VENDAS PISTA:',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                          const Spacer(),
+                          Text(
+                            CurrencyFormatter.formatar(widget.totais.totalGeral),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF38BDF8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // ── Input Total de Vendas Sistema (PDV) ──
+                    TextFormField(
+                      controller: _vendasSistemaController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [CurrencyInputFormatter()],
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      decoration: InputDecoration(
+                        labelText: 'TOTAL DE VENDAS SISTEMA (PDV)',
+                        labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w600),
+                        prefixIcon: const Icon(Icons.computer_rounded, color: Color(0xFF64748B), size: 20),
+                        filled: true,
+                        fillColor: const Color(0xFF131C2E),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF38BDF8)),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                      onChanged: _atualizarVendasSistema,
+                    ),
+                    const SizedBox(height: 10),
+
+                    // ── Card de Status da Diferença ──
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: diferenca.abs() < 0.01
+                            ? const Color(0xFF064E3B).withOpacity(0.3)
+                            : (diferenca > 0 ? const Color(0xFF78350F).withOpacity(0.3) : const Color(0xFF7F1D1D).withOpacity(0.3)),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: diferenca.abs() < 0.01
+                              ? const Color(0xFF10B981)
+                              : (diferenca > 0 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            diferenca.abs() < 0.01
+                                ? Icons.check_circle_rounded
+                                : (diferenca > 0 ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded),
+                            color: diferenca.abs() < 0.01
+                                ? const Color(0xFF10B981)
+                                : (diferenca > 0 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              diferenca.abs() < 0.01
+                                  ? 'CAIXA 100% BATIDO (SEM DIFERENÇA)'
+                                  : (diferenca > 0 ? 'SOBRA NA PISTA' : 'FALTA NA PISTA'),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: diferenca.abs() < 0.01
+                                    ? const Color(0xFF34D399)
+                                    : (diferenca > 0 ? const Color(0xFFFBBF24) : const Color(0xFFF87171)),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            CurrencyFormatter.formatar(diferenca),
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              color: diferenca.abs() < 0.01
+                                  ? const Color(0xFF34D399)
+                                  : (diferenca > 0 ? const Color(0xFFFBBF24) : const Color(0xFFF87171)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // ── Input Observações / Justificativa ──
+                    TextFormField(
+                      controller: _observacaoController,
+                      maxLines: 2,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        labelText: 'OBSERVAÇÕES / JUSTIFICATIVA',
+                        labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600),
+                        filled: true,
+                        fillColor: const Color(0xFF131C2E),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF38BDF8)),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                      onChanged: _atualizarObservacao,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Barra de 6 Botões de Ação na Base (2 Linhas de 3 Botões) ──
             Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: surfaceColor,
-                borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                border: Border.all(color: borderColor),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: const BoxDecoration(
+                color: Color(0xFF090D16),
+                border: Border(top: BorderSide(color: Color(0xFF1E293B), width: 1)),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Linha 1: WhatsApp | Copiar Texto | Baixar PDF
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'CARTÕES E VOUCHERS',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.purple),
+                      Expanded(
+                        child: _botaoAcao(
+                          icon: Icons.chat_rounded,
+                          label: 'WhatsApp',
+                          corFundo: const Color(0xFF16A34A),
+                          corTexto: Colors.white,
+                          onPressed: _processando ? null : _compartilharWhatsApp,
+                        ),
                       ),
-                      Text(
-                        'Total: ${CurrencyFormatter.formatar(widget.totais.cartoes)} (${widget.totais.qtdCartoes} un)',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.purple),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _botaoAcao(
+                          icon: Icons.copy_rounded,
+                          label: 'Copiar Texto',
+                          corFundo: const Color(0xFF1E293B),
+                          corTexto: Colors.white,
+                          onPressed: _copiarTexto,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _botaoAcao(
+                          icon: Icons.picture_as_pdf_rounded,
+                          label: 'Baixar PDF',
+                          corFundo: const Color(0xFF1E293B),
+                          corTexto: Colors.white,
+                          onPressed: _processando ? null : _baixarPdf,
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Divider(height: 1, color: borderColor),
-                  const SizedBox(height: 8),
-                  if (widget.totais.detalheCartoes.isEmpty)
-                    Text('Nenhum cartão registrado neste turno.', style: TextStyle(color: textSec, fontSize: 12))
-                  else
-                    ...widget.totais.detalheCartoes.entries.map((e) {
-                      final nome = e.key;
-                      final valor = e.value.total;
-                      final qtd = e.value.qtd;
-                      final cor = AppColors.getCorTipo(nome);
 
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '$nome ($qtd un)',
-                              style: TextStyle(fontSize: 13, color: textPri),
-                            ),
-                            Text(
-                              CurrencyFormatter.formatar(valor),
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cor),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // ── Totais Financeiros ──
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: surfaceColor,
-                borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                border: Border.all(color: borderColor),
-              ),
-              child: Column(
-                children: [
-                  _linhaFinanceira('Dinheiro em Espécie:', widget.totais.dinheiro, AppColors.green, textPri),
-                  const SizedBox(height: 6),
-                  _linhaFinanceira('Pagamento Pix:', widget.totais.pix, AppColors.blue, textPri),
-                  if (widget.totais.requisicao > 0) ...[
-                    const SizedBox(height: 6),
-                    _linhaFinanceira('Requisição:', widget.totais.requisicao, AppColors.amber, textPri),
-                  ],
-                  if (widget.totais.depositoGlobal > 0) ...[
-                    const SizedBox(height: 6),
-                    _linhaFinanceira('Depósito Global:', widget.totais.depositoGlobal, AppColors.brown, textPri),
-                  ],
-                  if (widget.totais.despesas > 0) ...[
-                    const SizedBox(height: 6),
-                    _linhaFinanceira('Despesas:', widget.totais.despesas, AppColors.red, textPri),
-                  ],
-                  const SizedBox(height: 10),
-                  Divider(height: 1, color: borderColor),
-                  const SizedBox(height: 10),
+                  // Linha 2: Excel (CSV) | Encerrar Turno | Fechar
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('TOTAL GERAL:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: textPri)),
-                      Text(
-                        CurrencyFormatter.formatar(widget.totais.totalGeral),
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.accentLight),
+                      Expanded(
+                        child: _botaoAcao(
+                          icon: Icons.table_chart_rounded,
+                          label: 'Excel (CSV)',
+                          corFundo: const Color(0xFF0D9488),
+                          corTexto: Colors.white,
+                          onPressed: _processando ? null : _exportarExcel,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _botaoAcao(
+                          icon: Icons.lock_rounded,
+                          label: widget.turno.aberto ? 'Encerrar Turno' : 'Turno Fechado',
+                          corFundo: widget.turno.aberto ? const Color(0xFF2563EB) : const Color(0xFF475569),
+                          corTexto: Colors.white,
+                          onPressed: _processando ? null : _encerrarTurno,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _botaoAcao(
+                          icon: Icons.close_rounded,
+                          label: 'Fechar',
+                          corFundo: const Color(0xFF1E293B),
+                          corTexto: const Color(0xFFE2E8F0),
+                          onPressed: () {
+                            if (widget.onFechar != null) {
+                              widget.onFechar!();
+                            } else {
+                              Navigator.maybePop(context);
+                            }
+                          },
+                        ),
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 14),
-
-            // ── Gaveta e Sangrias ──
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: surfaceColor,
-                borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                border: Border.all(color: borderColor),
-              ),
-              child: Column(
-                children: [
-                  if (widget.totais.fundoCaixa > 0) ...[
-                    _linhaFinanceira('Fundo de Caixa (Inicial):', widget.totais.fundoCaixa, textSec, textPri),
-                    const SizedBox(height: 6),
-                  ],
-                  if (widget.totais.sangrias > 0) ...[
-                    _linhaFinanceira('Sangrias p/ Cofre (${widget.totais.qtdSangrias} un):', widget.totais.sangrias, AppColors.orange, textPri),
-                    const SizedBox(height: 6),
-                  ],
-                  _linhaFinanceira('Dinheiro na Gaveta (Atual):', widget.totais.dinheiroGaveta, AppColors.green, textPri, isBold: true),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // ── Botões de Ação ──
-            if (widget.turno.aberto) ...[
-              SizedBox(
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: _fecharTurno,
-                  icon: const Icon(Icons.lock_clock_rounded, color: Colors.white),
-                  label: const Text('FECHAR TURNO E GERAR PDF', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                    ),
-                  ),
-                ),
-              ),
-            ] else ...[
-              SizedBox(
-                height: 50,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    final db = DatabaseService.instance;
-                    await db.reabrirTurno(widget.turno.id!);
-                    widget.onTurnoAlterado();
-                  },
-                  icon: const Icon(Icons.lock_open_rounded, color: AppColors.accentLight),
-                  label: const Text('REABRIR ESTE TURNO', style: TextStyle(fontWeight: FontWeight.bold)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.accentLight),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
 
-  Widget _linhaFinanceira(String label, double valor, Color corValor, Color textPri, {bool isBold = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color)),
-        Text(
-          CurrencyFormatter.formatar(valor),
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: isBold ? FontWeight.w900 : FontWeight.bold,
-            color: corValor,
+  Widget _itemResumoCard({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String titulo,
+    String? subtitulo,
+    required double valor,
+    VoidCallback? onTap,
+    bool showChevron = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF131C2E),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFF1E293B)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: iconColor, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              titulo,
+              style: const TextStyle(fontSize: 14, color: Color(0xFFE2E8F0), fontWeight: FontWeight.w500),
+            ),
+            if (subtitulo != null) ...[
+              const SizedBox(width: 6),
+              Text(
+                subtitulo,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+            ],
+            const Spacer(),
+            Text(
+              CurrencyFormatter.formatar(valor),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            if (showChevron) ...[
+              const SizedBox(width: 6),
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFF64748B), size: 18),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _botaoAcao({
+    required IconData icon,
+    required String label,
+    required Color corFundo,
+    required Color corTexto,
+    required VoidCallback? onPressed,
+  }) {
+    return SizedBox(
+      height: 44,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: corFundo,
+          foregroundColor: corTexto,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
           ),
         ),
-      ],
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 15, color: corTexto),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                  color: corTexto,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

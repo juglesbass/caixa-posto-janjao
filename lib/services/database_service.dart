@@ -28,12 +28,22 @@ class DatabaseService {
 
   Future<Database> _initDatabase() async {
     if (kIsWeb) {
-      databaseFactory = databaseFactoryFfiWeb;
-      return await openDatabase(
-        'caixa_posto_janjao.db',
-        version: 1,
-        onCreate: _onCreate,
-      );
+      try {
+        databaseFactory = databaseFactoryFfiWeb;
+        return await openDatabase(
+          'caixa_posto_janjao.db',
+          version: 1,
+          onCreate: _onCreate,
+        );
+      } catch (e) {
+        debugPrint('Aviso Web DB: $e -> Usando inMemoryDatabasePath como fallback');
+        databaseFactory = databaseFactoryFfiWeb;
+        return await openDatabase(
+          inMemoryDatabasePath,
+          version: 1,
+          onCreate: _onCreate,
+        );
+      }
     } else {
       final dbPath = await getDatabasesPath();
       final path = p.join(dbPath, 'caixa_posto_janjao.db');
