@@ -32,6 +32,9 @@ jobs:
           xcodebuild -version
           flutter --version
 
+      - name: Configure Flutter iOS Platform
+        run: flutter create . --org com.postojanjao --project-name caixa_posto_janjao --platforms ios
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -73,6 +76,9 @@ jobs:
         with:
           channel: stable
           cache: true
+
+      - name: Configure Flutter Android Platform
+        run: flutter create . --org com.postojanjao --project-name caixa_posto_janjao --platforms android
 
       - name: Install dependencies
         run: flutter pub get
