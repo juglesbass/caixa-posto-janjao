@@ -81,7 +81,7 @@ jobs:
         run: |
           flutter create . --org com.postojanjao --project-name caixa_posto_janjao --platforms android
           
-          # Forçar compileSdkVersion 34 em todos os subprojetos (plugins)
+          # Forçar compileSdkVersion 34 em todos os subprojetos
           cat << 'EOF' >> android/build.gradle
 
           subprojects {
@@ -106,14 +106,17 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --release --build-number "${{ github.run_number }}"
+      - name: Build APK with Gradle
+        working-directory: android
+        run: ./gradlew assembleRelease
 
       - name: Collect APK output
         shell: bash
         run: |
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-release.apk dist/caixa-posto-janjao.apk
+          APK_FILE=$(find . -name "*release*.apk" -o -name "app-release.apk" -o -name "*.apk" | head -n 1)
+          echo "Encontrado APK em: $APK_FILE"
+          cp "$APK_FILE" dist/caixa-posto-janjao.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
