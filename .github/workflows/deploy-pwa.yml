@@ -31,25 +31,24 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Configure Flutter Web Platform
-        run: flutter create . --org com.postojanjao --project-name caixa_posto_janjao --platforms web
-
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Setup SQLite Web WASM
+      - name: Setup SQLite Web WASM and Worker
         run: |
           dart run sqflite_common_ffi_web:setup --force || true
-          # Se sqlite3.wasm foi gerado em web/, garantir copia em build/web
           ls -la web/ || true
 
       - name: Build Web PWA
         run: flutter build web --release --base-href "/caixa-posto-janjao/"
 
-      - name: Ensure SQLite WASM in build/web
+      - name: Ensure SQLite WASM and Worker in build/web
         run: |
           if [ -f "web/sqlite3.wasm" ]; then
             cp -f web/sqlite3.wasm build/web/
+          fi
+          if [ -f "web/sqflite_sw.js" ]; then
+            cp -f web/sqflite_sw.js build/web/
           fi
           ls -la build/web/
 

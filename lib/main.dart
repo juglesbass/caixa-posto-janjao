@@ -267,11 +267,16 @@ class _MainShellState extends State<MainShell> {
             onFechar: () => setState(() => _indiceAba = 0),
           ),
 
-          // Aba 3: Menu / Configurações
+          // Aba 3: Menu / Ações do Caixa
           SettingsScreen(
+            turno: _turnoAtual,
+            totais: _totais,
             isDark: widget.isDark,
             onMudarTema: widget.onMudarTema,
             onAbrirNovoTurno: () => _solicitarIdentificacao(novoTurno: true),
+            onAbrirResumo: () => setState(() => _indiceAba = 2),
+            onRecarregar: _recarregarDados,
+            onFechar: () => setState(() => _indiceAba = 0),
           ),
         ],
       ),

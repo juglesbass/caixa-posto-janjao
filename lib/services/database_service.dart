@@ -435,4 +435,58 @@ class DatabaseService {
     final db = await database;
     return await db.query('drive_pendencias', orderBy: 'id ASC');
   }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // MENU DO CAIXA: TODOS OS TURNOS, ENCERRANTES E RESET
+  // ──────────────────────────────────────────────────────────────────────────
+
+  Future<List<Turno>> obterTodosTurnos({int limit = 50}) async {
+    final db = await database;
+    final maps = await db.query(
+      'turnos',
+      orderBy: 'id DESC',
+      limit: limit,
+    );
+    return maps.map((m) => Turno.fromMap(m)).toList();
+  }
+
+  Future<void> resetarTudo() async {
+    final db = await database;
+    await db.delete('lancamentos');
+    await db.delete('turnos');
+    await db.delete('drive_pendencias');
+    try {
+      await db.delete('encerrantes');
+    } catch (_) {}
+  }
+
+  Future<List<Map<String, dynamic>>> obterEncerrantes(int turnoId) async {
+    final db = await database;
+    try {
+      return await db.query(
+        'encerrantes',
+        where: 'turno_id = ?',
+        whereArgs: [turnoId],
+        orderBy: 'id ASC',
+      );
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> salvarEncerrante(int turnoId, String bico, String combustivel, double inicial, double finalLitros, double preco) async {
+    final db = await database;
+    await db.insert(
+      'encerrantes',
+      {
+        'turno_id': turnoId,
+        'bico': bico,
+        'combustivel': combustivel,
+        'inicial': inicial,
+        'final': finalLitros,
+        'preco': preco,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
 }
