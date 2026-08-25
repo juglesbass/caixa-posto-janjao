@@ -77,9 +77,6 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Configure Flutter Android Platform
-        run: flutter create . --org com.postojanjao --project-name caixa_posto_janjao --platforms android
-
       - name: Install dependencies
         run: flutter pub get
 
