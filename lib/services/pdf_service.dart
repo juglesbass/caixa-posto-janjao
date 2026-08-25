@@ -220,7 +220,7 @@ class PdfService {
                           pw.Container(
                             width: 65,
                             alignment: pw.Alignment.centerRight,
-                            child: pw.Text('VALOR (R$)', style: pw.TextStyle(font: fontBold, fontSize: 7, color: PdfColors.white)),
+                            child: pw.Text('VALOR (R\$)', style: pw.TextStyle(font: fontBold, fontSize: 7, color: PdfColors.white)),
                           ),
                         ],
                       ),
@@ -324,7 +324,7 @@ class PdfService {
                           pw.Container(
                             width: 65,
                             alignment: pw.Alignment.centerRight,
-                            child: pw.Text('VALOR (R$)', style: pw.TextStyle(font: fontBold, fontSize: 7, color: PdfColors.white)),
+                            child: pw.Text('VALOR (R\$)', style: pw.TextStyle(font: fontBold, fontSize: 7, color: PdfColors.white)),
                           ),
                         ],
                       ),
