@@ -72,12 +72,12 @@ class PdfService {
     final corCinzaTexto = PdfColor.fromHex('#64748b');
     final corTextoEscuro = PdfColor.fromHex('#0f172a');
 
-    final dataGeracao = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+    final dataEmissao = DateFormat('dd/MM/yyyy à\'s\' HH:mm').format(DateTime.now());
     final fechadoEmTexto = (turno.fechadoEm != null && turno.fechadoEm!.trim().isNotEmpty)
         ? turno.fechadoEm!
-        : dataGeracao;
+        : (turno.aberto ? 'Em Aberto' : DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()));
 
-    final idDoc = '#PDF-${turno.numero.toString().padLeft(4, '0')}';
+    final idDoc = 'Documento #PDF-${turno.numero.toString().padLeft(4, '0')}';
 
     // Contagem de Pix
     int qtdPix = 0;
@@ -103,7 +103,7 @@ class PdfService {
                   padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: pw.BoxDecoration(
                     color: corAzulEscuro,
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    borderRadius: const pw.BorderRadius.vertical(top: pw.Radius.circular(4)),
                   ),
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -136,10 +136,10 @@ class PdfService {
                         crossAxisAlignment: pw.CrossAxisAlignment.end,
                         children: [
                           pw.Text(
-                            dataGeracao,
+                            'Emitido em: $dataEmissao',
                             style: pw.TextStyle(
                               font: fontRegular,
-                              fontSize: 7.5,
+                              fontSize: 7.2,
                               color: PdfColor.fromHex('#e2e8f0'),
                             ),
                           ),
@@ -149,7 +149,7 @@ class PdfService {
                             style: pw.TextStyle(
                               font: fontBold,
                               fontSize: 7.5,
-                              color: PdfColor.fromHex('#38bdf8'),
+                              color: PdfColor.fromHex('#e2e8f0'),
                             ),
                           ),
                         ],
@@ -157,40 +157,65 @@ class PdfService {
                     ],
                   ),
                 ),
+                // Linha de Destaque Verde
+                pw.Container(
+                  height: 2.2,
+                  color: corVerde,
+                ),
                 pw.SizedBox(height: 6),
 
-                // ── 2. QUADRO INFORMATIVO DO TURNO / OPERADOR ──
+                // ── 2. QUADRO INFORMATIVO DO TURNO / OPERADOR (4 COLUNAS) ──
                 pw.Container(
-                  padding: const pw.EdgeInsets.all(6),
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: pw.BoxDecoration(
                     color: corCinzaFundo,
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                     border: pw.Border.all(color: corCinzaBorda, width: 0.8),
                   ),
                   child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
+                      // Nº TURNO
                       pw.Expanded(
-                        flex: 1,
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text('TURNO', style: pw.TextStyle(font: fontBold, fontSize: 6.5, color: corCinzaTexto)),
-                            pw.Text('Turno #${turno.numero}', style: pw.TextStyle(font: fontBold, fontSize: 8.5)),
+                            pw.Text('Nº TURNO', style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corCinzaTexto)),
                             pw.SizedBox(height: 2),
-                            pw.Text('Aberto: ${turno.data}', style: pw.TextStyle(fontSize: 6.5, color: corCinzaTexto)),
+                            pw.Text('Turno #${turno.numero}', style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: corTextoEscuro)),
                           ],
                         ),
                       ),
-                      pw.Container(width: 0.8, height: 28, color: corCinzaBorda, margin: const pw.EdgeInsets.symmetric(horizontal: 6)),
+                      // OPERADOR CAIXA
                       pw.Expanded(
-                        flex: 2,
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text('OPERADOR DO CAIXA', style: pw.TextStyle(font: fontBold, fontSize: 6.5, color: corCinzaTexto)),
-                            pw.Text(turno.operador, style: pw.TextStyle(font: fontBold, fontSize: 8.5)),
+                            pw.Text('OPERADOR CAIXA', style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corCinzaTexto)),
                             pw.SizedBox(height: 2),
-                            pw.Text('Fechado: $fechadoEmTexto', style: pw.TextStyle(font: fontBold, fontSize: 6.5, color: corVerde)),
+                            pw.Text(turno.operador, style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: corTextoEscuro)),
+                          ],
+                        ),
+                      ),
+                      // ABERTURA
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('ABERTURA', style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corCinzaTexto)),
+                            pw.SizedBox(height: 2),
+                            pw.Text(turno.data, style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: corTextoEscuro)),
+                          ],
+                        ),
+                      ),
+                      // FECHAMENTO
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('FECHAMENTO', style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corVerde)),
+                            pw.SizedBox(height: 2),
+                            pw.Text(fechadoEmTexto, style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: corTextoEscuro)),
                           ],
                         ),
                       ),
