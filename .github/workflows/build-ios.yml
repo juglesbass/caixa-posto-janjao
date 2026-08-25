@@ -80,16 +80,28 @@ jobs:
       - name: Configure Flutter Android Platform
         run: |
           flutter create . --org com.postojanjao --project-name caixa_posto_janjao --platforms android
-          # Garantir compileSdk 34 e minSdk 21 para suporte a printing/androidx
+          
+          # Forçar compileSdkVersion 34 em todos os subprojetos (plugins)
+          cat << 'EOF' >> android/build.gradle
+
+          subprojects {
+              afterEvaluate { project ->
+                  if (project.hasProperty("android")) {
+                      project.android {
+                          compileSdkVersion 34
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # Ajustar app/build.gradle
           sed -i 's/compileSdk = .*/compileSdk = 34/g' android/app/build.gradle || true
           sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle || true
           sed -i 's/targetSdk = .*/targetSdk = 34/g' android/app/build.gradle || true
           sed -i 's/targetSdkVersion .*/targetSdkVersion 34/g' android/app/build.gradle || true
           sed -i 's/minSdk = .*/minSdk = 21/g' android/app/build.gradle || true
           sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle || true
-          sed -i 's/flutter.compileSdkVersion/34/g' android/app/build.gradle || true
-          sed -i 's/flutter.minSdkVersion/21/g' android/app/build.gradle || true
-          sed -i 's/flutter.targetSdkVersion/34/g' android/app/build.gradle || true
 
       - name: Install dependencies
         run: flutter pub get
