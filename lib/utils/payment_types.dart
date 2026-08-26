@@ -51,6 +51,22 @@ class PaymentTypes {
     despesas,
   ];
 
+  /// Extrai apenas o nome da bandeira/voucher, removendo o prefixo da maquininha
+  static String extrairBandeira(String nome) {
+    var limpo = nome.trim();
+    final upper = limpo.toUpperCase();
+    if (upper.startsWith('REDE ')) {
+      limpo = limpo.substring(5).trim();
+    } else if (upper.startsWith('CIELO ')) {
+      limpo = limpo.substring(6).trim();
+    } else if (upper.startsWith('STONE ')) {
+      limpo = limpo.substring(6).trim();
+    } else if (upper.startsWith('PAGBANK ')) {
+      limpo = limpo.substring(8).trim();
+    }
+    return limpo;
+  }
+
   /// Retorna o peso numérico da máquina de cartão (Rede primeiro, depois Cielo, Stone, etc.)
   static int getOrdemMaquina(String nome) {
     final n = nome.toUpperCase();
@@ -78,44 +94,52 @@ class PaymentTypes {
   /// 14. Alelo
   /// 15. VR
   static int getOrdemCartao(String nome) {
-    final n = nome
-        .toUpperCase()
-        .replaceAll('Á', 'A')
-        .replaceAll('É', 'E')
-        .replaceAll('Í', 'I')
-        .replaceAll('Ó', 'O')
-        .replaceAll('Ú', 'U');
+    final bandeira = extrairBandeira(nome);
+    final n = bandeira
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('à', 'a')
+        .replaceAll('ã', 'a')
+        .replaceAll('â', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('ê', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ô', 'o')
+        .replaceAll('õ', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ç', 'c');
 
     // 1. FITCARD
-    if (n.contains('FITCARD')) return 1;
+    if (n.contains('fitcard')) return 1;
     // 2. EXCARD
-    if (n.contains('EXCARD')) return 2;
+    if (n.contains('excard')) return 2;
     // 3. AMEX
-    if (n.contains('AMEX')) return 3;
+    if (n.contains('amex')) return 3;
     // 4. ELO CREDITO
-    if (n.contains('ELO') && (n.contains('CRED') || n.contains('CREDITO'))) return 4;
+    if (n.contains('elo') && (n.contains('cred') || n.contains('credito'))) return 4;
     // 5. ELO DEBITO
-    if (n.contains('ELO') && (n.contains('DEB') || n.contains('DEBITO'))) return 5;
+    if (n.contains('elo') && (n.contains('deb') || n.contains('debito'))) return 5;
     // 6. MASTER CREDITO
-    if (n.contains('MASTER') && (n.contains('CRED') || n.contains('CREDITO'))) return 6;
+    if (n.contains('master') && (n.contains('cred') || n.contains('credito'))) return 6;
     // 7. MASTER DEBITO
-    if (n.contains('MASTER') && (n.contains('DEB') || n.contains('DEBITO'))) return 7;
+    if (n.contains('master') && (n.contains('deb') || n.contains('debito'))) return 7;
     // 8. VISA CREDITO
-    if (n.contains('VISA') && (n.contains('CRED') || n.contains('CREDITO'))) return 8;
+    if (n.contains('visa') && (n.contains('cred') || n.contains('credito'))) return 8;
     // 9. VISA DEBITO
-    if (n.contains('VISA') && (n.contains('DEB') || n.contains('DEBITO'))) return 9;
+    if (n.contains('visa') && (n.contains('deb') || n.contains('debito'))) return 9;
     // 10. SODEXO
-    if (n.contains('SODEXO')) return 10;
+    if (n.contains('sodexo')) return 10;
     // 11. PIX
-    if (n.contains('PIX')) return 11;
+    if (n.contains('pix')) return 11;
     // 12. AVANCARD
-    if (n.contains('AVANCARD')) return 12;
+    if (n.contains('avancard')) return 12;
     // 13. EUCARD
-    if (n.contains('EUCARD')) return 13;
+    if (n.contains('eucard')) return 13;
     // 14. ALELO
-    if (n.contains('ALELO')) return 14;
+    if (n.contains('alelo')) return 14;
     // 15. VR
-    if (n.contains('VR')) return 15;
+    if (n.contains('vr')) return 15;
 
     return 999;
   }
