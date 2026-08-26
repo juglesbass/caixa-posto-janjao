@@ -12,6 +12,24 @@ import '../models/turno.dart';
 import '../utils/currency_formatter.dart';
 
 class PdfService {
+  static pw.Font? _cachedFontRegular;
+  static pw.Font? _cachedFontBold;
+
+  static Future<({pw.Font regular, pw.Font bold})> _obterFontes() async {
+    if (_cachedFontRegular != null && _cachedFontBold != null) {
+      return (regular: _cachedFontRegular!, bold: _cachedFontBold!);
+    }
+    try {
+      _cachedFontRegular ??= await PdfGoogleFonts.robotoRegular().timeout(const Duration(milliseconds: 1500));
+      _cachedFontBold ??= await PdfGoogleFonts.robotoBold().timeout(const Duration(milliseconds: 1500));
+      return (regular: _cachedFontRegular!, bold: _cachedFontBold!);
+    } catch (_) {
+      _cachedFontRegular ??= pw.Font.helvetica();
+      _cachedFontBold ??= pw.Font.helveticaBold();
+      return (regular: _cachedFontRegular!, bold: _cachedFontBold!);
+    }
+  }
+
   /// Gera o nome do arquivo dinâmico no formato: "${operador} ${data_dd-MM-yyyy}.pdf"
   static String gerarNomeArquivo({required Turno turno}) {
     // Normalizar nome do operador (ex: "João Victor")
@@ -62,15 +80,9 @@ class PdfService {
   }) async {
     final doc = pw.Document();
 
-    pw.Font fontRegular;
-    pw.Font fontBold;
-    try {
-      fontRegular = await PdfGoogleFonts.robotoRegular();
-      fontBold = await PdfGoogleFonts.robotoBold();
-    } catch (_) {
-      fontRegular = pw.Font.helvetica();
-      fontBold = pw.Font.helveticaBold();
-    }
+    final fontes = await _obterFontes();
+    final fontRegular = fontes.regular;
+    final fontBold = fontes.bold;
 
     final corAzulEscuro = PdfColor.fromHex('#1e3a8a');
     final corVerde = PdfColor.fromHex('#16a34a');

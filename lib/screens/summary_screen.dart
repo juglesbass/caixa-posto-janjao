@@ -402,14 +402,19 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
     try {
       final db = DatabaseService.instance;
-      await db.fecharTurno(
-        widget.turno.id!,
-        vendasSistema: _vendasSistema,
-        observacao: _observacao,
-      );
+      
+      // Executa fechamento do banco e busca de lançamentos em paralelo para máxima velocidade
+      final results = await Future.wait([
+        db.fecharTurno(
+          widget.turno.id!,
+          vendasSistema: _vendasSistema,
+          observacao: _observacao,
+        ),
+        db.obterLancamentos(widget.turno.id!),
+      ]);
+      final lancamentos = results[1] as List<Lancamento>;
 
       progressoNotifier.value = 'Gerando relatório PDF corporativo...';
-      final lancamentos = await db.obterLancamentos(widget.turno.id!);
       final dataHoraFechamento = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
       final turnoFechado = widget.turno.copyWith(
         aberto: false,
@@ -435,7 +440,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
       );
 
       progressoNotifier.value = '✅ Concluído com sucesso!';
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.delayed(const Duration(milliseconds: 150));
 
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context); // Fecha diálogo de progresso

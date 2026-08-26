@@ -6,6 +6,8 @@ import 'notification_service.dart';
 import 'pdf_service.dart';
 
 class DriveService {
+  static final http.Client _client = http.Client();
+
   static const String defaultWebhookUrl =
       'https://script.google.com/macros/s/AKfycbzes0dAFXK3_Us145YsnfKXAI_UzVjMHlVG4uK2-cYkxHy2f5M_VCaLEVEJhWOIvcVITQ/exec';
 
@@ -40,7 +42,7 @@ class DriveService {
       final bodyJson = jsonEncode(payload);
 
       // Usando text/plain para evitar bloqueio de CORS preflight em navegadores Web (PWA)
-      final response = await http
+      final response = await _client
           .post(
             Uri.parse(webhookUrl),
             headers: {'Content-Type': 'text/plain;charset=utf-8'},
