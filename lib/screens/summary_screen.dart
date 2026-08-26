@@ -7,6 +7,7 @@ import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../dialogs/drive_failure_dialog.dart';
+import '../models/lancamento.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
 import '../services/csv_service.dart';
