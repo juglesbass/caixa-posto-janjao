@@ -3,6 +3,7 @@ import 'package:caixa_posto_janjao/models/lancamento.dart';
 import 'package:caixa_posto_janjao/models/totais_turno.dart';
 import 'package:caixa_posto_janjao/models/turno.dart';
 import 'package:caixa_posto_janjao/services/pdf_service.dart';
+import 'package:caixa_posto_janjao/utils/payment_types.dart';
 
 void main() {
   group('Models - Turno, Lancamento e TotaisTurno', () {
