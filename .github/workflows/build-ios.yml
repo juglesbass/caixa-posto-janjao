@@ -36,21 +36,20 @@ jobs:
         run: |
           flutter create . --org com.postojanjao --project-name caixa_posto_janjao --platforms ios
           
-          # Injetar NSAppTransportSecurity no Info.plist para chamadas de rede no iOS
-          python3 -c "
-path = 'ios/Runner/Info.plist'
-try:
-    with open(path, 'r') as f:
-        content = f.read()
-    if 'NSAppTransportSecurity' not in content:
-        ats = '    <key>NSAppTransportSecurity</key>\n    <dict>\n        <key>NSAllowsArbitraryLoads</key>\n        <true/>\n    </dict>'
-        content = content.replace('</dict>\n</plist>', ats + '\n</dict>\n</plist>')
-        with open(path, 'w') as f:
-            f.write(content)
-        print('Injetado ATS no Info.plist com sucesso')
-except Exception as e:
-    print('Erro Info.plist', e)
-"
+          python3 - << 'EOF'
+          path = 'ios/Runner/Info.plist'
+          try:
+              with open(path, 'r') as f:
+                  content = f.read()
+              if 'NSAppTransportSecurity' not in content:
+                  ats = '    <key>NSAppTransportSecurity</key>\n    <dict>\n        <key>NSAllowsArbitraryLoads</key>\n        <true/>\n    </dict>'
+                  content = content.replace('</dict>\n</plist>', ats + '\n</dict>\n</plist>')
+                  with open(path, 'w') as f:
+                      f.write(content)
+                  print('Injetado ATS no Info.plist com sucesso')
+          except Exception as e:
+              print('Erro Info.plist', e)
+          EOF
 
       - name: Generate App Icons
         run: python3 scripts/generate_icons.py
@@ -101,23 +100,22 @@ except Exception as e:
         run: |
           flutter create . --org com.postojanjao --project-name caixa_posto_janjao --platforms android
           
-          # Injetar permissões de internet no AndroidManifest.xml (Main, Debug e Profile)
-          python3 -c "
-import glob
-for path in glob.glob('android/app/src/**/AndroidManifest.xml', recursive=True):
-    try:
-        with open(path, 'r') as f:
-            content = f.read()
-        if 'android.permission.INTERNET' not in content:
-            content = content.replace('<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">', '<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n    <uses-permission android:name=\"android.permission.INTERNET\"/>\n    <uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>')
-        if 'android:usesCleartextTraffic' not in content:
-            content = content.replace('<application', '<application android:usesCleartextTraffic=\"true\"')
-        with open(path, 'w') as f:
-            f.write(content)
-        print('Injetado permissoes com sucesso em', path)
-    except Exception as e:
-        print('Erro em', path, e)
-"
+          python3 - << 'EOF'
+          import glob
+          for path in glob.glob('android/app/src/**/AndroidManifest.xml', recursive=True):
+              try:
+                  with open(path, 'r') as f:
+                      content = f.read()
+                  if 'android.permission.INTERNET' not in content:
+                      content = content.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>')
+                  if 'android:usesCleartextTraffic' not in content:
+                      content = content.replace('<application', '<application android:usesCleartextTraffic="true"')
+                  with open(path, 'w') as f:
+                      f.write(content)
+                  print('Injetado permissoes com sucesso em', path)
+              except Exception as e:
+                  print('Erro em', path, e)
+          EOF
 
           # Forçar compileSdkVersion 34 em todos os subprojetos
           cat << 'EOF' >> android/build.gradle
