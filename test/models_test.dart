@@ -70,7 +70,7 @@ void main() {
       expect(totaisFalta.ehSobra, isFalse);
     });
 
-    test(r'PdfService.gerarNomeArquivo formato ${operador} ${data_dd-MM-yyyy}.pdf', () {
+    test('PdfService.gerarNomeArquivo formato ${operador} ${data_dd-MM-yyyy}.pdf', () {
       final turno = Turno(
         id: 1,
         numero: 1,
@@ -81,6 +81,52 @@ void main() {
 
       final nome = PdfService.gerarNomeArquivo(turno: turno);
       expect(nome, equals('João Victor 25-08-2026.pdf'));
+    });
+
+    test('PaymentTypes.ordenarCartoes - Ordenação isolada Cielo', () {
+      final entrada = {
+        'Cielo Visa Débito': 100.0,
+        'Cielo Master Crédito': 200.0,
+        'Cielo Visa Crédito': 150.0,
+        'Cielo Fitcard': 50.0,
+        'Cielo Master Débito': 300.0,
+      };
+
+      final ordenado = PaymentTypes.ordenarCartoes(entrada.entries).map((e) => e.key).toList();
+
+      expect(ordenado, equals([
+        'Cielo Fitcard',
+        'Cielo Master Crédito',
+        'Cielo Master Débito',
+        'Cielo Visa Crédito',
+        'Cielo Visa Débito',
+      ]));
+    });
+
+    test('PaymentTypes.ordenarCartoes - Ordenação mista Rede e Cielo', () {
+      final entrada = {
+        'Cielo Visa Crédito': 100.0,
+        'Rede Visa Débito': 50.0,
+        'Cielo Master Crédito': 200.0,
+        'Rede Fitcard': 70.0,
+        'Cielo Master Débito': 300.0,
+        'Rede Master Débito': 400.0,
+        'Rede Master Crédito': 500.0,
+      };
+
+      final ordenado = PaymentTypes.ordenarCartoes(entrada.entries).map((e) => e.key).toList();
+
+      expect(ordenado, equals([
+        // Todas as bandeiras Rede primeiro na ordem oficial
+        'Rede Fitcard',
+        'Rede Master Crédito',
+        'Rede Master Débito',
+        'Rede Visa Débito',
+        // Depois todas as bandeiras Cielo na ordem oficial
+        'Cielo Master Crédito',
+        'Cielo Master Débito',
+        'Cielo Visa Crédito',
+      ]));
     });
   });
 }

@@ -51,7 +51,32 @@ class PaymentTypes {
     despesas,
   ];
 
-  /// Retorna o peso numérico da ordem oficial do cartão
+  /// Retorna o peso numérico da máquina de cartão (Rede primeiro, depois Cielo, Stone, etc.)
+  static int getOrdemMaquina(String nome) {
+    final n = nome.toUpperCase();
+    if (n.startsWith('REDE ')) return 1;
+    if (n.startsWith('CIELO ')) return 2;
+    if (n.startsWith('STONE ')) return 3;
+    if (n.startsWith('PAGBANK ')) return 4;
+    return 5;
+  }
+
+  /// Retorna o peso numérico da ordem oficial da bandeira/voucher:
+  /// 1. Fitcard
+  /// 2. Excard
+  /// 3. Amex
+  /// 4. Elo Crédito
+  /// 5. Elo Débito
+  /// 6. Master Crédito
+  /// 7. Master Débito
+  /// 8. Visa Crédito
+  /// 9. Visa Débito
+  /// 10. Sodexo
+  /// 11. Pix
+  /// 12. Avancard
+  /// 13. Eucard
+  /// 14. Alelo
+  /// 15. VR
   static int getOrdemCartao(String nome) {
     final n = nome
         .toUpperCase()
@@ -65,25 +90,25 @@ class PaymentTypes {
     if (n.contains('FITCARD')) return 1;
     // 2. EXCARD
     if (n.contains('EXCARD')) return 2;
-    // 3. REDE AMEX / AMEX
+    // 3. AMEX
     if (n.contains('AMEX')) return 3;
-    // 4. REDE ELO CREDITO
+    // 4. ELO CREDITO
     if (n.contains('ELO') && (n.contains('CRED') || n.contains('CREDITO'))) return 4;
-    // 5. REDE ELO DEBITO
+    // 5. ELO DEBITO
     if (n.contains('ELO') && (n.contains('DEB') || n.contains('DEBITO'))) return 5;
-    // 6. REDE MASTER CREDITO
+    // 6. MASTER CREDITO
     if (n.contains('MASTER') && (n.contains('CRED') || n.contains('CREDITO'))) return 6;
-    // 7. REDE MASTER DEBITO
+    // 7. MASTER DEBITO
     if (n.contains('MASTER') && (n.contains('DEB') || n.contains('DEBITO'))) return 7;
-    // 8. REDE VISA CREDITO
+    // 8. VISA CREDITO
     if (n.contains('VISA') && (n.contains('CRED') || n.contains('CREDITO'))) return 8;
-    // 9. REDE VISA DEBITO
+    // 9. VISA DEBITO
     if (n.contains('VISA') && (n.contains('DEB') || n.contains('DEBITO'))) return 9;
-    // 10. REDE SODEXO
+    // 10. SODEXO
     if (n.contains('SODEXO')) return 10;
-    // 11. REDE PIX / PIX
+    // 11. PIX
     if (n.contains('PIX')) return 11;
-    // 12. REDE AVANCARD / AVANCARD
+    // 12. AVANCARD
     if (n.contains('AVANCARD')) return 12;
     // 13. EUCARD
     if (n.contains('EUCARD')) return 13;
@@ -95,13 +120,18 @@ class PaymentTypes {
     return 999;
   }
 
-  /// Ordena entradas de detalhe de cartões seguindo a ordem oficial
+  /// Ordena entradas de detalhe de cartões agrupando por máquina e ordenando por bandeira
   static List<MapEntry<String, T>> ordenarCartoes<T>(Iterable<MapEntry<String, T>> entries) {
     final list = entries.toList();
     list.sort((a, b) {
+      final maqA = getOrdemMaquina(a.key);
+      final maqB = getOrdemMaquina(b.key);
+      if (maqA != maqB) return maqA.compareTo(maqB);
+
       final ordA = getOrdemCartao(a.key);
       final ordB = getOrdemCartao(b.key);
       if (ordA != ordB) return ordA.compareTo(ordB);
+
       return a.key.compareTo(b.key);
     });
     return list;
