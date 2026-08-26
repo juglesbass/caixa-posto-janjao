@@ -111,7 +111,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   children: [
                     _linhaResumo('Total Físico (Lançamentos):', CurrencyFormatter.formatar(widget.totais.totalGeral), textPri, isBold: true),
                     const SizedBox(height: 4),
-                    _linhaResumo('Dinheiro na Gaveta:', CurrencyFormatter.formatar(widget.totais.dinheiroGaveta), AppColors.green),
+                    _linhaResumo('Sobra de Dinheiro:', CurrencyFormatter.formatar(widget.totais.dinheiro), AppColors.green),
                     const SizedBox(height: 4),
                     _linhaResumo('Cartões / Vouchers:', CurrencyFormatter.formatar(widget.totais.cartoes), AppColors.purple),
                   ],

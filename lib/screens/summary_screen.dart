@@ -157,11 +157,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
     }
 
     if (_observacao.trim().isNotEmpty) {
+      buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━');
       buffer.writeln('📝 *Observações:* $_observacao');
     }
-
-    buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    buffer.writeln('📥 *Dinheiro na Gaveta:* ${CurrencyFormatter.formatar(widget.totais.dinheiroGaveta)}');
 
     return buffer.toString();
   }
