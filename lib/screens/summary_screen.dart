@@ -575,12 +575,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
                     // ── 1. SEÇÃO DE CARTÕES E VOUCHERS (Bandeiras com Vendas e Total) ──
                     if (widget.totais.detalheCartoes.values.any((v) => v.total > 0)) ...[
-                      const Text(
+                      Text(
                         'CARTÕES E VOUCHERS',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF64748B),
+                          color: isDark ? const Color(0xFF64748B) : const Color(0xFF475569),
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -589,22 +589,24 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         if (e.value.total > 0) ...[
                           _itemResumoCard(
                             icon: Icons.credit_card_rounded,
-                            iconColor: const Color(0xFF60A5FA),
-                            iconBg: const Color(0xFF1E3A8A).withOpacity(0.5),
+                            iconColor: const Color(0xFF2563EB),
+                            iconBg: isDark ? const Color(0xFF1E3A8A).withOpacity(0.5) : const Color(0xFFDBEAFE),
                             titulo: e.key,
                             subtitulo: '(${e.value.qtd} un)',
                             valor: e.value.total,
+                            isDark: isDark,
                           ),
                           const SizedBox(height: 8),
                         ],
                       if (widget.totais.cartoes > 0 || widget.totais.qtdCartoes > 0) ...[
                         _itemResumoCard(
                           icon: Icons.credit_card_rounded,
-                          iconColor: const Color(0xFF38BDF8),
-                          iconBg: const Color(0xFF1E3A8A).withOpacity(0.5),
+                          iconColor: const Color(0xFF0284C7),
+                          iconBg: isDark ? const Color(0xFF1E3A8A).withOpacity(0.5) : const Color(0xFFE0F2FE),
                           titulo: 'Total Cartões',
                           subtitulo: '(${widget.totais.qtdCartoes} un)',
                           valor: widget.totais.cartoes,
+                          isDark: isDark,
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -617,12 +619,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         widget.totais.requisicao > 0 ||
                         widget.totais.depositoGlobal > 0 ||
                         widget.totais.despesas > 0) ...[
-                      const Text(
+                      Text(
                         'OUTRAS FORMAS DE PAGAMENTO',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF64748B),
+                          color: isDark ? const Color(0xFF64748B) : const Color(0xFF475569),
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -632,10 +634,11 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       if (widget.totais.dinheiro > 0) ...[
                         _itemResumoCard(
                           icon: Icons.money_rounded,
-                          iconColor: const Color(0xFF10B981),
-                          iconBg: const Color(0xFF064E3B).withOpacity(0.5),
+                          iconColor: const Color(0xFF059669),
+                          iconBg: isDark ? const Color(0xFF064E3B).withOpacity(0.5) : const Color(0xFFD1FAE5),
                           titulo: 'Sobra de Dinheiro',
                           valor: widget.totais.dinheiro,
+                          isDark: isDark,
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -644,11 +647,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       if (widget.totais.pix > 0) ...[
                         _itemResumoCard(
                           icon: Icons.qr_code_2_rounded,
-                          iconColor: const Color(0xFF38BDF8),
-                          iconBg: const Color(0xFF0C4A6E).withOpacity(0.5),
+                          iconColor: const Color(0xFF0284C7),
+                          iconBg: isDark ? const Color(0xFF0C4A6E).withOpacity(0.5) : const Color(0xFFE0F2FE),
                           titulo: 'Pag Pix',
                           subtitulo: '(${widget.totais.pix > 0 ? "1" : "0"} un)',
                           valor: widget.totais.pix,
+                          isDark: isDark,
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -657,10 +661,11 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       if (widget.totais.requisicao > 0) ...[
                         _itemResumoCard(
                           icon: Icons.receipt_long_rounded,
-                          iconColor: const Color(0xFFA855F7),
-                          iconBg: const Color(0xFF581C87).withOpacity(0.5),
+                          iconColor: const Color(0xFF7C3AED),
+                          iconBg: isDark ? const Color(0xFF581C87).withOpacity(0.5) : const Color(0xFFF3E8FF),
                           titulo: 'Requisição',
                           valor: widget.totais.requisicao,
+                          isDark: isDark,
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -669,10 +674,11 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       if (widget.totais.depositoGlobal > 0) ...[
                         _itemResumoCard(
                           icon: Icons.account_balance_rounded,
-                          iconColor: const Color(0xFFF59E0B),
-                          iconBg: const Color(0xFF78350F).withOpacity(0.5),
+                          iconColor: const Color(0xFFD97706),
+                          iconBg: isDark ? const Color(0xFF78350F).withOpacity(0.5) : const Color(0xFFFEF3C7),
                           titulo: 'Depósito Global',
                           valor: widget.totais.depositoGlobal,
+                          isDark: isDark,
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -681,10 +687,11 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       if (widget.totais.despesas > 0) ...[
                         _itemResumoCard(
                           icon: Icons.money_off_rounded,
-                          iconColor: const Color(0xFFEF4444),
-                          iconBg: const Color(0xFF7F1D1D).withOpacity(0.5),
+                          iconColor: const Color(0xFFDC2626),
+                          iconBg: isDark ? const Color(0xFF7F1D1D).withOpacity(0.5) : const Color(0xFFFEE2E2),
                           titulo: 'Despesas',
                           valor: widget.totais.despesas,
+                          isDark: isDark,
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -696,17 +703,17 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF131C2E),
+                          color: isDark ? const Color(0xFF131C2E) : Colors.white,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFF1E293B)),
+                          border: Border.all(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
                         ),
-                        child: const Column(
+                        child: Column(
                           children: [
-                            Icon(Icons.inbox_rounded, color: Color(0xFF64748B), size: 36),
-                            SizedBox(height: 8),
+                            Icon(Icons.inbox_rounded, color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8), size: 36),
+                            const SizedBox(height: 8),
                             Text(
                               'Nenhum lançamento registrado no turno',
-                              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                              style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B), fontSize: 13),
                             ),
                           ],
                         ),
@@ -715,12 +722,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     ],
 
                     const SizedBox(height: 16),
-                    const Text(
+                    Text(
                       'CONCILIAÇÃO DE VENDAS DO CAIXA',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF64748B),
+                        color: isDark ? const Color(0xFF64748B) : const Color(0xFF475569),
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -730,25 +737,32 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF111C38),
+                        color: isDark ? const Color(0xFF111C38) : const Color(0xFFEFF6FF),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF2563EB), width: 1.5),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF2563EB) : const Color(0xFF3B82F6),
+                          width: 1.5,
+                        ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.point_of_sale_rounded, color: Color(0xFF38BDF8), size: 20),
+                          Icon(Icons.point_of_sale_rounded, color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF2563EB), size: 20),
                           const SizedBox(width: 10),
-                          const Text(
+                          Text(
                             'TOTAL DE VENDAS PISTA:',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : const Color(0xFF1E3A8A),
+                            ),
                           ),
                           const Spacer(),
                           Text(
                             CurrencyFormatter.formatar(widget.totais.totalGeral),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w900,
-                              color: Color(0xFF38BDF8),
+                              color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF1D4ED8),
                             ),
                           ),
                         ],
@@ -761,24 +775,36 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       controller: _vendasSistemaController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: [CurrencyInputFormatter()],
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      style: TextStyle(
+                        color: isDark ? Colors.white : AppColors.lightTextPri,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                       decoration: InputDecoration(
                         labelText: 'TOTAL DE VENDAS SISTEMA (PDV)',
-                        labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w600),
-                        prefixIcon: const Icon(Icons.computer_rounded, color: Color(0xFF64748B), size: 20),
+                        labelStyle: TextStyle(
+                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.computer_rounded,
+                          color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                          size: 20,
+                        ),
                         filled: true,
-                        fillColor: const Color(0xFF131C2E),
+                        fillColor: isDark ? const Color(0xFF131C2E) : Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                          borderSide: BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFCBD5E1)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                          borderSide: BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFCBD5E1)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF38BDF8)),
+                          borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
@@ -791,8 +817,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: diferenca.abs() < 0.01
-                            ? const Color(0xFF064E3B).withOpacity(0.3)
-                            : (diferenca > 0 ? const Color(0xFF78350F).withOpacity(0.3) : const Color(0xFF7F1D1D).withOpacity(0.3)),
+                            ? (isDark ? const Color(0xFF064E3B).withOpacity(0.3) : const Color(0xFFD1FAE5))
+                            : (diferenca > 0
+                                ? (isDark ? const Color(0xFF78350F).withOpacity(0.3) : const Color(0xFFFEF3C7))
+                                : (isDark ? const Color(0xFF7F1D1D).withOpacity(0.3) : const Color(0xFFFEE2E2))),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: diferenca.abs() < 0.01
@@ -809,7 +837,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                 : (diferenca > 0 ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded),
                             color: diferenca.abs() < 0.01
                                 ? const Color(0xFF10B981)
-                                : (diferenca > 0 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)),
+                                : (diferenca > 0 ? const Color(0xFFD97706) : const Color(0xFFDC2626)),
                             size: 18,
                           ),
                           const SizedBox(width: 8),
@@ -822,8 +850,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                                 color: diferenca.abs() < 0.01
-                                    ? const Color(0xFF34D399)
-                                    : (diferenca > 0 ? const Color(0xFFFBBF24) : const Color(0xFFF87171)),
+                                    ? (isDark ? const Color(0xFF34D399) : const Color(0xFF065F46))
+                                    : (diferenca > 0
+                                        ? (isDark ? const Color(0xFFFBBF24) : const Color(0xFF92400E))
+                                        : (isDark ? const Color(0xFFF87171) : const Color(0xFF991B1B))),
                               ),
                             ),
                           ),
@@ -833,8 +863,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
                               fontSize: 15,
                               fontWeight: FontWeight.w900,
                               color: diferenca.abs() < 0.01
-                                  ? const Color(0xFF34D399)
-                                  : (diferenca > 0 ? const Color(0xFFFBBF24) : const Color(0xFFF87171)),
+                                  ? (isDark ? const Color(0xFF34D399) : const Color(0xFF065F46))
+                                  : (diferenca > 0
+                                      ? (isDark ? const Color(0xFFFBBF24) : const Color(0xFF92400E))
+                                      : (isDark ? const Color(0xFFF87171) : const Color(0xFF991B1B))),
                             ),
                           ),
                         ],
@@ -846,23 +878,27 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     TextFormField(
                       controller: _observacaoController,
                       maxLines: 2,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      style: TextStyle(color: isDark ? Colors.white : AppColors.lightTextPri, fontSize: 13),
                       decoration: InputDecoration(
                         labelText: 'OBSERVAÇÕES / JUSTIFICATIVA',
-                        labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600),
+                        labelStyle: TextStyle(
+                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
                         filled: true,
-                        fillColor: const Color(0xFF131C2E),
+                        fillColor: isDark ? const Color(0xFF131C2E) : Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                          borderSide: BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFCBD5E1)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                          borderSide: BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFCBD5E1)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF38BDF8)),
+                          borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       ),
@@ -872,86 +908,91 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
                     // ── 6 Botões de Ação Integrados Dinamicamente na Página ──
                     Builder(
-                      builder: (btnCtx) => Column(
-                        children: [
-                          // Linha 1: WhatsApp | Copiar Texto | Baixar PDF
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _botaoAcao(
-                                  icon: Icons.chat_rounded,
-                                  label: 'WhatsApp',
-                                  corFundo: const Color(0xFF16A34A),
-                                  corTexto: Colors.white,
-                                  onPressed: _processando ? null : () => _compartilharWhatsApp(btnCtx),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _botaoAcao(
-                                  icon: Icons.copy_rounded,
-                                  label: 'Copiar Texto',
-                                  corFundo: const Color(0xFF1E293B),
-                                  corTexto: Colors.white,
-                                  onPressed: _copiarTexto,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _botaoAcao(
-                                  icon: Icons.picture_as_pdf_rounded,
-                                  label: 'Baixar PDF',
-                                  corFundo: const Color(0xFF1E293B),
-                                  corTexto: Colors.white,
-                                  onPressed: _processando ? null : () => _baixarPdf(btnCtx),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
+                      builder: (btnCtx) {
+                        final neutralBtnBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
+                        final neutralBtnText = isDark ? Colors.white : const Color(0xFF1E293B);
 
-                          // Linha 2: Excel (CSV) | Encerrar Turno | Fechar
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _botaoAcao(
-                                  icon: Icons.table_chart_rounded,
-                                  label: 'Excel (CSV)',
-                                  corFundo: const Color(0xFF0D9488),
-                                  corTexto: Colors.white,
-                                  onPressed: _processando ? null : () => _exportarExcel(btnCtx),
+                        return Column(
+                          children: [
+                            // Linha 1: WhatsApp | Copiar Texto | Baixar PDF
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _botaoAcao(
+                                    icon: Icons.chat_rounded,
+                                    label: 'WhatsApp',
+                                    corFundo: const Color(0xFF16A34A),
+                                    corTexto: Colors.white,
+                                    onPressed: _processando ? null : () => _compartilharWhatsApp(btnCtx),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _botaoAcao(
-                                  icon: Icons.lock_rounded,
-                                  label: widget.turno.aberto ? 'Encerrar Turno' : 'Turno Fechado',
-                                  corFundo: widget.turno.aberto ? const Color(0xFF2563EB) : const Color(0xFF475569),
-                                  corTexto: Colors.white,
-                                  onPressed: _processando ? null : _encerrarTurno,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _botaoAcao(
+                                    icon: Icons.copy_rounded,
+                                    label: 'Copiar Texto',
+                                    corFundo: neutralBtnBg,
+                                    corTexto: neutralBtnText,
+                                    onPressed: _copiarTexto,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _botaoAcao(
-                                  icon: Icons.close_rounded,
-                                  label: 'Fechar',
-                                  corFundo: const Color(0xFF1E293B),
-                                  corTexto: const Color(0xFFE2E8F0),
-                                  onPressed: () {
-                                    if (widget.onFechar != null) {
-                                      widget.onFechar!();
-                                    } else {
-                                      Navigator.maybePop(context);
-                                    }
-                                  },
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _botaoAcao(
+                                    icon: Icons.picture_as_pdf_rounded,
+                                    label: 'Baixar PDF',
+                                    corFundo: neutralBtnBg,
+                                    corTexto: neutralBtnText,
+                                    onPressed: _processando ? null : () => _baixarPdf(btnCtx),
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+
+                            // Linha 2: Excel (CSV) | Encerrar Turno | Fechar
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _botaoAcao(
+                                    icon: Icons.table_chart_rounded,
+                                    label: 'Excel (CSV)',
+                                    corFundo: const Color(0xFF0D9488),
+                                    corTexto: Colors.white,
+                                    onPressed: _processando ? null : () => _exportarExcel(btnCtx),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _botaoAcao(
+                                    icon: Icons.lock_rounded,
+                                    label: widget.turno.aberto ? 'Encerrar Turno' : 'Turno Fechado',
+                                    corFundo: widget.turno.aberto ? const Color(0xFF2563EB) : const Color(0xFF475569),
+                                    corTexto: Colors.white,
+                                    onPressed: _processando ? null : _encerrarTurno,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _botaoAcao(
+                                    icon: Icons.close_rounded,
+                                    label: 'Fechar',
+                                    corFundo: neutralBtnBg,
+                                    corTexto: neutralBtnText,
+                                    onPressed: () {
+                                      if (widget.onFechar != null) {
+                                        widget.onFechar!();
+                                      } else {
+                                        Navigator.maybePop(context);
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -973,16 +1014,32 @@ class _SummaryScreenState extends State<SummaryScreen> {
     required double valor,
     VoidCallback? onTap,
     bool showChevron = false,
+    required bool isDark,
   }) {
+    final cardBg = isDark ? const Color(0xFF131C2E) : Colors.white;
+    final cardBorder = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
+    final textTitle = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+    final textValue = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSub = isDark ? const Color(0xFF64748B) : const Color(0xFF64748B);
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF131C2E),
+          color: cardBg,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFF1E293B)),
+          border: Border.all(color: cardBorder),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: Row(
           children: [
@@ -997,23 +1054,23 @@ class _SummaryScreenState extends State<SummaryScreen> {
             const SizedBox(width: 12),
             Text(
               titulo,
-              style: const TextStyle(fontSize: 14, color: Color(0xFFE2E8F0), fontWeight: FontWeight.w500),
+              style: TextStyle(fontSize: 14, color: textTitle, fontWeight: FontWeight.w600),
             ),
             if (subtitulo != null) ...[
               const SizedBox(width: 6),
               Text(
                 subtitulo,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                style: TextStyle(fontSize: 12, color: textSub),
               ),
             ],
             const Spacer(),
             Text(
               CurrencyFormatter.formatar(valor),
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textValue),
             ),
             if (showChevron) ...[
               const SizedBox(width: 6),
-              const Icon(Icons.chevron_right_rounded, color: Color(0xFF64748B), size: 18),
+              Icon(Icons.chevron_right_rounded, color: textSub, size: 18),
             ],
           ],
         ),

@@ -39,6 +39,12 @@ class _PendingSyncBannerState extends State<PendingSyncBanner> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bannerBg = isDark ? const Color(0xFF78350F).withOpacity(0.4) : const Color(0xFFFEF3C7);
+    final bannerBorder = isDark ? const Color(0xFFD97706).withOpacity(0.6) : const Color(0xFFFDE68A);
+    final textTitle = isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E);
+    final textSub = isDark ? const Color(0xFFFCD34D) : const Color(0xFFB45309);
+
     return ValueListenableBuilder<int>(
       valueListenable: NotificationService.pendenciasCount,
       builder: (context, totalPendencias, _) {
@@ -48,13 +54,13 @@ class _PendingSyncBannerState extends State<PendingSyncBanner> {
           margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF78350F).withOpacity(0.4),
+            color: bannerBg,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFD97706).withOpacity(0.6)),
+            border: Border.all(color: bannerBorder),
           ),
           child: Row(
             children: [
-              const Icon(Icons.cloud_off_rounded, color: Color(0xFFFBBF24), size: 20),
+              Icon(Icons.cloud_off_rounded, color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706), size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -62,17 +68,18 @@ class _PendingSyncBannerState extends State<PendingSyncBanner> {
                   children: [
                     Text(
                       '$totalPendencias PDF(s) pendente(s) no Drive',
-                      style: const TextStyle(
-                        color: Color(0xFFFDE68A),
+                      style: TextStyle(
+                        color: textTitle,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
                     ),
-                    const Text(
+                    Text(
                       'Sem internet no momento do fechamento.',
                       style: TextStyle(
-                        color: Color(0xFFFCD34D),
+                        color: textSub,
                         fontSize: 10.5,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],

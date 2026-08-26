@@ -50,9 +50,22 @@ class _DriveFailureDialogState extends State<DriveFailureDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgDialog = isDark ? const Color(0xFF0F172A) : AppColors.lightSurface;
+    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+    final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
+    final boxBg = isDark ? const Color(0xFF1E293B).withOpacity(0.6) : const Color(0xFFFEF3C7);
+    final boxBorder = isDark ? const Color(0xFF334155) : const Color(0xFFFDE68A);
+    final boxText = isDark ? const Color(0xFFFCD34D) : const Color(0xFF92400E);
+    final boxTextSec = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF78350F);
+
     return Dialog(
-      backgroundColor: const Color(0xFF0F172A),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: bgDialog,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: borderCol),
+      ),
       child: Container(
         padding: const EdgeInsets.all(20),
         constraints: const BoxConstraints(maxWidth: 420),
@@ -79,19 +92,19 @@ class _DriveFailureDialogState extends State<DriveFailureDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Envio Pendente para o Drive',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: textPri,
                         ),
                       ),
                       Text(
                         'Turno #${widget.turnoNumero} · ${widget.operador}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF94A3B8),
+                          color: textSec,
                         ),
                       ),
                     ],
@@ -100,94 +113,128 @@ class _DriveFailureDialogState extends State<DriveFailureDialog> {
               ],
             ),
             const SizedBox(height: 16),
+
+            // Card explicativo de pendência
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+                color: boxBg,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF334155)),
+                border: Border.all(color: boxBorder),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '✅ O turno foi encerrado e o PDF foi salvo com segurança neste dispositivo.',
-                    style: TextStyle(color: Color(0xFFE2E8F0), fontSize: 12.5),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '⚠️ Porém, devido à falta de conexão com a internet, o relatório ainda não foi entregue no Google Drive do Gerente e está guardado na fila.',
-                    style: TextStyle(color: Color(0xFFFBBF24), fontSize: 12.5),
-                  ),
-                  if (_feedback != null) ...[
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: _sucesso
-                            ? const Color(0xFF064E3B).withOpacity(0.6)
-                            : const Color(0xFF7F1D1D).withOpacity(0.6),
-                        borderRadius: BorderRadius.circular(6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'O turno foi encerrado e o PDF foi salvo com segurança neste dispositivo.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: boxTextSec,
+                            fontWeight: FontWeight.w600,
+                            height: 1.3,
+                          ),
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Porém, devido à falta de conexão com a internet, o relatório ainda não foi entregue no Google Drive do Gerente e está guardado na fila.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: boxText,
+                            fontWeight: FontWeight.w500,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            if (_feedback != null) ...[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _sucesso
+                      ? const Color(0xFF10B981).withOpacity(0.15)
+                      : const Color(0xFFEF4444).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _sucesso ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _sucesso ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                      color: _sucesso ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
                       child: Text(
                         _feedback!,
                         style: TextStyle(
-                          color: _sucesso ? const Color(0xFF34D399) : const Color(0xFFF87171),
                           fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                          color: _sucesso ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ],
-                ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            ElevatedButton.icon(
+              onPressed: _enviando ? null : _tentarReenviar,
+              icon: _enviando
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.sync_rounded, color: Colors.white, size: 18),
+              label: Text(
+                _enviando ? 'Enviando ao Drive...' : 'Tentar Enviar Novamente Agora',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
-            const SizedBox(height: 20),
-            if (_enviando)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF38BDF8)),
-                      ),
-                      SizedBox(width: 12),
-                      Text(
-                        'Tentando conectar e reenviar PDF...',
-                        style: TextStyle(color: Color(0xFF38BDF8), fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else ...[
-              ElevatedButton.icon(
-                onPressed: _tentarReenviar,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Tentar Enviar Novamente Agora'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
+            const SizedBox(height: 8),
+
+            OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: textSec,
+                side: BorderSide(color: borderCol),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              const SizedBox(height: 8),
-              OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF94A3B8),
-                  side: const BorderSide(color: Color(0xFF334155)),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: const Text('Entendido, Enviar Mais Tarde'),
-              ),
-            ],
+              child: const Text('Entendido, Enviar Mais Tarde', style: TextStyle(fontSize: 13)),
+            ),
           ],
         ),
       ),
