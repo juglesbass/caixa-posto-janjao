@@ -9,6 +9,7 @@ import '../models/lancamento.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
 import '../utils/currency_formatter.dart';
+import '../utils/payment_types.dart';
 
 class CsvService {
   /// Gera e compartilha o arquivo CSV do Fechamento de Turno
@@ -51,7 +52,7 @@ class CsvService {
     if (totais.detalheCartoes.isEmpty) {
       buffer.writeln('Nenhum cartão lançado;0;0.00');
     } else {
-      for (final e in totais.detalheCartoes.entries) {
+      for (final e in PaymentTypes.ordenarCartoes(totais.detalheCartoes.entries)) {
         buffer.writeln('${e.key};${e.value.qtd};${e.value.total.toStringAsFixed(2)}');
       }
     }

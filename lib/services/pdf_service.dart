@@ -10,6 +10,7 @@ import '../models/lancamento.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
 import '../utils/currency_formatter.dart';
+import '../utils/payment_types.dart';
 
 class PdfService {
   static pw.Font? _cachedFontRegular;
@@ -285,7 +286,7 @@ class PdfService {
                     child: pw.Text('Nenhum cartão registrado neste turno', style: pw.TextStyle(fontSize: 7.5, color: corCinzaTexto)),
                   )
                 else
-                  ...totais.detalheCartoes.entries.map((e) {
+                  ...PaymentTypes.ordenarCartoes(totais.detalheCartoes.entries).map((e) {
                     final nome = e.key;
                     final total = e.value.total;
                     final qtd = e.value.qtd;

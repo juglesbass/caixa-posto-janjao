@@ -400,6 +400,10 @@ class DatabaseService {
     final diferenca = totalGeral - vendasSistema;
     final dinheiroGaveta = fundoCaixa + dinheiro - sangrias - despesas;
 
+    final sortedDetalheCartoes = Map<String, ({double total, int qtd})>.fromEntries(
+      PaymentTypes.ordenarCartoes(detalheCartoes.entries),
+    );
+
     return TotaisTurno(
       dinheiro: dinheiro,
       pix: pix,
@@ -415,7 +419,7 @@ class DatabaseService {
       diferenca: diferenca,
       vendasSistema: vendasSistema,
       dinheiroGaveta: dinheiroGaveta,
-      detalheCartoes: detalheCartoes,
+      detalheCartoes: sortedDetalheCartoes,
     );
   }
 

@@ -16,6 +16,7 @@ import '../services/drive_service.dart';
 import '../services/pdf_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/currency_formatter.dart';
+import '../utils/payment_types.dart';
 import '../widgets/pending_sync_banner.dart';
 
 class SummaryScreen extends StatefulWidget {
@@ -121,7 +122,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
     if (widget.totais.detalheCartoes.isEmpty) {
       buffer.writeln('  _Nenhum cartão registrado_');
     } else {
-      for (final e in widget.totais.detalheCartoes.entries) {
+      for (final e in PaymentTypes.ordenarCartoes(widget.totais.detalheCartoes.entries)) {
         buffer.writeln('  • ${e.key}: ${CurrencyFormatter.formatar(e.value.total)} (${e.value.qtd} un)');
       }
     }
@@ -585,7 +586,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      for (final e in widget.totais.detalheCartoes.entries)
+                      for (final e in PaymentTypes.ordenarCartoes(widget.totais.detalheCartoes.entries))
                         if (e.value.total > 0) ...[
                           _itemResumoCard(
                             icon: Icons.credit_card_rounded,
