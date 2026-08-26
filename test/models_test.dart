@@ -71,7 +71,7 @@ void main() {
       expect(totaisFalta.ehSobra, isFalse);
     });
 
-    test('PdfService.gerarNomeArquivo formato ${operador} ${data_dd-MM-yyyy}.pdf', () {
+    test(r'PdfService.gerarNomeArquivo formato ${operador} ${data_dd-MM-yyyy}.pdf', () {
       final turno = Turno(
         id: 1,
         numero: 1,
