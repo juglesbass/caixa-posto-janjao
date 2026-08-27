@@ -9,7 +9,11 @@ class QuickAmountRow extends StatelessWidget {
     required this.onSelecionarValor,
   });
 
-  static const List<double> valores = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 500];
+  static const List<List<double>> linhasValores = [
+    [10, 20, 30, 40, 50],
+    [60, 70, 80, 90, 100],
+    [150, 200, 250, 300, 500],
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -18,31 +22,50 @@ class QuickAmountRow extends StatelessWidget {
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
 
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      alignment: WrapAlignment.center,
-      children: valores.map((v) {
-        final label = '+ R\$ ${v.toInt()}';
-        return InkWell(
-          onTap: () => onSelecionarValor(v),
-          borderRadius: BorderRadius.circular(AppColors.radiusSm),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            decoration: BoxDecoration(
-              color: surfaceColor,
-              borderRadius: BorderRadius.circular(AppColors.radiusSm),
-              border: Border.all(color: borderColor),
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.bold,
-                color: textPri,
-                letterSpacing: 0.2,
-              ),
-            ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: linhasValores.asMap().entries.map((entry) {
+        final rowIndex = entry.key;
+        final rowList = entry.value;
+
+        return Padding(
+          padding: EdgeInsets.only(bottom: rowIndex < linhasValores.length - 1 ? 6 : 0),
+          child: Row(
+            children: rowList.asMap().entries.map((itemEntry) {
+              final colIndex = itemEntry.key;
+              final valor = itemEntry.value;
+
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: colIndex < rowList.length - 1 ? 5 : 0),
+                  child: InkWell(
+                    onTap: () => onSelecionarValor(valor),
+                    borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: surfaceColor,
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          '+ R\$ ${valor.toInt()}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: textPri,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         );
       }).toList(),
