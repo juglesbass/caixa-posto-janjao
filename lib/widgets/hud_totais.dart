@@ -152,33 +152,56 @@ class _MiniCardTotais extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final corVibrante = isDark && cor == AppColors.purple ? AppColors.purpleLight : cor;
+    final corTextoLabel = isDark
+        ? (cor == AppColors.purple ? const Color(0xFFE9D5FF) : corVibrante)
+        : cor;
+    final corBadge = isDark
+        ? (cor == AppColors.purple ? const Color(0xFFDDD6FE) : corVibrante.withOpacity(0.9))
+        : cor.withOpacity(0.85);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: cor.withOpacity(0.10),
+        color: corVibrante.withOpacity(isDark ? 0.14 : 0.10),
         borderRadius: BorderRadius.circular(AppColors.radiusSm),
-        border: Border.all(color: cor.withOpacity(0.25)),
+        border: Border.all(color: corVibrante.withOpacity(isDark ? 0.40 : 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 14, color: cor),
+              Icon(icon, size: 14, color: corVibrante),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   label,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: cor),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: corTextoLabel,
+                    letterSpacing: 0.2,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (badge != null)
-                Text(
-                  badge!,
-                  style: TextStyle(fontSize: 9, color: cor.withOpacity(0.8)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: corVibrante.withOpacity(isDark ? 0.25 : 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    badge!,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: corBadge,
+                    ),
+                  ),
                 ),
             ],
           ),

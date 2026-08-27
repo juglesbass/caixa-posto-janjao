@@ -11,7 +11,8 @@ class AppColors {
   // Cores Semânticas por Tipo de Pagamento
   static const Color green = Color(0xFF10B981); // Dinheiro / Sucesso
   static const Color blue = Color(0xFF06B6D4); // Pix
-  static const Color purple = Color(0xFF8B5CF6); // Cartões / Vouchers
+  static const Color purple = Color(0xFFA855F7); // Cartões / Vouchers (Vibrante)
+  static const Color purpleLight = Color(0xFFC084FC); // Cartões Claro / Alto Contraste
   static const Color orange = Color(0xFFF97316); // Sangrias / Master Débito
   static const Color brown = Color(0xFFB45309); // Depósito Global
   static const Color teal = Color(0xFF14B8A6); // Sodexo / Fitcard

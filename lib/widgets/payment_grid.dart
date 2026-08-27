@@ -74,6 +74,7 @@ class PaymentGrid extends StatelessWidget {
           borderColor: borderColor,
           textPri: textPri,
           textSec: textSec,
+          isCartao: true,
         ),
 
         // 4. Requisição
@@ -133,6 +134,7 @@ class _CardMetodo extends StatelessWidget {
   final Color borderColor;
   final Color textPri;
   final Color textSec;
+  final bool isCartao;
 
   const _CardMetodo({
     required this.label,
@@ -145,10 +147,14 @@ class _CardMetodo extends StatelessWidget {
     required this.borderColor,
     required this.textPri,
     required this.textSec,
+    this.isCartao = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final corVibrante = isDark && cor == AppColors.purple ? AppColors.purpleLight : cor;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppColors.radiusMd),
@@ -156,16 +162,20 @@ class _CardMetodo extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: selecionado ? cor.withOpacity(0.16) : surfaceColor,
+          color: selecionado
+              ? corVibrante.withOpacity(isDark ? 0.20 : 0.14)
+              : surfaceColor,
           borderRadius: BorderRadius.circular(AppColors.radiusMd),
           border: Border.all(
-            color: selecionado ? cor : borderColor,
+            color: selecionado
+                ? (isDark ? corVibrante : cor)
+                : borderColor,
             width: selecionado ? 2.0 : 1.0,
           ),
           boxShadow: selecionado
               ? [
                   BoxShadow(
-                    color: cor.withOpacity(0.30),
+                    color: corVibrante.withOpacity(0.35),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
@@ -177,48 +187,116 @@ class _CardMetodo extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: cor.withOpacity(0.18),
+                color: corVibrante.withOpacity(isDark ? 0.25 : 0.18),
                 borderRadius: BorderRadius.circular(AppColors.radiusSm),
               ),
-              child: Icon(icon, color: cor, size: 22),
+              child: Icon(icon, color: corVibrante, size: 22),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: selecionado ? cor : textPri,
+              child: isCartao
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            color: selecionado ? (isDark ? Colors.white : cor) : textPri,
+                            letterSpacing: 0.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: selecionado
+                                ? (isDark ? corVibrante.withOpacity(0.25) : cor.withOpacity(0.12))
+                                : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: selecionado
+                                  ? (isDark ? corVibrante.withOpacity(0.6) : cor.withOpacity(0.4))
+                                  : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  subtitulo.replaceAll(' ▼', ''),
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: selecionado
+                                        ? (isDark ? const Color(0xFFF1F5F9) : cor)
+                                        : textSec,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 2),
+                              Icon(
+                                Icons.arrow_drop_down_rounded,
+                                size: 14,
+                                color: selecionado
+                                    ? (isDark ? const Color(0xFFF1F5F9) : cor)
+                                    : textSec,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            color: selecionado ? (isDark ? Colors.white : cor) : textPri,
+                            letterSpacing: 0.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitulo,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: selecionado ? (isDark ? const Color(0xFFE2E8F0) : cor) : textSec,
+                            fontWeight: selecionado ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitulo,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: selecionado ? cor.withOpacity(0.85) : textSec,
-                      fontWeight: selecionado ? FontWeight.w600 : FontWeight.normal,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
             ),
             if (selecionado)
               Container(
-                width: 7,
-                height: 7,
+                width: 8,
+                height: 8,
                 decoration: BoxDecoration(
-                  color: cor,
+                  color: isDark ? (cor == AppColors.purple ? AppColors.purpleLight : cor) : cor,
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: corVibrante.withOpacity(0.6),
+                      blurRadius: 4,
+                    ),
+                  ],
                 ),
               ),
           ],
