@@ -11,8 +11,7 @@ class QuickAmountRow extends StatelessWidget {
 
   static const List<List<double>> linhasValores = [
     [10, 20, 30, 40, 50],
-    [60, 70, 80, 90, 100],
-    [150, 200, 250, 300, 500],
+    [100, 150, 200, 300, 500],
   ];
 
   @override
