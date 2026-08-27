@@ -80,17 +80,32 @@ class DriveService {
         'operador': operador,
         'arquivo_base64': base64Encode(pdfBytes),
         'modo_teste': isTeste,
-        if (isTeste) 'pasta_id': testFolderId,
-        if (isTeste) 'folder_id': testFolderId,
-        if (isTeste) 'pasta_destino': testFolderId,
+        if (isTeste) ...{
+          'pasta_id': testFolderId,
+          'pastaId': testFolderId,
+          'folder_id': testFolderId,
+          'folderId': testFolderId,
+          'pasta_destino': testFolderId,
+          'target_folder_id': testFolderId,
+        },
       };
 
       final bodyJson = jsonEncode(payload);
 
+      // Adiciona query parameters na URL para scripts que leem parâmetros via e.parameter
+      final targetUri = isTeste
+          ? Uri.parse(webhookUrl).replace(queryParameters: {
+              'pasta_id': testFolderId,
+              'folder_id': testFolderId,
+              'folderId': testFolderId,
+              'modo_teste': 'true',
+            })
+          : Uri.parse(webhookUrl);
+
       // Usando text/plain para evitar bloqueio de CORS preflight em navegadores Web (PWA)
       final response = await _client
           .post(
-            Uri.parse(webhookUrl),
+            targetUri,
             headers: {'Content-Type': 'text/plain;charset=utf-8'},
             body: bodyJson,
           )
@@ -198,14 +213,28 @@ class DriveService {
           'operador': operador,
           'arquivo_base64': base64Encode(pdfBytes),
           'modo_teste': isTeste,
-          if (isTeste) 'pasta_id': testFolderId,
-          if (isTeste) 'folder_id': testFolderId,
-          if (isTeste) 'pasta_destino': testFolderId,
+          if (isTeste) ...{
+            'pasta_id': testFolderId,
+            'pastaId': testFolderId,
+            'folder_id': testFolderId,
+            'folderId': testFolderId,
+            'pasta_destino': testFolderId,
+            'target_folder_id': testFolderId,
+          },
         };
+
+        final targetUri = isTeste
+            ? Uri.parse(webhookUrl).replace(queryParameters: {
+                'pasta_id': testFolderId,
+                'folder_id': testFolderId,
+                'folderId': testFolderId,
+                'modo_teste': 'true',
+              })
+            : Uri.parse(webhookUrl);
 
         final response = await http
             .post(
-              Uri.parse(webhookUrl),
+              targetUri,
               headers: {'Content-Type': 'text/plain;charset=utf-8'},
               body: jsonEncode(payload),
             )
