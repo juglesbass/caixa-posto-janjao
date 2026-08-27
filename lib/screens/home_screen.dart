@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -56,7 +57,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _focusNodeValor.addListener(_onFocusValorChange);
     _carregarMaquinaAtiva();
+  }
+
+  void _onFocusValorChange() {
+    if (mounted) setState(() {});
   }
 
   void _carregarMaquinaAtiva() async {
@@ -76,6 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _focusNodeValor.removeListener(_onFocusValorChange);
     _controllerValor.dispose();
     _controllerDesc.dispose();
     _controllerRecebido.dispose();
@@ -237,6 +244,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final ehDinheiro = PaymentTypes.ehDinheiro(_tipoAtivo);
     final alertaGaveta = widget.totais.dinheiroGaveta >= 800.0;
 
+    final bool ehAndroidNativo = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final bool exibirToolbarTeclado = !ehAndroidNativo && _focusNodeValor.hasFocus && keyboardHeight > 0;
+
     return Scaffold(
       appBar: AppBar(
         title: ValueListenableBuilder<bool>(
@@ -305,224 +316,306 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── Tarja / Banner Visual de Modo Teste Ativo ──
-              ValueListenableBuilder<bool>(
-                valueListenable: DriveService.modoTesteNotifier,
-                builder: (context, modoTeste, _) {
-                  if (!modoTeste) return const SizedBox.shrink();
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF78350F).withOpacity(0.35),
-                      borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                      border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
-                    ),
-                    child: const Row(
-                      children: [
-                        Text('🧪', style: TextStyle(fontSize: 16)),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'MODO TESTE ATIVO: Relatórios serão enviados para a pasta de homologação no Drive.',
-                            style: TextStyle(
-                              color: Color(0xFFFBBF24),
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                              height: 1.25,
+        bottom: false,
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── Tarja / Banner Visual de Modo Teste Ativo ──
+                  ValueListenableBuilder<bool>(
+                    valueListenable: DriveService.modoTesteNotifier,
+                    builder: (context, modoTeste, _) {
+                      if (!modoTeste) return const SizedBox.shrink();
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF78350F).withOpacity(0.35),
+                          borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                          border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
+                        ),
+                        child: const Row(
+                          children: [
+                            Text('🧪', style: TextStyle(fontSize: 16)),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'MODO TESTE ATIVO: Relatórios serão enviados para a pasta de homologação no Drive.',
+                                style: TextStyle(
+                                  color: Color(0xFFFBBF24),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.25,
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              PendingSyncBanner(onSincronizado: widget.onRecarregar),
-              // ── Banner de Alerta de Sangria ──
-              if (alertaGaveta) ...[
-                InkWell(
-                  onTap: _abrirSangria,
-                  borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppColors.orange.withOpacity(0.16),
+                      );
+                    },
+                  ),
+                  PendingSyncBanner(onSincronizado: widget.onRecarregar),
+                  // ── Banner de Alerta de Sangria ──
+                  if (alertaGaveta) ...[
+                    InkWell(
+                      onTap: _abrirSangria,
                       borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                      border: Border.all(color: AppColors.orange),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.warning_amber_rounded, color: AppColors.orange, size: 22),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Gaveta com ${CurrencyFormatter.formatar(widget.totais.dinheiroGaveta)}. Recomenda-se fazer sangria!',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.orange),
-                          ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.orange.withOpacity(0.16),
+                          borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                          border: Border.all(color: AppColors.orange),
                         ),
-                        const Icon(Icons.chevron_right_rounded, color: AppColors.orange),
-                      ],
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: AppColors.orange, size: 22),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Gaveta com ${CurrencyFormatter.formatar(widget.totais.dinheiroGaveta)}. Recomenda-se fazer sangria!',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.orange),
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right_rounded, color: AppColors.orange),
+                          ],
+                        ),
+                      ),
                     ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // ── HUD Bento Grid de Totais ──
+                  HudTotais(
+                    totais: widget.totais,
+                    onTapDetalhes: widget.onAbrirResumo,
                   ),
-                ),
-                const SizedBox(height: 12),
-              ],
+                  const SizedBox(height: 14),
 
-              // ── HUD Bento Grid de Totais ──
-              HudTotais(
-                totais: widget.totais,
-                onTapDetalhes: widget.onAbrirResumo,
-              ),
-              const SizedBox(height: 14),
-
-              // ── Seletor de Máquina (REDE vs CIELO) ──
-              MachineSelector(
-                maquinaAtiva: _maquinaAtiva,
-                onSelecionar: (maq) async {
-                  HapticFeedback.selectionClick();
-                  setState(() {
-                    _maquinaAtiva = maq;
-                    if (PaymentTypes.ehCartao(_tipoAtivo)) {
-                      _tipoAtivo = '$_maquinaAtiva $_bandeiraCartaoAtiva';
-                    }
-                  });
-                  try {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setString('maquina_ativa', maq);
-                  } catch (_) {}
-                },
-              ),
-              const SizedBox(height: 12),
-
-              // ── Grade de Formas de Pagamento ──
-              PaymentGrid(
-                tipoAtivo: _tipoAtivo,
-                bandeiraCartaoAtiva: _bandeiraCartaoAtiva,
-                onSelecionarTipo: _selecionarTipo,
-                onAbrirSeletorCartoes: _abrirSeletorCartoes,
-              ),
-              const SizedBox(height: 14),
-
-              // ── Campo Principal de Valor ──
-              TextField(
-                controller: _controllerValor,
-                focusNode: _focusNodeValor,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [CurrencyInputFormatter()],
-                textInputAction: TextInputAction.done,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: textPri,
-                  letterSpacing: 0.5,
-                ),
-                decoration: InputDecoration(
-                  labelText: 'Valor da Venda',
-                  labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textSec),
-                  hintText: 'R\$ 0,00',
-                  prefixIcon: const Icon(Icons.attach_money_rounded, color: AppColors.accentLight, size: 26),
-                  errorText: _erroValor,
-                  filled: true,
-                  fillColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                    borderSide: BorderSide(color: borderColor),
+                  // ── Seletor de Máquina (REDE vs CIELO) ──
+                  MachineSelector(
+                    maquinaAtiva: _maquinaAtiva,
+                    onSelecionar: (maq) async {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _maquinaAtiva = maq;
+                        if (PaymentTypes.ehCartao(_tipoAtivo)) {
+                          _tipoAtivo = '$_maquinaAtiva $_bandeiraCartaoAtiva';
+                        }
+                      });
+                      try {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setString('maquina_ativa', maq);
+                      } catch (_) {}
+                    },
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                    borderSide: BorderSide(color: borderColor),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                    borderSide: const BorderSide(color: AppColors.accentLight, width: 2),
-                  ),
-                ),
-                onChanged: (val) {
-                  setState(() {
-                    _valorVenda = CurrencyFormatter.parse(val);
-                    if (_erroValor != null) _erroValor = null;
-                  });
-                },
-                onSubmitted: (_) => _lancarVenda(),
-              ),
-              const SizedBox(height: 10),
+                  const SizedBox(height: 12),
 
-              // ── Botão Grande LANÇAR VENDA ──
-              SizedBox(
-                height: 52,
-                child: ElevatedButton.icon(
-                  onPressed: _enviando ? null : _lancarVenda,
-                  icon: const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 22),
-                  label: Text(
-                    _enviando ? 'Lançando...' : 'LANÇAR VENDA',
-                    style: const TextStyle(
-                      fontSize: 16,
+                  // ── Grade de Formas de Pagamento ──
+                  PaymentGrid(
+                    tipoAtivo: _tipoAtivo,
+                    bandeiraCartaoAtiva: _bandeiraCartaoAtiva,
+                    onSelecionarTipo: _selecionarTipo,
+                    onAbrirSeletorCartoes: _abrirSeletorCartoes,
+                  ),
+                  const SizedBox(height: 14),
+
+                  // ── Campo Principal de Valor ──
+                  TextField(
+                    controller: _controllerValor,
+                    focusNode: _focusNodeValor,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [CurrencyInputFormatter()],
+                    textInputAction: TextInputAction.done,
+                    style: TextStyle(
+                      fontSize: 22,
                       fontWeight: FontWeight.w900,
-                      color: Colors.white,
+                      color: textPri,
                       letterSpacing: 0.5,
                     ),
+                    decoration: InputDecoration(
+                      labelText: 'Valor da Venda',
+                      labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textSec),
+                      hintText: 'R\$ 0,00',
+                      prefixIcon: const Icon(Icons.attach_money_rounded, color: AppColors.accentLight, size: 26),
+                      errorText: _erroValor,
+                      filled: true,
+                      fillColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                        borderSide: const BorderSide(color: AppColors.accentLight, width: 2),
+                      ),
+                    ),
+                    onChanged: (val) {
+                      setState(() {
+                        _valorVenda = CurrencyFormatter.parse(val);
+                        if (_erroValor != null) _erroValor = null;
+                      });
+                    },
+                    onSubmitted: (_) => _lancarVenda(),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    elevation: 4,
-                    shadowColor: AppColors.accent.withOpacity(0.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                  const SizedBox(height: 10),
+
+                  // ── Botão Grande LANÇAR VENDA ──
+                  SizedBox(
+                    height: 52,
+                    child: ElevatedButton.icon(
+                      onPressed: _enviando ? null : _lancarVenda,
+                      icon: const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 22),
+                      label: Text(
+                        _enviando ? 'Lançando...' : 'LANÇAR VENDA',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.accent,
+                        elevation: 4,
+                        shadowColor: AppColors.accent.withOpacity(0.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                        ),
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+
+                  // ── Atalhos Rápidos (+ R$ 10 a + R$ 500) ──
+                  QuickAmountRow(onSelecionarValor: _setValorRapido),
+                  const SizedBox(height: 12),
+
+                  // ── Calculadora de Troco (Se Dinheiro) ──
+                  if (ehDinheiro) ...[
+                    TrocoCalculator(
+                      valorVenda: _valorVenda,
+                      valorRecebido: _valorRecebido,
+                      controllerRecebido: _controllerRecebido,
+                      onChanged: (val) {
+                        setState(() {
+                          _valorRecebido = CurrencyFormatter.parse(val);
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // ── Campo Opcional de Descrição / Placa ──
+                  TextField(
+                    controller: _controllerDesc,
+                    decoration: InputDecoration(
+                      labelText: 'Descrição / Placa / Observação (Opcional)',
+                      hintText: 'Ex: Troca de óleo, Placa ABC-1234...',
+                      prefixIcon: const Icon(Icons.edit_note_rounded),
+                      filled: true,
+                      fillColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                      isDense: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                    ),
+                    onSubmitted: (_) => _lancarVenda(),
+                  ),
+                  const SizedBox(height: 30),
+                ],
+              ),
+            ),
+            if (exibirToolbarTeclado)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: keyboardHeight,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF111420) : Colors.white,
+                    border: Border(
+                      top: BorderSide(
+                        color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                        width: 1.2,
+                      ),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(isDark ? 0.40 : 0.12),
+                        blurRadius: 10,
+                        offset: const Offset(0, -3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.getCorTipo(_tipoAtivo).withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          AppColors.getIconeTipo(_tipoAtivo),
+                          size: 16,
+                          color: isDark && AppColors.getCorTipo(_tipoAtivo) == AppColors.purple
+                              ? AppColors.purpleLight
+                              : AppColors.getCorTipo(_tipoAtivo),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _tipoAtivo,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : AppColors.lightTextPri,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: _enviando ? null : _lancarVenda,
+                        icon: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
+                        label: const Text(
+                          'LANÇAR',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accent,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
-
-              // ── Atalhos Rápidos (+ R$ 10 a + R$ 500) ──
-              QuickAmountRow(onSelecionarValor: _setValorRapido),
-              const SizedBox(height: 12),
-
-              // ── Calculadora de Troco (Se Dinheiro) ──
-              if (ehDinheiro) ...[
-                TrocoCalculator(
-                  valorVenda: _valorVenda,
-                  valorRecebido: _valorRecebido,
-                  controllerRecebido: _controllerRecebido,
-                  onChanged: (val) {
-                    setState(() {
-                      _valorRecebido = CurrencyFormatter.parse(val);
-                    });
-                  },
-                ),
-                const SizedBox(height: 12),
-              ],
-
-              // ── Campo Opcional de Descrição / Placa ──
-              TextField(
-                controller: _controllerDesc,
-                decoration: InputDecoration(
-                  labelText: 'Descrição / Placa / Observação (Opcional)',
-                  hintText: 'Ex: Troca de óleo, Placa ABC-1234...',
-                  prefixIcon: const Icon(Icons.edit_note_rounded),
-                  filled: true,
-                  fillColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                  isDense: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                    borderSide: BorderSide(color: borderColor),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                    borderSide: BorderSide(color: borderColor),
-                  ),
-                ),
-                onSubmitted: (_) => _lancarVenda(),
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
+          ],
         ),
       ),
     );
