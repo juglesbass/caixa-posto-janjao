@@ -714,7 +714,6 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           subtitulo: '(${widget.totais.qtdPix} un)',
                           valor: widget.totais.pix,
                           isDark: isDark,
-                          showChevron: true,
                           onTap: () => _abrirDetalhesCartao('Pag Pix'),
                         ),
                         const SizedBox(height: 8),
