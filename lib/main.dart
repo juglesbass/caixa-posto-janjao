@@ -32,6 +32,7 @@ void main() async {
 
   // Inicializa notificações e fila de sincronização
   await NotificationService.inicializar();
+  await DriveService.inicializarModoTeste();
 
   runApp(const CaixaPostoJanjaoApp());
 }

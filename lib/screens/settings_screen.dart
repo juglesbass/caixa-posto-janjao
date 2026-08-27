@@ -299,7 +299,39 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
 
-                  // 6. Bloquear Caixa
+                  // 6. Modo Teste / Simulação (Drive)
+                  ValueListenableBuilder<bool>(
+                    valueListenable: DriveService.modoTesteNotifier,
+                    builder: (context, modoTeste, _) {
+                      return _itemMenuSwitch(
+                        icon: Icons.science_outlined,
+                        iconColor: const Color(0xFFF59E0B),
+                        iconBg: const Color(0xFF78350F).withOpacity(0.4),
+                        titulo: 'Modo Teste / Simulação',
+                        subtitulo: 'Envia os relatórios para a pasta de homologação no Drive',
+                        valor: modoTeste,
+                        onChanged: (novoValor) async {
+                          await DriveService.setModoTeste(novoValor);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  novoValor
+                                      ? '🧪 Modo Teste ativado! Relatórios irão para a pasta de homologação.'
+                                      : '✅ Modo Teste desativado. Relatórios irão para a pasta oficial.',
+                                ),
+                                backgroundColor: novoValor ? AppColors.amber : AppColors.green,
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          }
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+
+                  // 7. Bloquear Caixa
                   _itemMenuCard(
                     icon: Icons.lock_rounded,
                     iconColor: const Color(0xFF2563EB),
@@ -454,6 +486,74 @@ class SettingsScreen extends StatelessWidget {
             Icon(Icons.chevron_right_rounded, color: subCol, size: 18),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _itemMenuSwitch({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String titulo,
+    required String subtitulo,
+    required bool valor,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final cardBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
+    final cardBorder = valor
+        ? const Color(0xFFF59E0B).withOpacity(0.6)
+        : (isDark ? const Color(0xFF1E293B) : AppColors.lightBorder);
+    final titleCol = valor
+        ? const Color(0xFFFBBF24)
+        : (isDark ? Colors.white : AppColors.lightTextPri);
+    final subCol = isDark ? const Color(0xFF64748B) : AppColors.lightTextSec;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: valor ? const Color(0xFF78350F).withOpacity(0.18) : cardBg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: cardBorder, width: valor ? 1.5 : 1.0),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: titleCol,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitulo,
+                  style: TextStyle(fontSize: 11, color: subCol),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: valor,
+            activeColor: const Color(0xFFF59E0B),
+            onChanged: onChanged,
+          ),
+        ],
       ),
     );
   }

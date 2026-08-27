@@ -6,6 +6,7 @@ import '../dialogs/sangria_dialog.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
 import '../services/database_service.dart';
+import '../services/drive_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/payment_types.dart';
@@ -238,14 +239,38 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          children: [
-            const Text('POSTO JANJÃO', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-            Text(
-              'Turno #${widget.turno.numero} • ${widget.turno.operador}',
-              style: TextStyle(fontSize: 11, color: textSec),
-            ),
-          ],
+        title: ValueListenableBuilder<bool>(
+          valueListenable: DriveService.modoTesteNotifier,
+          builder: (context, modoTeste, _) {
+            return Column(
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('POSTO JANJÃO', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                    if (modoTeste) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD97706),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          '🧪 MODO TESTE',
+                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                Text(
+                  'Turno #${widget.turno.numero} • ${widget.turno.operador}',
+                  style: TextStyle(fontSize: 11, color: textSec),
+                ),
+              ],
+            );
+          },
         ),
         actions: [
           IconButton(
@@ -285,6 +310,39 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // ── Tarja / Banner Visual de Modo Teste Ativo ──
+              ValueListenableBuilder<bool>(
+                valueListenable: DriveService.modoTesteNotifier,
+                builder: (context, modoTeste, _) {
+                  if (!modoTeste) return const SizedBox.shrink();
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF78350F).withOpacity(0.35),
+                      borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                      border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
+                    ),
+                    child: const Row(
+                      children: [
+                        Text('🧪', style: TextStyle(fontSize: 16)),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'MODO TESTE ATIVO: Relatórios serão enviados para a pasta de homologação no Drive.',
+                            style: TextStyle(
+                              color: Color(0xFFFBBF24),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              height: 1.25,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
               PendingSyncBanner(onSincronizado: widget.onRecarregar),
               // ── Banner de Alerta de Sangria ──
               if (alertaGaveta) ...[

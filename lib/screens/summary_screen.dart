@@ -473,7 +473,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ Turno encerrado com sucesso! ${resultadoDrive.mensagem}'),
+            content: Text(resultadoDrive.mensagem),
             backgroundColor: AppColors.green,
             duration: const Duration(seconds: 4),
           ),
@@ -528,6 +528,24 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       letterSpacing: 0.2,
                     ),
                   ),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: DriveService.modoTesteNotifier,
+                    builder: (context, modoTeste, _) {
+                      if (!modoTeste) return const SizedBox.shrink();
+                      return Container(
+                        margin: const EdgeInsets.only(left: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD97706),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          '🧪 MODO TESTE',
+                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
+                        ),
+                      );
+                    },
+                  ),
                   const Spacer(),
                   IconButton(
                     icon: Icon(Icons.close_rounded, color: textSec),
@@ -551,6 +569,38 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Banner de Modo Teste no Resumo
+                    ValueListenableBuilder<bool>(
+                      valueListenable: DriveService.modoTesteNotifier,
+                      builder: (context, modoTeste, _) {
+                        if (!modoTeste) return const SizedBox.shrink();
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF78350F).withOpacity(0.35),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFF59E0B)),
+                          ),
+                          child: const Row(
+                            children: [
+                              Text('🧪', style: TextStyle(fontSize: 16)),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'MODO TESTE ATIVO: O PDF deste fechamento será enviado para a pasta de homologação do Drive.',
+                                  style: TextStyle(
+                                    color: Color(0xFFFBBF24),
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                     // Status do Turno (Aberto / Fechado)
                     if (!widget.turno.aberto) ...[
                       Container(

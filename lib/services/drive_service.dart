@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'database_service.dart';
 import 'notification_service.dart';
 import 'pdf_service.dart';
@@ -10,6 +11,41 @@ class DriveService {
 
   static const String defaultWebhookUrl =
       'https://script.google.com/macros/s/AKfycbzes0dAFXK3_Us145YsnfKXAI_UzVjMHlVG4uK2-cYkxHy2f5M_VCaLEVEJhWOIvcVITQ/exec';
+
+  /// ID da Pasta de Testes / Homologação no Google Drive
+  static const String testFolderId = '1uvJ6r3ZVzfw5Qv0X471hM11jYMSdbqhM';
+
+  /// Chave de persistência do Modo Teste
+  static const String keyModoTeste = 'modo_teste_ativo';
+
+  /// Notifier reativo para atualizar a interface imediatamente quando o Modo Teste for alterado
+  static final ValueNotifier<bool> modoTesteNotifier = ValueNotifier<bool>(false);
+
+  /// Inicializa o estado do Modo Teste a partir do SharedPreferences
+  static Future<bool> inicializarModoTeste() async {
+    return isModoTeste();
+  }
+
+  /// Verifica se o Modo Teste está ativo
+  static Future<bool> isModoTeste() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ativo = prefs.getBool(keyModoTeste) ?? false;
+      modoTesteNotifier.value = ativo;
+      return ativo;
+    } catch (_) {
+      return modoTesteNotifier.value;
+    }
+  }
+
+  /// Ativa ou desativa o Modo Teste e persiste a escolha
+  static Future<void> setModoTeste(bool ativo) async {
+    modoTesteNotifier.value = ativo;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(keyModoTeste, ativo);
+    } catch (_) {}
+  }
 
   /// Envia o arquivo PDF (em bytes) para o Google Drive do Gerente via Webhook
   static Future<({bool sucesso, String mensagem})> enviarPdfDrive({
@@ -21,6 +57,7 @@ class DriveService {
   }) async {
     final db = DatabaseService.instance;
     final numeroTurnoExibicao = turnoNumero ?? turnoId;
+    final isTeste = await isModoTeste();
 
     try {
       final webhookUrl = await db.getConfig('google_drive_webhook_url', padrao: defaultWebhookUrl);
@@ -32,11 +69,20 @@ class DriveService {
         );
       }
 
+      // No modo teste, prefixa o nome do arquivo com [TESTE]
+      final nomeEnvio = isTeste && !nomeArquivo.startsWith('[TESTE]')
+          ? '[TESTE] $nomeArquivo'
+          : nomeArquivo;
+
       final payload = {
-        'nome_arquivo': nomeArquivo,
+        'nome_arquivo': nomeEnvio,
         'turno_id': turnoId,
         'operador': operador,
         'arquivo_base64': base64Encode(pdfBytes),
+        'modo_teste': isTeste,
+        if (isTeste) 'pasta_id': testFolderId,
+        if (isTeste) 'folder_id': testFolderId,
+        if (isTeste) 'pasta_destino': testFolderId,
       };
 
       final bodyJson = jsonEncode(payload);
@@ -59,11 +105,13 @@ class DriveService {
         await NotificationService.atualizarPendencias();
         return (
           sucesso: true,
-          mensagem: 'PDF enviado com sucesso para o Google Drive do Gerente!'
+          mensagem: isTeste
+              ? '✅ PDF de teste enviado para a pasta de Testes!'
+              : '✅ Fechamento enviado com sucesso!'
         );
       } else {
         // Falha no servidor: salva na fila offline e notifica
-        await db.salvarPendenciaDrive(turnoId, nomeArquivo, operador);
+        await db.salvarPendenciaDrive(turnoId, nomeEnvio, operador);
         await NotificationService.atualizarPendencias();
         NotificationService.notificarPendenciaDrive(
           turnoNumero: numeroTurnoExibicao,
@@ -79,7 +127,10 @@ class DriveService {
         print('[DriveService] Erro no envio: $e');
       }
       // Falha de conexão real: salva na fila offline e notifica
-      await db.salvarPendenciaDrive(turnoId, nomeArquivo, operador);
+      final nomeEnvio = isTeste && !nomeArquivo.startsWith('[TESTE]')
+          ? '[TESTE] $nomeArquivo'
+          : nomeArquivo;
+      await db.salvarPendenciaDrive(turnoId, nomeEnvio, operador);
       await NotificationService.atualizarPendencias();
       NotificationService.notificarPendenciaDrive(
         turnoNumero: numeroTurnoExibicao,
@@ -132,7 +183,9 @@ class DriveService {
         final totais = await db.obterTotaisTurno(turnoId);
         final lancamentos = await db.obterLancamentos(turnoId);
 
-        final nomeArquivo = PdfService.gerarNomeArquivo(turno: turno);
+        final isTeste = await isModoTeste();
+        final nomeBase = PdfService.gerarNomeArquivo(turno: turno);
+        final nomeArquivo = isTeste && !nomeBase.startsWith('[TESTE]') ? '[TESTE] $nomeBase' : nomeBase;
         final pdfBytes = await PdfService.gerarPdfFechamento(
           turno: turno,
           totais: totais,
@@ -144,6 +197,10 @@ class DriveService {
           'turno_id': turnoId,
           'operador': operador,
           'arquivo_base64': base64Encode(pdfBytes),
+          'modo_teste': isTeste,
+          if (isTeste) 'pasta_id': testFolderId,
+          if (isTeste) 'folder_id': testFolderId,
+          if (isTeste) 'pasta_destino': testFolderId,
         };
 
         final response = await http
