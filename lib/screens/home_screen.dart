@@ -487,33 +487,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                     onSubmitted: (_) => _lancarVenda(),
                   ),
-                  const SizedBox(height: 10),
-
-                  // ── Botão Grande LANÇAR VENDA ──
-                  SizedBox(
-                    height: 52,
-                    child: ElevatedButton.icon(
-                      onPressed: _enviando ? null : _lancarVenda,
-                      icon: const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 22),
-                      label: Text(
-                        _enviando ? 'Lançando...' : 'LANÇAR VENDA',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accent,
-                        elevation: 4,
-                        shadowColor: AppColors.accent.withOpacity(0.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                        ),
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 12),
 
                   // ── Atalhos Rápidos (+ R$ 10 a + R$ 500) ──
