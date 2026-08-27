@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/database_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/currency_formatter.dart';
@@ -14,37 +15,46 @@ class EncerrantesDialog extends StatefulWidget {
 
 class _BicoItem {
   final String bico;
-  final String combustivel;
-  final double precoPadrao;
-  final TextEditingController controllerInicial;
-  final TextEditingController controllerFinal;
+  final TextEditingController controllerCombustivel;
+  final TextEditingController controllerPreco;
+  final TextEditingController controllerLitros;
 
   _BicoItem({
     required this.bico,
-    required this.combustivel,
-    required this.precoPadrao,
-    double inicial = 0.0,
-    double finalLitros = 0.0,
-  })  : controllerInicial = TextEditingController(text: inicial > 0 ? inicial.toStringAsFixed(2) : ''),
-        controllerFinal = TextEditingController(text: finalLitros > 0 ? finalLitros.toStringAsFixed(2) : '');
+    required String combustivel,
+    required double preco,
+    double litros = 0.0,
+  })  : controllerCombustivel = TextEditingController(text: combustivel),
+        controllerPreco = TextEditingController(text: preco > 0 ? preco.toStringAsFixed(2) : ''),
+        controllerLitros = TextEditingController(text: litros > 0 ? litros.toStringAsFixed(2) : '');
 
-  double get inicial => double.tryParse(controllerInicial.text.replaceAll(',', '.')) ?? 0.0;
-  double get finalLitros => double.tryParse(controllerFinal.text.replaceAll(',', '.')) ?? 0.0;
-  double get litrosVendidos => (finalLitros - inicial) > 0 ? (finalLitros - inicial) : 0.0;
-  double get totalReais => litrosVendidos * precoPadrao;
+  String get combustivel => controllerCombustivel.text.trim();
+  double get preco => double.tryParse(controllerPreco.text.replaceAll(',', '.')) ?? 0.0;
+  double get litrosVendidos => double.tryParse(controllerLitros.text.replaceAll(',', '.')) ?? 0.0;
+  double get totalReais => litrosVendidos * preco;
 
   void dispose() {
-    controllerInicial.dispose();
-    controllerFinal.dispose();
+    controllerCombustivel.dispose();
+    controllerPreco.dispose();
+    controllerLitros.dispose();
   }
 }
 
 class _EncerrantesDialogState extends State<EncerrantesDialog> {
   final List<_BicoItem> _bicos = [
-    _BicoItem(bico: 'Bico 01', combustivel: 'Gasolina Comum', precoPadrao: 5.89),
-    _BicoItem(bico: 'Bico 02', combustivel: 'Gasolina Aditivada', precoPadrao: 6.09),
-    _BicoItem(bico: 'Bico 03', combustivel: 'Etanol Hidratado', precoPadrao: 3.99),
-    _BicoItem(bico: 'Bico 04', combustivel: 'Diesel S10', precoPadrao: 5.99),
+    _BicoItem(bico: 'Bico 01', combustivel: 'Gasolina Comum', preco: 5.89),
+    _BicoItem(bico: 'Bico 02', combustivel: 'Gasolina Aditivada', preco: 6.09),
+    _BicoItem(bico: 'Bico 03', combustivel: 'Etanol Hidratado', preco: 3.99),
+    _BicoItem(bico: 'Bico 04', combustivel: 'Diesel S10', preco: 5.99),
+  ];
+
+  static const List<String> _sugestoesCombustivel = [
+    'Gasolina Comum',
+    'Gasolina Aditivada',
+    'Etanol Hidratado',
+    'Diesel S10',
+    'Diesel Comum',
+    'GNV',
   ];
 
   @override
@@ -63,6 +73,21 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
 
   void _carregarSalvos() async {
     final db = DatabaseService.instance;
+    final prefs = await SharedPreferences.getInstance();
+
+    // 1. Carrega preferências salvas no aparelho (preços e nomes atualizados)
+    for (final b in _bicos) {
+      final combSalvo = prefs.getString('bico_${b.bico}_combustivel');
+      if (combSalvo != null && combSalvo.isNotEmpty) {
+        b.controllerCombustivel.text = combSalvo;
+      }
+      final precoSalvo = prefs.getDouble('bico_${b.bico}_preco');
+      if (precoSalvo != null && precoSalvo > 0) {
+        b.controllerPreco.text = precoSalvo.toStringAsFixed(2);
+      }
+    }
+
+    // 2. Carrega os dados específicos salvos deste turno
     final salvos = await db.obterEncerrantes(widget.turnoId);
     if (salvos.isNotEmpty) {
       for (final s in salvos) {
@@ -70,30 +95,66 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
           (b) => b.bico == s['bico'],
           orElse: () => _bicos.first,
         );
-        bico.controllerInicial.text = (s['inicial'] as num?)?.toStringAsFixed(2) ?? '';
-        bico.controllerFinal.text = (s['final'] as num?)?.toStringAsFixed(2) ?? '';
+        if (s['combustivel'] != null && (s['combustivel'] as String).isNotEmpty) {
+          bico.controllerCombustivel.text = s['combustivel'];
+        }
+        if (s['preco'] != null && (s['preco'] as num) > 0) {
+          bico.controllerPreco.text = (s['preco'] as num).toDouble().toStringAsFixed(2);
+        }
+        final finalVal = (s['final'] as num?)?.toDouble() ?? 0.0;
+        final inicialVal = (s['inicial'] as num?)?.toDouble() ?? 0.0;
+        final litros = finalVal > 0 && inicialVal > 0 ? (finalVal - inicialVal) : finalVal;
+        bico.controllerLitros.text = litros > 0 ? litros.toStringAsFixed(2) : '';
       }
-      if (mounted) setState(() {});
     }
+    if (mounted) setState(() {});
+  }
+
+  void _adicionarBico() {
+    final novoIndex = _bicos.length + 1;
+    final nomeBico = 'Bico ${novoIndex.toString().padLeft(2, '0')}';
+    setState(() {
+      _bicos.add(_BicoItem(
+        bico: nomeBico,
+        combustivel: 'Gasolina Comum',
+        preco: 5.89,
+      ));
+    });
+  }
+
+  void _removerBico(int index) {
+    if (_bicos.length <= 1) return;
+    setState(() {
+      final removido = _bicos.removeAt(index);
+      removido.dispose();
+    });
   }
 
   void _salvar() async {
     final db = DatabaseService.instance;
+    final prefs = await SharedPreferences.getInstance();
+
     for (final b in _bicos) {
       await db.salvarEncerrante(
         widget.turnoId,
         b.bico,
         b.combustivel,
-        b.inicial,
-        b.finalLitros,
-        b.precoPadrao,
+        0.0, // Não necessita de leitura inicial
+        b.litrosVendidos, // Salva diretamente os litros vendidos
+        b.preco,
       );
+
+      // Salva os valores de preço e combustível para lembrar no próximo turno
+      await prefs.setString('bico_${b.bico}_combustivel', b.combustivel);
+      await prefs.setDouble('bico_${b.bico}_preco', b.preco);
     }
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('✅ Encerrantes salvos com sucesso!'),
         backgroundColor: AppColors.green,
+        duration: Duration(seconds: 2),
       ),
     );
     Navigator.of(context).pop();
@@ -115,15 +176,17 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
 
     return Dialog(
       backgroundColor: bgDialog,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: borderCol),
       ),
       child: Container(
         padding: const EdgeInsets.all(16),
-        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 650),
+        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 680),
         child: Column(
           children: [
+            // ── Cabeçalho do Modal ──
             Row(
               children: [
                 Container(
@@ -144,7 +207,7 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri),
                       ),
                       Text(
-                        'Conferência de litros e bicos da pista',
+                        'Informe os litros vendidos e ajuste os preços por bico',
                         style: TextStyle(fontSize: 11, color: textSec),
                       ),
                     ],
@@ -162,64 +225,120 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
             Expanded(
               child: ListView.separated(
                 itemCount: _bicos.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final bico = _bicos[index];
                   return Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: cardBg,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: cardBorder),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Topo do Card: Badge do Bico + Botão Excluir (se > 4 bicos)
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              '${bico.bico} • ${bico.combustivel}',
-                              style: TextStyle(color: textPri, fontWeight: FontWeight.bold, fontSize: 13),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2563EB).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFF2563EB).withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.local_gas_station_rounded, size: 13, color: Color(0xFF38BDF8)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    bico.bico,
+                                    style: const TextStyle(
+                                      color: Color(0xFF38BDF8),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            Text(
-                              'R\$ ${bico.precoPadrao.toStringAsFixed(2)}/L',
-                              style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.w600, fontSize: 12),
-                            ),
+                            const Spacer(),
+                            if (_bicos.length > 4)
+                              InkWell(
+                                onTap: () => _removerBico(index),
+                                borderRadius: BorderRadius.circular(6),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.red.withOpacity(0.8)),
+                                ),
+                              ),
                           ],
                         ),
                         const SizedBox(height: 10),
+
+                        // Linha 1: Combustível Editável + Preço/L Editável
                         Row(
                           children: [
+                            // Campo Combustível
                             Expanded(
-                              child: TextField(
-                                controller: bico.controllerInicial,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: TextStyle(color: textPri, fontSize: 13),
-                                decoration: InputDecoration(
-                                  labelText: 'Leitura Inicial',
-                                  labelStyle: TextStyle(color: textSec, fontSize: 11),
-                                  isDense: true,
-                                  filled: true,
-                                  fillColor: inputBg,
-                                  border: const OutlineInputBorder(),
+                              flex: 3,
+                              child: PopupMenuButton<String>(
+                                tooltip: 'Selecionar combustível',
+                                onSelected: (valor) {
+                                  setState(() {
+                                    bico.controllerCombustivel.text = valor;
+                                  });
+                                },
+                                itemBuilder: (ctx) => _sugestoesCombustivel.map((comb) {
+                                  return PopupMenuItem<String>(
+                                    value: comb,
+                                    child: Text(comb, style: const TextStyle(fontSize: 13)),
+                                  );
+                                }).toList(),
+                                child: TextField(
+                                  controller: bico.controllerCombustivel,
+                                  style: TextStyle(color: textPri, fontSize: 13, fontWeight: FontWeight.w600),
+                                  decoration: InputDecoration(
+                                    labelText: 'Combustível',
+                                    labelStyle: TextStyle(color: textSec, fontSize: 11),
+                                    isDense: true,
+                                    filled: true,
+                                    fillColor: inputBg,
+                                    suffixIcon: const Icon(Icons.arrow_drop_down_rounded, size: 20, color: Color(0xFF94A3B8)),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(color: borderCol),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                  ),
+                                  onChanged: (_) => setState(() {}),
                                 ),
-                                onChanged: (_) => setState(() {}),
                               ),
                             ),
                             const SizedBox(width: 8),
+
+                            // Campo Preço/L
                             Expanded(
+                              flex: 2,
                               child: TextField(
-                                controller: bico.controllerFinal,
+                                controller: bico.controllerPreco,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: TextStyle(color: textPri, fontSize: 13),
+                                style: TextStyle(color: textPri, fontSize: 13, fontWeight: FontWeight.bold),
                                 decoration: InputDecoration(
-                                  labelText: 'Leitura Final',
+                                  labelText: 'Preço/L (R\$)',
                                   labelStyle: TextStyle(color: textSec, fontSize: 11),
+                                  prefixText: 'R\$ ',
+                                  prefixStyle: const TextStyle(fontSize: 12, color: Color(0xFF38BDF8), fontWeight: FontWeight.bold),
                                   isDense: true,
                                   filled: true,
                                   fillColor: inputBg,
-                                  border: const OutlineInputBorder(),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(color: borderCol),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                                 ),
                                 onChanged: (_) => setState(() {}),
                               ),
@@ -227,16 +346,74 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                           ],
                         ),
                         const SizedBox(height: 8),
+
+                        // Linha 2: Quantidade de Litros Vendidos + Total do Bico em Dinheiro
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Litros: ${bico.litrosVendidos.toStringAsFixed(2)} L',
-                              style: TextStyle(color: textSec, fontSize: 12),
+                            // Campo Litros Vendidos
+                            Expanded(
+                              flex: 3,
+                              child: TextField(
+                                controller: bico.controllerLitros,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                style: TextStyle(color: textPri, fontSize: 14, fontWeight: FontWeight.w700),
+                                decoration: InputDecoration(
+                                  labelText: 'Litros Vendidos',
+                                  labelStyle: TextStyle(color: textSec, fontSize: 11),
+                                  hintText: '0.00',
+                                  hintStyle: TextStyle(color: textSec.withOpacity(0.5)),
+                                  suffixText: 'L',
+                                  suffixStyle: TextStyle(fontSize: 12, color: textSec, fontWeight: FontWeight.bold),
+                                  isDense: true,
+                                  filled: true,
+                                  fillColor: inputBg,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(color: borderCol),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                ),
+                                onChanged: (_) => setState(() {}),
+                              ),
                             ),
-                            Text(
-                              'Total: ${CurrencyFormatter.formatar(bico.totalReais)}',
-                              style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 13),
+                            const SizedBox(width: 8),
+
+                            // Total em Dinheiro do Bico
+                            Expanded(
+                              flex: 2,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF10B981).withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Total Bico',
+                                      style: TextStyle(
+                                        color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF047857),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        CurrencyFormatter.formatar(bico.totalReais),
+                                        style: const TextStyle(
+                                          color: Color(0xFF10B981),
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -246,9 +423,24 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                 },
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
 
-            // ── Totais ──
+            // Botão Adicionar Bico (se tiver mais bicos na pista)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _adicionarBico,
+                icon: const Icon(Icons.add_circle_outline_rounded, size: 16, color: Color(0xFF38BDF8)),
+                label: const Text('Adicionar Bico', style: TextStyle(fontSize: 12, color: Color(0xFF38BDF8), fontWeight: FontWeight.w600)),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+
+            // ── Totais Gerais ──
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
@@ -272,6 +464,7 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
             ),
             const SizedBox(height: 12),
 
+            // ── Botões de Ação ──
             Row(
               children: [
                 Expanded(
@@ -280,6 +473,7 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: textSec,
                       side: BorderSide(color: borderCol),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     child: const Text('Voltar'),
                   ),
@@ -291,6 +485,7 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF2563EB),
                       foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     child: const Text('Salvar Encerrantes', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
