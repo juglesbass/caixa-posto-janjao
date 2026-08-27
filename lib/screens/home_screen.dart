@@ -244,10 +244,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final ehDinheiro = PaymentTypes.ehDinheiro(_tipoAtivo);
     final alertaGaveta = widget.totais.dinheiroGaveta >= 800.0;
 
-    final bool ehAndroidNativo = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-    final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-    final bool exibirToolbarTeclado = !ehAndroidNativo && _focusNodeValor.hasFocus && keyboardHeight > 0;
-
     return Scaffold(
       appBar: AppBar(
         title: ValueListenableBuilder<bool>(
@@ -441,6 +437,32 @@ class _HomeScreenState extends State<HomeScreen> {
                       labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textSec),
                       hintText: 'R\$ 0,00',
                       prefixIcon: const Icon(Icons.attach_money_rounded, color: AppColors.accentLight, size: 26),
+                      suffixIcon: _valorVenda > 0
+                          ? Padding(
+                              padding: const EdgeInsets.only(right: 6, top: 6, bottom: 6),
+                              child: ElevatedButton.icon(
+                                onPressed: _enviando ? null : _lancarVenda,
+                                icon: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                                label: const Text(
+                                  'LANÇAR',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 13,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.accent,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                                  elevation: 2,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : null,
                       errorText: _erroValor,
                       filled: true,
                       fillColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
@@ -538,83 +560,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-            if (exibirToolbarTeclado)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: keyboardHeight,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF111420) : Colors.white,
-                    border: Border(
-                      top: BorderSide(
-                        color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
-                        width: 1.2,
-                      ),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.40 : 0.12),
-                        blurRadius: 10,
-                        offset: const Offset(0, -3),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AppColors.getCorTipo(_tipoAtivo).withOpacity(0.18),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Icon(
-                          AppColors.getIconeTipo(_tipoAtivo),
-                          size: 16,
-                          color: isDark && AppColors.getCorTipo(_tipoAtivo) == AppColors.purple
-                              ? AppColors.purpleLight
-                              : AppColors.getCorTipo(_tipoAtivo),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _tipoAtivo,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : AppColors.lightTextPri,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        onPressed: _enviando ? null : _lancarVenda,
-                        icon: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
-                        label: const Text(
-                          'LANÇAR',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 13,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.accent,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
           ],
         ),
       ),
