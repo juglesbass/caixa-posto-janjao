@@ -361,6 +361,7 @@ class DatabaseService {
 
     double dinheiro = 0.0;
     double pix = 0.0;
+    int qtdPix = 0;
     double cartoes = 0.0;
     int qtdCartoes = 0;
     double requisicao = 0.0;
@@ -379,6 +380,7 @@ class DatabaseService {
         dinheiro += valor;
       } else if (PaymentTypes.ehPix(tipo)) {
         pix += valor;
+        qtdPix++;
       } else if (PaymentTypes.ehRequisicao(tipo)) {
         requisicao += valor;
       } else if (PaymentTypes.ehDeposito(tipo)) {
@@ -407,6 +409,7 @@ class DatabaseService {
     return TotaisTurno(
       dinheiro: dinheiro,
       pix: pix,
+      qtdPix: qtdPix,
       cartoes: cartoes,
       qtdCartoes: qtdCartoes,
       requisicao: requisicao,

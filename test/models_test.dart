@@ -51,8 +51,15 @@ void main() {
         totalGeral: 1000.0,
         vendasSistema: 1000.0,
         diferenca: 0.0,
+        pix: 250.0,
+        qtdPix: 3,
       );
       expect(totaisBatido.temDiferenca, isFalse);
+      expect(totaisBatido.qtdPix, equals(3));
+      expect(totaisBatido.pix, equals(250.0));
+
+      final copia = totaisBatido.copyWith(qtdPix: 4);
+      expect(copia.qtdPix, equals(4));
 
       final totaisSobra = TotaisTurno(
         totalGeral: 1050.0,

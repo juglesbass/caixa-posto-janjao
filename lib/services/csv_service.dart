@@ -62,7 +62,7 @@ class CsvService {
     buffer.writeln('TODOS OS LANÇAMENTOS DO TURNO');
     buffer.writeln('ID;Hora;Tipo de Pagamento;Descrição / Observação;Valor (R\$)');
     for (final l in lancamentos) {
-      final desc = (l.descricao?.trim().isNotEmpty ?? false) ? l.descricao! : '-';
+      final desc = l.descricao.trim().isNotEmpty ? l.descricao : '-';
       buffer.writeln('${l.id};${l.hora};${l.tipo};$desc;${l.valor.toStringAsFixed(2)}');
     }
 

@@ -219,6 +219,12 @@ class _MainShellState extends State<MainShell> {
       final operador = result['operador'] as String;
       final fundo = (result['fundoCaixa'] as num?)?.toDouble() ?? 0.0;
 
+      // Novo turno sempre inicia com a máquina Rede por padrão
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('maquina_ativa', PaymentTypes.maquinaRede);
+      } catch (_) {}
+
       final novoTurnoObj = await db.abrirNovoTurno(operador, fundoCaixa: fundo);
       final totais = await db.obterTotaisTurno(novoTurnoObj.id!);
 
@@ -230,8 +236,16 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  void _abrirLancamentoRapido() {
+  void _abrirLancamentoRapido() async {
     if (_turnoAtual == null) return;
+
+    String maquinaAtiva = PaymentTypes.maquinaRede;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      maquinaAtiva = prefs.getString('maquina_ativa') ?? PaymentTypes.maquinaRede;
+    } catch (_) {}
+
+    if (!mounted) return;
 
     showModalBottomSheet(
       context: context,
@@ -241,7 +255,7 @@ class _MainShellState extends State<MainShell> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppColors.radiusXl)),
       ),
       builder: (ctx) => QuickLaunchModal(
-        maquinaAtiva: PaymentTypes.maquinaRede,
+        maquinaAtiva: maquinaAtiva,
         onLancar: (dados) async {
           final db = DatabaseService.instance;
           await db.inserirLancamento(

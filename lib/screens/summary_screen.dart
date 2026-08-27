@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../dialogs/drive_failure_dialog.dart';
 import '../models/lancamento.dart';
@@ -130,7 +131,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
     buffer.writeln('');
 
     buffer.writeln('💵 *OUTROS MEIOS:*');
-    buffer.writeln('  • Pag Pix: ${CurrencyFormatter.formatar(widget.totais.pix)}');
+    final qtdPixTexto = widget.totais.qtdPix > 0 ? ' (${widget.totais.qtdPix} un)' : '';
+    buffer.writeln('  • Pag Pix: ${CurrencyFormatter.formatar(widget.totais.pix)}$qtdPixTexto');
     buffer.writeln('  • Sobra de Dinheiro: ${CurrencyFormatter.formatar(widget.totais.dinheiro)}');
     if (widget.totais.requisicao > 0) {
       buffer.writeln('  • Requisição: ${CurrencyFormatter.formatar(widget.totais.requisicao)}');
@@ -439,6 +441,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
         turnoNumero: widget.turno.numero,
       );
 
+      // Redefine a preferência de máquina ativa para Rede ao fechar o turno
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('maquina_ativa', PaymentTypes.maquinaRede);
+      } catch (_) {}
+
       progressoNotifier.value = '✅ Concluído com sucesso!';
       await Future.delayed(const Duration(milliseconds: 150));
 
@@ -587,21 +595,25 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       for (final e in PaymentTypes.ordenarCartoes(widget.totais.detalheCartoes.entries))
                         if (e.value.total > 0) ...[
                           _itemResumoCard(
-                            icon: Icons.credit_card_rounded,
-                            iconColor: const Color(0xFF2563EB),
-                            iconBg: isDark ? const Color(0xFF1E3A8A).withOpacity(0.5) : const Color(0xFFDBEAFE),
+                            icon: AppColors.getIconeTipo(e.key),
+                            iconColor: AppColors.getCorTipo(e.key),
+                            iconBg: isDark
+                                ? AppColors.getCorTipo(e.key).withOpacity(0.18)
+                                : AppColors.getCorTipo(e.key).withOpacity(0.12),
                             titulo: e.key,
                             subtitulo: '(${e.value.qtd} un)',
                             valor: e.value.total,
                             isDark: isDark,
+                            showChevron: true,
+                            onTap: () => _abrirDetalhesCartao(e.key),
                           ),
                           const SizedBox(height: 8),
                         ],
                       if (widget.totais.cartoes > 0 || widget.totais.qtdCartoes > 0) ...[
                         _itemResumoCard(
                           icon: Icons.credit_card_rounded,
-                          iconColor: const Color(0xFF0284C7),
-                          iconBg: isDark ? const Color(0xFF1E3A8A).withOpacity(0.5) : const Color(0xFFE0F2FE),
+                          iconColor: AppColors.purple,
+                          iconBg: isDark ? AppColors.purple.withOpacity(0.18) : AppColors.purple.withOpacity(0.12),
                           titulo: 'Total Cartões',
                           subtitulo: '(${widget.totais.qtdCartoes} un)',
                           valor: widget.totais.cartoes,
@@ -649,7 +661,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           iconColor: const Color(0xFF0284C7),
                           iconBg: isDark ? const Color(0xFF0C4A6E).withOpacity(0.5) : const Color(0xFFE0F2FE),
                           titulo: 'Pag Pix',
-                          subtitulo: '(${widget.totais.pix > 0 ? "1" : "0"} un)',
+                          subtitulo: '(${widget.totais.qtdPix} un)',
                           valor: widget.totais.pix,
                           isDark: isDark,
                         ),
@@ -1116,6 +1128,403 @@ class _SummaryScreenState extends State<SummaryScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _abrirDetalhesCartao(String bandeira) async {
+    final db = DatabaseService.instance;
+    final todosLancamentos = await db.obterLancamentos(widget.turno.id!);
+    var lancamentosBandeira = todosLancamentos.where((l) => l.tipo == bandeira).toList();
+
+    if (!mounted) return;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final corTipo = AppColors.getCorTipo(bandeira);
+    final iconeTipo = AppColors.getIconeTipo(bandeira);
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.lightSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppColors.radiusXl)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final totalBandeira = lancamentosBandeira.fold<double>(0.0, (acc, l) => acc + l.valor);
+            final qtdBandeira = lancamentosBandeira.length;
+            final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+            final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+            final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
+            final cardBg = isDark ? const Color(0xFF131C2E) : const Color(0xFFF8FAFC);
+
+            return SafeArea(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.75,
+                ),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Handle superior do modal
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Cabeçalho da Bandeira
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: corTipo.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(iconeTipo, color: corTipo, size: 22),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                bandeira,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: textPri,
+                                ),
+                              ),
+                              Text(
+                                '$qtdBandeira lançamento(s) • Total: ${CurrencyFormatter.formatar(totalBandeira)}',
+                                style: TextStyle(fontSize: 12, color: textSec),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close_rounded, color: textSec),
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Divider(height: 1, color: borderCol),
+                    const SizedBox(height: 12),
+
+                    // Lista de Lançamentos
+                    if (lancamentosBandeira.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Center(
+                          child: Text(
+                            'Nenhum lançamento restante para esta bandeira.',
+                            style: TextStyle(color: textSec, fontSize: 13),
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: lancamentosBandeira.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          itemBuilder: (ctx, index) {
+                            final l = lancamentosBandeira[index];
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: cardBg,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: borderCol),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: corTipo.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      '#${l.id ?? index + 1}',
+                                      style: TextStyle(
+                                        color: corTipo,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          CurrencyFormatter.formatar(l.valor),
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w900,
+                                            color: corTipo,
+                                          ),
+                                        ),
+                                        Row(
+                                          children: [
+                                            Icon(Icons.access_time_rounded, size: 11, color: textSec),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              l.hora,
+                                              style: TextStyle(fontSize: 11, color: textSec),
+                                            ),
+                                            if (l.descricao.isNotEmpty) ...[
+                                              const SizedBox(width: 6),
+                                              Text('•', style: TextStyle(fontSize: 11, color: textSec)),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Text(
+                                                  l.descricao,
+                                                  style: TextStyle(fontSize: 11, color: textSec),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Botão Editar
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_outlined, size: 19, color: Color(0xFF38BDF8)),
+                                    tooltip: 'Editar valor',
+                                    onPressed: () async {
+                                      final result = await _editarLancamentoDialog(context, l);
+                                      if (result != null) {
+                                        await db.atualizarLancamento(
+                                          l.id!,
+                                          widget.turno.id!,
+                                          l.tipo,
+                                          result.valor,
+                                          result.descricao,
+                                        );
+                                        widget.onTurnoAlterado();
+                                        final atualizados = await db.obterLancamentos(widget.turno.id!);
+                                        setSheetState(() {
+                                          lancamentosBandeira = atualizados.where((item) => item.tipo == bandeira).toList();
+                                        });
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('✅ Lançamento atualizado com sucesso!'),
+                                              backgroundColor: AppColors.green,
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                                  ),
+
+                                  // Botão Excluir
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, size: 19, color: AppColors.red),
+                                    tooltip: 'Excluir lançamento',
+                                    onPressed: () async {
+                                      final confirmar = await _confirmarExclusaoDialog(context, l);
+                                      if (confirmar == true) {
+                                        await db.deletarLancamento(l.id!, widget.turno.id!);
+                                        widget.onTurnoAlterado();
+                                        final atualizados = await db.obterLancamentos(widget.turno.id!);
+                                        final restantes = atualizados.where((item) => item.tipo == bandeira).toList();
+                                        if (restantes.isEmpty) {
+                                          if (mounted && Navigator.canPop(sheetContext)) {
+                                            Navigator.pop(sheetContext);
+                                          }
+                                        } else {
+                                          setSheetState(() {
+                                            lancamentosBandeira = restantes;
+                                          });
+                                        }
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('🗑️ Lançamento excluído com sucesso!'),
+                                              backgroundColor: AppColors.orange,
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<({double valor, String descricao})?> _editarLancamentoDialog(BuildContext context, Lancamento l) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+    final controllerValor = TextEditingController(text: CurrencyFormatter.formatar(l.valor));
+    final controllerDesc = TextEditingController(text: l.descricao);
+    String? erro;
+
+    return showDialog<({double valor, String descricao})>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.lightSurface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder),
+            ),
+            title: Row(
+              children: [
+                const Icon(Icons.edit_rounded, color: Color(0xFF38BDF8), size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Editar Lançamento',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Bandeira: ${l.tipo}',
+                    style: TextStyle(fontSize: 12, color: textSec, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controllerValor,
+                    autofocus: true,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [CurrencyInputFormatter()],
+                    decoration: InputDecoration(
+                      labelText: 'Novo Valor (R\$)',
+                      errorText: erro,
+                      prefixIcon: const Icon(Icons.attach_money_rounded),
+                      filled: true,
+                      isDense: true,
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: (_) {
+                      if (erro != null) setDialogState(() => erro = null);
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: controllerDesc,
+                    decoration: const InputDecoration(
+                      labelText: 'Descrição / Placa (Opcional)',
+                      prefixIcon: Icon(Icons.edit_note_rounded),
+                      filled: true,
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, null),
+                child: Text('Cancelar', style: TextStyle(color: textSec)),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final valor = CurrencyFormatter.parse(controllerValor.text);
+                  if (valor <= 0) {
+                    setDialogState(() => erro = 'Informe um valor maior que zero');
+                    return;
+                  }
+                  Navigator.pop(ctx, (valor: valor, descricao: controllerDesc.text.trim()));
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('Salvar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<bool?> _confirmarExclusaoDialog(BuildContext context, Lancamento l) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.lightSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: AppColors.red, size: 22),
+            const SizedBox(width: 8),
+            Text(
+              'Excluir Lançamento?',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri),
+            ),
+          ],
+        ),
+        content: Text(
+          'Deseja remover o lançamento de ${CurrencyFormatter.formatar(l.valor)} em ${l.tipo} (Horário: ${l.hora})?\n\n'
+          'Os totais do turno serão recalculados automaticamente.',
+          style: TextStyle(fontSize: 13, color: textSec, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancelar', style: TextStyle(color: textSec)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.red,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Sim, Excluir', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }

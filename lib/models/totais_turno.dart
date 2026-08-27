@@ -19,6 +19,7 @@ class ItemDetalheCartao {
 class TotaisTurno {
   final double dinheiro;
   final double pix;
+  final int qtdPix;
   final double cartoes;
   final int qtdCartoes;
   final double requisicao;
@@ -36,6 +37,7 @@ class TotaisTurno {
   TotaisTurno({
     this.dinheiro = 0.0,
     this.pix = 0.0,
+    this.qtdPix = 0,
     this.cartoes = 0.0,
     this.qtdCartoes = 0,
     this.requisicao = 0.0,
@@ -58,6 +60,7 @@ class TotaisTurno {
   TotaisTurno copyWith({
     double? dinheiro,
     double? pix,
+    int? qtdPix,
     double? cartoes,
     int? qtdCartoes,
     double? requisicao,
@@ -75,6 +78,7 @@ class TotaisTurno {
     return TotaisTurno(
       dinheiro: dinheiro ?? this.dinheiro,
       pix: pix ?? this.pix,
+      qtdPix: qtdPix ?? this.qtdPix,
       cartoes: cartoes ?? this.cartoes,
       qtdCartoes: qtdCartoes ?? this.qtdCartoes,
       requisicao: requisicao ?? this.requisicao,

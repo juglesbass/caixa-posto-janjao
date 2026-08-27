@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../dialogs/card_brand_dialog.dart';
 import '../dialogs/sangria_dialog.dart';
 import '../models/totais_turno.dart';
@@ -49,6 +50,27 @@ class _HomeScreenState extends State<HomeScreen> {
   double _valorRecebido = 0.0;
   String? _erroValor;
   bool _enviando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarMaquinaAtiva();
+  }
+
+  void _carregarMaquinaAtiva() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final maqSalva = prefs.getString('maquina_ativa') ?? PaymentTypes.maquinaRede;
+      if (mounted) {
+        setState(() {
+          _maquinaAtiva = maqSalva;
+          if (PaymentTypes.ehCartao(_tipoAtivo)) {
+            _tipoAtivo = '$_maquinaAtiva $_bandeiraCartaoAtiva';
+          }
+        });
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -293,7 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
               // ── Seletor de Máquina (REDE vs CIELO) ──
               MachineSelector(
                 maquinaAtiva: _maquinaAtiva,
-                onSelecionar: (maq) {
+                onSelecionar: (maq) async {
                   HapticFeedback.selectionClick();
                   setState(() {
                     _maquinaAtiva = maq;
@@ -301,6 +323,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       _tipoAtivo = '$_maquinaAtiva $_bandeiraCartaoAtiva';
                     }
                   });
+                  try {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('maquina_ativa', maq);
+                  } catch (_) {}
                 },
               ),
               const SizedBox(height: 12),
