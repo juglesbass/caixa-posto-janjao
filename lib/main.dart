@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -84,6 +85,17 @@ class _CaixaPostoJanjaoAppState extends State<CaixaPostoJanjaoApp> {
       supportedLocales: const [
         Locale('pt', 'BR'),
       ],
+      builder: (context, child) {
+        // No iOS (IPA), qualquer toque fora de um campo de texto recolhe o teclado imediatamente
+        if (defaultTargetPlatform == TargetPlatform.iOS) {
+          return GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: child,
+          );
+        }
+        return child ?? const SizedBox.shrink();
+      },
       home: MainShell(
         isDark: _isDark,
         onMudarTema: _mudarTema,
