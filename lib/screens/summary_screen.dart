@@ -714,6 +714,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           subtitulo: '(${widget.totais.qtdPix} un)',
                           valor: widget.totais.pix,
                           isDark: isDark,
+                          showChevron: true,
+                          onTap: () => _abrirDetalhesCartao('Pag Pix'),
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -1185,7 +1187,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
   void _abrirDetalhesCartao(String bandeira) async {
     final db = DatabaseService.instance;
     final todosLancamentos = await db.obterLancamentos(widget.turno.id!);
-    var lancamentosBandeira = todosLancamentos.where((l) => l.tipo == bandeira).toList();
+    final ehPix = bandeira == 'Pag Pix' || bandeira == PaymentTypes.pix;
+    var lancamentosBandeira = ehPix
+        ? todosLancamentos.where((l) => PaymentTypes.ehPix(l.tipo)).toList()
+        : todosLancamentos.where((l) => l.tipo == bandeira).toList();
 
     if (!mounted) return;
 
@@ -1233,7 +1238,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Cabeçalho da Bandeira
+                    // Cabeçalho da Bandeira / Forma de Pagamento
                     Row(
                       children: [
                         Container(
@@ -1280,7 +1285,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 32),
                         child: Center(
                           child: Text(
-                            'Nenhum lançamento restante para esta bandeira.',
+                            'Nenhum lançamento restante.',
                             style: TextStyle(color: textSec, fontSize: 13),
                           ),
                         ),
@@ -1374,7 +1379,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                         widget.onTurnoAlterado();
                                         final atualizados = await db.obterLancamentos(widget.turno.id!);
                                         setSheetState(() {
-                                          lancamentosBandeira = atualizados.where((item) => item.tipo == bandeira).toList();
+                                          lancamentosBandeira = ehPix
+                                              ? atualizados.where((item) => PaymentTypes.ehPix(item.tipo)).toList()
+                                              : atualizados.where((item) => item.tipo == bandeira).toList();
                                         });
                                         if (mounted) {
                                           ScaffoldMessenger.of(context).showSnackBar(
@@ -1399,7 +1406,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                         await db.deletarLancamento(l.id!, widget.turno.id!);
                                         widget.onTurnoAlterado();
                                         final atualizados = await db.obterLancamentos(widget.turno.id!);
-                                        final restantes = atualizados.where((item) => item.tipo == bandeira).toList();
+                                        final restantes = ehPix
+                                            ? atualizados.where((item) => PaymentTypes.ehPix(item.tipo)).toList()
+                                            : atualizados.where((item) => item.tipo == bandeira).toList();
                                         if (restantes.isEmpty) {
                                           if (mounted && Navigator.canPop(sheetContext)) {
                                             Navigator.pop(sheetContext);
