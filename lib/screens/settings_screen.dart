@@ -11,6 +11,7 @@ import '../services/csv_service.dart';
 import '../services/database_service.dart';
 import '../services/drive_service.dart';
 import '../theme/app_colors.dart';
+import 'consulta_produtos_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   final Turno? turno;
@@ -33,6 +34,13 @@ class SettingsScreen extends StatelessWidget {
     required this.onRecarregar,
     this.onFechar,
   });
+
+  void _abrirConsultaProdutos(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (ctx) => const ConsultaProdutosScreen()),
+    );
+  }
 
   void _abrirEncerrantes(BuildContext context) {
     if (turno == null) return;
@@ -225,7 +233,18 @@ class SettingsScreen extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 children: [
-                  // 1. Encerrantes de Bombas
+                  // 1. Tabela de Códigos / Produtos (Novo)
+                  _itemMenuCard(
+                    icon: Icons.inventory_2_outlined,
+                    iconColor: const Color(0xFF38BDF8),
+                    iconBg: const Color(0xFF0C4A6E).withOpacity(0.4),
+                    titulo: 'Tabela de Códigos / Produtos',
+                    subtitulo: 'Consulta rápida por código ou nome do produto',
+                    onTap: () => _abrirConsultaProdutos(context),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // 2. Encerrantes de Bombas
                   _itemMenuCard(
                     icon: Icons.local_gas_station_rounded,
                     iconColor: const Color(0xFFF59E0B),

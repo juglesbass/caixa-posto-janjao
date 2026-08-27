@@ -15,6 +15,7 @@ import '../widgets/payment_grid.dart';
 import '../widgets/pending_sync_banner.dart';
 import '../widgets/quick_amount_row.dart';
 import '../widgets/troco_calculator.dart';
+import 'consulta_produtos_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final Turno turno;
@@ -247,6 +248,16 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.manage_search_rounded, color: Color(0xFF38BDF8)),
+            tooltip: 'Tabela de Códigos / Produtos',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (ctx) => const ConsultaProdutosScreen()),
+              );
+            },
+          ),
           if (widget.onMudarTema != null)
             IconButton(
               icon: Icon(
