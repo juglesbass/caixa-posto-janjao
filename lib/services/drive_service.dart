@@ -12,8 +12,14 @@ class DriveService {
   static const String defaultWebhookUrl =
       'https://script.google.com/macros/s/AKfycbzes0dAFXK3_Us145YsnfKXAI_UzVjMHlVG4uK2-cYkxHy2f5M_VCaLEVEJhWOIvcVITQ/exec';
 
+  /// ID da Pasta Oficial (Fechamentos Posto Janjao) no Google Drive
+  static const String pastaOficialId = '1lW3RYNyOzPz1R8A-vT9t9QWoLNvkADsC';
+  static const String PASTA_OFICIAL_ID = pastaOficialId;
+
   /// ID da Pasta de Testes / Homologação no Google Drive
-  static const String testFolderId = '1uvJ6r3ZVzfw5Qv0X471hM11jYMSdbqhM';
+  static const String pastaTestesId = '1uvJ6r3ZVzfw5Qv0X471hM11jYMSdbqhM';
+  static const String PASTA_TESTES_ID = pastaTestesId;
+  static const String testFolderId = pastaTestesId;
 
   /// Chave de persistência do Modo Teste
   static const String keyModoTeste = 'modo_teste_ativo';
@@ -58,6 +64,7 @@ class DriveService {
     final db = DatabaseService.instance;
     final numeroTurnoExibicao = turnoNumero ?? turnoId;
     final isTeste = await isModoTeste();
+    final folderId = isTeste ? pastaTestesId : pastaOficialId;
 
     try {
       final webhookUrl = await db.getConfig('google_drive_webhook_url', padrao: defaultWebhookUrl);
@@ -70,37 +77,36 @@ class DriveService {
       }
 
       // No modo teste, prefixa o nome do arquivo com [TESTE]
-      final nomeEnvio = isTeste && !nomeArquivo.startsWith('[TESTE]')
-          ? '[TESTE] $nomeArquivo'
-          : nomeArquivo;
+      final nomeEnvio = isTeste
+          ? (nomeArquivo.startsWith('[TESTE]') ? nomeArquivo : '[TESTE] $nomeArquivo')
+          : nomeArquivo.replaceFirst(RegExp(r'^\[TESTE\]\s*'), '');
 
       final payload = {
         'nome_arquivo': nomeEnvio,
         'turno_id': turnoId,
         'operador': operador,
         'arquivo_base64': base64Encode(pdfBytes),
+        'folderId': folderId,
+        'folder_id': folderId,
+        'pasta_id': folderId,
+        'pastaId': folderId,
+        'pasta_destino': folderId,
+        'pastaDestino': folderId,
+        'target_folder_id': folderId,
         'modo_teste': isTeste,
-        if (isTeste) ...{
-          'pasta_id': testFolderId,
-          'pastaId': testFolderId,
-          'folder_id': testFolderId,
-          'folderId': testFolderId,
-          'pasta_destino': testFolderId,
-          'target_folder_id': testFolderId,
-        },
       };
 
       final bodyJson = jsonEncode(payload);
 
       // Adiciona query parameters na URL para scripts que leem parâmetros via e.parameter
-      final targetUri = isTeste
-          ? Uri.parse(webhookUrl).replace(queryParameters: {
-              'pasta_id': testFolderId,
-              'folder_id': testFolderId,
-              'folderId': testFolderId,
-              'modo_teste': 'true',
-            })
-          : Uri.parse(webhookUrl);
+      final targetUri = Uri.parse(webhookUrl).replace(queryParameters: {
+        'folderId': folderId,
+        'folder_id': folderId,
+        'pasta_id': folderId,
+        'pastaId': folderId,
+        'pasta_destino': folderId,
+        'modo_teste': isTeste ? 'true' : 'false',
+      });
 
       // Usando text/plain para evitar bloqueio de CORS preflight em navegadores Web (PWA)
       final response = await _client
@@ -199,8 +205,11 @@ class DriveService {
         final lancamentos = await db.obterLancamentos(turnoId);
 
         final isTeste = await isModoTeste();
+        final folderId = isTeste ? pastaTestesId : pastaOficialId;
         final nomeBase = PdfService.gerarNomeArquivo(turno: turno);
-        final nomeArquivo = isTeste && !nomeBase.startsWith('[TESTE]') ? '[TESTE] $nomeBase' : nomeBase;
+        final nomeArquivo = isTeste
+            ? (nomeBase.startsWith('[TESTE]') ? nomeBase : '[TESTE] $nomeBase')
+            : nomeBase.replaceFirst(RegExp(r'^\[TESTE\]\s*'), '');
         final pdfBytes = await PdfService.gerarPdfFechamento(
           turno: turno,
           totais: totais,
@@ -212,25 +221,24 @@ class DriveService {
           'turno_id': turnoId,
           'operador': operador,
           'arquivo_base64': base64Encode(pdfBytes),
+          'folderId': folderId,
+          'folder_id': folderId,
+          'pasta_id': folderId,
+          'pastaId': folderId,
+          'pasta_destino': folderId,
+          'pastaDestino': folderId,
+          'target_folder_id': folderId,
           'modo_teste': isTeste,
-          if (isTeste) ...{
-            'pasta_id': testFolderId,
-            'pastaId': testFolderId,
-            'folder_id': testFolderId,
-            'folderId': testFolderId,
-            'pasta_destino': testFolderId,
-            'target_folder_id': testFolderId,
-          },
         };
 
-        final targetUri = isTeste
-            ? Uri.parse(webhookUrl).replace(queryParameters: {
-                'pasta_id': testFolderId,
-                'folder_id': testFolderId,
-                'folderId': testFolderId,
-                'modo_teste': 'true',
-              })
-            : Uri.parse(webhookUrl);
+        final targetUri = Uri.parse(webhookUrl).replace(queryParameters: {
+          'folderId': folderId,
+          'folder_id': folderId,
+          'pasta_id': folderId,
+          'pastaId': folderId,
+          'pasta_destino': folderId,
+          'modo_teste': isTeste ? 'true' : 'false',
+        });
 
         final response = await http
             .post(

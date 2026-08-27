@@ -11,8 +11,11 @@ void main() {
   });
 
   group('DriveService & Modo Teste Testes', () {
-    test('Constantes de homologação corretas', () {
+    test('Constantes de homologação e produção corretas', () {
+      expect(DriveService.PASTA_OFICIAL_ID, equals('1lW3RYNyOzPz1R8A-vT9t9QWoLNvkADsC'));
+      expect(DriveService.PASTA_TESTES_ID, equals('1uvJ6r3ZVzfw5Qv0X471hM11jYMSdbqhM'));
       expect(DriveService.testFolderId, equals('1uvJ6r3ZVzfw5Qv0X471hM11jYMSdbqhM'));
+      expect(DriveService.pastaOficialId, equals('1lW3RYNyOzPz1R8A-vT9t9QWoLNvkADsC'));
       expect(DriveService.keyModoTeste, equals('modo_teste_ativo'));
     });
 
