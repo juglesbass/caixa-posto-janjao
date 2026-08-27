@@ -90,28 +90,15 @@ class DriveService {
         'folder_id': folderId,
         'pasta_id': folderId,
         'pastaId': folderId,
-        'pasta_destino': folderId,
-        'pastaDestino': folderId,
-        'target_folder_id': folderId,
         'modo_teste': isTeste,
       };
 
       final bodyJson = jsonEncode(payload);
 
-      // Adiciona query parameters na URL para scripts que leem parâmetros via e.parameter
-      final targetUri = Uri.parse(webhookUrl).replace(queryParameters: {
-        'folderId': folderId,
-        'folder_id': folderId,
-        'pasta_id': folderId,
-        'pastaId': folderId,
-        'pasta_destino': folderId,
-        'modo_teste': isTeste ? 'true' : 'false',
-      });
-
       // Usando text/plain para evitar bloqueio de CORS preflight em navegadores Web (PWA)
       final response = await _client
           .post(
-            targetUri,
+            Uri.parse(webhookUrl),
             headers: {'Content-Type': 'text/plain;charset=utf-8'},
             body: bodyJson,
           )
@@ -225,24 +212,12 @@ class DriveService {
           'folder_id': folderId,
           'pasta_id': folderId,
           'pastaId': folderId,
-          'pasta_destino': folderId,
-          'pastaDestino': folderId,
-          'target_folder_id': folderId,
           'modo_teste': isTeste,
         };
 
-        final targetUri = Uri.parse(webhookUrl).replace(queryParameters: {
-          'folderId': folderId,
-          'folder_id': folderId,
-          'pasta_id': folderId,
-          'pastaId': folderId,
-          'pasta_destino': folderId,
-          'modo_teste': isTeste ? 'true' : 'false',
-        });
-
         final response = await http
             .post(
-              targetUri,
+              Uri.parse(webhookUrl),
               headers: {'Content-Type': 'text/plain;charset=utf-8'},
               body: jsonEncode(payload),
             )
