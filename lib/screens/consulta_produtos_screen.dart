@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../data/produtos_data.dart';
 import '../theme/app_colors.dart';
@@ -369,7 +369,7 @@ class _ConsultaProdutosScreenState extends State<ConsultaProdutosScreen> {
                                 // Botão Copiar
                                 IconButton(
                                   icon: const Icon(
-                                    Icons.copy_rounded,
+                                    Icons.content_copy_rounded,
                                     size: 18,
                                     color: Color(0xFF38BDF8),
                                   ),

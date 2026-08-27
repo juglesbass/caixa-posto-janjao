@@ -235,7 +235,7 @@ class SettingsScreen extends StatelessWidget {
                 children: [
                   // 1. Tabela de Códigos / Produtos (Novo)
                   _itemMenuCard(
-                    icon: Icons.inventory_2_outlined,
+                    icon: Icons.shopping_bag_rounded,
                     iconColor: const Color(0xFF38BDF8),
                     iconBg: const Color(0xFF0C4A6E).withOpacity(0.4),
                     titulo: 'Tabela de Códigos / Produtos',
