@@ -108,7 +108,7 @@ class AnalyticsDialog extends StatelessWidget {
                               Text('Qtd Lançamentos', style: TextStyle(color: textSec, fontSize: 12)),
                               const SizedBox(height: 4),
                               Text(
-                                '${totais.qtdCartoes + (totais.pix > 0 ? 1 : 0) + (totais.dinheiro > 0 ? 1 : 0)} un',
+                                '${totais.qtdCartoes + totais.qtdPix + (totais.dinheiro > 0 ? 1 : 0) + (totais.requisicao > 0 ? 1 : 0) + (totais.depositoGlobal > 0 ? 1 : 0)} un',
                                 style: TextStyle(color: textPri, fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                             ],
@@ -168,6 +168,7 @@ class AnalyticsDialog extends StatelessWidget {
                       valor: totais.pix,
                       percentual: percPix,
                       cor: const Color(0xFF10B981),
+                      quantidade: totais.qtdPix > 0 ? '${totais.qtdPix} vendas' : null,
                       isDark: isDark,
                     ),
                     _itemMetrica(

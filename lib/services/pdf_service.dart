@@ -46,6 +46,18 @@ class PdfService {
         } else {
           dataFormatada = DateFormat('dd-MM-yyyy').format(DateTime.now());
         }
+      } else if (turno.data.contains('-')) {
+        final partes = turno.data.split(' ')[0].split('-');
+        if (partes.length >= 3) {
+          if (partes[0].length == 4) {
+            // ISO yyyy-MM-dd
+            dataFormatada = '${partes[2].padLeft(2, '0')}-${partes[1].padLeft(2, '0')}-${partes[0]}';
+          } else {
+            dataFormatada = '${partes[0].padLeft(2, '0')}-${partes[1].padLeft(2, '0')}-${partes[2]}';
+          }
+        } else {
+          dataFormatada = DateFormat('dd-MM-yyyy').format(DateTime.now());
+        }
       } else {
         dataFormatada = DateFormat('dd-MM-yyyy').format(DateTime.now());
       }
@@ -106,11 +118,18 @@ class PdfService {
       if (l.tipo.toLowerCase().contains('pix')) qtdPix++;
     }
 
+    // Calcula altura adaptativa do documento para evitar cortes mesmo com múltiplos cartões
+    final qtdItensCartoes = totais.detalheCartoes.length;
+    final double alturaBase = 660.0;
+    final double alturaExtraCartoes = qtdItensCartoes > 5 ? (qtdItensCartoes - 5) * 15.0 : 0.0;
+    final double alturaExtraObs = turno.observacao.trim().isNotEmpty ? 22.0 : 0.0;
+    final double alturaTotalCalculada = alturaBase + alturaExtraCartoes + alturaExtraObs;
+
     doc.addPage(
       pw.Page(
-        pageFormat: const PdfPageFormat(
+        pageFormat: PdfPageFormat(
           380 * PdfPageFormat.point,
-          680 * PdfPageFormat.point,
+          alturaTotalCalculada * PdfPageFormat.point,
           marginAll: 14 * PdfPageFormat.point,
         ),
         build: (pw.Context context) {
