@@ -472,27 +472,71 @@ class _SummaryScreenState extends State<SummaryScreen> {
         child: Column(
           children: [
             PendingSyncBanner(onSincronizado: widget.onTurnoAlterado),
-            // ── Barra Superior com Ícone de Barras e Fechar 'X' ──
+            // ── Barra Superior com Ícone em Gradiente, Chips e Fechar 'X' ──
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(6),
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E3A8A).withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(6),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF2563EB), Color(0xFF0284C7)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF0284C7).withOpacity(0.35),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    child: const Icon(Icons.bar_chart_rounded, color: Color(0xFF38BDF8), size: 18),
+                    child: const Icon(Icons.bar_chart_rounded, color: Colors.white, size: 20),
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Resumo do Turno',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: textPri,
-                      letterSpacing: 0.2,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Resumo do Turno',
+                          style: TextStyle(
+                            fontSize: 16.5,
+                            fontWeight: FontWeight.w800,
+                            color: textPri,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0284C7).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'Turno #${widget.turno.numero}',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF38BDF8),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '• ${widget.turno.operador}',
+                              style: TextStyle(fontSize: 11, color: textSec, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                   ValueListenableBuilder<bool>(
@@ -500,22 +544,36 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     builder: (context, modoTeste, _) {
                       if (!modoTeste) return const SizedBox.shrink();
                       return Container(
-                        margin: const EdgeInsets.only(left: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        margin: const EdgeInsets.only(right: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                         decoration: BoxDecoration(
                           color: const Color(0xFFD97706),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(6),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFD97706).withOpacity(0.3),
+                              blurRadius: 4,
+                            ),
+                          ],
                         ),
-                        child: const Text(
-                          '🧪 MODO TESTE',
-                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('🧪', style: TextStyle(fontSize: 10)),
+                            SizedBox(width: 4),
+                            Text(
+                              'TESTE',
+                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
+                            ),
+                          ],
                         ),
                       );
                     },
                   ),
-                  const Spacer(),
                   IconButton(
-                    icon: Icon(Icons.close_rounded, color: textSec),
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    color: textSec,
+                    splashRadius: 18,
                     onPressed: () {
                       if (widget.onFechar != null) {
                         widget.onFechar!();
@@ -573,40 +631,81 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF7F1D1D).withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFEF4444), width: 1.2),
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFF7F1D1D).withOpacity(isDark ? 0.35 : 0.12),
+                              const Color(0xFF991B1B).withOpacity(isDark ? 0.25 : 0.08),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.6), width: 1.2),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.lock_rounded, color: Color(0xFFF87171), size: 18),
-                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEF4444).withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.lock_rounded, color: Color(0xFFF87171), size: 16),
+                            ),
+                            const SizedBox(width: 10),
                             Expanded(
-                              child: Text(
-                                'TURNO ENCERRADO (${widget.turno.fechadoEm ?? "Fechado"})',
-                                style: const TextStyle(
-                                  color: Color(0xFFF87171),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'TURNO HOMOLOGADO E FECHADO',
+                                    style: TextStyle(
+                                      color: Color(0xFFF87171),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 11,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Encerrado em: ${widget.turno.fechadoEm ?? "Fechado"}',
+                                    style: TextStyle(
+                                      color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFB91C1C),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
                     ],
 
                     // ── 1. SEÇÃO DE CARTÕES E VOUCHERS (Bandeiras com Vendas e Total) ──
                     if (widget.totais.detalheCartoes.values.any((v) => v.total > 0)) ...[
-                      Text(
-                        'CARTÕES E VOUCHERS',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? const Color(0xFF64748B) : const Color(0xFF475569),
-                          letterSpacing: 0.5,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'CARTÕES E VOUCHERS',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? const Color(0xFF64748B) : const Color(0xFF475569),
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0284C7).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${widget.totais.qtdCartoes} un',
+                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8)),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       for (final e in PaymentTypes.ordenarCartoes(widget.totais.detalheCartoes.entries))
@@ -629,12 +728,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       if (widget.totais.cartoes > 0 || widget.totais.qtdCartoes > 0) ...[
                         _itemResumoCard(
                           icon: Icons.credit_card_rounded,
-                          iconColor: AppColors.purple,
-                          iconBg: isDark ? AppColors.purple.withOpacity(0.18) : AppColors.purple.withOpacity(0.12),
-                          titulo: 'Total Cartões',
+                          iconColor: const Color(0xFF38BDF8),
+                          iconBg: isDark ? const Color(0xFF0284C7).withOpacity(0.25) : const Color(0xFFE0F2FE),
+                          titulo: 'Total Cartões e Vouchers',
                           subtitulo: '(${widget.totais.qtdCartoes} un)',
                           valor: widget.totais.cartoes,
                           isDark: isDark,
+                          isSummaryCard: true,
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -751,47 +851,93 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     ],
 
                     const SizedBox(height: 16),
-                    Text(
-                      'CONCILIAÇÃO DE VENDAS DO CAIXA',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? const Color(0xFF64748B) : const Color(0xFF475569),
-                        letterSpacing: 0.5,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'CONCILIAÇÃO DE VENDAS',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? const Color(0xFF64748B) : const Color(0xFF475569),
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Auditoria',
+                            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8)),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 8),
 
-                    // ── Card Total de Vendas Pista ──
+                    // ── Card Hero Total de Vendas Pista ──
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF111C38) : const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: isDark ? const Color(0xFF2563EB) : const Color(0xFF3B82F6),
-                          width: 1.5,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: isDark
+                              ? [const Color(0xFF1E3A8A).withOpacity(0.55), const Color(0xFF0F172A)]
+                              : [const Color(0xFFEFF6FF), const Color(0xFFDBEAFE)],
                         ),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF38BDF8).withOpacity(0.4) : const Color(0xFF3B82F6),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                          if (isDark)
+                            BoxShadow(
+                              color: const Color(0xFF1E3A8A).withOpacity(0.2),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                        ],
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.point_of_sale_rounded, color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF2563EB), size: 20),
-                          const SizedBox(width: 10),
-                          Text(
-                            'TOTAL DE VENDAS PISTA:',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF1E3A8A),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF38BDF8).withOpacity(0.18),
+                              borderRadius: BorderRadius.circular(10),
                             ),
+                            child: const Icon(Icons.point_of_sale_rounded, color: Color(0xFF38BDF8), size: 22),
                           ),
-                          const Spacer(),
-                          Text(
-                            CurrencyFormatter.formatar(widget.totais.totalGeral),
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF1D4ED8),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'TOTAL FÍSICO APURADO',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.6,
+                                    color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E40AF),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  CurrencyFormatter.formatar(widget.totais.totalGeral),
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: textPri,
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -805,34 +951,34 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: [CurrencyInputFormatter()],
                       style: TextStyle(
-                        color: isDark ? Colors.white : AppColors.lightTextPri,
+                        color: textPri,
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 14.5,
                       ),
                       decoration: InputDecoration(
-                        labelText: 'TOTAL DE VENDAS SISTEMA (PDV)',
+                        labelText: 'Vendas Sistema (Relatório PDV)',
                         labelStyle: TextStyle(
-                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                          color: textSec,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
-                        prefixIcon: Icon(
+                        prefixIcon: const Icon(
                           Icons.computer_rounded,
-                          color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                          color: Color(0xFF38BDF8),
                           size: 20,
                         ),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF131C2E) : Colors.white,
+                        fillColor: isDark ? const Color(0xFF111827) : Colors.white,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFCBD5E1)),
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: borderCol),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFCBD5E1)),
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: borderCol),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                           borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -843,14 +989,14 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
                     // ── Card de Status da Diferença ──
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                       decoration: BoxDecoration(
                         color: diferenca.abs() < 0.01
-                            ? (isDark ? const Color(0xFF064E3B).withOpacity(0.3) : const Color(0xFFD1FAE5))
+                            ? (isDark ? const Color(0xFF064E3B).withOpacity(0.35) : const Color(0xFFD1FAE5))
                             : (diferenca > 0
-                                ? (isDark ? const Color(0xFF78350F).withOpacity(0.3) : const Color(0xFFFEF3C7))
-                                : (isDark ? const Color(0xFF7F1D1D).withOpacity(0.3) : const Color(0xFFFEE2E2))),
-                        borderRadius: BorderRadius.circular(10),
+                                ? (isDark ? const Color(0xFF78350F).withOpacity(0.35) : const Color(0xFFFEF3C7))
+                                : (isDark ? const Color(0xFF7F1D1D).withOpacity(0.35) : const Color(0xFFFEE2E2))),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: diferenca.abs() < 0.01
                               ? const Color(0xFF10B981)
@@ -860,24 +1006,35 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       ),
                       child: Row(
                         children: [
-                          Icon(
-                            diferenca.abs() < 0.01
-                                ? Icons.check_circle_rounded
-                                : (diferenca > 0 ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded),
-                            color: diferenca.abs() < 0.01
-                                ? const Color(0xFF10B981)
-                                : (diferenca > 0 ? const Color(0xFFD97706) : const Color(0xFFDC2626)),
-                            size: 18,
+                          Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                              color: (diferenca.abs() < 0.01
+                                      ? const Color(0xFF10B981)
+                                      : (diferenca > 0 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)))
+                                  .withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              diferenca.abs() < 0.01
+                                  ? Icons.check_circle_rounded
+                                  : (diferenca > 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded),
+                              color: diferenca.abs() < 0.01
+                                  ? const Color(0xFF10B981)
+                                  : (diferenca > 0 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)),
+                              size: 18,
+                            ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               diferenca.abs() < 0.01
-                                  ? 'CAIXA 100% BATIDO (SEM DIFERENÇA)'
+                                  ? 'CONCILIAÇÃO 100% BATIDA'
                                   : (diferenca > 0 ? 'SOBRA NA PISTA' : 'FALTA NA PISTA'),
                               style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.4,
                                 color: diferenca.abs() < 0.01
                                     ? (isDark ? const Color(0xFF34D399) : const Color(0xFF065F46))
                                     : (diferenca > 0
@@ -907,26 +1064,31 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     TextFormField(
                       controller: _observacaoController,
                       maxLines: 2,
-                      style: TextStyle(color: isDark ? Colors.white : AppColors.lightTextPri, fontSize: 13),
+                      style: TextStyle(color: textPri, fontSize: 13),
                       decoration: InputDecoration(
-                        labelText: 'OBSERVAÇÕES / JUSTIFICATIVA',
+                        labelText: 'Observações / Justificativa (Opcional)',
                         labelStyle: TextStyle(
-                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                          fontSize: 11,
+                          color: textSec,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
+                        prefixIcon: const Icon(
+                          Icons.edit_note_rounded,
+                          color: Color(0xFF94A3B8),
+                          size: 20,
+                        ),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF131C2E) : Colors.white,
+                        fillColor: isDark ? const Color(0xFF111827) : Colors.white,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFCBD5E1)),
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: borderCol),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFCBD5E1)),
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: borderCol),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                           borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -935,7 +1097,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // ── 6 Botões de Ação Integrados Dinamicamente na Página ──
+                    // ── 6 Botões de Ação Executivos Integrados Dinamicamente na Página ──
                     Builder(
                       builder: (btnCtx) {
                         final neutralBtnBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
@@ -952,6 +1114,18 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                     label: 'WhatsApp',
                                     corFundo: const Color(0xFF16A34A),
                                     corTexto: Colors.white,
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFF16A34A), Color(0xFF15803D)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF16A34A).withOpacity(0.25),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                                     onPressed: _processando ? null : () => _compartilharWhatsApp(btnCtx),
                                   ),
                                 ),
@@ -988,6 +1162,18 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                     label: 'Excel (CSV)',
                                     corFundo: const Color(0xFF0D9488),
                                     corTexto: Colors.white,
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF0D9488).withOpacity(0.25),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                                     onPressed: _processando ? null : () => _exportarExcel(btnCtx),
                                   ),
                                 ),
@@ -996,8 +1182,24 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                   child: _botaoAcao(
                                     icon: Icons.lock_rounded,
                                     label: widget.turno.aberto ? 'Encerrar Turno' : 'Turno Fechado',
-                                    corFundo: widget.turno.aberto ? const Color(0xFF2563EB) : const Color(0xFF475569),
+                                    corFundo: widget.turno.aberto ? const Color(0xFF2563EB) : (isDark ? const Color(0xFF334155) : const Color(0xFF94A3B8)),
                                     corTexto: Colors.white,
+                                    gradient: widget.turno.aberto
+                                        ? const LinearGradient(
+                                            colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          )
+                                        : null,
+                                    boxShadow: widget.turno.aberto
+                                        ? [
+                                            BoxShadow(
+                                              color: const Color(0xFF2563EB).withOpacity(0.3),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ]
+                                        : null,
                                     onPressed: _processando ? null : _encerrarTurno,
                                   ),
                                 ),
@@ -1043,62 +1245,86 @@ class _SummaryScreenState extends State<SummaryScreen> {
     required double valor,
     VoidCallback? onTap,
     bool showChevron = false,
+    bool isSummaryCard = false,
     required bool isDark,
   }) {
-    final cardBg = isDark ? const Color(0xFF131C2E) : Colors.white;
-    final cardBorder = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
+    final cardBg = isSummaryCard
+        ? (isDark ? const Color(0xFF172554).withOpacity(0.4) : const Color(0xFFEFF6FF))
+        : (isDark ? const Color(0xFF111827) : Colors.white);
+    final cardBorder = isSummaryCard
+        ? (isDark ? const Color(0xFF3B82F6).withOpacity(0.5) : const Color(0xFFBFDBFE))
+        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0));
     final textTitle = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
     final textValue = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSub = isDark ? const Color(0xFF64748B) : const Color(0xFF64748B);
+    final textSub = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: cardBg,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: cardBorder),
-          boxShadow: isDark
-              ? null
-              : [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cardBorder, width: isSummaryCard ? 1.2 : 1),
+          boxShadow: [
+            if (!isDark || isSummaryCard)
+              BoxShadow(
+                color: isSummaryCard
+                    ? const Color(0xFF3B82F6).withOpacity(0.12)
+                    : Colors.black.withOpacity(0.04),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+          ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(7),
+              padding: const EdgeInsets.all(7.5),
               decoration: BoxDecoration(
                 color: iconBg,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(9),
               ),
               child: Icon(icon, color: iconColor, size: 18),
             ),
             const SizedBox(width: 12),
-            Text(
-              titulo,
-              style: TextStyle(fontSize: 14, color: textTitle, fontWeight: FontWeight.w600),
-            ),
-            if (subtitulo != null) ...[
-              const SizedBox(width: 6),
-              Text(
-                subtitulo,
-                style: TextStyle(fontSize: 12, color: textSub),
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      titulo,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        color: isSummaryCard && isDark ? const Color(0xFF93C5FD) : textTitle,
+                        fontWeight: isSummaryCard ? FontWeight.w800 : FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (subtitulo != null) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      subtitulo,
+                      style: TextStyle(fontSize: 11.5, color: textSub, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ],
               ),
-            ],
-            const Spacer(),
+            ),
+            const SizedBox(width: 8),
             Text(
               CurrencyFormatter.formatar(valor),
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textValue),
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: isSummaryCard && isDark ? const Color(0xFF38BDF8) : textValue,
+              ),
             ),
             if (showChevron) ...[
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               Icon(Icons.chevron_right_rounded, color: textSub, size: 18),
             ],
           ],
@@ -1113,38 +1339,50 @@ class _SummaryScreenState extends State<SummaryScreen> {
     required Color corFundo,
     required Color corTexto,
     required VoidCallback? onPressed,
+    Gradient? gradient,
+    List<BoxShadow>? boxShadow,
   }) {
     return SizedBox(
-      height: 44,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: corFundo,
-          foregroundColor: corTexto,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
+      height: 46,
+      child: Container(
+        decoration: BoxDecoration(
+          color: gradient == null ? corFundo : null,
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: boxShadow,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 15, color: corTexto),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.bold,
-                  color: corTexto,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+        child: ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            foregroundColor: corTexto,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
-          ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: corTexto),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: corTexto,
+                    letterSpacing: 0.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
