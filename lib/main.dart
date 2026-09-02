@@ -13,6 +13,7 @@ import 'screens/history_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/summary_screen.dart';
+import 'screens/validation_screen.dart';
 import 'services/database_service.dart';
 import 'services/drive_service.dart';
 import 'services/notification_service.dart';
@@ -47,11 +48,16 @@ class CaixaPostoJanjaoApp extends StatefulWidget {
 
 class _CaixaPostoJanjaoAppState extends State<CaixaPostoJanjaoApp> {
   bool _isDark = true;
+  late bool _modoValidacao;
+  late final Map<String, String> _parametrosValidacao;
 
   @override
   void initState() {
     super.initState();
     _carregarTema();
+    _parametrosValidacao = Uri.base.queryParameters;
+    _modoValidacao = _parametrosValidacao.containsKey('auth') &&
+        (_parametrosValidacao['auth']?.trim().isNotEmpty ?? false);
   }
 
   void _carregarTema() async {
@@ -96,10 +102,23 @@ class _CaixaPostoJanjaoAppState extends State<CaixaPostoJanjaoApp> {
         }
         return child ?? const SizedBox.shrink();
       },
-      home: MainShell(
-        isDark: _isDark,
-        onMudarTema: _mudarTema,
-      ),
+      home: _modoValidacao
+          ? ValidationScreen(
+              authHash: _parametrosValidacao['auth'] ?? '',
+              operador: _parametrosValidacao['op'] ?? '',
+              turno: _parametrosValidacao['turno'] ?? '',
+              totalVendas: _parametrosValidacao['total'] ?? '',
+              dataHora: _parametrosValidacao['data'] ?? '',
+              onAcessarSistema: () {
+                setState(() {
+                  _modoValidacao = false;
+                });
+              },
+            )
+          : MainShell(
+              isDark: _isDark,
+              onMudarTema: _mudarTema,
+            ),
     );
   }
 }

@@ -143,6 +143,19 @@ class PdfService {
                 timestamp: dataHoraAuth,
               );
 
+          // URL oficial de validação pública aberta ao escanear com a câmera do celular
+          final String urlValidacao = Uri.https(
+            'juglesbass.github.io',
+            '/caixa-posto-janjao/',
+            {
+              'auth': chaveAuth,
+              'turno': '${turno.numero}',
+              'op': turno.operador,
+              'total': totais.totalGeral.toStringAsFixed(2),
+              'data': dataHoraAuth,
+            },
+          ).toString();
+
           // Configuração dinâmica da faixa de resultado (Pista vs PDV)
           final diferencaValor = totais.diferenca;
           final bool isCaixaZerado = diferencaValor.abs() < 0.01;
@@ -599,9 +612,7 @@ class PdfService {
                                   height: 36,
                                   child: pw.BarcodeWidget(
                                     barcode: pw.Barcode.qrCode(),
-                                    data: (turno.authHash != null && turno.authHash!.trim().isNotEmpty)
-                                        ? turno.authHash!
-                                        : chaveAuth,
+                                    data: urlValidacao,
                                     drawText: false,
                                   ),
                                 ),
