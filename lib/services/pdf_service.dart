@@ -151,12 +151,12 @@ class PdfService {
           const String dominioApp = 'https://juglesbass.github.io/caixa-posto-janjao';
 
           // Conteúdo do QR Code:
-          // 1. Inserir URL Completa no QR Code:
-          //    data: "https://[SEU_LINK_DO_APP]/#/validar?auth=${turno.authHash}"
+          // 1. URL Completa codificada com dados reais do turno para validação universal:
+          //    https://[SEU_LINK_DO_APP]/#/validar?auth=${turno.authHash}&op=${Uri.encodeComponent(turno.operador)}&turno=${turno.numeroTurno}&total=${totais.totalPista.toStringAsFixed(2)}&data=${Uri.encodeComponent(dataFormatada)}
           // 2. Ajuste de Fallback caso não haja domínio configurado:
-          //    data: "POSTO JANJÃO\nTurno: #${turno.numeroTurno}\nOperador: ${turno.operador}\nTotal: R$ ${totais.totalPista}\nChave: ${turno.authHash}"
+          //    POSTO JANJÃO\nTurno: #${turno.numeroTurno}\nOperador: ${turno.operador}\nTotal: R$ ${totais.totalPista}\nChave: ${turno.authHash}
           final String qrData = dominioApp.trim().isNotEmpty
-              ? '$dominioApp/#/validar?auth=$hashSeguro'
+              ? '$dominioApp/#/validar?auth=$hashSeguro&op=${Uri.encodeComponent(turno.operador)}&turno=${turno.numero}&total=${totais.totalGeral.toStringAsFixed(2)}&data=${Uri.encodeComponent(dataHoraAuth)}'
               : 'POSTO JANJÃO\nTurno: #${turno.numero}\nOperador: ${turno.operador}\nTotal: R\$ ${totais.totalGeral.toStringAsFixed(2)}\nChave: $hashSeguro';
 
           // Configuração dinâmica da faixa de resultado (Pista vs PDV)

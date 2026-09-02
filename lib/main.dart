@@ -79,8 +79,8 @@ class _CaixaPostoJanjaoAppState extends State<CaixaPostoJanjaoApp> {
     }
     if (Uri.base.path.contains('validar') ||
         Uri.base.queryParameters.containsKey('auth')) {
-      final auth = Uri.base.queryParameters['auth'] ?? '';
-      return '/validar?auth=$auth';
+      final query = Uri.base.query;
+      return query.isNotEmpty ? '/validar?$query' : '/validar';
     }
     return '/';
   }
