@@ -207,6 +207,22 @@ class DatabaseService {
     return null;
   }
 
+  Future<Turno?> obterTurnoPorAuthHash(String authHash) async {
+    final limpo = authHash.trim();
+    if (limpo.isEmpty) return null;
+    final db = await database;
+    final maps = await db.query(
+      'turnos',
+      where: 'auth_hash = ?',
+      whereArgs: [limpo],
+      limit: 1,
+    );
+    if (maps.isNotEmpty) {
+      return Turno.fromMap(maps.first);
+    }
+    return null;
+  }
+
   Future<void> fecharTurno(
     int turnoId, {
     double vendasSistema = 0.0,

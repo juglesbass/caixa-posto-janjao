@@ -13,7 +13,7 @@ import 'screens/history_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/summary_screen.dart';
-import 'screens/validation_screen.dart';
+import 'screens/validar_screen.dart';
 import 'services/database_service.dart';
 import 'services/drive_service.dart';
 import 'services/notification_service.dart';
@@ -48,7 +48,6 @@ class CaixaPostoJanjaoApp extends StatefulWidget {
 
 class _CaixaPostoJanjaoAppState extends State<CaixaPostoJanjaoApp> {
   bool _isDark = true;
-  late bool _modoValidacao;
   late final Map<String, String> _parametrosValidacao;
 
   @override
@@ -56,8 +55,6 @@ class _CaixaPostoJanjaoAppState extends State<CaixaPostoJanjaoApp> {
     super.initState();
     _carregarTema();
     _parametrosValidacao = Uri.base.queryParameters;
-    _modoValidacao = _parametrosValidacao.containsKey('auth') &&
-        (_parametrosValidacao['auth']?.trim().isNotEmpty ?? false);
   }
 
   void _carregarTema() async {
@@ -73,6 +70,19 @@ class _CaixaPostoJanjaoAppState extends State<CaixaPostoJanjaoApp> {
     setState(() {
       _isDark = escuro;
     });
+  }
+
+  String _obterRotaInicial() {
+    final fragment = Uri.base.fragment;
+    if (fragment.contains('validar')) {
+      return fragment.startsWith('/') ? fragment : '/$fragment';
+    }
+    if (Uri.base.path.contains('validar') ||
+        Uri.base.queryParameters.containsKey('auth')) {
+      final auth = Uri.base.queryParameters['auth'] ?? '';
+      return '/validar?auth=$auth';
+    }
+    return '/';
   }
 
   @override
@@ -102,23 +112,47 @@ class _CaixaPostoJanjaoAppState extends State<CaixaPostoJanjaoApp> {
         }
         return child ?? const SizedBox.shrink();
       },
-      home: _modoValidacao
-          ? ValidationScreen(
-              authHash: _parametrosValidacao['auth'] ?? '',
-              operador: _parametrosValidacao['op'] ?? '',
-              turno: _parametrosValidacao['turno'] ?? '',
-              totalVendas: _parametrosValidacao['total'] ?? '',
-              dataHora: _parametrosValidacao['data'] ?? '',
-              onAcessarSistema: () {
-                setState(() {
-                  _modoValidacao = false;
-                });
-              },
-            )
-          : MainShell(
-              isDark: _isDark,
-              onMudarTema: _mudarTema,
+      initialRoute: _obterRotaInicial(),
+      onGenerateRoute: (settings) {
+        final uri = Uri.parse(settings.name ?? '/');
+
+        // Tratamento da rota pública de validação (/validar ou #/validar)
+        if (uri.path == '/validar' ||
+            uri.path == 'validar' ||
+            (settings.name?.contains('validar') ?? false)) {
+          final auth = uri.queryParameters['auth'] ??
+              Uri.base.queryParameters['auth'] ??
+              _parametrosValidacao['auth'];
+
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => ValidarScreen(
+              authHash: auth,
+              operadorFallback: uri.queryParameters['op'] ??
+                  Uri.base.queryParameters['op'] ??
+                  _parametrosValidacao['op'],
+              turnoFallback: uri.queryParameters['turno'] ??
+                  Uri.base.queryParameters['turno'] ??
+                  _parametrosValidacao['turno'],
+              totalFallback: uri.queryParameters['total'] ??
+                  Uri.base.queryParameters['total'] ??
+                  _parametrosValidacao['total'],
+              dataFallback: uri.queryParameters['data'] ??
+                  Uri.base.queryParameters['data'] ??
+                  _parametrosValidacao['data'],
             ),
+          );
+        }
+
+        // Rota padrão do sistema
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => MainShell(
+            isDark: _isDark,
+            onMudarTema: _mudarTema,
+          ),
+        );
+      },
     );
   }
 }

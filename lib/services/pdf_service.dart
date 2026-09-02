@@ -143,18 +143,13 @@ class PdfService {
                 timestamp: dataHoraAuth,
               );
 
-          // URL oficial de validação pública aberta ao escanear com a câmera do celular
-          final String urlValidacao = Uri.https(
-            'juglesbass.github.io',
-            '/caixa-posto-janjao/',
-            {
-              'auth': chaveAuth,
-              'turno': '${turno.numero}',
-              'op': turno.operador,
-              'total': totais.totalGeral.toStringAsFixed(2),
-              'data': dataHoraAuth,
-            },
-          ).toString();
+          final String hashSeguro = (turno.authHash != null && turno.authHash!.trim().isNotEmpty)
+              ? turno.authHash!
+              : chaveAuth;
+
+          // URL oficial de validação pública apontando para a rota web /#/validar?auth=...
+          final String urlValidacao =
+              'https://juglesbass.github.io/caixa-posto-janjao/#/validar?auth=$hashSeguro&turno=${turno.numero}&op=${Uri.encodeComponent(turno.operador)}&total=${totais.totalGeral.toStringAsFixed(2)}&data=${Uri.encodeComponent(dataHoraAuth)}';
 
           // Configuração dinâmica da faixa de resultado (Pista vs PDV)
           final diferencaValor = totais.diferenca;
