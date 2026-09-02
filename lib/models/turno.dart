@@ -47,7 +47,7 @@ class Turno {
       numero: (map['numero'] as num?)?.toInt() ?? 1,
       data: map['data'] as String? ?? '',
       operador: map['operador'] as String? ?? 'Não informado',
-      aberto: (map['aberto'] as int?) == 1,
+      aberto: map['aberto'] == 1 || map['aberto'] == true,
       fechadoEm: map['fechado_em'] as String?,
       vendasSistema: (map['vendas_sistema'] as num?)?.toDouble() ?? 0.0,
       observacao: map['observacao'] as String? ?? '',
