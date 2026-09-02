@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'database_service.dart';
+import 'operadores_sync_service.dart';
 
 /// Serviço de Autenticação, Gestão de PIN e Assinatura Digital do Posto Janjão
 class AuthService {
@@ -19,6 +21,17 @@ class AuthService {
   /// Verifica se o operador já possui PIN individual de 4 dígitos cadastrado
   static Future<bool> operadorTemPin(String operador) async {
     if (operador.trim().isEmpty) return false;
+
+    // 1. Verifica no cache de Operadores sincronizados via Firestore
+    try {
+      final db = DatabaseService.instance;
+      final op = await db.obterOperadorCachePorNome(operador);
+      if (op != null && op.pinHash.isNotEmpty) {
+        return true;
+      }
+    } catch (_) {}
+
+    // 2. Verifica armazenamento local de PIN
     final prefs = await SharedPreferences.getInstance();
     final chave = _chavePinOperador(operador);
     final pin = prefs.getString(chave);
@@ -103,20 +116,28 @@ class AuthService {
     final digitado = pinDigitado.trim();
     if (digitado.length != 4) return false;
 
-    // 1. O PIN Mestre da Gerência é soberano e valida qualquer operação
+    // 1. O PIN Mestre da Gerência é soberano e valida qualquer operação (fallback de emergência)
     if (await validarPinGerente(digitado)) {
       return true;
     }
 
+    // 2. Valida contra o hash SHA-256 no cache de operadores sincronizados via Firestore
+    try {
+      final validoSync = await OperadoresSyncService.validarPin(operador, digitado);
+      if (validoSync) {
+        return true;
+      }
+    } catch (_) {}
+
     final prefs = await SharedPreferences.getInstance();
 
-    // 2. Verifica PIN individual do Operador
+    // 3. Verifica PIN individual do Operador legado
     final pinSalvo = prefs.getString(_chavePinOperador(operador));
     if (pinSalvo != null && pinSalvo.trim() == digitado) {
       return true;
     }
 
-    // 3. Fallback legado
+    // 4. Fallback legado
     final pinLegado = prefs.getString('pin_acesso');
     if (pinLegado != null && pinLegado.trim() == digitado) {
       return true;
@@ -127,20 +148,32 @@ class AuthService {
 
   /// Retorna a lista de nomes de operadores que possuem PIN configurado no sistema
   static Future<List<String>> obterOperadoresComPin() async {
+    final Set<String> operadores = {};
+
+    // 1. Carrega do cache de operadores sincronizados via Firestore
+    try {
+      final db = DatabaseService.instance;
+      final lista = await db.obterOperadoresCache();
+      for (final o in lista) {
+        if (o.nome.trim().isNotEmpty && o.ativo) {
+          operadores.add(o.nomeExibicao);
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fallback para chaves locais legadas
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys();
-    final List<String> operadores = [];
-
     for (final k in keys) {
-      if (k.startsWith('pin_operador_')) {
+      if (k.startsWith('pin_operador_') && !k.endsWith('_hash')) {
         final rawNome = k.replaceFirst('pin_operador_', '');
         final nomeBonito = rawNome.replaceAll('_', ' ').toUpperCase();
-        if (nomeBonito.isNotEmpty && !operadores.contains(nomeBonito)) {
+        if (nomeBonito.isNotEmpty) {
           operadores.add(nomeBonito);
         }
       }
     }
-    return operadores;
+    return operadores.toList()..sort();
   }
 
   /// Permite à gerência redefinir o PIN de um operador

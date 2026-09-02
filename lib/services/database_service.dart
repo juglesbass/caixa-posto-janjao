@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
 import '../models/lancamento.dart';
+import '../models/operador_model.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
 import '../utils/payment_types.dart';
@@ -81,11 +82,23 @@ class DatabaseService {
       await db.execute('ALTER TABLE turnos ADD COLUMN canhotos TEXT');
     } catch (_) {}
 
+    // Tabela de cache local de Operadores sincronizados via Firestore
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS operadores_cache (
+        id TEXT PRIMARY KEY,
+        nome TEXT NOT NULL,
+        pin_hash TEXT NOT NULL,
+        ativo INTEGER NOT NULL DEFAULT 1,
+        atualizado_em TEXT NOT NULL
+      )
+    ''');
+
     // Índices de alta performance para garantir consultas instantâneas sem travamentos (O(log n))
     await db.execute('CREATE INDEX IF NOT EXISTS idx_lancamentos_turno_id ON lancamentos (turno_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_turnos_aberto ON turnos (aberto)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_turnos_auth_hash ON turnos (auth_hash)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_drive_pendencias_turno ON drive_pendencias (turno_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_operadores_cache_nome ON operadores_cache (nome)');
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -148,11 +161,22 @@ class DatabaseService {
       )
     ''');
 
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS operadores_cache (
+        id TEXT PRIMARY KEY,
+        nome TEXT NOT NULL,
+        pin_hash TEXT NOT NULL,
+        ativo INTEGER NOT NULL DEFAULT 1,
+        atualizado_em TEXT NOT NULL
+      )
+    ''');
+
     // Índices de performance
     await db.execute('CREATE INDEX IF NOT EXISTS idx_lancamentos_turno ON lancamentos(turno_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_turnos_aberto ON turnos(aberto)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_turnos_auth_hash ON turnos(auth_hash)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_drive_pendencias_turno ON drive_pendencias(turno_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_operadores_cache_nome ON operadores_cache(nome)');
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -615,5 +639,58 @@ class DatabaseService {
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // CACHE DE OPERADORES (OFFLINE-FIRST FIRESTORE)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  Future<void> salvarOperadoresCache(List<OperadorModel> operadores) async {
+    final db = await database;
+    final batch = db.batch();
+    for (final op in operadores) {
+      batch.insert(
+        'operadores_cache',
+        op.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  Future<void> salvarOperadorCache(OperadorModel operador) async {
+    final db = await database;
+    await db.insert(
+      'operadores_cache',
+      operador.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<OperadorModel>> obterOperadoresCache() async {
+    final db = await database;
+    try {
+      final rows = await db.query('operadores_cache', orderBy: 'nome ASC');
+      return rows.map((r) => OperadorModel.fromMap(r)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<OperadorModel?> obterOperadorCachePorNome(String nome) async {
+    final db = await database;
+    try {
+      final nomeLimpo = nome.trim();
+      final rows = await db.query(
+        'operadores_cache',
+        where: 'LOWER(nome) = LOWER(?)',
+        whereArgs: [nomeLimpo],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        return OperadorModel.fromMap(rows.first);
+      }
+    } catch (_) {}
+    return null;
   }
 }
