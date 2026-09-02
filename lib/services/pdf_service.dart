@@ -119,12 +119,14 @@ class PdfService {
       if (l.tipo.toLowerCase().contains('pix')) qtdPix++;
     }
 
-    // Calcula altura adaptativa do documento para evitar cortes mesmo com múltiplos cartões
+    // Calcula altura adaptativa e dinâmica do documento com base exata nos itens exibidos
     final qtdItensCartoes = totais.detalheCartoes.length;
-    final double alturaBase = 660.0;
-    final double alturaExtraCartoes = qtdItensCartoes > 5 ? (qtdItensCartoes - 5) * 15.0 : 0.0;
-    final double alturaExtraObs = turno.observacao.trim().isNotEmpty ? 22.0 : 0.0;
-    final double alturaTotalCalculada = alturaBase + alturaExtraCartoes + alturaExtraObs;
+    final double alturaItensCartoes = qtdItensCartoes > 0
+        ? (36.0 + (qtdItensCartoes * 14.0))
+        : 38.0;
+    final double alturaExtraObs = turno.observacao.trim().isNotEmpty ? 32.0 : 0.0;
+    const double alturaBaseComponentesFixos = 360.0;
+    final double alturaTotalCalculada = alturaBaseComponentesFixos + alturaItensCartoes + alturaExtraObs;
 
     doc.addPage(
       pw.Page(
@@ -515,7 +517,7 @@ class PdfService {
                   ),
                 ],
 
-                pw.Spacer(),
+                pw.SizedBox(height: 12),
 
                 // ── 6. AUTENTICAÇÃO DIGITAL & CONFERÊNCIA DA GERÊNCIA ──
                 pw.Row(
