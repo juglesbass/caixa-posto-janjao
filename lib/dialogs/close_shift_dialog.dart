@@ -136,6 +136,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
     }
 
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       title: Row(
         children: [
           Container(
@@ -176,7 +177,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                     const SizedBox(height: 4),
                     _linhaResumo('Sobra de Dinheiro:', CurrencyFormatter.formatar(widget.totais.dinheiro), AppColors.green),
                     const SizedBox(height: 4),
-                    _linhaResumo('Cartões / Vouchers:', CurrencyFormatter.formatar(widget.totais.cartoes), AppColors.purple),
+                    _linhaResumo('Cartões / Vouchers:', CurrencyFormatter.formatar(widget.totais.cartoes), textPri),
                   ],
                 ),
               ),
@@ -186,6 +187,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
               TextField(
                 controller: _controllerVendasSistema,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                scrollPadding: const EdgeInsets.all(80),
                 inputFormatters: [CurrencyInputFormatter()],
                 decoration: InputDecoration(
                   labelText: 'Vendas Sistema (Relatório PDV)',
@@ -250,10 +252,44 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                 const SizedBox(height: 12),
               ],
 
-              // ── Campo de Observação ──
+              // ── Autenticação Obrigatória via PIN Individual ──
+              TextField(
+                controller: _controllerPin,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                maxLength: 4,
+                scrollPadding: const EdgeInsets.all(80),
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: TextStyle(
+                  fontSize: 20,
+                  letterSpacing: 8,
+                  fontWeight: FontWeight.bold,
+                  color: textPri,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'PIN de ${widget.turno.operador} (4 números)',
+                  counterText: '',
+                  prefixIcon: const Icon(Icons.shield_rounded, color: Color(0xFF38BDF8)),
+                  errorText: _erroPin,
+                  filled: true,
+                  isDense: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                  ),
+                ),
+                onChanged: (_) {
+                  if (_erroPin != null) setState(() => _erroPin = null);
+                },
+                onSubmitted: (_) => _validarEEncerrar(),
+              ),
+              const SizedBox(height: 12),
+
+              // ── Campo de Observação (Opcional) ──
               TextField(
                 controller: _controllerObs,
-                maxLines: 2,
+                maxLines: 1,
+                scrollPadding: const EdgeInsets.all(80),
                 decoration: InputDecoration(
                   labelText: 'Observação / Justificativa (Opcional)',
                   hintText: 'Ex: Troca de turno, divergência...',
@@ -263,77 +299,6 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppColors.radiusSm),
                   ),
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // ── Autenticação Obrigatória via PIN Individual ──
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B).withOpacity(0.5) : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                  border: Border.all(
-                    color: _erroPin != null
-                        ? AppColors.red
-                        : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
-                    width: _erroPin != null ? 1.5 : 1,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.shield_rounded, size: 18, color: Color(0xFF38BDF8)),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'Autenticação: ${widget.turno.operador}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: textPri,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Digite seu PIN individual para assinar digitalmente:',
-                      style: TextStyle(fontSize: 11, color: textSec),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _controllerPin,
-                      obscureText: true,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      maxLength: 4,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: TextStyle(
-                        fontSize: 22,
-                        letterSpacing: 10,
-                        fontWeight: FontWeight.bold,
-                        color: textPri,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'PIN',
-                        counterText: '',
-                        hintStyle: TextStyle(letterSpacing: 2, fontSize: 13, color: textSec.withOpacity(0.5)),
-                        errorText: _erroPin,
-                        filled: true,
-                        fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-                        isDense: true,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
-                      ),
-                      onChanged: (_) {
-                        if (_erroPin != null) setState(() => _erroPin = null);
-                      },
-                      onSubmitted: (_) => _validarEEncerrar(),
-                    ),
-                  ],
                 ),
               ),
             ],
