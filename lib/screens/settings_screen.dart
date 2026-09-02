@@ -44,6 +44,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  bool get isDark => widget.isDark;
   bool _adminLiberado = false;
   final _controllerPinMestre = TextEditingController();
   String? _erroPinMestre;
