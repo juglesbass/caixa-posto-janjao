@@ -17,6 +17,8 @@ import 'screens/validar_screen.dart';
 import 'services/database_service.dart';
 import 'services/drive_service.dart';
 import 'services/notification_service.dart';
+import 'services/operadores_sync_service.dart';
+import 'firebase_options.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 import 'utils/payment_types.dart';
@@ -35,6 +37,22 @@ void main() async {
   // Inicializa notificações e fila de sincronização
   await NotificationService.inicializar();
   await DriveService.inicializarModoTeste();
+
+  // Diagnóstico e inicialização de sincronização do Firebase Firestore
+  try {
+    debugPrint('════════════════════════════════════════════════════════════════');
+    debugPrint('[Firebase Diagnostic] Plataforma ativa: ${kIsWeb ? "Web (PWA)" : defaultTargetPlatform.name}');
+    debugPrint('[Firebase Diagnostic] Projeto Firestore: ${DefaultFirebaseOptions.defaultProjectId}');
+    // Executa verificação inicial de conectividade em segundo plano sem bloquear a inicialização
+    OperadoresSyncService.obterOperadores(sincronizarNuvem: true).then((ops) {
+      debugPrint('[Firebase Diagnostic] Inicialização concluída. ${ops.length} operadores carregados.');
+    }).catchError((e) {
+      debugPrint('[Firebase Diagnostic] Conexão em segundo plano: $e');
+    });
+    debugPrint('════════════════════════════════════════════════════════════════');
+  } catch (e) {
+    debugPrint('[Firebase Diagnostic] Erro durante diagnóstico de inicialização: $e');
+  }
 
   runApp(const CaixaPostoJanjaoApp());
 }

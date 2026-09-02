@@ -399,6 +399,209 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
     }
   }
 
+  void _dialogDiagnosticoEConfiguracao() async {
+    final projIdAtual = await OperadoresSyncService.getProjectId();
+    final projController = TextEditingController(text: projIdAtual);
+    bool testando = false;
+    String? feedbackTeste;
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final isDark = widget.isDark;
+            final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+            final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+            final status = OperadoresSyncService.statusNotifier.value;
+
+            return AlertDialog(
+              backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF38BDF8).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.cloud_sync_rounded, color: Color(0xFF38BDF8), size: 22),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Diagnóstico Nuvem Firestore',
+                      style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.bold, color: textPri),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Status Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: status.online
+                            ? AppColors.green.withOpacity(0.15)
+                            : const Color(0xFFF59E0B).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: status.online ? AppColors.green : const Color(0xFFF59E0B),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            status.online ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                            color: status.online ? AppColors.green : const Color(0xFFF59E0B),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              status.online ? 'Conectado e Sincronizado' : 'Modo Offline Ativo (Cache Local)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: status.online ? AppColors.green : const Color(0xFFF59E0B),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Explicação do Status
+                    Text(
+                      'Por que está em Modo Offline?',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textPri),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      status.online
+                          ? 'A conexão com o Cloud Firestore está funcionando normalmente.'
+                          : (status.statusCode == 403
+                              ? 'O Cloud Firestore retornou erro 403 (Permission Denied). Isso ocorre porque o banco Firestore ainda não foi criado no console Firebase ou as regras de segurança exigem autenticação.'
+                              : (status.detalheErro ?? 'Sem resposta da nuvem no momento.')),
+                      style: TextStyle(fontSize: 11.5, color: textSec, height: 1.3),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Garantia de Persistência Local
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.shield_outlined, color: AppColors.green, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Garantia Offline-First: Todas as alterações, novos operadores e PINs são salvos com segurança no banco de dados local (SQLite) deste aparelho e funcionam perfeitamente para abrir e fechar turnos.',
+                              style: TextStyle(fontSize: 11, color: textSec, height: 1.3),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Campo de configuração do ID do Projeto Firebase
+                    Text(
+                      'ID do Projeto Firebase (Firestore):',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textPri),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: projController,
+                      style: TextStyle(fontSize: 13, color: textPri),
+                      decoration: InputDecoration(
+                        hintText: 'Ex: caixa-posto-janjao',
+                        hintStyle: TextStyle(fontSize: 12, color: textSec),
+                        filled: true,
+                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                    ),
+                    if (feedbackTeste != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        feedbackTeste!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: feedbackTeste!.startsWith('✅') ? AppColors.green : const Color(0xFFF59E0B),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text('Fechar', style: TextStyle(color: textSec)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: testando
+                      ? null
+                      : () async {
+                          final novoProj = projController.text.trim();
+                          if (novoProj.isEmpty) return;
+
+                          setModalState(() {
+                            testando = true;
+                            feedbackTeste = 'Testando conexão com $novoProj...';
+                          });
+
+                          await OperadoresSyncService.setProjectId(novoProj);
+                          final res = await OperadoresSyncService.forcarSincronizacao();
+
+                          setModalState(() {
+                            testando = false;
+                            feedbackTeste = res.sucesso
+                                ? '✅ Conexão bem-sucedida com Firestore!'
+                                : '⚠️ Nuvem retornou: ${OperadoresSyncService.ultimoStatusCode != null ? "HTTP ${OperadoresSyncService.ultimoStatusCode}" : "Offline"}. Usando cache local.';
+                          });
+
+                          _carregarDados();
+                        },
+                  child: testando
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Testar / Salvar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
@@ -442,6 +645,11 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.info_outline_rounded, color: Color(0xFFF59E0B)),
+            tooltip: 'Diagnóstico Nuvem',
+            onPressed: _dialogDiagnosticoEConfiguracao,
+          ),
+          IconButton(
             icon: const Icon(Icons.sync_rounded, color: Color(0xFF38BDF8)),
             tooltip: 'Sincronizar com Nuvem',
             onPressed: () => _carregarDados(forcarNuvem: true),
@@ -459,33 +667,57 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
             ValueListenableBuilder<SyncStatus>(
               valueListenable: OperadoresSyncService.statusNotifier,
               builder: (context, status, _) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-                  child: Row(
-                    children: [
-                      Icon(
-                        status.online ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
-                        size: 16,
-                        color: status.online ? AppColors.green : const Color(0xFFF59E0B),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          status.mensagem,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: status.online ? AppColors.green : const Color(0xFFF59E0B),
+                return InkWell(
+                  onTap: _dialogDiagnosticoEConfiguracao,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                    child: Row(
+                      children: [
+                        Icon(
+                          status.online ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+                          size: 16,
+                          color: status.online ? AppColors.green : const Color(0xFFF59E0B),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            status.mensagem,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: status.online ? AppColors.green : const Color(0xFFF59E0B),
+                            ),
                           ),
                         ),
-                      ),
-                      if (status.ultimaSincronizacao != null)
-                        Text(
-                          DateFormat('HH:mm').format(status.ultimaSincronizacao!),
-                          style: TextStyle(fontSize: 11, color: textSec),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: (status.online ? AppColors.green : const Color(0xFFF59E0B)).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                status.online ? 'Online' : 'Diagnóstico',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: status.online ? AppColors.green : const Color(0xFFF59E0B),
+                                ),
+                              ),
+                              const SizedBox(width: 2),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                size: 12,
+                                color: status.online ? AppColors.green : const Color(0xFFF59E0B),
+                              ),
+                            ],
+                          ),
                         ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               },

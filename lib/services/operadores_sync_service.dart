@@ -10,11 +10,15 @@ import 'database_service.dart';
 class SyncStatus {
   final bool online;
   final String mensagem;
+  final String? detalheErro;
+  final int? statusCode;
   final DateTime? ultimaSincronizacao;
 
   const SyncStatus({
     required this.online,
     required this.mensagem,
+    this.detalheErro,
+    this.statusCode,
     this.ultimaSincronizacao,
   });
 }
@@ -28,6 +32,11 @@ class OperadoresSyncService {
   static const String defaultProjectId = 'caixa-posto-janjao';
   static const String _keyProjectId = 'firebase_firestore_project_id';
   static const String _keyCacheOperadoresJson = 'operadores_cache_json';
+
+  /// Variáveis estáticas de diagnóstico para inspeção na interface
+  static String? ultimoErroDiagnostico;
+  static int? ultimoStatusCode;
+  static String? urlUltimaTentativa;
 
   /// Notificador reativo de status para a interface
   static final ValueNotifier<SyncStatus> statusNotifier = ValueNotifier<SyncStatus>(
@@ -49,6 +58,7 @@ class OperadoresSyncService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_keyProjectId, novoProjectId.trim());
+      debugPrint('[Firestore Sync] Projeto alterado para: ${novoProjectId.trim()}');
     } catch (_) {}
   }
 
@@ -95,15 +105,18 @@ class OperadoresSyncService {
           statusNotifier.value = SyncStatus(
             online: true,
             mensagem: 'Sincronizado com Firestore',
+            statusCode: 200,
             ultimaSincronizacao: DateTime.now(),
           );
           return operadoresNuvem;
         }
       } catch (e) {
-        debugPrint('Aviso: Operando em modo Offline Firestore: $e');
+        debugPrint('[Firestore Sync] ⚠️ Modo Offline ativo. Detalhe: $e');
         statusNotifier.value = SyncStatus(
           online: false,
           mensagem: 'Modo Offline (Cache Local)',
+          detalheErro: ultimoErroDiagnostico ?? e.toString(),
+          statusCode: ultimoStatusCode,
           ultimaSincronizacao: statusNotifier.value.ultimaSincronizacao,
         );
       }
@@ -124,23 +137,26 @@ class OperadoresSyncService {
       statusNotifier.value = SyncStatus(
         online: true,
         mensagem: 'Sincronizado com Nuvem',
+        statusCode: 200,
         ultimaSincronizacao: DateTime.now(),
       );
       return (
         sucesso: true,
-        mensagem: '${operadoresNuvem.length} operadores sincronizados via Firestore.',
+        mensagem: '✅ ${operadoresNuvem.length} operadores sincronizados via Firestore.',
         operadores: operadoresNuvem
       );
     } catch (e) {
       final locais = await DatabaseService.instance.obterOperadoresCache();
       statusNotifier.value = SyncStatus(
         online: false,
-        mensagem: 'Falha na conexão com Firestore',
+        mensagem: 'Modo Offline (Cache Local)',
+        detalheErro: ultimoErroDiagnostico ?? e.toString(),
+        statusCode: ultimoStatusCode,
         ultimaSincronizacao: statusNotifier.value.ultimaSincronizacao,
       );
       return (
         sucesso: false,
-        mensagem: 'Sem conexão com Firestore. Usando cache local (${locais.length} operadores).',
+        mensagem: 'Nuvem indisponível (${ultimoStatusCode != null ? "HTTP $ultimoStatusCode" : "Sem conexão"}). Cache local ativo (${locais.length} operadores).',
         operadores: locais
       );
     }
@@ -149,10 +165,16 @@ class OperadoresSyncService {
   /// Busca os operadores diretamente na API REST do Firestore
   static Future<List<OperadorModel>> _buscarDoFirestore() async {
     final url = await _getUrlColecao();
+    urlUltimaTentativa = url;
+    debugPrint('[Firestore Sync] Conectando à coleção "operadores" via REST...');
+    debugPrint('[Firestore Sync] URL: $url');
+
     final response = await _client.get(
       Uri.parse(url),
       headers: {'Accept': 'application/json'},
-    ).timeout(const Duration(seconds: 8));
+    ).timeout(const Duration(seconds: 6));
+
+    debugPrint('[Firestore Sync] Resposta HTTP: ${response.statusCode}');
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -164,12 +186,27 @@ class OperadoresSyncService {
           lista.add(OperadorModel.fromFirestoreRest(doc));
         }
       }
+      debugPrint('[Firestore Sync] ✅ Sucesso! ${lista.length} operadores encontrados na nuvem.');
+      ultimoErroDiagnostico = null;
+      ultimoStatusCode = 200;
       return lista;
     } else if (response.statusCode == 404) {
-      // Coleção ainda vazia no Firestore
+      debugPrint('[Firestore Sync] Coleção "operadores" ainda vazia no Firestore.');
+      ultimoErroDiagnostico = null;
+      ultimoStatusCode = 404;
       return [];
     } else {
-      throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      final erroBody = response.body;
+      final erroMsg = 'HTTP ${response.statusCode}: $erroBody';
+      ultimoErroDiagnostico = erroMsg;
+      ultimoStatusCode = response.statusCode;
+      debugPrint('[Firestore Sync] ❌ Erro retornado pelo Firestore:');
+      debugPrint('[Firestore Sync] $erroMsg');
+      if (response.statusCode == 403) {
+        debugPrint('[Firestore Sync] Causa provável: Permissão negada no projeto Firestore.');
+        debugPrint('[Firestore Sync] Verifique se o Cloud Firestore foi criado no console Firebase ou se as regras de segurança permitem leitura/escrita.');
+      }
+      throw Exception(erroMsg);
     }
   }
 
