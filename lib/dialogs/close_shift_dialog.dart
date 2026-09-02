@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
+import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/currency_formatter.dart';
+
+typedef DadosFechamentoTurno = ({
+  double vendasSistema,
+  String observacao,
+  String authHash,
+  String fechadoEm,
+});
 
 class CloseShiftDialog extends StatefulWidget {
   final Turno turno;
   final TotaisTurno totais;
-  final ValueChanged<({double vendasSistema, String observacao})> onConfirmarFechamento;
+  final ValueChanged<DadosFechamentoTurno> onConfirmarFechamento;
 
   const CloseShiftDialog({
     super.key,
@@ -23,8 +33,11 @@ class CloseShiftDialog extends StatefulWidget {
 class _CloseShiftDialogState extends State<CloseShiftDialog> {
   late TextEditingController _controllerVendasSistema;
   late TextEditingController _controllerObs;
+  final _controllerPin = TextEditingController();
 
   double _vendasSistema = 0.0;
+  String? _erroPin;
+  bool _validando = false;
 
   @override
   void initState() {
@@ -42,7 +55,57 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
   void dispose() {
     _controllerVendasSistema.dispose();
     _controllerObs.dispose();
+    _controllerPin.dispose();
     super.dispose();
+  }
+
+  void _validarEEncerrar() async {
+    if (_validando) return;
+
+    final pin = _controllerPin.text.trim();
+    if (pin.isEmpty) {
+      HapticFeedback.heavyImpact();
+      setState(() => _erroPin = 'Informe o PIN para fechar o caixa');
+      return;
+    }
+
+    setState(() {
+      _validando = true;
+      _erroPin = null;
+    });
+
+    final valido = await AuthService.validarPin(widget.turno.operador, pin);
+    if (!valido) {
+      HapticFeedback.heavyImpact();
+      if (mounted) {
+        setState(() {
+          _validando = false;
+          _erroPin = 'PIN Incorreto! Fechamento recusado.';
+        });
+        _controllerPin.clear();
+      }
+      return;
+    }
+
+    HapticFeedback.mediumImpact();
+    final now = DateTime.now();
+    final fechadoEm = DateFormat('dd/MM/yyyy HH:mm:ss').format(now);
+    final authHash = AuthService.gerarChaveAutenticacao(
+      operador: widget.turno.operador,
+      turnoId: widget.turno.id ?? 1,
+      totalVendas: widget.totais.totalGeral,
+      timestamp: fechadoEm,
+    );
+
+    if (mounted) {
+      Navigator.of(context).pop();
+      widget.onConfirmarFechamento((
+        vendasSistema: _vendasSistema,
+        observacao: _controllerObs.text.trim(),
+        authHash: authHash,
+        fechadoEm: fechadoEm,
+      ));
+    }
   }
 
   @override
@@ -81,7 +144,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
               color: AppColors.accent.withOpacity(0.15),
               borderRadius: BorderRadius.circular(AppColors.radiusSm),
             ),
-            child: const Icon(Icons.lock_clock_rounded, color: AppColors.accentLight, size: 22),
+            child: const Icon(Icons.verified_user_rounded, color: AppColors.accentLight, size: 22),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -192,7 +255,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                 controller: _controllerObs,
                 maxLines: 2,
                 decoration: InputDecoration(
-                  labelText: 'Observação / Justificativa',
+                  labelText: 'Observação / Justificativa (Opcional)',
                   hintText: 'Ex: Troca de turno, divergência...',
                   prefixIcon: const Icon(Icons.edit_note_rounded),
                   filled: true,
@@ -200,6 +263,77 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppColors.radiusSm),
                   ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // ── Autenticação Obrigatória via PIN Individual ──
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B).withOpacity(0.5) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                  border: Border.all(
+                    color: _erroPin != null
+                        ? AppColors.red
+                        : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+                    width: _erroPin != null ? 1.5 : 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.shield_rounded, size: 18, color: Color(0xFF38BDF8)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Autenticação: ${widget.turno.operador}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: textPri,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Digite seu PIN individual para assinar digitalmente:',
+                      style: TextStyle(fontSize: 11, color: textSec),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _controllerPin,
+                      obscureText: true,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      maxLength: 4,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      style: TextStyle(
+                        fontSize: 22,
+                        letterSpacing: 10,
+                        fontWeight: FontWeight.bold,
+                        color: textPri,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'PIN',
+                        counterText: '',
+                        hintStyle: TextStyle(letterSpacing: 2, fontSize: 13, color: textSec.withOpacity(0.5)),
+                        errorText: _erroPin,
+                        filled: true,
+                        fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+                        isDense: true,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
+                      ),
+                      onChanged: (_) {
+                        if (_erroPin != null) setState(() => _erroPin = null);
+                      },
+                      onSubmitted: (_) => _validarEEncerrar(),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -212,15 +346,12 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
           child: Text('Cancelar', style: TextStyle(color: textSec)),
         ),
         ElevatedButton.icon(
-          onPressed: () {
-            Navigator.of(context).pop();
-            widget.onConfirmarFechamento((
-              vendasSistema: _vendasSistema,
-              observacao: _controllerObs.text.trim(),
-            ));
-          },
-          icon: const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 18),
-          label: const Text('Encerrar Turno', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+          onPressed: _validando ? null : _validarEEncerrar,
+          icon: const Icon(Icons.verified_rounded, color: Colors.white, size: 18),
+          label: Text(
+            _validando ? 'Autenticando...' : 'Autenticar e Fechar',
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.accent,
             shape: RoundedRectangleBorder(
@@ -249,3 +380,4 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
     );
   }
 }
+

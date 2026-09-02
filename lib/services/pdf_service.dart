@@ -11,6 +11,7 @@ import '../models/totais_turno.dart';
 import '../models/turno.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/payment_types.dart';
+import 'auth_service.dart';
 
 class PdfService {
   static pw.Font? _cachedFontRegular;
@@ -507,32 +508,95 @@ class PdfService {
 
                 pw.Spacer(),
 
-                // ── 6. ASSINATURAS DO OPERADOR E GERÊNCIA ──
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Expanded(
-                      child: pw.Column(
-                        children: [
-                          pw.Container(height: 0.6, color: corCinzaBorda),
-                          pw.SizedBox(height: 3),
-                          pw.Text('Assinatura: ${turno.operador}', style: pw.TextStyle(font: fontRegular, fontSize: 6.5, color: corCinzaTexto)),
-                          pw.Text('Operador do Caixa', style: pw.TextStyle(font: fontBold, fontSize: 6, color: corCinzaTexto)),
-                        ],
-                      ),
-                    ),
-                    pw.SizedBox(width: 20),
-                    pw.Expanded(
-                      child: pw.Column(
-                        children: [
-                          pw.Container(height: 0.6, color: corCinzaBorda),
-                          pw.SizedBox(height: 3),
-                          pw.Text('Assinatura: Gerência', style: pw.TextStyle(font: fontRegular, fontSize: 6.5, color: corCinzaTexto)),
-                          pw.Text('Conferência do Fechamento', style: pw.TextStyle(font: fontBold, fontSize: 6, color: corCinzaTexto)),
-                        ],
-                      ),
-                    ),
-                  ],
+                // ── 6. AUTENTICAÇÃO DIGITAL & CONFERÊNCIA DA GERÊNCIA ──
+                pw.Builder(
+                  builder: (context) {
+                    final dataHoraAuth = turno.fechadoEm ?? DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now());
+                    final chaveAuth = turno.authHash ??
+                        AuthService.gerarChaveAutenticacao(
+                          operador: turno.operador,
+                          turnoId: turno.id ?? 1,
+                          totalVendas: totais.totalGeral,
+                          timestamp: dataHoraAuth,
+                        );
+
+                    return pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        // Quadro de Autenticação Digital do Operador
+                        pw.Expanded(
+                          flex: 3,
+                          child: pw.Container(
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                            decoration: pw.BoxDecoration(
+                              color: PdfColor.fromHex('#f8fafc'),
+                              border: pw.Border.all(color: PdfColor.fromHex('#0284c7'), width: 0.8),
+                              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                            ),
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Row(
+                                  children: [
+                                    pw.Container(
+                                      width: 4.5,
+                                      height: 4.5,
+                                      decoration: const pw.BoxDecoration(
+                                        color: PdfColor.fromHex('#0284c7'),
+                                        shape: pw.BoxShape.circle,
+                                      ),
+                                    ),
+                                    pw.SizedBox(width: 4),
+                                    pw.Text(
+                                      'DOCUMENTO AUTENTICADO DIGITALMENTE',
+                                      style: pw.TextStyle(
+                                        font: fontBold,
+                                        fontSize: 6.5,
+                                        color: PdfColor.fromHex('#0369a1'),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                pw.SizedBox(height: 3),
+                                pw.Text(
+                                  'Operador: ${turno.operador} (Assinado via PIN Individual)',
+                                  style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corTextoEscuro),
+                                ),
+                                pw.SizedBox(height: 1),
+                                pw.Text(
+                                  'Data/Hora: $dataHoraAuth',
+                                  style: pw.TextStyle(font: fontRegular, fontSize: 5.8, color: corCinzaTexto),
+                                ),
+                                pw.SizedBox(height: 1),
+                                pw.Text(
+                                  'Chave de Autenticação: $chaveAuth',
+                                  style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: PdfColor.fromHex('#0f172a')),
+                                ),
+                                pw.SizedBox(height: 1),
+                                pw.Text(
+                                  'Status: Turno Homologado e Bloqueado para Alteração',
+                                  style: pw.TextStyle(font: fontBold, fontSize: 5.8, color: PdfColor.fromHex('#15803d')),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        pw.SizedBox(width: 16),
+                        // Assinatura de Conferência da Gerência
+                        pw.Expanded(
+                          flex: 2,
+                          child: pw.Column(
+                            children: [
+                              pw.Container(height: 0.6, color: corCinzaBorda),
+                              pw.SizedBox(height: 3),
+                              pw.Text('Assinatura: Gerência', style: pw.TextStyle(font: fontRegular, fontSize: 6.5, color: corCinzaTexto)),
+                              pw.Text('Conferência do Fechamento', style: pw.TextStyle(font: fontBold, fontSize: 6, color: corCinzaTexto)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 pw.SizedBox(height: 6),
 

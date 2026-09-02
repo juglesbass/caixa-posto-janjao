@@ -35,6 +35,9 @@ dependencies:
   # Preferências Locais (Tema, Máquina Ativa, PIN)
   shared_preferences: ^2.2.3
 
+  # Criptografia e Autenticação SHA-256
+  crypto: ^3.0.3
+
 dependency_overrides:
   sqflite_android: 2.4.0
 

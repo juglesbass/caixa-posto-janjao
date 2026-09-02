@@ -9,6 +9,7 @@ class Turno {
   final double vendasSistema;
   final String observacao;
   final double fundoCaixa;
+  final String? authHash;
 
   Turno({
     this.id,
@@ -20,7 +21,10 @@ class Turno {
     this.vendasSistema = 0.0,
     this.observacao = '',
     this.fundoCaixa = 0.0,
+    this.authHash,
   });
+
+  bool get isFechado => !aberto;
 
   Map<String, dynamic> toMap() {
     return {
@@ -33,6 +37,7 @@ class Turno {
       'vendas_sistema': vendasSistema,
       'observacao': observacao,
       'fundo_caixa': fundoCaixa,
+      'auth_hash': authHash,
     };
   }
 
@@ -47,6 +52,7 @@ class Turno {
       vendasSistema: (map['vendas_sistema'] as num?)?.toDouble() ?? 0.0,
       observacao: map['observacao'] as String? ?? '',
       fundoCaixa: (map['fundo_caixa'] as num?)?.toDouble() ?? 0.0,
+      authHash: map['auth_hash'] as String?,
     );
   }
 
@@ -60,6 +66,7 @@ class Turno {
     double? vendasSistema,
     String? observacao,
     double? fundoCaixa,
+    String? authHash,
   }) {
     return Turno(
       id: id ?? this.id,
@@ -71,6 +78,7 @@ class Turno {
       vendasSistema: vendasSistema ?? this.vendasSistema,
       observacao: observacao ?? this.observacao,
       fundoCaixa: fundoCaixa ?? this.fundoCaixa,
+      authHash: authHash ?? this.authHash,
     );
   }
 }

@@ -4,6 +4,7 @@ import '../dialogs/bloqueio_dialog.dart';
 import '../dialogs/encerrantes_dialog.dart';
 import '../dialogs/reset_dialog.dart';
 import '../dialogs/sangria_dialog.dart';
+import '../dialogs/trocar_pin_dialog.dart';
 import '../dialogs/turnos_anteriores_dialog.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
@@ -132,6 +133,14 @@ class SettingsScreen extends StatelessWidget {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => BloqueioDialog(operador: turno!.operador),
+    );
+  }
+
+  void _abrirTrocarPin(BuildContext context) {
+    if (turno == null) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => TrocarPinDialog(operador: turno!.operador),
     );
   }
 
@@ -339,6 +348,17 @@ class SettingsScreen extends StatelessWidget {
                     titulo: 'Bloquear Caixa',
                     subtitulo: 'Travar tela por ausência do operador',
                     onTap: () => _bloquearCaixa(context),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // 8. Alterar PIN de Segurança
+                  _itemMenuCard(
+                    icon: Icons.password_rounded,
+                    iconColor: const Color(0xFF38BDF8),
+                    iconBg: const Color(0xFF0369A1).withOpacity(0.4),
+                    titulo: 'Alterar PIN de Segurança',
+                    subtitulo: 'Atualizar senha individual do operador ${turno?.operador ?? ""}',
+                    onTap: () => _abrirTrocarPin(context),
                   ),
                   const SizedBox(height: 8),
 

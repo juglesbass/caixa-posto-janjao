@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/turno.dart';
+import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../theme/app_colors.dart';
 
@@ -31,6 +33,104 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
         _turnos = lista;
         _carregando = false;
       });
+    }
+  }
+
+  void _solicitarReabertura(Turno t) async {
+    final controller = TextEditingController();
+    String? erro;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final autorizado = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDlgState) => AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.lightSurface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.lock_open_rounded, color: Color(0xFF38BDF8)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Reabrir Turno #${t.numero}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppColors.lightTextPri,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Digite o PIN de ${t.operador} ou da gerência para autorizar a reabertura:',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                maxLength: 4,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: TextStyle(
+                  fontSize: 20,
+                  letterSpacing: 8,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : AppColors.lightTextPri,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'PIN de 4 dígitos',
+                  counterText: '',
+                  prefixIcon: const Icon(Icons.shield_outlined),
+                  errorText: erro,
+                  filled: true,
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final pin = controller.text.trim();
+                final ok = await AuthService.validarPin(t.operador, pin);
+                if (ok) {
+                  Navigator.of(dialogCtx).pop(true);
+                } else {
+                  HapticFeedback.heavyImpact();
+                  setDlgState(() {
+                    erro = 'PIN incorreto. Acesso negado.';
+                  });
+                  controller.clear();
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB)),
+              child: const Text('Autorizar Reabertura', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (autorizado == true && mounted) {
+      Navigator.of(context).pop();
+      widget.onReabrirTurno(t);
     }
   }
 
@@ -161,10 +261,7 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
                                   ),
                                   if (!statusAberto)
                                     ElevatedButton(
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                        widget.onReabrirTurno(t);
-                                      },
+                                      onPressed: () => _solicitarReabertura(t),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: const Color(0xFF2563EB),
                                         foregroundColor: Colors.white,

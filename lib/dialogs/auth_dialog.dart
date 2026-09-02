@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../dialogs/cadastro_pin_dialog.dart';
+import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/validator.dart';
@@ -24,6 +27,8 @@ class _AuthDialogState extends State<AuthDialog> {
 
   String? _erroNome;
   String? _erroPin;
+  bool _mostrarCampoPin = false;
+  bool _processando = false;
 
   @override
   void dispose() {
@@ -33,7 +38,22 @@ class _AuthDialogState extends State<AuthDialog> {
     super.dispose();
   }
 
+  void _onNomeChanged(String val) async {
+    if (_erroNome != null) setState(() => _erroNome = null);
+    if (Validator.validarNomeOperador(val) == null) {
+      final nomeFormatado = Validator.formatarNomeOperador(val);
+      final temPin = await AuthService.operadorTemPin(nomeFormatado);
+      if (mounted) {
+        setState(() => _mostrarCampoPin = temPin);
+      }
+    } else {
+      if (_mostrarCampoPin) setState(() => _mostrarCampoPin = false);
+    }
+  }
+
   void _confirmar() async {
+    if (_processando) return;
+
     final nomeRaw = _controllerNome.text;
     final erroValidacao = Validator.validarNomeOperador(nomeRaw);
 
@@ -51,24 +71,68 @@ class _AuthDialogState extends State<AuthDialog> {
       return;
     }
 
-    final temPin = widget.pinConfigurado != null &&
-        widget.pinConfigurado!.isNotEmpty &&
-        !widget.novoTurno;
+    final nomeFormatado = Validator.formatarNomeOperador(nomeRaw);
 
-    if (temPin && _controllerPin.text != widget.pinConfigurado) {
-      setState(() {
-        _erroPin = 'PIN incorreto';
-      });
-      return;
+    setState(() {
+      _processando = true;
+      _erroPin = null;
+    });
+
+    // 1. Verifica se o operador já possui PIN individual cadastrado
+    final temPin = await AuthService.operadorTemPin(nomeFormatado);
+
+    if (!temPin) {
+      // ── FLUXO DE 1º ACESSO OBRIGATÓRIO ──
+      setState(() => _processando = false);
+      if (!mounted) return;
+
+      final cadastrou = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => CadastroPinDialog(
+          operador: nomeFormatado,
+          obrigatorio: true,
+        ),
+      );
+
+      if (cadastrou != true) {
+        return; // Não permite prosseguir sem cadastrar
+      }
+    } else {
+      // ── OPERADOR JÁ TEM PIN: EXIGE DIGITAÇÃO E VALIDAÇÃO ──
+      final pinDigitado = _controllerPin.text.trim();
+      if (pinDigitado.isEmpty) {
+        setState(() {
+          _processando = false;
+          _mostrarCampoPin = true;
+          _erroPin = 'Digite seu PIN de 4 dígitos para acessar';
+        });
+        return;
+      }
+
+      final valido = await AuthService.validarPin(nomeFormatado, pinDigitado);
+      if (!valido) {
+        HapticFeedback.heavyImpact();
+        if (mounted) {
+          setState(() {
+            _processando = false;
+            _mostrarCampoPin = true;
+            _erroPin = 'PIN incorreto. Tente novamente.';
+          });
+          _controllerPin.clear();
+        }
+        return;
+      }
     }
 
-    final nomeFormatado = Validator.formatarNomeOperador(nomeRaw);
     final fundo = CurrencyFormatter.parse(_controllerFundo.text);
 
-    Navigator.of(context).pop({
-      'operador': nomeFormatado,
-      'fundoCaixa': fundo,
-    });
+    if (mounted) {
+      Navigator.of(context).pop({
+        'operador': nomeFormatado,
+        'fundoCaixa': fundo,
+      });
+    }
   }
 
   @override
@@ -76,9 +140,6 @@ class _AuthDialogState extends State<AuthDialog> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
     final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
-    final temPin = widget.pinConfigurado != null &&
-        widget.pinConfigurado!.isNotEmpty &&
-        !widget.novoTurno;
 
     return AlertDialog(
       backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.lightSurface,
@@ -158,11 +219,7 @@ class _AuthDialogState extends State<AuthDialog> {
                     borderRadius: BorderRadius.circular(AppColors.radiusSm),
                   ),
                 ),
-                onChanged: (_) {
-                  if (_erroNome != null) {
-                    setState(() => _erroNome = null);
-                  }
-                },
+                onChanged: _onNomeChanged,
                 onSubmitted: (_) => _confirmar(),
               ),
               if (widget.novoTurno) ...[
@@ -184,14 +241,24 @@ class _AuthDialogState extends State<AuthDialog> {
                   onSubmitted: (_) => _confirmar(),
                 ),
               ],
-              if (temPin) ...[
+              if (_mostrarCampoPin) ...[
                 const SizedBox(height: 12),
                 TextField(
                   controller: _controllerPin,
                   obscureText: true,
                   keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  maxLength: 4,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: TextStyle(
+                    fontSize: 20,
+                    letterSpacing: 8,
+                    fontWeight: FontWeight.bold,
+                    color: textPri,
+                  ),
                   decoration: InputDecoration(
-                    labelText: 'PIN de acesso',
+                    labelText: 'PIN de acesso (4 números)',
+                    counterText: '',
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
                     errorText: _erroPin,
                     filled: true,
@@ -221,14 +288,16 @@ class _AuthDialogState extends State<AuthDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               ElevatedButton.icon(
-                onPressed: _confirmar,
+                onPressed: _processando ? null : _confirmar,
                 icon: Icon(
                   widget.novoTurno ? Icons.play_arrow_rounded : Icons.login_rounded,
                   color: Colors.white,
                   size: 20,
                 ),
                 label: Text(
-                  widget.novoTurno ? 'Abrir Turno Agora' : 'Entrar',
+                  _processando
+                      ? 'Autenticando...'
+                      : (widget.novoTurno ? 'Abrir Turno Agora' : 'Entrar'),
                   style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14),
                 ),
                 style: ElevatedButton.styleFrom(

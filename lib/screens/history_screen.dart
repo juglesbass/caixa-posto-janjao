@@ -104,9 +104,38 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Histórico de Vendas (${_lancamentos.length})',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        title: Row(
+          children: [
+            Flexible(
+              child: Text(
+                'Histórico (${_lancamentos.length})',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (widget.turno.isFechado) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.amber.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: AppColors.amber, width: 0.8),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.lock_rounded, size: 11, color: AppColors.amber),
+                    SizedBox(width: 3),
+                    Text(
+                      'FECHADO',
+                      style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: AppColors.amber),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ),
         actions: [
           IconButton(
@@ -178,7 +207,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             final icone = AppColors.getIconeTipo(l.tipo);
 
                             return InkWell(
-                              onTap: () => _abrirEdicao(l),
+                              onTap: () {
+                                if (widget.turno.isFechado) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('🔒 Turno fechado e homologado! Lançamentos bloqueados contra alteração.'),
+                                      backgroundColor: AppColors.amber,
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                _abrirEdicao(l);
+                              },
                               borderRadius: BorderRadius.circular(AppColors.radiusMd),
                               child: Container(
                                 padding: const EdgeInsets.all(12),
@@ -239,7 +280,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                           ),
                                         ),
                                         const SizedBox(height: 2),
-                                        Icon(Icons.edit_outlined, size: 14, color: textSec.withOpacity(0.5)),
+                                        if (widget.turno.isFechado)
+                                          const Tooltip(
+                                            message: 'Turno Fechado - Bloqueado',
+                                            child: Icon(Icons.lock_rounded, size: 14, color: AppColors.amber),
+                                          )
+                                        else
+                                          Icon(Icons.edit_outlined, size: 14, color: textSec.withOpacity(0.5)),
                                       ],
                                     ),
                                   ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/database_service.dart';
+import 'package:flutter/services.dart';
+import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 
 class BloqueioDialog extends StatefulWidget {
@@ -14,6 +15,7 @@ class BloqueioDialog extends StatefulWidget {
 class _BloqueioDialogState extends State<BloqueioDialog> {
   final _pinController = TextEditingController();
   String? _erro;
+  bool _validando = false;
 
   @override
   void dispose() {
@@ -22,16 +24,33 @@ class _BloqueioDialogState extends State<BloqueioDialog> {
   }
 
   void _desbloquear() async {
-    final db = DatabaseService.instance;
-    final pinSalvo = await db.getConfig('pin_acesso');
+    if (_validando) return;
     final pinDigitado = _pinController.text.trim();
 
-    if (pinSalvo.isEmpty || pinDigitado == pinSalvo) {
+    if (pinDigitado.isEmpty) {
+      setState(() => _erro = 'Informe o PIN de 4 dígitos');
+      return;
+    }
+
+    setState(() {
+      _validando = true;
+      _erro = null;
+    });
+
+    final valido = await AuthService.validarPin(widget.operador, pinDigitado);
+
+    if (valido) {
+      HapticFeedback.mediumImpact();
       if (mounted) Navigator.of(context).pop(true);
     } else {
-      setState(() {
-        _erro = 'PIN incorreto. Tente novamente.';
-      });
+      HapticFeedback.heavyImpact();
+      if (mounted) {
+        setState(() {
+          _validando = false;
+          _erro = 'PIN Incorreto. Acesso Negado!';
+        });
+        _pinController.clear();
+      }
     }
   }
 

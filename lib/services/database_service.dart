@@ -70,6 +70,9 @@ class DatabaseService {
         PRIMARY KEY (turno_id, bico)
       )
     ''');
+    try {
+      await db.execute('ALTER TABLE turnos ADD COLUMN auth_hash TEXT');
+    } catch (_) {}
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -83,7 +86,8 @@ class DatabaseService {
         fechado_em TEXT,
         vendas_sistema REAL DEFAULT 0.0,
         observacao TEXT DEFAULT '',
-        fundo_caixa REAL DEFAULT 0.0
+        fundo_caixa REAL DEFAULT 0.0,
+        auth_hash TEXT
       )
     ''');
 
@@ -207,9 +211,11 @@ class DatabaseService {
     int turnoId, {
     double vendasSistema = 0.0,
     String observacao = '',
+    String? authHash,
+    String? dataFechamento,
   }) async {
     final db = await database;
-    final fechadoEm = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+    final fechadoEm = dataFechamento ?? DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now());
     await db.update(
       'turnos',
       {
@@ -217,6 +223,7 @@ class DatabaseService {
         'fechado_em': fechadoEm,
         'vendas_sistema': vendasSistema,
         'observacao': observacao,
+        if (authHash != null) 'auth_hash': authHash,
       },
       where: 'id = ?',
       whereArgs: [turnoId],

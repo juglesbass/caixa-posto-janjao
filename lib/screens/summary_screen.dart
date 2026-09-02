@@ -7,6 +7,7 @@ import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../dialogs/close_shift_dialog.dart';
 import '../dialogs/drive_failure_dialog.dart';
 import '../models/lancamento.dart';
 import '../models/totais_turno.dart';
@@ -273,73 +274,37 @@ class _SummaryScreenState extends State<SummaryScreen> {
     }
   }
 
-  // 5. Encerrar Turno com Animação e Feedback Imediato
+  // 5. Encerrar Turno com Autenticação de PIN e Assinatura Digital SHA-256
   void _encerrarTurno() async {
     if (!widget.turno.aberto) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Este turno já está encerrado.'), backgroundColor: AppColors.amber),
+        const SnackBar(
+          content: Text('🔒 Este turno já foi homologado e encerrado!'),
+          backgroundColor: AppColors.amber,
+        ),
       );
       return;
     }
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final confirmar = await showDialog<bool>(
+    DadosFechamentoTurno? dadosFechamento;
+    await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.lightSurface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder),
-        ),
-        title: Row(
-          children: [
-            const Icon(Icons.lock_rounded, color: Color(0xFF38BDF8)),
-            const SizedBox(width: 8),
-            Text(
-              'Encerrar Turno?',
-              style: TextStyle(
-                color: isDark ? Colors.white : AppColors.lightTextPri,
-                fontWeight: FontWeight.bold,
-                fontSize: 17,
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          'Deseja fechar o Turno #${widget.turno.numero} do operador ${widget.turno.operador}?\n\n'
-          'Total Pista: ${CurrencyFormatter.formatar(widget.totais.totalGeral)}\n'
-          'Vendas Sistema: ${CurrencyFormatter.formatar(_vendasSistema)}\n'
-          'Diferença: ${CurrencyFormatter.formatar(_diferencaAtual)}',
-          style: TextStyle(
-            color: isDark ? const Color(0xFFCBD5E1) : AppColors.lightTextSec,
-            fontSize: 13,
-            height: 1.4,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(
-              'Cancelar',
-              style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text('Sim, Encerrar Turno', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
+      barrierDismissible: true,
+      builder: (ctx) => CloseShiftDialog(
+        turno: widget.turno,
+        totais: _totaisAtualizados,
+        onConfirmarFechamento: (dados) {
+          dadosFechamento = dados;
+        },
       ),
     );
 
-    if (confirmar != true) return;
+    if (dadosFechamento == null) return;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Diálogo de Progresso Animado
-    final progressoNotifier = ValueNotifier<String>('Fechando turno no banco de dados...');
+    final progressoNotifier = ValueNotifier<String>('Autenticando e gravando turno no banco...');
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -375,7 +340,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'ENCERRANDO TURNO',
+                      'HOMOLOGANDO TURNO',
                       style: TextStyle(
                         color: isDark ? Colors.white : AppColors.lightTextPri,
                         fontWeight: FontWeight.w900,
@@ -409,20 +374,22 @@ class _SummaryScreenState extends State<SummaryScreen> {
       final results = await Future.wait([
         db.fecharTurno(
           widget.turno.id!,
-          vendasSistema: _vendasSistema,
-          observacao: _observacao,
+          vendasSistema: dadosFechamento!.vendasSistema,
+          observacao: dadosFechamento!.observacao,
+          authHash: dadosFechamento!.authHash,
+          dataFechamento: dadosFechamento!.fechadoEm,
         ),
         db.obterLancamentos(widget.turno.id!),
       ]);
       final lancamentos = results[1] as List<Lancamento>;
 
-      progressoNotifier.value = 'Gerando relatório PDF corporativo...';
-      final dataHoraFechamento = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+      progressoNotifier.value = 'Gerando relatório PDF autenticado digitalmente...';
       final turnoFechado = widget.turno.copyWith(
         aberto: false,
-        vendasSistema: _vendasSistema,
-        observacao: _observacao,
-        fechadoEm: dataHoraFechamento,
+        vendasSistema: dadosFechamento!.vendasSistema,
+        observacao: dadosFechamento!.observacao,
+        fechadoEm: dadosFechamento!.fechadoEm,
+        authHash: dadosFechamento!.authHash,
       );
 
       final nomeArquivo = PdfService.gerarNomeArquivo(turno: turnoFechado);
@@ -1361,75 +1328,93 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                     ),
                                   ),
 
-                                  // Botão Editar
-                                  IconButton(
-                                    icon: const Icon(Icons.edit_outlined, size: 19, color: Color(0xFF38BDF8)),
-                                    tooltip: 'Editar valor',
-                                    onPressed: () async {
-                                      final result = await _editarLancamentoDialog(context, l);
-                                      if (result != null) {
-                                        await db.atualizarLancamento(
-                                          l.id!,
-                                          widget.turno.id!,
-                                          l.tipo,
-                                          result.valor,
-                                          result.descricao,
-                                        );
-                                        widget.onTurnoAlterado();
-                                        final atualizados = await db.obterLancamentos(widget.turno.id!);
-                                        setSheetState(() {
-                                          lancamentosBandeira = ehPix
+                                  if (!widget.turno.aberto)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF78350F).withOpacity(0.3),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: const Color(0xFFF59E0B), width: 0.8),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.lock_rounded, size: 13, color: Color(0xFFFBBF24)),
+                                          SizedBox(width: 4),
+                                          Text('Bloqueado', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFFBBF24))),
+                                        ],
+                                      ),
+                                    )
+                                  else ...[
+                                    // Botão Editar
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_outlined, size: 19, color: Color(0xFF38BDF8)),
+                                      tooltip: 'Editar valor',
+                                      onPressed: () async {
+                                        final result = await _editarLancamentoDialog(context, l);
+                                        if (result != null) {
+                                          await db.atualizarLancamento(
+                                            l.id!,
+                                            widget.turno.id!,
+                                            l.tipo,
+                                            result.valor,
+                                            result.descricao,
+                                          );
+                                          widget.onTurnoAlterado();
+                                          final atualizados = await db.obterLancamentos(widget.turno.id!);
+                                          setSheetState(() {
+                                            lancamentosBandeira = ehPix
+                                                ? atualizados.where((item) => PaymentTypes.ehPix(item.tipo)).toList()
+                                                : atualizados.where((item) => item.tipo == bandeira).toList();
+                                          });
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(
+                                                content: Text('✅ Lançamento atualizado com sucesso!'),
+                                                backgroundColor: AppColors.green,
+                                                duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
+                                    ),
+
+                                    // Botão Excluir
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline_rounded, size: 19, color: AppColors.red),
+                                      tooltip: 'Excluir lançamento',
+                                      onPressed: () async {
+                                        final confirmar = await _confirmarExclusaoDialog(context, l);
+                                        if (confirmar == true) {
+                                          await db.deletarLancamento(l.id!, widget.turno.id!);
+                                          widget.onTurnoAlterado();
+                                          final atualizados = await db.obterLancamentos(widget.turno.id!);
+                                          final restantes = ehPix
                                               ? atualizados.where((item) => PaymentTypes.ehPix(item.tipo)).toList()
                                               : atualizados.where((item) => item.tipo == bandeira).toList();
-                                        });
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('✅ Lançamento atualizado com sucesso!'),
-                                              backgroundColor: AppColors.green,
-                                              duration: Duration(seconds: 2),
-                                            ),
-                                          );
-                                        }
-                                      }
-                                    },
-                                  ),
-
-                                  // Botão Excluir
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline_rounded, size: 19, color: AppColors.red),
-                                    tooltip: 'Excluir lançamento',
-                                    onPressed: () async {
-                                      final confirmar = await _confirmarExclusaoDialog(context, l);
-                                      if (confirmar == true) {
-                                        await db.deletarLancamento(l.id!, widget.turno.id!);
-                                        widget.onTurnoAlterado();
-                                        final atualizados = await db.obterLancamentos(widget.turno.id!);
-                                        final restantes = ehPix
-                                            ? atualizados.where((item) => PaymentTypes.ehPix(item.tipo)).toList()
-                                            : atualizados.where((item) => item.tipo == bandeira).toList();
-                                        if (restantes.isEmpty) {
-                                          if (mounted && Navigator.canPop(sheetContext)) {
-                                            Navigator.pop(sheetContext);
+                                          if (restantes.isEmpty) {
+                                            if (mounted && Navigator.canPop(sheetContext)) {
+                                              Navigator.pop(sheetContext);
+                                            }
+                                          } else {
+                                            setSheetState(() {
+                                              lancamentosBandeira = restantes;
+                                            });
                                           }
-                                        } else {
-                                          setSheetState(() {
-                                            lancamentosBandeira = restantes;
-                                          });
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(
+                                                content: Text('🗑️ Lançamento excluído com sucesso!'),
+                                                backgroundColor: AppColors.red,
+                                                duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                          }
                                         }
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('🗑️ Lançamento excluído com sucesso!'),
-                                              backgroundColor: AppColors.orange,
-                                              duration: Duration(seconds: 2),
-                                            ),
-                                          );
-                                        }
-                                      }
-                                    },
-                                  ),
-                                ],
+                                      },
+                                    ),
+                                  ],
                               ),
                             );
                           },
