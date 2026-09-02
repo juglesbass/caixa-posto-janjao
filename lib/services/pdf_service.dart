@@ -125,7 +125,7 @@ class PdfService {
         ? (36.0 + (qtdItensCartoes * 14.0))
         : 38.0;
     final double alturaExtraObs = turno.observacao.trim().isNotEmpty ? 32.0 : 0.0;
-    const double alturaBaseComponentesFixos = 360.0;
+    const double alturaBaseComponentesFixos = 370.0;
     final double alturaTotalCalculada = alturaBaseComponentesFixos + alturaItensCartoes + alturaExtraObs;
 
     doc.addPage(
@@ -454,44 +454,51 @@ class PdfService {
                 ),
                 pw.SizedBox(height: 3),
 
-                // Diferença
+                // ── 5. FAIXA DE RESULTADO (PISTA VS PDV) COM CORES DINÂMICAS ──
+                final diferencaValor = totais.diferenca;
+                final bool isCaixaZerado = diferencaValor.abs() < 0.01;
+                final bool isSobra = diferencaValor > 0.01;
+
+                final PdfColor faixaBg = isCaixaZerado
+                    ? PdfColors.green800
+                    : (isSobra ? PdfColors.orange900 : PdfColors.red800);
+
+                final PdfColor faixaBorder = isCaixaZerado
+                    ? PdfColor.fromHex('#14532d')
+                    : (isSobra ? PdfColor.fromHex('#7c2d12') : PdfColor.fromHex('#7f1d1d'));
+
+                final String faixaLabel = isCaixaZerado
+                    ? 'CAIXA EXATO (ZERADO):'
+                    : (isSobra ? 'SOBRA NA PISTA:' : 'FALTA NA PISTA:');
+
+                final String faixaValorTexto = isCaixaZerado
+                    ? 'R\$ 0,00'
+                    : CurrencyFormatter.formatar(diferencaValor);
+
                 pw.Container(
                   padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: pw.BoxDecoration(
-                    color: totais.diferenca.abs() < 0.01
-                        ? PdfColor.fromHex('#064e3b')
-                        : (totais.diferenca > 0 ? PdfColor.fromHex('#78350f') : PdfColor.fromHex('#7f1d1d')),
+                    color: faixaBg,
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
-                    border: pw.Border.all(
-                      color: totais.diferenca.abs() < 0.01
-                          ? PdfColor.fromHex('#10b981')
-                          : (totais.diferenca > 0 ? PdfColor.fromHex('#f59e0b') : PdfColor.fromHex('#ef4444')),
-                      width: 1.0,
-                    ),
+                    border: pw.Border.all(color: faixaBorder, width: 1.0),
                   ),
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
                       pw.Text(
-                        totais.diferenca.abs() < 0.01
-                            ? 'CAIXA 100% BATIDO (SEM DIFERENÇA):'
-                            : (totais.diferenca > 0 ? 'SOBRA NA PISTA:' : 'FALTA NA PISTA:'),
+                        faixaLabel,
                         style: pw.TextStyle(
                           font: fontBold,
                           fontSize: 8,
-                          color: totais.diferenca.abs() < 0.01
-                              ? PdfColor.fromHex('#d1fae5')
-                              : (totais.diferenca > 0 ? PdfColor.fromHex('#fef3c7') : PdfColor.fromHex('#fee2e2')),
+                          color: PdfColors.white,
                         ),
                       ),
                       pw.Text(
-                        CurrencyFormatter.formatar(totais.diferenca),
+                        faixaValorTexto,
                         style: pw.TextStyle(
                           font: fontBold,
                           fontSize: 10,
-                          color: totais.diferenca.abs() < 0.01
-                              ? PdfColor.fromHex('#d1fae5')
-                              : (totais.diferenca > 0 ? PdfColor.fromHex('#fef3c7') : PdfColor.fromHex('#fee2e2')),
+                          color: PdfColors.white,
                         ),
                       ),
                     ],
@@ -519,15 +526,16 @@ class PdfService {
 
                 pw.SizedBox(height: 12),
 
-                // ── 6. AUTENTICAÇÃO DIGITAL & CONFERÊNCIA DA GERÊNCIA ──
+                // ── 6. AUTENTICAÇÃO DIGITAL & CONFERÊNCIA DA GERÊNCIA (SIMETRIA TOTAL) ──
                 pw.Row(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    // Quadro de Autenticação Digital do Operador
+                    // Quadro de Autenticação Digital do Operador (com Mini QR Code)
                     pw.Expanded(
-                      flex: 3,
+                      flex: 12,
                       child: pw.Container(
-                        padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                        height: 56,
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4.5),
                         decoration: pw.BoxDecoration(
                           color: PdfColor.fromHex('#f8fafc'),
                           border: pw.Border.all(color: PdfColor.fromHex('#0284c7'), width: 0.8),
@@ -535,6 +543,7 @@ class PdfService {
                         ),
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                           children: [
                             pw.Row(
                               children: [
@@ -546,52 +555,127 @@ class PdfService {
                                     shape: pw.BoxShape.circle,
                                   ),
                                 ),
-                                pw.SizedBox(width: 4),
+                                pw.SizedBox(width: 3.5),
                                 pw.Text(
                                   'DOCUMENTO AUTENTICADO DIGITALMENTE',
                                   style: pw.TextStyle(
                                     font: fontBold,
-                                    fontSize: 6.5,
+                                    fontSize: 6,
                                     color: PdfColor.fromHex('#0369a1'),
                                   ),
                                 ),
                               ],
                             ),
-                            pw.SizedBox(height: 3),
-                            pw.Text(
-                              'Operador: ${turno.operador} (Assinado via PIN Individual)',
-                              style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corTextoEscuro),
-                            ),
-                            pw.SizedBox(height: 1),
-                            pw.Text(
-                              'Data/Hora: $dataHoraAuth',
-                              style: pw.TextStyle(font: fontRegular, fontSize: 5.8, color: corCinzaTexto),
-                            ),
-                            pw.SizedBox(height: 1),
-                            pw.Text(
-                              'Chave de Autenticação: $chaveAuth',
-                              style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: PdfColor.fromHex('#0f172a')),
-                            ),
-                            pw.SizedBox(height: 1),
-                            pw.Text(
-                              'Status: Turno Homologado e Bloqueado para Alteração',
-                              style: pw.TextStyle(font: fontBold, fontSize: 5.8, color: PdfColor.fromHex('#15803d')),
+                            pw.Row(
+                              crossAxisAlignment: pw.CrossAxisAlignment.center,
+                              children: [
+                                pw.Expanded(
+                                  child: pw.Column(
+                                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                    children: [
+                                      pw.Text(
+                                        'Operador: ${turno.operador}',
+                                        style: pw.TextStyle(font: fontBold, fontSize: 6, color: corTextoEscuro),
+                                        maxLines: 1,
+                                      ),
+                                      pw.Text(
+                                        'Data/Hora: $dataHoraAuth',
+                                        style: pw.TextStyle(font: fontRegular, fontSize: 5.4, color: corCinzaTexto),
+                                      ),
+                                      pw.Text(
+                                        'Chave: $chaveAuth',
+                                        style: pw.TextStyle(font: fontBold, fontSize: 5.8, color: PdfColor.fromHex('#0f172a')),
+                                      ),
+                                      pw.Text(
+                                        'Status: Homologado via PIN Individual',
+                                        style: pw.TextStyle(font: fontBold, fontSize: 5.4, color: PdfColor.fromHex('#15803d')),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                pw.SizedBox(width: 4),
+                                pw.Container(
+                                  width: 32,
+                                  height: 32,
+                                  child: pw.BarcodeWidget(
+                                    barcode: pw.Barcode.qrCode(),
+                                    data: (turno.authHash != null && turno.authHash!.trim().isNotEmpty)
+                                        ? turno.authHash!
+                                        : chaveAuth,
+                                    drawText: false,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
                     ),
-                    pw.SizedBox(width: 16),
-                    // Assinatura de Conferência da Gerência
+                    pw.SizedBox(width: 8),
+
+                    // Quadro Simétrico de Conferência da Gerência
                     pw.Expanded(
-                      flex: 2,
-                      child: pw.Column(
-                        children: [
-                          pw.Container(height: 0.6, color: corCinzaBorda),
-                          pw.SizedBox(height: 3),
-                          pw.Text('Assinatura: Gerência', style: pw.TextStyle(font: fontRegular, fontSize: 6.5, color: corCinzaTexto)),
-                          pw.Text('Conferência do Fechamento', style: pw.TextStyle(font: fontBold, fontSize: 6, color: corCinzaTexto)),
-                        ],
+                      flex: 8,
+                      child: pw.Container(
+                        height: 56,
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4.5),
+                        decoration: pw.BoxDecoration(
+                          color: PdfColor.fromHex('#f8fafc'),
+                          border: pw.Border.all(color: PdfColor.fromHex('#cbd5e1'), width: 0.8),
+                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                        ),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          children: [
+                            pw.Row(
+                              children: [
+                                pw.Container(
+                                  width: 4.5,
+                                  height: 4.5,
+                                  decoration: pw.BoxDecoration(
+                                    color: PdfColor.fromHex('#64748b'),
+                                    shape: pw.BoxShape.circle,
+                                  ),
+                                ),
+                                pw.SizedBox(width: 3.5),
+                                pw.Text(
+                                  'CONFERÊNCIA DA GERÊNCIA',
+                                  style: pw.TextStyle(
+                                    font: fontBold,
+                                    fontSize: 6,
+                                    color: PdfColor.fromHex('#334155'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            pw.Row(
+                              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                              children: [
+                                pw.Text(
+                                  'Status: Conferência Pendente',
+                                  style: pw.TextStyle(font: fontBold, fontSize: 5.5, color: PdfColor.fromHex('#b45309')),
+                                ),
+                                pw.Text(
+                                  'Visto Interno',
+                                  style: pw.TextStyle(font: fontRegular, fontSize: 5.2, color: corCinzaTexto),
+                                ),
+                              ],
+                            ),
+                            pw.Column(
+                              children: [
+                                pw.Container(height: 0.6, color: PdfColor.fromHex('#94a3b8')),
+                                pw.SizedBox(height: 1.5),
+                                pw.Center(
+                                  child: pw.Text(
+                                    'Rubrica / Assinatura da Gerência',
+                                    style: pw.TextStyle(font: fontRegular, fontSize: 5.2, color: corCinzaTexto),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
