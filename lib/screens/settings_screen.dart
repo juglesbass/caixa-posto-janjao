@@ -45,10 +45,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool get isDark => widget.isDark;
-  bool _adminLiberado = false;
   final _controllerPinMestre = TextEditingController();
-  String? _erroPinMestre;
-  bool _validandoPinMestre = false;
 
   @override
   void dispose() {
@@ -197,32 +194,199 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _desbloquearComPinMestre() async {
-    final p = _controllerPinMestre.text.trim();
-    if (p.length != 4) {
-      setState(() => _erroPinMestre = 'Informe os 4 dígitos do PIN');
+  void _solicitarAcessoGerencia(BuildContext context) {
+    _controllerPinMestre.clear();
+    String? erroLocal;
+    bool validandoLocal = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final isDark = widget.isDark;
+            final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+            final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+
+            return AlertDialog(
+              backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: const Color(0xFFF59E0B).withOpacity(0.4),
+                  width: 1.2,
+                ),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.admin_panel_settings_rounded,
+                      color: Color(0xFFF59E0B),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Área Restrita da Gerência',
+                          style: TextStyle(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w900,
+                            color: textPri,
+                          ),
+                        ),
+                        Text(
+                          'Informe o PIN Mestre (4 dígitos)',
+                          style: TextStyle(fontSize: 11, color: textSec),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Digite a senha administrativa para acessar o painel restrito de configurações e segurança:',
+                    style: TextStyle(fontSize: 12.5, color: textSec, height: 1.3),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _controllerPinMestre,
+                    obscureText: true,
+                    autofocus: true,
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    textAlign: TextAlign.center,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    style: TextStyle(
+                      fontSize: 24,
+                      letterSpacing: 10,
+                      fontWeight: FontWeight.w900,
+                      color: textPri,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: '••••',
+                      counterText: '',
+                      errorText: erroLocal,
+                      filled: true,
+                      fillColor: isDark ? const Color(0xFF090D16) : const Color(0xFFF8FAFC),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFFF59E0B), width: 1.8),
+                      ),
+                    ),
+                    onSubmitted: (_) => _validarEEntrarGerencia(
+                      dialogCtx,
+                      setDialogState,
+                      (err) => erroLocal = err,
+                      (v) => validandoLocal = v,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogCtx).pop(),
+                  child: Text('Cancelar', style: TextStyle(color: textSec)),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF59E0B),
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: validandoLocal
+                      ? null
+                      : () => _validarEEntrarGerencia(
+                            dialogCtx,
+                            setDialogState,
+                            (err) => erroLocal = err,
+                            (v) => validandoLocal = v,
+                          ),
+                  icon: validandoLocal
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                        )
+                      : const Icon(Icons.lock_open_rounded, size: 18),
+                  label: const Text('Acessar Painel', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _validarEEntrarGerencia(
+    BuildContext dialogCtx,
+    StateSetter setDialogState,
+    void Function(String?) setErro,
+    void Function(bool) setValidando,
+  ) async {
+    final pin = _controllerPinMestre.text.trim();
+    if (pin.length != 4) {
+      setDialogState(() => setErro('Informe os 4 dígitos do PIN'));
       return;
     }
-    setState(() {
-      _validandoPinMestre = true;
-      _erroPinMestre = null;
+    setDialogState(() {
+      setValidando(true);
+      setErro(null);
     });
-    final ok = await AuthService.validarPinGerente(p);
-    if (!mounted) return;
+
+    final ok = await AuthService.validarPinGerente(pin);
+    if (!dialogCtx.mounted) return;
+
     if (!ok) {
       AppHaptics.heavy();
-      setState(() {
-        _validandoPinMestre = false;
-        _erroPinMestre = 'PIN Mestre Incorreto!';
+      setDialogState(() {
+        setValidando(false);
+        setErro('PIN Mestre Incorreto!');
       });
       _controllerPinMestre.clear();
       return;
     }
+
     AppHaptics.light();
-    setState(() {
-      _validandoPinMestre = false;
-      _adminLiberado = true;
-    });
+    Navigator.of(dialogCtx).pop();
+    _controllerPinMestre.clear();
+
+    if (mounted) {
+      _abrirPainelGerencia(context);
+    }
+  }
+
+  void _abrirPainelGerencia(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => _PainelGerenciaPage(
+          isDark: widget.isDark,
+          turno: widget.turno,
+          totais: widget.totais,
+          onAlterarPinMestre: () => _abrirAlterarPinMestre(ctx),
+          onGestaoOperadores: () => _abrirGestaoOperadores(ctx),
+          onAnalytics: () => _abrirAnalytics(ctx),
+          onExportarCsv: () => _exportarCsv(ctx),
+          onLimparZerarTudo: () => _limparZerarTudo(ctx),
+        ),
+      ),
+    );
   }
 
   Future<void> _abrirAlterarPinMestre(BuildContext context) async {
@@ -554,139 +718,117 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Widget _construirTelaBloqueio(BuildContext context) {
-    final isDark = widget.isDark;
-    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
-    final bgScaffold = isDark ? const Color(0xFF090D16) : AppColors.lightBg;
-
-    return Scaffold(
-      backgroundColor: bgScaffold,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 420),
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 28),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF111420) : Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+  Widget _cardAreaGerencia(BuildContext context, bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? [const Color(0xFF1C1917), const Color(0xFF292524)]
+              : [const Color(0xFFFFFBEB), const Color(0xFFFEF3C7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFFF59E0B).withOpacity(isDark ? 0.8 : 0.6),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF59E0B).withOpacity(isDark ? 0.12 : 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            AppHaptics.light();
+            _solicitarAcessoGerencia(context);
+          },
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withOpacity(0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+                  ),
+                  child: const Icon(
+                    Icons.admin_panel_settings_rounded,
+                    color: Color(0xFFF59E0B),
+                    size: 24,
+                  ),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFF59E0B).withOpacity(0.08),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withOpacity(0.15),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFF59E0B), width: 2),
-                    ),
-                    child: const Icon(
-                      Icons.admin_panel_settings_rounded,
-                      color: Color(0xFFF59E0B),
-                      size: 34,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Área Restrita da Gerência',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: textPri,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Digite o PIN Mestre Administrativo de 4 dígitos para ter acesso às configurações restritas do posto:',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: textSec,
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  TextField(
-                    controller: _controllerPinMestre,
-                    obscureText: true,
-                    autofocus: true,
-                    keyboardType: TextInputType.number,
-                    maxLength: 4,
-                    textAlign: TextAlign.center,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    style: TextStyle(
-                      fontSize: 26,
-                      letterSpacing: 12,
-                      fontWeight: FontWeight.w900,
-                      color: textPri,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: '••••',
-                      counterText: '',
-                      errorText: _erroPinMestre,
-                      filled: true,
-                      fillColor: isDark ? const Color(0xFF090D16) : const Color(0xFFF8FAFC),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onSubmitted: (_) => _desbloquearComPinMestre(),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      icon: _validandoPinMestre
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                            )
-                          : const Icon(Icons.lock_open_rounded, size: 20),
-                      label: Text(
-                        _validandoPinMestre ? 'Verificando...' : 'Liberar Configurações',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Área da Gerência',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: const Color(0xFFF59E0B).withOpacity(0.4),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: const Text(
+                              'RESTRITO',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFFF59E0B),
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF59E0B),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Configurações administrativas e segurança',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: isDark ? const Color(0xFFD6D3D1) : const Color(0xFF78716C),
+                        ),
                       ),
-                      onPressed: _validandoPinMestre ? null : _desbloquearComPinMestre,
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () {
-                      if (widget.onFechar != null) {
-                        widget.onFechar!();
-                      } else {
-                        Navigator.maybePop(context);
-                      }
-                    },
-                    child: Text(
-                      'Voltar ao Caixa',
-                      style: TextStyle(color: textSec, fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ],
-              ),
+                  child: const Icon(
+                    Icons.lock_rounded,
+                    color: Color(0xFFF59E0B),
+                    size: 18,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -696,10 +838,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_adminLiberado) {
-      return _construirTelaBloqueio(context);
-    }
-
     final isDark = widget.isDark;
     final bgScaffold = isDark ? const Color(0xFF090D16) : AppColors.lightBg;
     final textPri = isDark ? Colors.white : AppColors.lightTextPri;
@@ -711,7 +849,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // ── Barra Superior com Ícone de Sliders e Fechar ──
+            // ── Barra Superior com Ícone de Menu e Fechar ──
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
@@ -722,14 +860,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       color: const Color(0xFF1E3A8A).withOpacity(0.4),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Icon(Icons.tune_rounded, color: Color(0xFF38BDF8), size: 18),
+                    child: const Icon(Icons.widgets_rounded, color: Color(0xFF38BDF8), size: 18),
                   ),
                   const SizedBox(width: 10),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Painel da Gerência',
+                        'Menu de Ações',
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
@@ -738,33 +876,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                       Text(
-                        'Configurações administrativas e segurança',
+                        'Operações do caixa e atalhos rápidos',
                         style: TextStyle(fontSize: 11, color: textSec),
                       ),
                     ],
                   ),
                   const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.lock_outline_rounded, color: Color(0xFFF59E0B)),
-                    tooltip: 'Bloquear Painel',
-                    onPressed: () {
-                      AppHaptics.light();
-                      setState(() {
-                        _adminLiberado = false;
-                        _controllerPinMestre.clear();
-                      });
-                    },
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close_rounded, color: textSec),
-                    onPressed: () {
-                      if (widget.onFechar != null) {
-                        widget.onFechar!();
-                      } else {
-                        Navigator.maybePop(context);
-                      }
-                    },
-                  ),
+                  if (widget.onFechar != null)
+                    IconButton(
+                      icon: Icon(Icons.close_rounded, color: textSec),
+                      onPressed: widget.onFechar,
+                    ),
                 ],
               ),
             ),
@@ -773,37 +895,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // ── Lista de Opções do Menu ──
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 children: [
-                  // ── GESTÃO ADMINISTRATIVA E PIN MESTRE ──
-                  _itemMenuCard(
-                    icon: Icons.key_rounded,
-                    iconColor: const Color(0xFFF59E0B),
-                    iconBg: const Color(0xFF78350F).withOpacity(0.4),
-                    titulo: 'Alterar PIN Mestre da Gerência',
-                    subtitulo: 'Modificar a senha administrativa mestre (SHA-256)',
-                    onTap: () => _abrirAlterarPinMestre(context),
+                  // ── 1. CARD DESTACADO NO TOPO: ÁREA DA GERÊNCIA (PIN MESTRE) ──
+                  _cardAreaGerencia(context, isDark),
+                  const SizedBox(height: 16),
+
+                  // ── 2. RECURSOS OPERACIONAIS DA PISTA ──
+                  Row(
+                    children: [
+                      Text(
+                        'OPERAÇÕES DO CAIXA',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: textSec,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
 
+                  // 1. Sangria de Caixa
                   _itemMenuCard(
-                    icon: Icons.badge_rounded,
-                    iconColor: const Color(0xFF38BDF8),
-                    iconBg: const Color(0xFF0369A1).withOpacity(0.4),
-                    titulo: 'Gestão de Operadores & Senhas',
-                    subtitulo: 'Visualizar operadores cadastrados e redefinir PINs',
-                    onTap: () => _abrirGestaoOperadores(context),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // 1. Tabela de Códigos / Produtos (Novo)
-                  _itemMenuCard(
-                    icon: Icons.shopping_bag_rounded,
-                    iconColor: const Color(0xFF38BDF8),
-                    iconBg: const Color(0xFF0C4A6E).withOpacity(0.4),
-                    titulo: 'Tabela de Códigos / Produtos',
-                    subtitulo: 'Consulta rápida por código ou nome do produto',
-                    onTap: () => _abrirConsultaProdutos(context),
+                    icon: Icons.north_east_rounded,
+                    iconColor: const Color(0xFFEA580C),
+                    iconBg: const Color(0xFF7C2D12).withOpacity(0.4),
+                    titulo: 'Sangria de Caixa',
+                    subtitulo: 'Registrar retirada de dinheiro para o cofre',
+                    onTap: () => _abrirSangria(context),
                   ),
                   const SizedBox(height: 8),
 
@@ -818,83 +939,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // 3. Sangria de Caixa
+                  // 3. Tabela de Códigos / Produtos
                   _itemMenuCard(
-                    icon: Icons.north_east_rounded,
-                    iconColor: const Color(0xFFEA580C),
-                    iconBg: const Color(0xFF7C2D12).withOpacity(0.4),
-                    titulo: 'Sangria de Caixa',
-                    subtitulo: 'Registrar retirada de dinheiro para o cofre',
-                    onTap: () => _abrirSangria(context),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // 4. Analytics & Desempenho
-                  _itemMenuCard(
-                    icon: Icons.auto_graph_rounded,
-                    iconColor: const Color(0xFFA855F7),
-                    iconBg: const Color(0xFF581C87).withOpacity(0.4),
-                    titulo: 'Analytics & Desempenho',
-                    subtitulo: 'Gráficos de vendas, ticket médio e formas',
-                    onTap: () => _abrirAnalytics(context),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // 5. Exportar Planilha Excel (CSV)
-                  _itemMenuCard(
-                    icon: Icons.table_chart_rounded,
-                    iconColor: const Color(0xFF10B981),
-                    iconBg: const Color(0xFF064E3B).withOpacity(0.4),
-                    titulo: 'Exportar Planilha Excel (CSV)',
-                    subtitulo: 'Salvar ou compartilhar dados estruturados',
-                    onTap: () => _exportarCsv(context),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // 6. Sincronizar com Google Drive
-                  _itemMenuCard(
-                    icon: Icons.cloud_sync_rounded,
+                    icon: Icons.shopping_bag_rounded,
                     iconColor: const Color(0xFF38BDF8),
                     iconBg: const Color(0xFF0C4A6E).withOpacity(0.4),
-                    titulo: 'Sincronizar com Google Drive',
-                    subtitulo: 'Forçar reenvio de relatórios pendentes na fila',
-                    onTap: () => _sincronizarDrive(context),
+                    titulo: 'Tabela de Códigos / Produtos',
+                    subtitulo: 'Consulta rápida por código ou nome do produto',
+                    onTap: () => _abrirConsultaProdutos(context),
                   ),
                   const SizedBox(height: 8),
 
-                  // 7. Modo Teste / Simulação (Drive)
-                  ValueListenableBuilder<bool>(
-                    valueListenable: DriveService.modoTesteNotifier,
-                    builder: (context, modoTeste, _) {
-                      return _itemMenuSwitch(
-                        icon: Icons.science_outlined,
-                        iconColor: const Color(0xFFF59E0B),
-                        iconBg: const Color(0xFF78350F).withOpacity(0.4),
-                        titulo: 'Modo Teste / Simulação',
-                        subtitulo: 'Envia os relatórios para a pasta de homologação no Drive',
-                        valor: modoTeste,
-                        onChanged: (novoValor) async {
-                          await DriveService.setModoTeste(novoValor);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  novoValor
-                                      ? '🧪 Modo Teste ativado! Relatórios irão para a pasta de homologação.'
-                                      : '✅ Modo Teste desativado. Relatórios irão para a pasta oficial.',
-                                ),
-                                backgroundColor: novoValor ? AppColors.amber : AppColors.green,
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
-                          }
-                        },
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 8),
-
-                  // 8. Bloquear Caixa
+                  // 4. Bloquear Caixa
                   _itemMenuCard(
                     icon: Icons.lock_rounded,
                     iconColor: const Color(0xFF2563EB),
@@ -905,18 +961,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // 9. Alterar PIN de Segurança do Operador
+                  // 5. Sincronizar com Google Drive
+                  _itemMenuCard(
+                    icon: Icons.cloud_sync_rounded,
+                    iconColor: const Color(0xFF10B981),
+                    iconBg: const Color(0xFF064E3B).withOpacity(0.4),
+                    titulo: 'Sincronizar com Google Drive',
+                    subtitulo: 'Forçar reenvio de relatórios pendentes na fila',
+                    onTap: () => _sincronizarDrive(context),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // 6. Alterar Meu PIN
                   _itemMenuCard(
                     icon: Icons.password_rounded,
                     iconColor: const Color(0xFF38BDF8),
                     iconBg: const Color(0xFF0369A1).withOpacity(0.4),
-                    titulo: 'Alterar PIN de Segurança',
+                    titulo: 'Alterar Meu PIN',
                     subtitulo: 'Atualizar senha individual do operador ${widget.turno?.operador ?? ""}',
                     onTap: () => _abrirTrocarPin(context),
                   ),
+                  const SizedBox(height: 16),
+
+                  // ── 3. ATALHOS GERAIS ──
+                  Row(
+                    children: [
+                      Text(
+                        'ATALHOS & APLICATIVO',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: textSec,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
 
-                  // 10. Fechar Caixa & Resumo
+                  // Fechar Caixa & Resumo
                   _itemMenuCard(
                     icon: Icons.bar_chart_rounded,
                     iconColor: const Color(0xFF6366F1),
@@ -927,7 +1010,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // 11. Histórico de Turnos
+                  // Histórico de Turnos
                   _itemMenuCard(
                     icon: Icons.history_rounded,
                     iconColor: const Color(0xFF06B6D4),
@@ -938,7 +1021,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // 12. Alternar Tema Claro / Escuro
+                  // Alternar Tema Claro / Escuro
                   _itemMenuCard(
                     icon: isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
                     iconColor: isDark ? const Color(0xFFFBBF24) : const Color(0xFF2563EB),
@@ -949,7 +1032,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // 13. Trocar / Sair do Operador
+                  // Trocar / Sair do Operador
                   _itemMenuCard(
                     icon: Icons.person_outline_rounded,
                     iconColor: const Color(0xFFD97706),
@@ -958,37 +1041,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     subtitulo: 'Manter turno aberto e desconectar usuário',
                     onTap: widget.onAbrirNovoTurno,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 20),
 
-                  // 14. Limpar / Zerar Tudo (Destaque Vermelho)
-                  _itemMenuCard(
-                    icon: Icons.delete_forever_rounded,
-                    iconColor: const Color(0xFFEF4444),
-                    iconBg: const Color(0xFF7F1D1D).withOpacity(0.4),
-                    titulo: 'Limpar / Zerar Tudo',
-                    subtitulo: 'Reset completo e irreversível dos dados',
-                    corBorda: const Color(0xFF7F1D1D).withOpacity(0.6),
-                    corTitulo: const Color(0xFFF87171),
-                    onTap: () => _limparZerarTudo(context),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Botão Fechar Menu
-                  Center(
-                    child: TextButton(
-                      onPressed: () {
-                        if (widget.onFechar != null) {
-                          widget.onFechar!();
-                        } else {
-                          Navigator.maybePop(context);
-                        }
-                      },
-                      child: const Text(
-                        'Fechar Menu',
-                        style: TextStyle(color: Color(0xFF60A5FA), fontSize: 14, fontWeight: FontWeight.w600),
+                  if (widget.onFechar != null)
+                    Center(
+                      child: TextButton(
+                        onPressed: widget.onFechar,
+                        child: const Text(
+                          'Voltar ao Caixa',
+                          style: TextStyle(color: Color(0xFF60A5FA), fontSize: 14, fontWeight: FontWeight.w600),
+                        ),
                       ),
                     ),
-                  ),
                   const SizedBox(height: 16),
                 ],
               ),
@@ -1128,6 +1192,280 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: onChanged,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PainelGerenciaPage extends StatelessWidget {
+  final bool isDark;
+  final Turno? turno;
+  final TotaisTurno totais;
+  final VoidCallback onAlterarPinMestre;
+  final VoidCallback onGestaoOperadores;
+  final VoidCallback onAnalytics;
+  final VoidCallback onExportarCsv;
+  final VoidCallback onLimparZerarTudo;
+
+  const _PainelGerenciaPage({
+    required this.isDark,
+    required this.turno,
+    required this.totais,
+    required this.onAlterarPinMestre,
+    required this.onGestaoOperadores,
+    required this.onAnalytics,
+    required this.onExportarCsv,
+    required this.onLimparZerarTudo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bgScaffold = isDark ? const Color(0xFF090D16) : AppColors.lightBg;
+    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+    final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
+
+    return Scaffold(
+      backgroundColor: bgScaffold,
+      appBar: AppBar(
+        backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_rounded, color: textPri),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFFF59E0B), size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Painel da Gerência',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: textPri,
+                  ),
+                ),
+              ],
+            ),
+            Text(
+              'Configurações administrativas e segurança',
+              style: TextStyle(fontSize: 11, color: textSec, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Divider(height: 1, color: borderCol),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        children: [
+          // 1. Alterar PIN Mestre da Gerência
+          _itemGerenciaCard(
+            icon: Icons.key_rounded,
+            iconColor: const Color(0xFFF59E0B),
+            iconBg: const Color(0xFF78350F).withOpacity(0.4),
+            titulo: 'Alterar PIN Mestre da Gerência',
+            subtitulo: 'Modificar a senha administrativa mestre (SHA-256)',
+            onTap: onAlterarPinMestre,
+          ),
+          const SizedBox(height: 10),
+
+          // 2. Gestão de Operadores & Senhas
+          _itemGerenciaCard(
+            icon: Icons.badge_rounded,
+            iconColor: const Color(0xFF38BDF8),
+            iconBg: const Color(0xFF0369A1).withOpacity(0.4),
+            titulo: 'Gestão de Operadores & Senhas',
+            subtitulo: 'Visualizar operadores cadastrados e redefinir PINs',
+            onTap: onGestaoOperadores,
+          ),
+          const SizedBox(height: 10),
+
+          // 3. Analytics & Desempenho
+          _itemGerenciaCard(
+            icon: Icons.auto_graph_rounded,
+            iconColor: const Color(0xFFA855F7),
+            iconBg: const Color(0xFF581C87).withOpacity(0.4),
+            titulo: 'Analytics & Desempenho',
+            subtitulo: 'Gráficos de vendas, ticket médio e formas de pagamento',
+            onTap: onAnalytics,
+          ),
+          const SizedBox(height: 10),
+
+          // 4. Exportar Planilha Excel (CSV)
+          _itemGerenciaCard(
+            icon: Icons.table_chart_rounded,
+            iconColor: const Color(0xFF10B981),
+            iconBg: const Color(0xFF064E3B).withOpacity(0.4),
+            titulo: 'Exportar Planilha Excel (CSV)',
+            subtitulo: 'Salvar ou compartilhar dados estruturados',
+            onTap: onExportarCsv,
+          ),
+          const SizedBox(height: 10),
+
+          // 5. Modo Teste / Simulação (Toggle)
+          ValueListenableBuilder<bool>(
+            valueListenable: DriveService.modoTesteNotifier,
+            builder: (context, modoTeste, _) {
+              final cardBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
+              final cardBorder = modoTeste
+                  ? const Color(0xFFF59E0B).withOpacity(0.6)
+                  : (isDark ? const Color(0xFF1E293B) : AppColors.lightBorder);
+              final titleCol = modoTeste
+                  ? const Color(0xFFFBBF24)
+                  : (isDark ? Colors.white : AppColors.lightTextPri);
+
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: modoTeste ? const Color(0xFF78350F).withOpacity(0.18) : cardBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: cardBorder, width: modoTeste ? 1.5 : 1.0),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF78350F).withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.science_outlined, color: Color(0xFFF59E0B), size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Modo Teste / Simulação',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: titleCol,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Envia os relatórios para a pasta de homologação no Drive',
+                            style: TextStyle(fontSize: 11, color: textSec),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: modoTeste,
+                      activeColor: const Color(0xFFF59E0B),
+                      onChanged: (novoValor) async {
+                        await DriveService.setModoTeste(novoValor);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                novoValor
+                                    ? '🧪 Modo Teste ativado! Relatórios irão para a homologação.'
+                                    : '✅ Modo Teste desativado. Relatórios irão para a pasta oficial.',
+                              ),
+                              backgroundColor: novoValor ? AppColors.amber : AppColors.green,
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+
+          // 6. Limpar / Zerar Tudo
+          _itemGerenciaCard(
+            icon: Icons.delete_forever_rounded,
+            iconColor: const Color(0xFFEF4444),
+            iconBg: const Color(0xFF7F1D1D).withOpacity(0.4),
+            titulo: 'Limpar / Zerar Tudo',
+            subtitulo: 'Reset completo e irreversível dos dados locais',
+            corBorda: const Color(0xFF7F1D1D).withOpacity(0.6),
+            corTitulo: const Color(0xFFF87171),
+            onTap: onLimparZerarTudo,
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _itemGerenciaCard({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String titulo,
+    required String subtitulo,
+    required VoidCallback onTap,
+    Color? corBorda,
+    Color? corTitulo,
+  }) {
+    final cardBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
+    final cardBorder = corBorda ?? (isDark ? const Color(0xFF1E293B) : AppColors.lightBorder);
+    final titleCol = corTitulo ?? (isDark ? Colors.white : AppColors.lightTextPri);
+    final subCol = isDark ? const Color(0xFF64748B) : AppColors.lightTextSec;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: cardBorder),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    titulo,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: titleCol,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitulo,
+                    style: TextStyle(fontSize: 11, color: subCol),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: subCol, size: 18),
+          ],
+        ),
       ),
     );
   }
