@@ -102,15 +102,12 @@ class _CaixaPostoJanjaoAppState extends State<CaixaPostoJanjaoApp> {
         Locale('pt', 'BR'),
       ],
       builder: (context, child) {
-        // No iOS (IPA), qualquer toque fora de um campo de texto recolhe o teclado imediatamente
-        if (defaultTargetPlatform == TargetPlatform.iOS) {
-          return GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-            child: child,
-          );
-        }
-        return child ?? const SizedBox.shrink();
+        // Tanto no iOS quanto no Android e Web, qualquer toque fora de um campo recolhe o teclado imediatamente
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: child ?? const SizedBox.shrink(),
+        );
       },
       initialRoute: _obterRotaInicial(),
       onGenerateRoute: (settings) {
@@ -198,6 +195,8 @@ class _MainShellState extends State<MainShell> {
       final turnoAberto = await db.obterTurnoAberto();
       await NotificationService.atualizarPendencias();
 
+      if (!mounted) return;
+
       if (turnoAberto == null) {
         setState(() {
           _turnoAtual = null;
@@ -208,6 +207,7 @@ class _MainShellState extends State<MainShell> {
         });
       } else {
         final totais = await db.obterTotaisTurno(turnoAberto.id!);
+        if (!mounted) return;
         setState(() {
           _turnoAtual = turnoAberto;
           _totais = totais;
@@ -230,6 +230,8 @@ class _MainShellState extends State<MainShell> {
     final turnoAtualizado = await db.obterTurnoAberto();
     await NotificationService.atualizarPendencias();
 
+    if (!mounted) return;
+
     if (turnoAtualizado == null) {
       setState(() {
         _turnoAtual = null;
@@ -238,6 +240,7 @@ class _MainShellState extends State<MainShell> {
     }
 
     final totais = await db.obterTotaisTurno(turnoAtualizado.id!);
+    if (!mounted) return;
     setState(() {
       _turnoAtual = turnoAtualizado;
       _totais = totais;
@@ -293,6 +296,8 @@ class _MainShellState extends State<MainShell> {
 
       final novoTurnoObj = await db.abrirNovoTurno(operador, fundoCaixa: fundo);
       final totais = await db.obterTotaisTurno(novoTurnoObj.id!);
+
+      if (!mounted) return;
 
       setState(() {
         _turnoAtual = novoTurnoObj;

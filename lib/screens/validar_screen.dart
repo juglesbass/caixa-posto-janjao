@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
@@ -68,9 +68,11 @@ class _ValidarScreenState extends State<ValidarScreen> {
       // 2. Busca o turno no banco de dados local pela chave de autenticação
       final db = DatabaseService.instance;
       final Turno? turnoBanco = await db.obterTurnoPorAuthHash(chave);
+      if (!mounted) return;
 
       if (turnoBanco != null) {
         final TotaisTurno totais = await db.obterTotaisTurno(turnoBanco.id!);
+        if (!mounted) return;
         setState(() {
           _encontrado = true;
           _operadorExibicao = turnoBanco.operador;

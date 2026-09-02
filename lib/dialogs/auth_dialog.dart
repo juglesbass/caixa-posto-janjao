@@ -78,6 +78,8 @@ class _AuthDialogState extends State<AuthDialog> {
     // 1. Verifica se o operador já possui PIN individual cadastrado
     final temPin = await AuthService.operadorTemPin(nomeFormatado);
 
+    if (!mounted) return;
+
     if (!temPin) {
       // ── FLUXO DE 1º ACESSO OBRIGATÓRIO ──
       setState(() => _processando = false);

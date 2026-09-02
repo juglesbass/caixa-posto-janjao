@@ -44,6 +44,7 @@ class _TrocarPinDialogState extends State<TrocarPinDialog> {
     });
 
     final atualValido = await AuthService.validarPin(widget.operador, atual);
+    if (!mounted) return;
     if (!atualValido) {
       HapticFeedback.heavyImpact();
       setState(() => _erroAtual = 'PIN atual incorreto (ou PIN do Gerente)');

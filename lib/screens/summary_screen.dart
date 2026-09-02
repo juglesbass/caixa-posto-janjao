@@ -1688,7 +1688,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
     final controllerDesc = TextEditingController(text: l.descricao);
     String? erro;
 
-    return showDialog<({double valor, String descricao})>(
+    final resultado = await showDialog<({double valor, String descricao})>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
@@ -1774,6 +1774,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
         },
       ),
     );
+
+    controllerValor.dispose();
+    controllerDesc.dispose();
+    return resultado;
   }
 
   Future<bool?> _confirmarExclusaoDialog(BuildContext context, Lancamento l) {

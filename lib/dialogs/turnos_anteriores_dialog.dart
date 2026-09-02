@@ -128,6 +128,8 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
       ),
     );
 
+    controller.dispose();
+
     if (autorizado == true && mounted) {
       Navigator.of(context).pop();
       widget.onReabrirTurno(t);

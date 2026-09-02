@@ -73,6 +73,12 @@ class DatabaseService {
     try {
       await db.execute('ALTER TABLE turnos ADD COLUMN auth_hash TEXT');
     } catch (_) {}
+
+    // Índices de alta performance para garantir consultas instantâneas sem travamentos (O(log n))
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_lancamentos_turno_id ON lancamentos (turno_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_turnos_aberto ON turnos (aberto)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_turnos_auth_hash ON turnos (auth_hash)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_drive_pendencias_turno ON drive_pendencias (turno_id)');
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -136,6 +142,8 @@ class DatabaseService {
     // Índices de performance
     await db.execute('CREATE INDEX IF NOT EXISTS idx_lancamentos_turno ON lancamentos(turno_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_turnos_aberto ON turnos(aberto)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_turnos_auth_hash ON turnos(auth_hash)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_drive_pendencias_turno ON drive_pendencias(turno_id)');
   }
 
   // ──────────────────────────────────────────────────────────────────────────
