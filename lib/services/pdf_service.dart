@@ -119,10 +119,20 @@ class PdfService {
       if (l.tipo.toLowerCase().contains('pix')) qtdPix++;
     }
 
+    // Dimensões otimizadas para tela de smartphone (380pt) com altura proporcional que preenche a tela
+    final qtdItensCartoes = totais.detalheCartoes.length;
+    const double alturaBase = 680.0;
+    final double alturaExtraCartoes = qtdItensCartoes > 5 ? (qtdItensCartoes - 5) * 15.0 : 0.0;
+    final double alturaExtraObs = turno.observacao.trim().isNotEmpty ? 26.0 : 0.0;
+    final double alturaTotalCalculada = alturaBase + alturaExtraCartoes + alturaExtraObs;
+
     doc.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 26, vertical: 22),
+        pageFormat: PdfPageFormat(
+          380 * PdfPageFormat.point,
+          alturaTotalCalculada * PdfPageFormat.point,
+          marginAll: 14 * PdfPageFormat.point,
+        ),
         build: (pw.Context context) {
           final dataHoraAuth = turno.fechadoEm ?? DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now());
           final chaveAuth = turno.authHash ??
@@ -287,7 +297,7 @@ class PdfService {
 
                 // ── 3. SEÇÃO 1: CARTÕES E VOUCHERS ──
                 pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3.5),
                   decoration: pw.BoxDecoration(
                     color: PdfColor.fromHex('#1e293b'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
@@ -295,18 +305,18 @@ class PdfService {
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text('CARTÕES E VOUCHERS', style: pw.TextStyle(font: fontBold, fontSize: 8, color: PdfColors.white)),
+                      pw.Text('CARTÕES E VOUCHERS', style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: PdfColors.white)),
                       pw.Row(
                         children: [
                           pw.Container(
-                            width: 50,
+                            width: 40,
                             alignment: pw.Alignment.center,
-                            child: pw.Text('QTD', style: pw.TextStyle(font: fontBold, fontSize: 8, color: PdfColors.white)),
+                            child: pw.Text('QTD', style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: PdfColors.white)),
                           ),
                           pw.Container(
-                            width: 90,
+                            width: 75,
                             alignment: pw.Alignment.centerRight,
-                            child: pw.Text('VALOR (R\$)', style: pw.TextStyle(font: fontBold, fontSize: 8, color: PdfColors.white)),
+                            child: pw.Text('VALOR (R\$)', style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: PdfColors.white)),
                           ),
                         ],
                       ),
@@ -318,12 +328,12 @@ class PdfService {
                 // Listagem de Cartões
                 if (totais.detalheCartoes.isEmpty)
                   pw.Container(
-                    padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                    padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 6),
                     decoration: pw.BoxDecoration(
                       color: corCinzaFundo,
                       border: pw.Border.all(color: corCinzaBorda, width: 0.5),
                     ),
-                    child: pw.Text('Nenhum cartão registrado neste turno', style: pw.TextStyle(fontSize: 8.5, color: corCinzaTexto)),
+                    child: pw.Text('Nenhum cartão registrado neste turno', style: pw.TextStyle(fontSize: 7.5, color: corCinzaTexto)),
                   )
                 else
                   ...PaymentTypes.ordenarCartoes(totais.detalheCartoes.entries).map((e) {
@@ -332,7 +342,7 @@ class PdfService {
                     final qtd = e.value.qtd;
 
                     return pw.Container(
-                      padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 8),
+                      padding: const pw.EdgeInsets.symmetric(vertical: 2.8, horizontal: 6),
                       decoration: pw.BoxDecoration(
                         color: PdfColors.white,
                         border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromHex('#f1f5f9'), width: 0.5)),
@@ -341,17 +351,17 @@ class PdfService {
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
                           pw.Expanded(
-                            child: pw.Text(nome, style: pw.TextStyle(fontSize: 8.5, color: PdfColor.fromHex('#334155'))),
+                            child: pw.Text(nome, style: pw.TextStyle(fontSize: 7.8, color: PdfColor.fromHex('#334155'))),
                           ),
                           pw.Container(
-                            width: 50,
+                            width: 40,
                             alignment: pw.Alignment.center,
-                            child: pw.Text('$qtd un', style: pw.TextStyle(fontSize: 8.5, color: corCinzaTexto)),
+                            child: pw.Text('$qtd un', style: pw.TextStyle(fontSize: 7.8, color: corCinzaTexto)),
                           ),
                           pw.Container(
-                            width: 90,
+                            width: 75,
                             alignment: pw.Alignment.centerRight,
-                            child: pw.Text(CurrencyFormatter.formatar(total), style: pw.TextStyle(font: fontBold, fontSize: 8.5)),
+                            child: pw.Text(CurrencyFormatter.formatar(total), style: pw.TextStyle(font: fontBold, fontSize: 7.8)),
                           ),
                         ],
                       ),
@@ -360,7 +370,7 @@ class PdfService {
 
                 // Total Cartões
                 pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 6),
                   decoration: pw.BoxDecoration(
                     color: PdfColor.fromHex('#eff6ff'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
@@ -369,18 +379,18 @@ class PdfService {
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text('TOTAL CARTÕES', style: pw.TextStyle(font: fontBold, fontSize: 8.5, color: PdfColor.fromHex('#1e40af'))),
+                      pw.Text('TOTAL CARTÕES', style: pw.TextStyle(font: fontBold, fontSize: 8, color: PdfColor.fromHex('#1e40af'))),
                       pw.Row(
                         children: [
                           pw.Container(
-                            width: 50,
+                            width: 40,
                             alignment: pw.Alignment.center,
-                            child: pw.Text('${totais.qtdCartoes} un', style: pw.TextStyle(font: fontBold, fontSize: 8.5, color: PdfColor.fromHex('#1e40af'))),
+                            child: pw.Text('${totais.qtdCartoes} un', style: pw.TextStyle(font: fontBold, fontSize: 8, color: PdfColor.fromHex('#1e40af'))),
                           ),
                           pw.Container(
-                            width: 90,
+                            width: 75,
                             alignment: pw.Alignment.centerRight,
-                            child: pw.Text(CurrencyFormatter.formatar(totais.cartoes), style: pw.TextStyle(font: fontBold, fontSize: 9, color: PdfColor.fromHex('#1e40af'))),
+                            child: pw.Text(CurrencyFormatter.formatar(totais.cartoes), style: pw.TextStyle(font: fontBold, fontSize: 8.5, color: PdfColor.fromHex('#1e40af'))),
                           ),
                         ],
                       ),
@@ -391,7 +401,7 @@ class PdfService {
 
                 // ── 4. SEÇÃO 2: OUTROS MEIOS DE PAGAMENTO ──
                 pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3.5),
                   decoration: pw.BoxDecoration(
                     color: PdfColor.fromHex('#1e293b'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
@@ -399,18 +409,18 @@ class PdfService {
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text('OUTROS MEIOS DE PAGAMENTO', style: pw.TextStyle(font: fontBold, fontSize: 8, color: PdfColors.white)),
+                      pw.Text('OUTROS MEIOS DE PAGAMENTO', style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: PdfColors.white)),
                       pw.Row(
                         children: [
                           pw.Container(
-                            width: 50,
+                            width: 40,
                             alignment: pw.Alignment.center,
-                            child: pw.Text('QTD', style: pw.TextStyle(font: fontBold, fontSize: 8, color: PdfColors.white)),
+                            child: pw.Text('QTD', style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: PdfColors.white)),
                           ),
                           pw.Container(
-                            width: 90,
+                            width: 75,
                             alignment: pw.Alignment.centerRight,
-                            child: pw.Text('VALOR (R\$)', style: pw.TextStyle(font: fontBold, fontSize: 8, color: PdfColors.white)),
+                            child: pw.Text('VALOR (R\$)', style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: PdfColors.white)),
                           ),
                         ],
                       ),
@@ -717,16 +727,16 @@ class PdfService {
           pw.Row(
             children: [
               pw.Container(
-                width: 50,
+                width: 40,
                 alignment: pw.Alignment.center,
-                child: pw.Text(qtd ?? '-', style: pw.TextStyle(fontSize: 8.5, color: PdfColor.fromHex('#64748b'))),
+                child: pw.Text(qtd ?? '-', style: pw.TextStyle(fontSize: 7.8, color: PdfColor.fromHex('#64748b'))),
               ),
               pw.Container(
-                width: 90,
+                width: 75,
                 alignment: pw.Alignment.centerRight,
                 child: pw.Text(
                   CurrencyFormatter.formatar(valor),
-                  style: pw.TextStyle(font: fontBold, fontSize: 8.5, color: valor > 0 ? corBarra : PdfColor.fromHex('#94a3b8')),
+                  style: pw.TextStyle(font: fontBold, fontSize: 7.8, color: valor > 0 ? corBarra : PdfColor.fromHex('#94a3b8')),
                 ),
               ),
             ],
