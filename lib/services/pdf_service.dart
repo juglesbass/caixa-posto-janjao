@@ -145,6 +145,27 @@ class PdfService {
                 timestamp: dataHoraAuth,
               );
 
+          // Configuração dinâmica da faixa de resultado (Pista vs PDV)
+          final diferencaValor = totais.diferenca;
+          final bool isCaixaZerado = diferencaValor.abs() < 0.01;
+          final bool isSobra = diferencaValor > 0.01;
+
+          final PdfColor faixaBg = isCaixaZerado
+              ? PdfColors.green800
+              : (isSobra ? PdfColors.orange900 : PdfColors.red800);
+
+          final PdfColor faixaBorder = isCaixaZerado
+              ? PdfColor.fromHex('#14532d')
+              : (isSobra ? PdfColor.fromHex('#7c2d12') : PdfColor.fromHex('#7f1d1d'));
+
+          final String faixaLabel = isCaixaZerado
+              ? 'CAIXA EXATO (ZERADO):'
+              : (isSobra ? 'SOBRA NA PISTA:' : 'FALTA NA PISTA:');
+
+          final String faixaValorTexto = isCaixaZerado
+              ? 'R\$ 0,00'
+              : CurrencyFormatter.formatar(diferencaValor);
+
           return pw.DefaultTextStyle(
             style: pw.TextStyle(font: fontRegular, fontSize: 8.5, color: corTextoEscuro),
             child: pw.Column(
@@ -455,25 +476,6 @@ class PdfService {
                 pw.SizedBox(height: 3),
 
                 // ── 5. FAIXA DE RESULTADO (PISTA VS PDV) COM CORES DINÂMICAS ──
-                final diferencaValor = totais.diferenca;
-                final bool isCaixaZerado = diferencaValor.abs() < 0.01;
-                final bool isSobra = diferencaValor > 0.01;
-
-                final PdfColor faixaBg = isCaixaZerado
-                    ? PdfColors.green800
-                    : (isSobra ? PdfColors.orange900 : PdfColors.red800);
-
-                final PdfColor faixaBorder = isCaixaZerado
-                    ? PdfColor.fromHex('#14532d')
-                    : (isSobra ? PdfColor.fromHex('#7c2d12') : PdfColor.fromHex('#7f1d1d'));
-
-                final String faixaLabel = isCaixaZerado
-                    ? 'CAIXA EXATO (ZERADO):'
-                    : (isSobra ? 'SOBRA NA PISTA:' : 'FALTA NA PISTA:');
-
-                final String faixaValorTexto = isCaixaZerado
-                    ? 'R\$ 0,00'
-                    : CurrencyFormatter.formatar(diferencaValor);
 
                 pw.Container(
                   padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
