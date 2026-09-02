@@ -46,29 +46,60 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
   double _vendasSistema = 0.0;
   String _observacao = '';
+  Map<String, int> _canhotosManual = {};
   bool _processando = false;
   bool _cartoesExpandidos = false;
 
   @override
   void initState() {
     super.initState();
+    _canhotosManual = Map<String, int>.from(widget.turno.canhotos);
     _vendasSistema = widget.turno.vendasSistema;
-    _observacao = widget.turno.observacao;
+    _observacao = widget.turno.textoJustificativa;
 
     if (_vendasSistema > 0) {
       _vendasSistemaController.text = CurrencyFormatter.formatar(_vendasSistema);
     }
     _observacaoController.text = _observacao;
+
+    _recarregarDadosPersistidos();
+  }
+
+  Future<void> _recarregarDadosPersistidos() async {
+    if (widget.turno.id == null) return;
+    try {
+      final turnoDb = await DatabaseService.instance.obterTurnoPorId(widget.turno.id!);
+      if (turnoDb != null && mounted) {
+        setState(() {
+          if (turnoDb.vendasSistema > 0 && _vendasSistema == 0.0) {
+            _vendasSistema = turnoDb.vendasSistema;
+            _vendasSistemaController.text = CurrencyFormatter.formatar(_vendasSistema);
+          }
+          if (turnoDb.textoJustificativa.isNotEmpty && _observacao.isEmpty) {
+            _observacao = turnoDb.textoJustificativa;
+            _observacaoController.text = _observacao;
+          }
+          if (turnoDb.canhotos.isNotEmpty && _canhotosManual.isEmpty) {
+            _canhotosManual = Map<String, int>.from(turnoDb.canhotos);
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   @override
   void didUpdateWidget(covariant SummaryScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.turno.id != widget.turno.id || oldWidget.turno.vendasSistema != widget.turno.vendasSistema) {
+    if (oldWidget.turno.id != widget.turno.id ||
+        oldWidget.turno.vendasSistema != widget.turno.vendasSistema ||
+        oldWidget.turno.observacao != widget.turno.observacao ||
+        oldWidget.turno.justificativa != widget.turno.justificativa ||
+        oldWidget.turno.canhotos != widget.turno.canhotos) {
       _vendasSistema = widget.turno.vendasSistema;
-      _observacao = widget.turno.observacao;
+      _observacao = widget.turno.textoJustificativa;
       _vendasSistemaController.text = _vendasSistema > 0 ? CurrencyFormatter.formatar(_vendasSistema) : '';
       _observacaoController.text = _observacao;
+      _canhotosManual = Map<String, int>.from(widget.turno.canhotos);
     }
   }
 
@@ -101,12 +132,105 @@ class _SummaryScreenState extends State<SummaryScreen> {
     setState(() {
       _vendasSistema = valor;
     });
-    DatabaseService.instance.salvarAuditoria(widget.turno.id!, _vendasSistema, _observacao);
+    if (widget.turno.id != null) {
+      DatabaseService.instance.salvarAuditoria(
+        widget.turno.id!,
+        _vendasSistema,
+        _observacao,
+        justificativa: _observacao,
+        canhotos: _canhotosManual,
+      );
+    }
   }
 
   void _atualizarObservacao(String text) {
     _observacao = text;
-    DatabaseService.instance.salvarAuditoria(widget.turno.id!, _vendasSistema, _observacao);
+    if (widget.turno.id != null) {
+      DatabaseService.instance.salvarAuditoria(
+        widget.turno.id!,
+        _vendasSistema,
+        _observacao,
+        justificativa: _observacao,
+        canhotos: _canhotosManual,
+      );
+    }
+  }
+
+  void _salvarNovoCanhoto(String bandeira, int novaQtd) async {
+    setState(() {
+      _canhotosManual[bandeira] = novaQtd;
+    });
+    if (widget.turno.id != null) {
+      await DatabaseService.instance.salvarCanhotos(widget.turno.id!, _canhotosManual);
+    }
+    widget.onTurnoAlterado();
+  }
+
+  void _dialogEditarCanhoto(String bandeira, int qtdAtual, [VoidCallback? onUpdate]) {
+    final controller = TextEditingController(text: qtdAtual.toString());
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Canhotos: $bandeira',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : AppColors.lightTextPri,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Informe a quantidade de comprovantes/canhotos físicos recolhidos no caixa:',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Quantidade de Canhotos',
+                  suffixText: 'un',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accent,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                final novaQtd = int.tryParse(controller.text.trim()) ?? qtdAtual;
+                Navigator.of(ctx).pop();
+                _salvarNovoCanhoto(bandeira, novaQtd >= 0 ? novaQtd : 0);
+                if (onUpdate != null) onUpdate();
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   String _montarTextoResumo() {
@@ -126,10 +250,15 @@ class _SummaryScreenState extends State<SummaryScreen> {
       buffer.writeln('  _Nenhum cartão registrado_');
     } else {
       for (final e in PaymentTypes.ordenarCartoes(widget.totais.detalheCartoes.entries)) {
-        buffer.writeln('  • ${e.key}: ${CurrencyFormatter.formatar(e.value.total)} (${e.value.qtd} un)');
+        final qtdCanhotos = _canhotosManual[e.key] ?? e.value.qtd;
+        buffer.writeln('  • ${e.key}: ${CurrencyFormatter.formatar(e.value.total)} ($qtdCanhotos un)');
       }
     }
-    buffer.writeln('  👉 *Total Cartões:* ${CurrencyFormatter.formatar(widget.totais.cartoes)} (${widget.totais.qtdCartoes} un)');
+    final totalCanhotosGeral = widget.totais.detalheCartoes.entries.fold<int>(
+      0,
+      (acc, e) => acc + (_canhotosManual[e.key] ?? e.value.qtd),
+    );
+    buffer.writeln('  👉 *Total Cartões:* ${CurrencyFormatter.formatar(widget.totais.cartoes)} ($totalCanhotosGeral un)');
     buffer.writeln('');
 
     buffer.writeln('💵 *OUTROS MEIOS:*');
@@ -162,7 +291,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
     if (_observacao.trim().isNotEmpty) {
       buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      buffer.writeln('📝 *Observações:* $_observacao');
+      buffer.writeln('📝 *Observações / Justificativa:* $_observacao');
     }
 
     return buffer.toString();
@@ -211,6 +340,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
       final turnoAtualizado = widget.turno.copyWith(
         vendasSistema: _vendasSistema,
         observacao: _observacao,
+        justificativa: _observacao,
+        canhotos: _canhotosManual,
       );
 
       final nomeArquivo = PdfService.gerarNomeArquivo(turno: turnoAtualizado);
@@ -258,6 +389,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
       final turnoAtualizado = widget.turno.copyWith(
         vendasSistema: _vendasSistema,
         observacao: _observacao,
+        justificativa: _observacao,
+        canhotos: _canhotosManual,
       );
 
       await CsvService.exportarECompartilharCsv(
@@ -287,12 +420,35 @@ class _SummaryScreenState extends State<SummaryScreen> {
       return;
     }
 
+    // Persistir obrigatoriamente a venda do sistema digitada e justificativa antes do fechamento
+    final valorDigitado = CurrencyFormatter.parse(_vendasSistemaController.text);
+    _vendasSistema = valorDigitado;
+    final obsDigitada = _observacaoController.text.trim();
+    _observacao = obsDigitada;
+
+    if (widget.turno.id != null) {
+      await DatabaseService.instance.salvarAuditoria(
+        widget.turno.id!,
+        _vendasSistema,
+        _observacao,
+        justificativa: _observacao,
+        canhotos: _canhotosManual,
+      );
+    }
+
+    final turnoAtualizado = widget.turno.copyWith(
+      vendasSistema: _vendasSistema,
+      observacao: _observacao,
+      justificativa: _observacao,
+      canhotos: _canhotosManual,
+    );
+
     DadosFechamentoTurno? dadosFechamento;
     await showDialog(
       context: context,
       barrierDismissible: true,
       builder: (ctx) => CloseShiftDialog(
-        turno: widget.turno,
+        turno: turnoAtualizado,
         totais: _totaisAtualizados,
         onConfirmarFechamento: (dados) {
           dadosFechamento = dados;
@@ -371,12 +527,18 @@ class _SummaryScreenState extends State<SummaryScreen> {
     try {
       final db = DatabaseService.instance;
       
+      final obsFechamento = dadosFechamento!.observacao.trim().isNotEmpty
+          ? dadosFechamento!.observacao.trim()
+          : _observacao;
+
       // Executa fechamento do banco e busca de lançamentos em paralelo para máxima velocidade
       final results = await Future.wait([
         db.fecharTurno(
           widget.turno.id!,
           vendasSistema: dadosFechamento!.vendasSistema,
-          observacao: dadosFechamento!.observacao,
+          observacao: obsFechamento,
+          justificativa: obsFechamento,
+          canhotos: _canhotosManual,
           authHash: dadosFechamento!.authHash,
           dataFechamento: dadosFechamento!.fechadoEm,
         ),
@@ -388,7 +550,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
       final turnoFechado = widget.turno.copyWith(
         aberto: false,
         vendasSistema: dadosFechamento!.vendasSistema,
-        observacao: dadosFechamento!.observacao,
+        observacao: obsFechamento,
+        justificativa: obsFechamento,
+        canhotos: _canhotosManual,
         fechadoEm: dadosFechamento!.fechadoEm,
         authHash: dadosFechamento!.authHash,
       );
@@ -396,7 +560,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
       final nomeArquivo = PdfService.gerarNomeArquivo(turno: turnoFechado);
       final pdfBytes = await PdfService.gerarPdfFechamento(
         turno: turnoFechado,
-        totais: _totaisAtualizados,
+        totais: _totaisAtualizados.copyWith(
+          vendasSistema: dadosFechamento!.vendasSistema,
+          diferenca: widget.totais.totalGeral - dadosFechamento!.vendasSistema,
+        ),
         lancamentos: lancamentos,
       );
 
@@ -702,7 +869,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              '${widget.totais.qtdCartoes} un',
+                              '${widget.totais.detalheCartoes.entries.fold<int>(0, (acc, e) => acc + (_canhotosManual[e.key] ?? e.value.qtd))} un',
                               style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8)),
                             ),
                           ),
@@ -718,7 +885,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                 ? AppColors.getCorTipo(e.key).withOpacity(0.18)
                                 : AppColors.getCorTipo(e.key).withOpacity(0.12),
                             titulo: e.key,
-                            subtitulo: '(${e.value.qtd} un)',
+                            subtitulo: '(${_canhotosManual[e.key] ?? e.value.qtd} un)',
+                            onTapSubtitulo: () => _dialogEditarCanhoto(e.key, _canhotosManual[e.key] ?? e.value.qtd),
                             valor: e.value.total,
                             isDark: isDark,
                             showChevron: true,
@@ -732,7 +900,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           iconColor: const Color(0xFF38BDF8),
                           iconBg: isDark ? const Color(0xFF0284C7).withOpacity(0.25) : const Color(0xFFE0F2FE),
                           titulo: 'Total Cartões e Vouchers',
-                          subtitulo: '(${widget.totais.qtdCartoes} un)',
+                          subtitulo: '(${widget.totais.detalheCartoes.entries.fold<int>(0, (acc, e) => acc + (_canhotosManual[e.key] ?? e.value.qtd))} un)',
                           valor: widget.totais.cartoes,
                           isDark: isDark,
                           isSummaryCard: true,
@@ -1245,6 +1413,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
     String? subtitulo,
     required double valor,
     VoidCallback? onTap,
+    VoidCallback? onTapSubtitulo,
     bool showChevron = false,
     bool isSummaryCard = false,
     required bool isDark,
@@ -1312,10 +1481,49 @@ class _SummaryScreenState extends State<SummaryScreen> {
                   ),
                   if (subtitulo != null) ...[
                     const SizedBox(width: 6),
-                    Text(
-                      subtitulo,
-                      style: TextStyle(fontSize: 11.5, color: textSub, fontWeight: FontWeight.w500),
-                    ),
+                    if (onTapSubtitulo != null)
+                      InkWell(
+                        onTap: () {
+                          AppHaptics.selection();
+                          onTapSubtitulo();
+                        },
+                        borderRadius: BorderRadius.circular(5),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(
+                              color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                subtitulo,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              Icon(
+                                Icons.edit_rounded,
+                                size: 11,
+                                color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      Text(
+                        subtitulo,
+                        style: TextStyle(fontSize: 11.5, color: textSub, fontWeight: FontWeight.w500),
+                      ),
                   ],
                 ],
               ),
@@ -1493,6 +1701,84 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     const SizedBox(height: 8),
                     Divider(height: 1, color: borderCol),
                     const SizedBox(height: 12),
+
+                    // Ajuste de Canhotos Físicos (exclusivo para cartões)
+                    if (!ehPix) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: borderCol),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Canhotos Físicos (QTD)',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: textPri,
+                                  ),
+                                ),
+                                Text(
+                                  'Base de vendas: $qtdBandeira un',
+                                  style: TextStyle(fontSize: 10.5, color: textSec),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.remove_circle_outline_rounded, size: 20),
+                                  color: AppColors.red,
+                                  onPressed: () {
+                                    final atual = _canhotosManual[bandeira] ?? qtdBandeira;
+                                    if (atual > 0) {
+                                      _salvarNovoCanhoto(bandeira, atual - 1);
+                                      setSheetState(() {});
+                                    }
+                                  },
+                                ),
+                                InkWell(
+                                  onTap: () => _dialogEditarCanhoto(
+                                    bandeira,
+                                    _canhotosManual[bandeira] ?? qtdBandeira,
+                                    () => setSheetState(() {}),
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: const Color(0xFF0284C7)),
+                                    ),
+                                    child: Text(
+                                      '${_canhotosManual[bandeira] ?? qtdBandeira} un',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0284C7)),
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+                                  color: AppColors.green,
+                                  onPressed: () {
+                                    final atual = _canhotosManual[bandeira] ?? qtdBandeira;
+                                    _salvarNovoCanhoto(bandeira, atual + 1);
+                                    setSheetState(() {});
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
 
                     // Lista de Lançamentos
                     if (lancamentosBandeira.isEmpty)

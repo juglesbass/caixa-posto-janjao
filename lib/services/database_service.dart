@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
@@ -73,6 +74,12 @@ class DatabaseService {
     try {
       await db.execute('ALTER TABLE turnos ADD COLUMN auth_hash TEXT');
     } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE turnos ADD COLUMN justificativa TEXT');
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE turnos ADD COLUMN canhotos TEXT');
+    } catch (_) {}
 
     // Índices de alta performance para garantir consultas instantâneas sem travamentos (O(log n))
     await db.execute('CREATE INDEX IF NOT EXISTS idx_lancamentos_turno_id ON lancamentos (turno_id)');
@@ -92,6 +99,8 @@ class DatabaseService {
         fechado_em TEXT,
         vendas_sistema REAL DEFAULT 0.0,
         observacao TEXT DEFAULT '',
+        justificativa TEXT DEFAULT '',
+        canhotos TEXT DEFAULT '{}',
         fundo_caixa REAL DEFAULT 0.0,
         auth_hash TEXT
       )
@@ -234,19 +243,28 @@ class DatabaseService {
   Future<void> fecharTurno(
     int turnoId, {
     double vendasSistema = 0.0,
+    double? vendaSistema,
     String observacao = '',
+    String? justificativa,
+    Map<String, int>? canhotos,
     String? authHash,
     String? dataFechamento,
   }) async {
     final db = await database;
     final fechadoEm = dataFechamento ?? DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now());
+    final valorVendas = vendaSistema ?? vendasSistema;
+    final obs = observacao;
+    final just = justificativa ?? obs;
+
     await db.update(
       'turnos',
       {
         'aberto': 0,
         'fechado_em': fechadoEm,
-        'vendas_sistema': vendasSistema,
-        'observacao': observacao,
+        'vendas_sistema': valorVendas,
+        'observacao': obs,
+        'justificativa': just,
+        if (canhotos != null) 'canhotos': jsonEncode(canhotos),
         if (authHash != null) 'auth_hash': authHash,
       },
       where: 'id = ?',
@@ -267,14 +285,42 @@ class DatabaseService {
     );
   }
 
-  Future<void> salvarAuditoria(int turnoId, double vendasSistema, String observacao) async {
+  Future<void> salvarAuditoria(
+    int turnoId,
+    double vendasSistema,
+    String observacao, {
+    String? justificativa,
+    Map<String, int>? canhotos,
+  }) async {
     final db = await database;
     await db.update(
       'turnos',
       {
         'vendas_sistema': vendasSistema,
         'observacao': observacao,
+        'justificativa': justificativa ?? observacao,
+        if (canhotos != null) 'canhotos': jsonEncode(canhotos),
       },
+      where: 'id = ?',
+      whereArgs: [turnoId],
+    );
+  }
+
+  Future<void> salvarVendaSistema(int turnoId, double vendasSistema) async {
+    final db = await database;
+    await db.update(
+      'turnos',
+      {'vendas_sistema': vendasSistema},
+      where: 'id = ?',
+      whereArgs: [turnoId],
+    );
+  }
+
+  Future<void> salvarCanhotos(int turnoId, Map<String, int> canhotos) async {
+    final db = await database;
+    await db.update(
+      'turnos',
+      {'canhotos': jsonEncode(canhotos)},
       where: 'id = ?',
       whereArgs: [turnoId],
     );

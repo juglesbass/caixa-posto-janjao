@@ -123,7 +123,8 @@ class PdfService {
     final qtdItensCartoes = totais.detalheCartoes.length;
     const double alturaBase = 680.0;
     final double alturaExtraCartoes = qtdItensCartoes > 5 ? (qtdItensCartoes - 5) * 15.0 : 0.0;
-    final double alturaExtraObs = turno.observacao.trim().isNotEmpty ? 26.0 : 0.0;
+    final textoJustificativa = turno.textoJustificativa;
+    final double alturaExtraObs = textoJustificativa.trim().isNotEmpty ? 26.0 : 0.0;
     final double alturaTotalCalculada = alturaBase + alturaExtraCartoes + alturaExtraObs;
 
     doc.addPage(
@@ -159,8 +160,8 @@ class PdfService {
               ? '$dominioApp/#/validar?auth=$hashSeguro&op=${Uri.encodeComponent(turno.operador)}&turno=${turno.numero}&total=${totais.totalGeral.toStringAsFixed(2)}&data=${Uri.encodeComponent(dataHoraAuth)}'
               : 'POSTO JANJÃO\nTurno: #${turno.numero}\nOperador: ${turno.operador}\nTotal: R\$ ${totais.totalGeral.toStringAsFixed(2)}\nChave: $hashSeguro';
 
-          // Configuração dinâmica da faixa de resultado (Pista vs PDV)
-          final diferencaValor = totais.diferenca;
+          // Configuração dinâmica da faixa de resultado (Pista vs PDV) com precisão absoluta
+          final diferencaValor = totais.totalGeral - turno.vendasSistema;
           final bool isCaixaZerado = diferencaValor.abs() < 0.01;
           final bool isSobra = diferencaValor > 0.01;
 
@@ -355,7 +356,7 @@ class PdfService {
                   ...PaymentTypes.ordenarCartoes(totais.detalheCartoes.entries).map((e) {
                     final nome = e.key;
                     final total = e.value.total;
-                    final qtd = e.value.qtd;
+                    final qtd = turno.canhotos[nome] ?? e.value.qtd;
 
                     return pw.Container(
                       padding: const pw.EdgeInsets.symmetric(vertical: 2.8, horizontal: 6),
@@ -401,7 +402,10 @@ class PdfService {
                           pw.Container(
                             width: 40,
                             alignment: pw.Alignment.center,
-                            child: pw.Text('${totais.qtdCartoes} un', style: pw.TextStyle(font: fontBold, fontSize: 8, color: PdfColor.fromHex('#1e40af'))),
+                            child: pw.Text(
+                              '${totais.detalheCartoes.entries.fold<int>(0, (acc, e) => acc + (turno.canhotos[e.key] ?? e.value.qtd))} un',
+                              style: pw.TextStyle(font: fontBold, fontSize: 8, color: PdfColor.fromHex('#1e40af')),
+                            ),
                           ),
                           pw.Container(
                             width: 75,
@@ -521,7 +525,7 @@ class PdfService {
                   ),
                 ),
 
-                if (turno.observacao.trim().isNotEmpty) ...[
+                if (textoJustificativa.trim().isNotEmpty) ...[
                   pw.SizedBox(height: 4),
                   pw.Container(
                     padding: const pw.EdgeInsets.all(5),
@@ -534,7 +538,7 @@ class PdfService {
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         pw.Text('OBSERVAÇÕES / JUSTIFICATIVA:', style: pw.TextStyle(font: fontBold, fontSize: 6.5, color: corCinzaTexto)),
-                        pw.Text(turno.observacao, style: pw.TextStyle(fontSize: 7.5, color: corTextoEscuro)),
+                        pw.Text(textoJustificativa, style: pw.TextStyle(fontSize: 7.5, color: corTextoEscuro)),
                       ],
                     ),
                   ),

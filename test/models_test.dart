@@ -27,6 +27,46 @@ void main() {
       expect(turnoReconstruido.fundoCaixa, equals(150.0));
     });
 
+    test('Turno com vendaSistema, justificativa e canhotos', () {
+      final turno = Turno(
+        id: 1,
+        numero: 2,
+        data: '25/08/2026 10:00',
+        operador: 'João Victor',
+        vendaSistema: 1450.50,
+        justificativa: 'Diferença de teste no PDV',
+        canhotos: {
+          'Rede Master Débito': 4,
+          'Rede Visa Débito': 2,
+        },
+      );
+
+      expect(turno.vendaSistema, equals(1450.50));
+      expect(turno.vendasSistema, equals(1450.50));
+      expect(turno.justificativa, equals('Diferença de teste no PDV'));
+      expect(turno.textoJustificativa, equals('Diferença de teste no PDV'));
+      expect(turno.canhotos['Rede Master Débito'], equals(4));
+      expect(turno.canhotos['Rede Visa Débito'], equals(2));
+
+      final map = turno.toMap();
+      final turnoReconstruido = Turno.fromMap(map);
+
+      expect(turnoReconstruido.vendaSistema, equals(1450.50));
+      expect(turnoReconstruido.justificativa, equals('Diferença de teste no PDV'));
+      expect(turnoReconstruido.textoJustificativa, equals('Diferença de teste no PDV'));
+      expect(turnoReconstruido.canhotos['Rede Master Débito'], equals(4));
+      expect(turnoReconstruido.canhotos['Rede Visa Débito'], equals(2));
+
+      final copia = turno.copyWith(
+        vendaSistema: 1500.0,
+        justificativa: 'Nova justificativa',
+        canhotos: {'Rede Master Débito': 5},
+      );
+      expect(copia.vendaSistema, equals(1500.0));
+      expect(copia.textoJustificativa, equals('Nova justificativa'));
+      expect(copia.canhotos['Rede Master Débito'], equals(5));
+    });
+
     test('Lancamento toMap e fromMap', () {
       final lanc = Lancamento(
         id: 10,
