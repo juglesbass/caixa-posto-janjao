@@ -23,16 +23,21 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Diagnostic Analyze and Tests
+      - name: Diagnostic Analyze, Tests and Web Build
         run: |
-          echo "### 🔍 Flutter Analyze" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          flutter analyze >> $GITHUB_STEP_SUMMARY 2>&1 || true
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "### 🧪 Flutter Test" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          flutter test --reporter expanded >> $GITHUB_STEP_SUMMARY 2>&1 || true
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          flutter analyze > analyze.log 2>&1 || true
+          flutter test --reporter expanded > test.log 2>&1 || true
+          flutter build web --release --base-href "/caixa-posto-janjao/" > build_web.log 2>&1 || true
+
+      - name: Upload Diagnostic Logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diagnostic-logs
+          path: |
+            analyze.log
+            test.log
+            build_web.log
 
       - name: Run Flutter Tests
         run: flutter test
