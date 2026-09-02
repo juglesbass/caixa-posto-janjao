@@ -147,9 +147,17 @@ class PdfService {
               ? turno.authHash!
               : chaveAuth;
 
-          // URL oficial de validação pública apontando para a rota web /#/validar?auth=...
-          final String urlValidacao =
-              'https://juglesbass.github.io/caixa-posto-janjao/#/validar?auth=$hashSeguro&turno=${turno.numero}&op=${Uri.encodeComponent(turno.operador)}&total=${totais.totalGeral.toStringAsFixed(2)}&data=${Uri.encodeComponent(dataHoraAuth)}';
+          // Domínio base oficial da aplicação Web/PWA do Posto Janjão
+          const String dominioApp = 'https://juglesbass.github.io/caixa-posto-janjao';
+
+          // Conteúdo do QR Code:
+          // 1. Inserir URL Completa no QR Code:
+          //    data: "https://[SEU_LINK_DO_APP]/#/validar?auth=${turno.authHash}"
+          // 2. Ajuste de Fallback caso não haja domínio configurado:
+          //    data: "POSTO JANJÃO\nTurno: #${turno.numeroTurno}\nOperador: ${turno.operador}\nTotal: R$ ${totais.totalPista}\nChave: ${turno.authHash}"
+          final String qrData = dominioApp.trim().isNotEmpty
+              ? '$dominioApp/#/validar?auth=$hashSeguro'
+              : 'POSTO JANJÃO\nTurno: #${turno.numero}\nOperador: ${turno.operador}\nTotal: R\$ ${totais.totalGeral.toStringAsFixed(2)}\nChave: $hashSeguro';
 
           // Configuração dinâmica da faixa de resultado (Pista vs PDV)
           final diferencaValor = totais.diferenca;
@@ -607,7 +615,7 @@ class PdfService {
                                   height: 36,
                                   child: pw.BarcodeWidget(
                                     barcode: pw.Barcode.qrCode(),
-                                    data: urlValidacao,
+                                    data: qrData,
                                     drawText: false,
                                   ),
                                 ),
