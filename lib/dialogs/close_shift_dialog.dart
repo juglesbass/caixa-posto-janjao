@@ -109,6 +109,324 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
     }
   }
 
+  Future<void> _solicitarOverrideGerencia() async {
+    final controllerPinGerente = TextEditingController();
+    String? erroGerente;
+    bool validandoGerente = false;
+
+    final bool? autorizado = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+            final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+
+            return AlertDialog(
+              backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                ),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.admin_panel_settings_rounded,
+                      color: Color(0xFFF59E0B),
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Autorização da Gerência',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: textPri,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Para liberar o fechamento ou redefinir a senha de "${widget.turno.operador}", digite o PIN Mestre da Gerência:',
+                    style: TextStyle(fontSize: 12.5, color: textSec),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controllerPinGerente,
+                    obscureText: true,
+                    autofocus: true,
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    textAlign: TextAlign.center,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    style: TextStyle(
+                      fontSize: 22,
+                      letterSpacing: 10,
+                      fontWeight: FontWeight.w900,
+                      color: textPri,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: '••••',
+                      counterText: '',
+                      errorText: erroGerente,
+                      filled: true,
+                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text('Cancelar', style: TextStyle(color: textSec)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF59E0B),
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: validandoGerente
+                      ? null
+                      : () async {
+                          final p = controllerPinGerente.text.trim();
+                          if (p.length != 4) {
+                            setModalState(() => erroGerente = 'Digite os 4 dígitos');
+                            return;
+                          }
+                          setModalState(() => validandoGerente = true);
+                          final ok = await AuthService.validarPinGerente(p);
+                          if (!ok) {
+                            setModalState(() {
+                              validandoGerente = false;
+                              erroGerente = 'PIN Mestre Incorreto!';
+                            });
+                            controllerPinGerente.clear();
+                            return;
+                          }
+                          Navigator.of(ctx).pop(true);
+                        },
+                  child: const Text('Confirmar Gerência', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    controllerPinGerente.dispose();
+
+    if (autorizado != true || !mounted) return;
+
+    _abrirOpcoesGerenciaOverride();
+  }
+
+  Future<void> _abrirOpcoesGerenciaOverride() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.verified_user_rounded, color: Color(0xFF10B981), size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Gerência Autenticada',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textPri),
+                          ),
+                          Text(
+                            'Operador: ${widget.turno.operador}',
+                            style: TextStyle(fontSize: 12.5, color: textSec),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.lock_reset_rounded, size: 20),
+                  label: const Text('Redefinir PIN do Operador (4 dígitos)'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    _dialogRedefinirPinOperador();
+                  },
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
+                  label: const Text('Autorizar e Fechar Turno Imediatamente'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF10B981),
+                    side: const BorderSide(color: Color(0xFF10B981), width: 1.5),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    _encerrarComOverrideGerencia();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _dialogRedefinirPinOperador() async {
+    final controllerNovoPin = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    String? erro;
+
+    final bool? alterou = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text('Novo PIN para ${widget.turno.operador}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textPri)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Digite o novo PIN de 4 dígitos numéricos para o operador:', style: TextStyle(fontSize: 12.5, color: textSec)),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: controllerNovoPin,
+                    obscureText: true,
+                    autofocus: true,
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    textAlign: TextAlign.center,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    style: TextStyle(fontSize: 22, letterSpacing: 10, fontWeight: FontWeight.w900, color: textPri),
+                    decoration: InputDecoration(
+                      hintText: '••••',
+                      counterText: '',
+                      errorText: erro,
+                      filled: true,
+                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text('Cancelar', style: TextStyle(color: textSec)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () async {
+                    final np = controllerNovoPin.text.trim();
+                    if (np.length != 4) {
+                      setModalState(() => erro = 'Informe exatamente 4 dígitos');
+                      return;
+                    }
+                    await AuthService.cadastrarOuAlterarPin(widget.turno.operador, np);
+                    Navigator.of(ctx).pop(true);
+                  },
+                  child: const Text('Salvar Novo PIN'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (alterou == true && mounted) {
+      _controllerPin.text = controllerNovoPin.text.trim();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ PIN de ${widget.turno.operador} redefinido com sucesso!'),
+          backgroundColor: AppColors.green,
+        ),
+      );
+    }
+    controllerNovoPin.dispose();
+  }
+
+  void _encerrarComOverrideGerencia() {
+    AppHaptics.medium();
+    final now = DateTime.now();
+    final fechadoEm = DateFormat('dd/MM/yyyy HH:mm:ss').format(now);
+    final authHash = AuthService.gerarChaveAutenticacao(
+      operador: widget.turno.operador,
+      turnoId: widget.turno.id ?? 1,
+      totalVendas: widget.totais.totalGeral,
+      timestamp: fechadoEm,
+    );
+
+    Navigator.of(context).pop();
+    widget.onConfirmarFechamento((
+      vendasSistema: _vendasSistema,
+      observacao: '${_controllerObs.text.trim()} [Liberado via Override Gerência]'.trim(),
+      authHash: authHash,
+      fechadoEm: fechadoEm,
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -591,15 +909,35 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                       },
                       onSubmitted: (_) => _validarEEncerrar(),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Icon(Icons.lock_clock_outlined, size: 10, color: textSec),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Autenticação criptográfica SHA-256',
-                          style: TextStyle(fontSize: 9.5, color: textSec),
+                        Row(
+                          children: [
+                            Icon(Icons.lock_clock_outlined, size: 10, color: textSec),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Autenticação SHA-256',
+                              style: TextStyle(fontSize: 9.5, color: textSec),
+                            ),
+                          ],
+                        ),
+                        TextButton(
+                          onPressed: _solicitarOverrideGerencia,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            'Esqueceu o PIN? Solicitar Gerência',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF38BDF8),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ],
                     ),

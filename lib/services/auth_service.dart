@@ -55,18 +55,60 @@ class AuthService {
     return true;
   }
 
-  /// Valida o PIN digitado contra o PIN do operador ativo ou contra o PIN do Gerente
+  /// Gera o hash SHA-256 de um PIN
+  static String hashPin(String pin) {
+    final bytes = utf8.encode(pin.trim());
+    return sha256.convert(bytes).toString();
+  }
+
+  /// Valida se o PIN informado pertence à Gerência (PIN Mestre Criptografado com SHA-256)
+  static Future<bool> validarPinGerente(String pinDigitado) async {
+    final digitado = pinDigitado.trim();
+    if (digitado.length != 4 || int.tryParse(digitado) == null) return false;
+
+    final prefs = await SharedPreferences.getInstance();
+    final hashDigitado = hashPin(digitado);
+
+    // Obtém o hash salvo do PIN Mestre
+    String? hashSalvo = prefs.getString('pin_gerente_hash');
+    if (hashSalvo == null) {
+      // Migração automática caso existisse em texto plano legado
+      final pinLegado = prefs.getString('pin_gerente');
+      if (pinLegado != null && pinLegado.trim().length == 4) {
+        hashSalvo = hashPin(pinLegado.trim());
+        await prefs.setString('pin_gerente_hash', hashSalvo);
+      } else {
+        // Padrão inicial de fábrica: '9999'
+        hashSalvo = hashPin(_pinGerentePadrao);
+        await prefs.setString('pin_gerente_hash', hashSalvo);
+      }
+    }
+
+    return hashDigitado == hashSalvo;
+  }
+
+  /// Altera com segurança o PIN Mestre da Gerência armazenando apenas seu hash SHA-256
+  static Future<bool> alterarPinGerente(String novoPin) async {
+    final limpo = novoPin.trim();
+    if (limpo.length != 4 || int.tryParse(limpo) == null) return false;
+    final prefs = await SharedPreferences.getInstance();
+    final novoHash = hashPin(limpo);
+    await prefs.setString('pin_gerente_hash', novoHash);
+    await prefs.remove('pin_gerente'); // Remove qualquer rastro de texto plano
+    return true;
+  }
+
+  /// Valida o PIN digitado contra o PIN do operador ativo ou contra o PIN Mestre da Gerência
   static Future<bool> validarPin(String operador, String pinDigitado) async {
     final digitado = pinDigitado.trim();
     if (digitado.length != 4) return false;
 
-    final prefs = await SharedPreferences.getInstance();
-
-    // 1. Verifica PIN Mestre da Gerência
-    final pinGerente = prefs.getString('pin_gerente') ?? _pinGerentePadrao;
-    if (digitado == pinGerente) {
+    // 1. O PIN Mestre da Gerência é soberano e valida qualquer operação
+    if (await validarPinGerente(digitado)) {
       return true;
     }
+
+    final prefs = await SharedPreferences.getInstance();
 
     // 2. Verifica PIN individual do Operador
     final pinSalvo = prefs.getString(_chavePinOperador(operador));
@@ -83,20 +125,33 @@ class AuthService {
     return false;
   }
 
-  /// Valida se o PIN informado pertence ao Gerente
-  static Future<bool> validarPinGerente(String pinDigitado) async {
+  /// Retorna a lista de nomes de operadores que possuem PIN configurado no sistema
+  static Future<List<String>> obterOperadoresComPin() async {
     final prefs = await SharedPreferences.getInstance();
-    final pinGerente = prefs.getString('pin_gerente') ?? _pinGerentePadrao;
-    return pinDigitado.trim() == pinGerente;
+    final keys = prefs.getKeys();
+    final List<String> operadores = [];
+
+    for (final k in keys) {
+      if (k.startsWith('pin_operador_')) {
+        final rawNome = k.replaceFirst('pin_operador_', '');
+        final nomeBonito = rawNome.replaceAll('_', ' ').toUpperCase();
+        if (nomeBonito.isNotEmpty && !operadores.contains(nomeBonito)) {
+          operadores.add(nomeBonito);
+        }
+      }
+    }
+    return operadores;
   }
 
-  /// Altera o PIN do Gerente
-  static Future<bool> alterarPinGerente(String novoPin) async {
-    final limpo = novoPin.trim();
-    if (limpo.length != 4 || int.tryParse(limpo) == null) return false;
+  /// Permite à gerência redefinir o PIN de um operador
+  static Future<bool> redefinirPinOperador(String operador, String novoPin) async {
+    return cadastrarOuAlterarPin(operador, novoPin);
+  }
+
+  /// Permite à gerência excluir o PIN de um operador para que ele recadastre
+  static Future<void> excluirPinOperador(String operador) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('pin_gerente', limpo);
-    return true;
+    await prefs.remove(_chavePinOperador(operador));
   }
 
   /// Gera a chave de autenticação digital SHA-256 no formato AUTH-XXXX-XXXX-XXXX
