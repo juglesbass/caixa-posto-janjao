@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import '../dialogs/cadastro_pin_dialog.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
-import '../utils/currency_formatter.dart';
 import '../utils/validator.dart';
 
 class AuthDialog extends StatefulWidget {
@@ -23,7 +22,6 @@ class AuthDialog extends StatefulWidget {
 class _AuthDialogState extends State<AuthDialog> {
   final _controllerNome = TextEditingController();
   final _controllerPin = TextEditingController();
-  final _controllerFundo = TextEditingController();
 
   String? _erroNome;
   String? _erroPin;
@@ -34,7 +32,6 @@ class _AuthDialogState extends State<AuthDialog> {
   void dispose() {
     _controllerNome.dispose();
     _controllerPin.dispose();
-    _controllerFundo.dispose();
     super.dispose();
   }
 
@@ -125,12 +122,10 @@ class _AuthDialogState extends State<AuthDialog> {
       }
     }
 
-    final fundo = CurrencyFormatter.parse(_controllerFundo.text);
-
     if (mounted) {
       Navigator.of(context).pop({
         'operador': nomeFormatado,
-        'fundoCaixa': fundo,
+        'fundoCaixa': 0.0,
       });
     }
   }
@@ -222,25 +217,6 @@ class _AuthDialogState extends State<AuthDialog> {
                 onChanged: _onNomeChanged,
                 onSubmitted: (_) => _confirmar(),
               ),
-              if (widget.novoTurno) ...[
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _controllerFundo,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [CurrencyInputFormatter()],
-                  decoration: InputDecoration(
-                    labelText: 'Fundo de Caixa / Troco Inicial',
-                    hintText: 'R\$ 0,00 (Opcional)',
-                    prefixIcon: const Icon(Icons.savings_outlined),
-                    filled: true,
-                    isDense: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                    ),
-                  ),
-                  onSubmitted: (_) => _confirmar(),
-                ),
-              ],
               if (_mostrarCampoPin) ...[
                 const SizedBox(height: 12),
                 TextField(
