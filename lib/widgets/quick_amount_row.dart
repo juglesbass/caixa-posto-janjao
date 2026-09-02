@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_haptics.dart';
 
 class QuickAmountRow extends StatelessWidget {
   final ValueChanged<double> onSelecionarValor;
@@ -38,7 +39,10 @@ class QuickAmountRow extends StatelessWidget {
                 child: Padding(
                   padding: EdgeInsets.only(right: colIndex < rowList.length - 1 ? 5 : 0),
                   child: InkWell(
-                    onTap: () => onSelecionarValor(valor),
+                    onTap: () {
+                      AppHaptics.light();
+                      onSelecionarValor(valor);
+                    },
                     borderRadius: BorderRadius.circular(AppColors.radiusSm),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 8),

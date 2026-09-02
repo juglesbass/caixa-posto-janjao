@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_haptics.dart';
 
 class BottomNavBar extends StatelessWidget {
   final int indiceAtual;
@@ -49,20 +50,29 @@ class BottomNavBar extends StatelessWidget {
                 icon: Icons.home_rounded,
                 label: 'Início',
                 ativo: indiceAtual == 0,
-                onTap: () => onTrocarAba(0),
+                onTap: () {
+                  AppHaptics.selection();
+                  onTrocarAba(0);
+                },
                 textSec: textSec,
               ),
               _ItemNav(
                 icon: Icons.receipt_long_rounded,
                 label: 'Histórico',
                 ativo: indiceAtual == 1,
-                onTap: () => onTrocarAba(1),
+                onTap: () {
+                  AppHaptics.selection();
+                  onTrocarAba(1);
+                },
                 textSec: textSec,
               ),
 
               // Botão Flutuante Central de Lançamento (+)
               GestureDetector(
-                onTap: onAbrirLancamentoRapido,
+                onTap: () {
+                  AppHaptics.light();
+                  onAbrirLancamentoRapido();
+                },
                 child: Container(
                   width: 48,
                   height: 48,
@@ -85,14 +95,20 @@ class BottomNavBar extends StatelessWidget {
                 icon: Icons.bar_chart_rounded,
                 label: 'Resumo',
                 ativo: indiceAtual == 2,
-                onTap: () => onTrocarAba(2),
+                onTap: () {
+                  AppHaptics.selection();
+                  onTrocarAba(2);
+                },
                 textSec: textSec,
               ),
               _ItemNav(
                 icon: Icons.more_horiz_rounded,
                 label: 'Menu',
                 ativo: indiceAtual == 3,
-                onTap: () => onTrocarAba(3),
+                onTap: () {
+                  AppHaptics.selection();
+                  onTrocarAba(3);
+                },
                 textSec: textSec,
               ),
             ],

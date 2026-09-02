@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_haptics.dart';
 import '../utils/payment_types.dart';
 
 class PaymentGrid extends StatelessWidget {
@@ -156,7 +157,10 @@ class _CardMetodo extends StatelessWidget {
     final corVibrante = isDark && cor == AppColors.purple ? AppColors.purpleLight : cor;
 
     return InkWell(
-      onTap: onTap,
+      onTap: () {
+        AppHaptics.light();
+        onTap();
+      },
       borderRadius: BorderRadius.circular(AppColors.radiusMd),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),

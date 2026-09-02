@@ -5,6 +5,7 @@ import '../models/totais_turno.dart';
 import '../models/turno.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_haptics.dart';
 import '../utils/currency_formatter.dart';
 
 typedef DadosFechamentoTurno = ({
@@ -64,7 +65,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
 
     final pin = _controllerPin.text.trim();
     if (pin.isEmpty) {
-      HapticFeedback.heavyImpact();
+      AppHaptics.heavy();
       setState(() => _erroPin = 'Informe o PIN para fechar o caixa');
       return;
     }
@@ -76,7 +77,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
 
     final valido = await AuthService.validarPin(widget.turno.operador, pin);
     if (!valido) {
-      HapticFeedback.heavyImpact();
+      AppHaptics.heavy();
       if (mounted) {
         setState(() {
           _validando = false;
@@ -87,7 +88,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
       return;
     }
 
-    HapticFeedback.mediumImpact();
+    AppHaptics.medium();
     final now = DateTime.now();
     final fechadoEm = DateFormat('dd/MM/yyyy HH:mm:ss').format(now);
     final authHash = AuthService.gerarChaveAutenticacao(

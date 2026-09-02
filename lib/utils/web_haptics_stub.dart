@@ -1,0 +1,1 @@
+﻿void triggerWebVibrate(dynamic pattern) {}

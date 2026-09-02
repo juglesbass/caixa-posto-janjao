@@ -17,6 +17,7 @@ import '../services/database_service.dart';
 import '../services/drive_service.dart';
 import '../services/pdf_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_haptics.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/payment_types.dart';
 import '../widgets/pending_sync_banner.dart';
@@ -1259,7 +1260,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
     final textSub = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
     return InkWell(
-      onTap: onTap,
+      onTap: onTap == null
+          ? null
+          : () {
+              AppHaptics.light();
+              onTap();
+            },
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1352,7 +1358,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
           boxShadow: boxShadow,
         ),
         child: ElevatedButton(
-          onPressed: onPressed,
+          onPressed: onPressed == null
+              ? null
+              : () {
+                  AppHaptics.light();
+                  onPressed();
+                },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
             shadowColor: Colors.transparent,

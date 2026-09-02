@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_haptics.dart';
 import '../utils/payment_types.dart';
 
 class CardBrandDialog extends StatelessWidget {
@@ -58,7 +59,10 @@ class CardBrandDialog extends StatelessWidget {
               trailing: selecionado
                   ? Icon(Icons.check_circle_rounded, color: corBandeira, size: 20)
                   : null,
-              onTap: () => Navigator.of(context).pop(bandeira),
+              onTap: () {
+                AppHaptics.light();
+                Navigator.of(context).pop(bandeira);
+              },
             );
           },
         ),

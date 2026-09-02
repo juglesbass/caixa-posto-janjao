@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_haptics.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/payment_types.dart';
 import '../widgets/quick_amount_row.dart';
@@ -34,10 +35,12 @@ class _QuickLaunchModalState extends State<QuickLaunchModal> {
   void _lancar() {
     final valor = CurrencyFormatter.parse(_controllerValor.text);
     if (valor <= 0) {
+      AppHaptics.heavy();
       setState(() => _erroValor = 'Informe um valor maior que zero');
       return;
     }
 
+    AppHaptics.light();
     Navigator.of(context).pop();
     widget.onLancar((
       tipo: _tipoSelecionado,
@@ -47,6 +50,7 @@ class _QuickLaunchModalState extends State<QuickLaunchModal> {
   }
 
   void _setValor(double v) {
+    AppHaptics.light();
     _controllerValor.text = CurrencyFormatter.formatar(v);
     if (_erroValor != null) {
       setState(() => _erroValor = null);

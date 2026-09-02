@@ -9,6 +9,7 @@ import '../models/turno.dart';
 import '../services/database_service.dart';
 import '../services/drive_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_haptics.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/payment_types.dart';
 import '../widgets/hud_totais.dart';
@@ -91,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _selecionarTipo(String tipo) {
-    HapticFeedback.selectionClick();
+    AppHaptics.light();
     setState(() {
       _tipoAtivo = tipo;
     });
@@ -107,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (bandeiraEscolhida != null) {
-      HapticFeedback.mediumImpact();
+      AppHaptics.light();
       setState(() {
         _bandeiraCartaoAtiva = bandeiraEscolhida;
         _tipoAtivo = '$_maquinaAtiva $bandeiraEscolhida';
@@ -116,7 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _setValorRapido(double v) {
-    HapticFeedback.lightImpact();
+    AppHaptics.light();
     final novoValor = _valorVenda + v;
     _controllerValor.text = CurrencyFormatter.formatar(novoValor);
     setState(() {
@@ -130,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final valor = CurrencyFormatter.parse(_controllerValor.text);
     if (valor <= 0) {
-      HapticFeedback.heavyImpact();
+      AppHaptics.heavy();
       setState(() {
         _erroValor = 'Informe um valor maior que zero';
       });
@@ -159,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _controllerDesc.text.trim(),
       );
 
-      HapticFeedback.lightImpact();
+      AppHaptics.light();
 
       if (!mounted) return;
 
@@ -219,7 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
         motivo,
       );
 
-      HapticFeedback.mediumImpact();
+      AppHaptics.medium();
 
       if (!mounted) return;
 
@@ -395,7 +396,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   MachineSelector(
                     maquinaAtiva: _maquinaAtiva,
                     onSelecionar: (maq) async {
-                      HapticFeedback.selectionClick();
+                      AppHaptics.selection();
                       setState(() {
                         _maquinaAtiva = maq;
                         if (PaymentTypes.ehCartao(_tipoAtivo)) {

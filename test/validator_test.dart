@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:caixa_posto_janjao/utils/app_haptics.dart';
 import 'package:caixa_posto_janjao/utils/validator.dart';
 
 void main() {
@@ -33,6 +34,13 @@ void main() {
       expect(Validator.formatarNomeOperador('joão victor'), equals('João Victor'));
       expect(Validator.formatarNomeOperador('MARIA SILVA'), equals('Maria Silva'));
       expect(Validator.formatarNomeOperador('pedro'), equals('Pedro'));
+    });
+
+    test('AppHaptics executa sem exceção', () {
+      expect(() => AppHaptics.light(), returnsNormally);
+      expect(() => AppHaptics.selection(), returnsNormally);
+      expect(() => AppHaptics.medium(), returnsNormally);
+      expect(() => AppHaptics.heavy(), returnsNormally);
     });
   });
 }

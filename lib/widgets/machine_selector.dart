@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_haptics.dart';
 import '../utils/payment_types.dart';
 
 class MachineSelector extends StatelessWidget {
@@ -42,7 +43,10 @@ class MachineSelector extends StatelessWidget {
                 label: 'Máquina REDE',
                 cor: AppColors.rede,
                 selecionada: maquinaAtiva == PaymentTypes.maquinaRede,
-                onTap: () => onSelecionar(PaymentTypes.maquinaRede),
+                onTap: () {
+                  AppHaptics.selection();
+                  onSelecionar(PaymentTypes.maquinaRede);
+                },
                 surfaceColor: surfaceColor,
                 borderColor: borderColor,
               ),
@@ -54,7 +58,10 @@ class MachineSelector extends StatelessWidget {
                 label: 'Máquina CIELO',
                 cor: AppColors.cielo,
                 selecionada: maquinaAtiva == PaymentTypes.maquinaCielo,
-                onTap: () => onSelecionar(PaymentTypes.maquinaCielo),
+                onTap: () {
+                  AppHaptics.selection();
+                  onSelecionar(PaymentTypes.maquinaCielo);
+                },
                 surfaceColor: surfaceColor,
                 borderColor: borderColor,
               ),
