@@ -3,6 +3,8 @@ import 'package:caixa_posto_janjao/utils/app_haptics.dart';
 import 'package:caixa_posto_janjao/utils/validator.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('Validator - Validação de Nome de Operador', () {
     test('Rejeita nomes vazios ou com espaços em branco', () {
       expect(Validator.validarNomeOperador(''), isNotNull);
