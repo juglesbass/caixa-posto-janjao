@@ -905,10 +905,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                 : AppColors.getCorTipo(e.key).withOpacity(0.12),
                             titulo: e.key,
                             subtitulo: '${_canhotosManual[e.key] ?? e.value.qtd} un',
-                            onTapSubtitulo: () => _dialogEditarCanhoto(e.key, _canhotosManual[e.key] ?? e.value.qtd),
+                            onTapSubtitulo: () => _abrirDetalhesCartao(e.key),
                             valor: e.value.total,
                             isDark: isDark,
-                            onTap: () => _dialogEditarCanhoto(e.key, _canhotosManual[e.key] ?? e.value.qtd),
+                            onTap: () => _abrirDetalhesCartao(e.key),
                           ),
                           const SizedBox(height: 8),
                         ],
@@ -1867,6 +1867,11 @@ class _SummaryScreenState extends State<SummaryScreen> {
         );
       },
     );
+
+    if (mounted) {
+      setState(() {});
+      widget.onTurnoAlterado();
+    }
   }
 
   Future<({double valor, String descricao})?> _editarLancamentoDialog(BuildContext context, Lancamento l) async {
@@ -2118,46 +2123,55 @@ class _ItemResumoCardState extends State<_ItemResumoCard> {
                 : null,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Coluna 1 (Esquerda - Identificação)
-                  Container(
-                    padding: const EdgeInsets.all(7.5),
-                    decoration: BoxDecoration(
-                      color: widget.iconBg,
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: Icon(widget.icon, color: widget.iconColor, size: 18),
-                  ),
-                  const SizedBox(width: 12),
+                  // .card-info-esquerda (flex: 1; min-width: 0;)
                   Expanded(
-                    child: Text(
-                      widget.titulo,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        color: isSummaryCard && isDark ? const Color(0xFF93C5FD) : textTitle,
-                        fontWeight: isSummaryCard ? FontWeight.w800 : FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(7.5),
+                          decoration: BoxDecoration(
+                            color: widget.iconBg,
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Icon(widget.icon, color: widget.iconColor, size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            widget.titulo,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              color: isSummaryCard && isDark ? const Color(0xFF93C5FD) : textTitle,
+                              fontWeight: isSummaryCard ? FontWeight.w800 : FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
-                  // Coluna 2 (Centro-Direita - Badge de Canhoto Discreto)
+                  // .card-badge-unidade (flex-shrink: 0; margin-right: 12px;)
                   if (textoBadge != null && textoBadge.isNotEmpty) ...[
+                    const SizedBox(width: 8),
                     _buildBadgeUnidade(
                       texto: textoBadge,
                       temEdicao: widget.onTapSubtitulo != null || widget.onTap != null,
                       onTap: widget.onTapSubtitulo ?? widget.onTap,
                       isDark: isDark,
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                   ],
 
-                  // Coluna 3 (Extremo Direito - Valor Monetário com números tabulares)
+                  // .card-valor-direita (margin-left: auto; text-align: right; min-width: 110px; display: flex; justify-content: flex-end; font-variant-numeric: tabular-nums;)
                   Container(
-                    constraints: const BoxConstraints(minWidth: 100),
+                    constraints: const BoxConstraints(minWidth: 110),
                     alignment: Alignment.centerRight,
                     child: Text(
                       CurrencyFormatter.formatar(widget.valor),
