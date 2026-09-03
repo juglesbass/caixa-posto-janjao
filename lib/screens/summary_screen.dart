@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show FontFeature;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -219,6 +220,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
             ],
           ),
           actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _abrirDetalhesCartao(bandeira);
+              },
+              child: const Text('Ver Detalhes'),
+            ),
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
               child: const Text('Cancelar'),
@@ -900,8 +908,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                             onTapSubtitulo: () => _dialogEditarCanhoto(e.key, _canhotosManual[e.key] ?? e.value.qtd),
                             valor: e.value.total,
                             isDark: isDark,
-                            showChevron: true,
-                            onTap: () => _abrirDetalhesCartao(e.key),
+                            onTap: () => _dialogEditarCanhoto(e.key, _canhotosManual[e.key] ?? e.value.qtd),
                           ),
                           const SizedBox(height: 8),
                         ],
@@ -1429,146 +1436,18 @@ class _SummaryScreenState extends State<SummaryScreen> {
     bool isSummaryCard = false,
     required bool isDark,
   }) {
-    final cardBg = isSummaryCard
-        ? (isDark ? const Color(0xFF172554).withOpacity(0.4) : const Color(0xFFEFF6FF))
-        : (isDark ? const Color(0xFF111827) : Colors.white);
-    final cardBorder = isSummaryCard
-        ? (isDark ? const Color(0xFF3B82F6).withOpacity(0.5) : const Color(0xFFBFDBFE))
-        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0));
-    final textTitle = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
-    final textValue = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSub = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-
-    final textoBadge = subtitulo != null
-        ? subtitulo.replaceAll('(', '').replaceAll(')', '').trim()
-        : null;
-
-    return InkWell(
-      onTap: onTap == null
-          ? null
-          : () {
-              AppHaptics.light();
-              onTap();
-            },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: cardBorder, width: isSummaryCard ? 1.2 : 1),
-          boxShadow: [
-            if (!isDark || isSummaryCard)
-              BoxShadow(
-                color: isSummaryCard
-                    ? const Color(0xFF3B82F6).withOpacity(0.12)
-                    : Colors.black.withOpacity(0.04),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(7.5),
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: Icon(icon, color: iconColor, size: 18),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                titulo,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  color: isSummaryCard && isDark ? const Color(0xFF93C5FD) : textTitle,
-                  fontWeight: isSummaryCard ? FontWeight.w800 : FontWeight.w600,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (textoBadge != null && textoBadge.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              _buildBadgeUnidade(
-                texto: textoBadge,
-                onTap: onTapSubtitulo,
-                isDark: isDark,
-                isSummaryCard: isSummaryCard,
-              ),
-            ],
-            const SizedBox(width: 10),
-            Container(
-              constraints: const BoxConstraints(minWidth: 100),
-              alignment: Alignment.centerRight,
-              child: Text(
-                CurrencyFormatter.formatar(valor),
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: isSummaryCard && isDark ? const Color(0xFF38BDF8) : textValue,
-                ),
-              ),
-            ),
-            if (showChevron) ...[
-              const SizedBox(width: 4),
-              Icon(Icons.chevron_right_rounded, color: textSub, size: 18),
-            ],
-          ],
-        ),
-      ),
+    return _ItemResumoCard(
+      icon: icon,
+      iconColor: iconColor,
+      iconBg: iconBg,
+      titulo: titulo,
+      subtitulo: subtitulo,
+      valor: valor,
+      onTap: onTap,
+      onTapSubtitulo: onTapSubtitulo,
+      isSummaryCard: isSummaryCard,
+      isDark: isDark,
     );
-  }
-
-  Widget _buildBadgeUnidade({
-    required String texto,
-    VoidCallback? onTap,
-    required bool isDark,
-    bool isSummaryCard = false,
-  }) {
-    final badgeBg = const Color(0xFF3B82F6).withOpacity(isDark ? 0.18 : 0.12);
-    final badgeBorder = const Color(0xFF3B82F6).withOpacity(isDark ? 0.28 : 0.22);
-    final badgeTextCol = isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB);
-
-    final badgeContent = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-      decoration: BoxDecoration(
-        color: badgeBg,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: badgeBorder, width: 0.8),
-      ),
-      child: Text(
-        texto,
-        maxLines: 1,
-        softWrap: false,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: badgeTextCol,
-          letterSpacing: 0.2,
-        ),
-      ),
-    );
-
-    if (onTap != null) {
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            AppHaptics.selection();
-            onTap();
-          },
-          borderRadius: BorderRadius.circular(6),
-          child: badgeContent,
-        ),
-      );
-    }
-
-    return badgeContent;
   }
 
   Widget _botaoAcao({
@@ -2134,5 +2013,233 @@ class _SummaryScreenState extends State<SummaryScreen> {
         ],
       ),
     );
+  }
+}
+
+class _ItemResumoCard extends StatefulWidget {
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBg;
+  final String titulo;
+  final String? subtitulo;
+  final double valor;
+  final VoidCallback? onTap;
+  final VoidCallback? onTapSubtitulo;
+  final bool isSummaryCard;
+  final bool isDark;
+
+  const _ItemResumoCard({
+    Key? key,
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+    required this.titulo,
+    this.subtitulo,
+    required this.valor,
+    this.onTap,
+    this.onTapSubtitulo,
+    this.isSummaryCard = false,
+    required this.isDark,
+  }) : super(key: key);
+
+  @override
+  State<_ItemResumoCard> createState() => _ItemResumoCardState();
+}
+
+class _ItemResumoCardState extends State<_ItemResumoCard> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final isSummaryCard = widget.isSummaryCard;
+
+    final baseCardBg = isSummaryCard
+        ? (isDark ? const Color(0xFF172554).withOpacity(0.4) : const Color(0xFFEFF6FF))
+        : (isDark ? const Color(0xFF111827) : Colors.white);
+    final cardBorder = isSummaryCard
+        ? (isDark ? const Color(0xFF3B82F6).withOpacity(0.5) : const Color(0xFFBFDBFE))
+        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0));
+    final textTitle = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+    final textValue = isDark ? Colors.white : const Color(0xFF0F172A);
+
+    // Efeito de clareamento sutil no toque: rgba(255, 255, 255, 0.05) no modo noturno
+    final cardBg = _isPressed && (widget.onTap != null || widget.onTapSubtitulo != null)
+        ? (isDark
+            ? Color.alphaBlend(Colors.white.withOpacity(0.05), baseCardBg)
+            : Color.alphaBlend(Colors.black.withOpacity(0.03), baseCardBg))
+        : baseCardBg;
+
+    final textoBadge = widget.subtitulo != null
+        ? widget.subtitulo!.replaceAll('(', '').replaceAll(')', '').trim()
+        : null;
+
+    final temAcao = widget.onTap != null || widget.onTapSubtitulo != null;
+
+    return AnimatedScale(
+      scale: _isPressed && temAcao ? 0.985 : 1.0,
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOutCubic,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cardBorder, width: isSummaryCard ? 1.2 : 1),
+          boxShadow: [
+            if (!isDark || isSummaryCard)
+              BoxShadow(
+                color: isSummaryCard
+                    ? const Color(0xFF3B82F6).withOpacity(0.12)
+                    : Colors.black.withOpacity(0.04),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: temAcao
+                ? () {
+                    AppHaptics.light();
+                    if (widget.onTap != null) {
+                      widget.onTap!();
+                    } else if (widget.onTapSubtitulo != null) {
+                      widget.onTapSubtitulo!();
+                    }
+                  }
+                : null,
+            onHighlightChanged: temAcao
+                ? (highlighted) {
+                    setState(() => _isPressed = highlighted);
+                  }
+                : null,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  // Coluna 1 (Esquerda - Identificação)
+                  Container(
+                    padding: const EdgeInsets.all(7.5),
+                    decoration: BoxDecoration(
+                      color: widget.iconBg,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Icon(widget.icon, color: widget.iconColor, size: 18),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.titulo,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        color: isSummaryCard && isDark ? const Color(0xFF93C5FD) : textTitle,
+                        fontWeight: isSummaryCard ? FontWeight.w800 : FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+
+                  // Coluna 2 (Centro-Direita - Badge de Canhoto Discreto)
+                  if (textoBadge != null && textoBadge.isNotEmpty) ...[
+                    _buildBadgeUnidade(
+                      texto: textoBadge,
+                      temEdicao: widget.onTapSubtitulo != null || widget.onTap != null,
+                      onTap: widget.onTapSubtitulo ?? widget.onTap,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(width: 16),
+                  ],
+
+                  // Coluna 3 (Extremo Direito - Valor Monetário com números tabulares)
+                  Container(
+                    constraints: const BoxConstraints(minWidth: 100),
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      CurrencyFormatter.formatar(widget.valor),
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                        color: isSummaryCard && isDark ? const Color(0xFF38BDF8) : textValue,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBadgeUnidade({
+    required String texto,
+    bool temEdicao = false,
+    VoidCallback? onTap,
+    required bool isDark,
+  }) {
+    final badgeBg = const Color(0xFF3B82F6).withOpacity(isDark ? 0.18 : 0.12);
+    final badgeBorder = const Color(0xFF3B82F6).withOpacity(isDark ? 0.30 : 0.25);
+    final badgeTextCol = isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB);
+
+    final badgeContent = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+      decoration: BoxDecoration(
+        color: badgeBg,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: badgeBorder, width: 1.0),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            texto,
+            maxLines: 1,
+            softWrap: false,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: badgeTextCol,
+              letterSpacing: 0.2,
+            ),
+          ),
+          if (temEdicao) ...[
+            const SizedBox(width: 3),
+            Text(
+              '▾',
+              style: TextStyle(
+                fontSize: 9,
+                height: 1.0,
+                color: badgeTextCol.withOpacity(0.45),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    if (onTap != null) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            AppHaptics.selection();
+            onTap();
+          },
+          borderRadius: BorderRadius.circular(6),
+          child: badgeContent,
+        ),
+      );
+    }
+
+    return badgeContent;
   }
 }
