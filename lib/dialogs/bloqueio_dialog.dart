@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_haptics.dart';
 
 class BloqueioDialog extends StatefulWidget {
   final String operador;
@@ -40,10 +41,10 @@ class _BloqueioDialogState extends State<BloqueioDialog> {
     final valido = await AuthService.validarPin(widget.operador, pinDigitado);
 
     if (valido) {
-      HapticFeedback.mediumImpact();
+      AppHaptics.medium();
       if (mounted) Navigator.of(context).pop(true);
     } else {
-      HapticFeedback.heavyImpact();
+      AppHaptics.heavy();
       if (mounted) {
         setState(() {
           _validando = false;

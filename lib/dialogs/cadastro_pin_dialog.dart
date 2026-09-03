@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_haptics.dart';
 
 class CadastroPinDialog extends StatefulWidget {
   final String operador;
@@ -44,13 +45,13 @@ class _CadastroPinDialogState extends State<CadastroPinDialog> {
     });
 
     if (pin.length != 4 || int.tryParse(pin) == null) {
-      HapticFeedback.heavyImpact();
+      AppHaptics.heavy();
       setState(() => _erroPin = 'O PIN deve ter exatamente 4 números');
       return;
     }
 
     if (confirma != pin) {
-      HapticFeedback.heavyImpact();
+      AppHaptics.heavy();
       setState(() => _erroConfirma = 'Os PINs digitados não coincidem');
       return;
     }
@@ -59,7 +60,7 @@ class _CadastroPinDialogState extends State<CadastroPinDialog> {
 
     try {
       await AuthService.cadastrarOuAlterarPin(widget.operador, pin);
-      HapticFeedback.mediumImpact();
+      AppHaptics.medium();
 
       if (!mounted) return;
 

@@ -836,6 +836,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
 
+                  // Alternar Feedback Tátil (Vibração)
+                  _itemMenuCard(
+                    icon: Icons.vibration_rounded,
+                    iconColor: AppHaptics.habilitado
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFF94A3B8),
+                    iconBg: AppHaptics.habilitado
+                        ? (isDark ? const Color(0xFF064E3B).withOpacity(0.4) : const Color(0xFFD1FAE5))
+                        : (isDark ? const Color(0xFF1E293B).withOpacity(0.4) : const Color(0xFFF1F5F9)),
+                    titulo: AppHaptics.habilitado ? 'Vibração: Suave (Ativa)' : 'Vibração: Desativada',
+                    subtitulo: AppHaptics.habilitado
+                        ? 'Feedback tátil calibrado bem suave ao tocar'
+                        : 'Toque para reativar o feedback tátil suave',
+                    onTap: () async {
+                      await AppHaptics.setHabilitado(!AppHaptics.habilitado);
+                      if (AppHaptics.habilitado) {
+                        AppHaptics.light();
+                      }
+                      if (mounted) setState(() {});
+                    },
+                  ),
+                  const SizedBox(height: 8),
+
                   // Trocar / Sair do Operador
                   _itemMenuCard(
                     icon: Icons.person_outline_rounded,

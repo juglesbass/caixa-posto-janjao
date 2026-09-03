@@ -22,6 +22,7 @@ import 'services/operadores_sync_service.dart';
 import 'firebase_options.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
+import 'utils/app_haptics.dart';
 import 'utils/payment_types.dart';
 import 'widgets/bottom_nav_bar.dart';
 import 'widgets/pending_sync_banner.dart';
@@ -35,7 +36,8 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Inicializa notificações e fila de sincronização
+  // Inicializa notificações, fila de sincronização e preferências táteis
+  await AppHaptics.inicializar();
   await NotificationService.inicializar();
   await DriveService.inicializarModoTeste();
 

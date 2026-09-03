@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../dialogs/cadastro_pin_dialog.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_haptics.dart';
 import '../utils/validator.dart';
 
 class AuthDialog extends StatefulWidget {
@@ -118,7 +119,7 @@ class _AuthDialogState extends State<AuthDialog> {
 
       final valido = await AuthService.validarPin(nomeFormatado, pinDigitado);
       if (!valido) {
-        HapticFeedback.heavyImpact();
+        AppHaptics.heavy();
         if (mounted) {
           setState(() {
             _processando = false;

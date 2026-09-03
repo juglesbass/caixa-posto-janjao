@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../data/produtos_data.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_haptics.dart';
 
 class ConsultaProdutosScreen extends StatefulWidget {
   const ConsultaProdutosScreen({super.key});
@@ -84,7 +85,7 @@ class _ConsultaProdutosScreenState extends State<ConsultaProdutosScreen> {
 
   void _copiarCodigo(Produto p) {
     Clipboard.setData(ClipboardData(text: p.codigo));
-    HapticFeedback.lightImpact();
+    AppHaptics.light();
 
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -217,7 +218,7 @@ class _ConsultaProdutosScreenState extends State<ConsultaProdutosScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             onSelected: (val) {
                               if (val) {
-                                HapticFeedback.selectionClick();
+                                AppHaptics.selection();
                                 setState(() => _categoriaSelecionada = cat);
                               }
                             },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_haptics.dart';
 
 class TrocarPinDialog extends StatefulWidget {
   final String operador;
@@ -46,19 +47,19 @@ class _TrocarPinDialogState extends State<TrocarPinDialog> {
     final atualValido = await AuthService.validarPin(widget.operador, atual);
     if (!mounted) return;
     if (!atualValido) {
-      HapticFeedback.heavyImpact();
+      AppHaptics.heavy();
       setState(() => _erroAtual = 'PIN atual incorreto (ou PIN do Gerente)');
       return;
     }
 
     if (novo.length != 4 || int.tryParse(novo) == null) {
-      HapticFeedback.heavyImpact();
+      AppHaptics.heavy();
       setState(() => _erroNovo = 'O novo PIN deve ter 4 dígitos');
       return;
     }
 
     if (confirma != novo) {
-      HapticFeedback.heavyImpact();
+      AppHaptics.heavy();
       setState(() => _erroConfirma = 'A confirmação não confere com o novo PIN');
       return;
     }
@@ -67,7 +68,7 @@ class _TrocarPinDialogState extends State<TrocarPinDialog> {
 
     try {
       await AuthService.cadastrarOuAlterarPin(widget.operador, novo);
-      HapticFeedback.mediumImpact();
+      AppHaptics.medium();
 
       if (!mounted) return;
 

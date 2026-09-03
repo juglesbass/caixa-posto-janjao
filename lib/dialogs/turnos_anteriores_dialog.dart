@@ -4,6 +4,7 @@ import '../models/turno.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_haptics.dart';
 
 class TurnosAnterioresDialog extends StatefulWidget {
   final Function(Turno turno) onReabrirTurno;
@@ -114,7 +115,7 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
                 if (ok) {
                   Navigator.of(dialogCtx).pop(true);
                 } else {
-                  HapticFeedback.heavyImpact();
+                  AppHaptics.heavy();
                   setDlgState(() {
                     erro = 'PIN incorreto. Acesso negado.';
                   });
