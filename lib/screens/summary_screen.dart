@@ -2123,95 +2123,85 @@ class _ItemResumoCardState extends State<_ItemResumoCard> {
                 : null,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // 1. Ícone em Squircle (Caixa Arredondada 36x36)
+                  // 1. Ícone em Squircle (Caixa Arredondada 34x34)
                   Container(
-                    width: 36,
-                    height: 36,
+                    width: 34,
+                    height: 34,
                     decoration: BoxDecoration(
                       color: widget.iconBg,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(9),
                     ),
                     alignment: Alignment.center,
-                    child: Icon(widget.icon, color: widget.iconColor, size: 19),
+                    child: Icon(widget.icon, color: widget.iconColor, size: 18),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
 
-                  // 2. Container do Nome da Bandeira (Pill com relevo e micro-seta)
-                  if (!isSummaryCard)
-                    Flexible(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E2638) : const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1),
-                            width: 1.0,
+                  // 2. Nome da Bandeira (Pill com relevo e micro-seta para cartões selecionáveis; texto limpo para totalizador e outros)
+                  if (!isSummaryCard && temAcao)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E2638) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(
+                          color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1),
+                          width: 1.0,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
-                              blurRadius: 2,
-                              offset: const Offset(0, 1),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.titulo,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
                             ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                widget.titulo,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            '▾',
+                            style: TextStyle(
+                              fontSize: 9,
+                              height: 1.0,
+                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                             ),
-                            if (temAcao) ...[
-                              const SizedBox(width: 6),
-                              Text(
-                                '▾',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  height: 1.0,
-                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     )
                   else
-                    Flexible(
-                      child: Text(
-                        widget.titulo,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E40AF),
-                          fontWeight: FontWeight.w800,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      widget.titulo,
+                      style: TextStyle(
+                        fontSize: isSummaryCard ? 13.5 : 13,
+                        color: isSummaryCard
+                            ? (isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E40AF))
+                            : textTitle,
+                        fontWeight: isSummaryCard ? FontWeight.w800 : FontWeight.w600,
                       ),
                     ),
 
                   // 3. Badge de Canhotos (un)
                   if (textoBadge != null && textoBadge.isNotEmpty) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
                         color: const Color(0xFF3B82F6).withOpacity(isDark ? 0.18 : 0.12),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(5),
                         border: Border.all(
                           color: const Color(0xFF3B82F6).withOpacity(isDark ? 0.30 : 0.25),
                           width: 1.0,
@@ -2219,8 +2209,6 @@ class _ItemResumoCardState extends State<_ItemResumoCard> {
                       ),
                       child: Text(
                         textoBadge,
-                        maxLines: 1,
-                        softWrap: false,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -2233,21 +2221,17 @@ class _ItemResumoCardState extends State<_ItemResumoCard> {
 
                   // 4. Espaçador elástico (margin-right: auto / margin-left: auto)
                   const Spacer(),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
 
                   // 5. Valor Monetário à Direita (ancorado à margem direita, tabular)
-                  Container(
-                    constraints: const BoxConstraints(minWidth: 105),
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      CurrencyFormatter.formatar(widget.valor),
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                        color: isSummaryCard && isDark ? const Color(0xFF38BDF8) : textValue,
-                      ),
+                  Text(
+                    CurrencyFormatter.formatar(widget.valor),
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                      color: isSummaryCard && isDark ? const Color(0xFF38BDF8) : textValue,
                     ),
                   ),
                 ],
