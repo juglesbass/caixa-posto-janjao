@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -46,6 +47,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
   double _vendasSistema = 0.0;
   String _observacao = '';
+  Timer? _debounceTimer;
   Map<String, int> _canhotosManual = {};
   bool _processando = false;
   bool _cartoesExpandidos = false;
@@ -105,6 +107,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _vendasSistemaController.dispose();
     _observacaoController.dispose();
     super.dispose();
@@ -132,28 +135,34 @@ class _SummaryScreenState extends State<SummaryScreen> {
     setState(() {
       _vendasSistema = valor;
     });
-    if (widget.turno.id != null) {
-      DatabaseService.instance.salvarAuditoria(
-        widget.turno.id!,
-        _vendasSistema,
-        _observacao,
-        justificativa: _observacao,
-        canhotos: _canhotosManual,
-      );
-    }
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (widget.turno.id != null) {
+        DatabaseService.instance.salvarAuditoria(
+          widget.turno.id!,
+          _vendasSistema,
+          _observacao,
+          justificativa: _observacao,
+          canhotos: _canhotosManual,
+        );
+      }
+    });
   }
 
   void _atualizarObservacao(String text) {
     _observacao = text;
-    if (widget.turno.id != null) {
-      DatabaseService.instance.salvarAuditoria(
-        widget.turno.id!,
-        _vendasSistema,
-        _observacao,
-        justificativa: _observacao,
-        canhotos: _canhotosManual,
-      );
-    }
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (widget.turno.id != null) {
+        DatabaseService.instance.salvarAuditoria(
+          widget.turno.id!,
+          _vendasSistema,
+          _observacao,
+          justificativa: _observacao,
+          canhotos: _canhotosManual,
+        );
+      }
+    });
   }
 
   void _salvarNovoCanhoto(String bandeira, int novaQtd) async {
@@ -531,20 +540,17 @@ class _SummaryScreenState extends State<SummaryScreen> {
           ? dadosFechamento!.observacao.trim()
           : _observacao;
 
-      // Executa fechamento do banco e busca de lançamentos em paralelo para máxima velocidade
-      final results = await Future.wait([
-        db.fecharTurno(
-          widget.turno.id!,
-          vendasSistema: dadosFechamento!.vendasSistema,
-          observacao: obsFechamento,
-          justificativa: obsFechamento,
-          canhotos: _canhotosManual,
-          authHash: dadosFechamento!.authHash,
-          dataFechamento: dadosFechamento!.fechadoEm,
-        ),
-        db.obterLancamentos(widget.turno.id!),
-      ]);
-      final lancamentos = results[1] as List<Lancamento>;
+      // Executa fechamento do banco e busca de lançamentos sequencialmente
+      await db.fecharTurno(
+        widget.turno.id!,
+        vendasSistema: dadosFechamento!.vendasSistema,
+        observacao: obsFechamento,
+        justificativa: obsFechamento,
+        canhotos: _canhotosManual,
+        authHash: dadosFechamento!.authHash,
+        dataFechamento: dadosFechamento!.fechadoEm,
+      );
+      final lancamentos = await db.obterLancamentos(widget.turno.id!);
 
       progressoNotifier.value = 'Gerando relatório PDF autenticado digitalmente...';
       final turnoFechado = widget.turno.copyWith(
@@ -614,14 +620,19 @@ class _SummaryScreenState extends State<SummaryScreen> {
           ),
         );
       }
+      progressoNotifier.dispose();
     } catch (e) {
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
       }
-      if (!mounted) return;
+      if (!mounted) {
+        progressoNotifier.dispose();
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao encerrar turno: $e'), backgroundColor: AppColors.red),
       );
+      progressoNotifier.dispose();
     }
   }
 

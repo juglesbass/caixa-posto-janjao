@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
@@ -63,7 +64,7 @@ class CsvService {
     buffer.writeln('ID;Hora;Tipo de Pagamento;Descrição / Observação;Valor (R\$)');
     for (final l in lancamentos) {
       final desc = l.descricao.trim().isNotEmpty ? l.descricao : '-';
-      buffer.writeln('${l.id};${l.hora};${l.tipo};$desc;${l.valor.toStringAsFixed(2)}');
+      buffer.writeln('${l.id};${l.hora};"${l.tipo.replaceAll('"', '""')}";"${desc.replaceAll('"', '""').replaceAll('\n', ' ')}";${l.valor.toStringAsFixed(2)}');
     }
 
     final csvContent = buffer.toString();
@@ -73,7 +74,7 @@ class CsvService {
 
     if (kIsWeb) {
       // No Web compartilha como texto
-      await Share.share(csvContent, subject: 'Fechamento CSV - $operadorLimpo');
+      await Share.share(csvContent, subject: 'Fechamento CSV - $operadorLimpo', sharePositionOrigin: const ui.Rect.fromLTWH(0, 0, 100, 100));
     } else {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/$nomeArquivo');
@@ -81,6 +82,7 @@ class CsvService {
       await Share.shareXFiles(
         [XFile(file.path)],
         subject: 'Fechamento CSV - $operadorLimpo',
+        sharePositionOrigin: const ui.Rect.fromLTWH(0, 0, 100, 100),
       );
     }
   }

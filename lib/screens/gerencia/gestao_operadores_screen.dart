@@ -222,7 +222,11 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
           },
         );
       },
-    );
+    ).then((_) {
+      nomeController.dispose();
+      pinController.dispose();
+      confirmaController.dispose();
+    });
   }
 
   void _dialogRedefinirPin(OperadorModel operador) {
@@ -373,7 +377,10 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
           },
         );
       },
-    );
+    ).then((_) {
+      pinController.dispose();
+      confirmaController.dispose();
+    });
   }
 
   void _alternarStatus(OperadorModel operador) async {
@@ -599,7 +606,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
           },
         );
       },
-    );
+    ).then((_) => projController.dispose());
   }
 
   @override
@@ -823,7 +830,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
     Color textSec,
     Color borderCol,
   ) {
-    final dataFormatada = DateFormat('dd/MM/yyyy HH:mm').format(op.atualizadoEm);
+    final dataFormatada = DateFormat('dd/MM/yyyy HH:mm').format(op.atualizadoEm.toLocal());
     final cardBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
 
     return Container(

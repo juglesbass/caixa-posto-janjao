@@ -148,6 +148,7 @@ class _EditLaunchDialogState extends State<EditLaunchDialog> {
                   ),
                 ),
                 items: [
+                  _tipoSelecionado,
                   PaymentTypes.dinheiro,
                   PaymentTypes.pix,
                   ...PaymentTypes.bandeirasPadrao.map((b) => '${widget.maquinaAtiva} $b'),

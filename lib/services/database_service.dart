@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
@@ -14,6 +15,7 @@ import '../utils/payment_types.dart';
 class DatabaseService {
   static DatabaseService? _instance;
   static Database? _database;
+  static Completer<Database>? _initCompleter;
 
   DatabaseService._();
 
@@ -24,7 +26,16 @@ class DatabaseService {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDatabase();
+    if (_initCompleter != null) return _initCompleter!.future;
+    _initCompleter = Completer<Database>();
+    try {
+      _database = await _initDatabase();
+      _initCompleter!.complete(_database!);
+    } catch (e) {
+      _initCompleter!.completeError(e);
+      _initCompleter = null;
+      rethrow;
+    }
     return _database!;
   }
 
@@ -189,25 +200,30 @@ class DatabaseService {
     final dataHojeStr = DateFormat('dd/MM/yyyy').format(now);
     final dataCompletaStr = DateFormat('dd/MM/yyyy HH:mm').format(now);
 
-    // Fechar turnos abertos anteriormente por segurança
-    await db.update('turnos', {'aberto': 0, 'fechado_em': dataCompletaStr}, where: 'aberto = 1');
+    int numeroTurno = 0;
+    int id = 0;
 
-    // Obter número do turno no dia
-    final result = await db.rawQuery(
-      "SELECT COUNT(*) as count FROM turnos WHERE substr(data, 1, 10) = ?",
-      [dataHojeStr],
-    );
-    final countDia = (result.first['count'] as num?)?.toInt() ?? 0;
-    final numeroTurno = countDia + 1;
+    await db.transaction((txn) async {
+      // Fechar turnos abertos anteriormente por segurança
+      await txn.update('turnos', {'aberto': 0, 'fechado_em': dataCompletaStr}, where: 'aberto = 1');
 
-    final id = await db.insert('turnos', {
-      'numero': numeroTurno,
-      'data': dataCompletaStr,
-      'operador': operador,
-      'aberto': 1,
-      'vendas_sistema': 0.0,
-      'observacao': '',
-      'fundo_caixa': fundoCaixa,
+      // Obter número do turno no dia
+      final result = await txn.rawQuery(
+        "SELECT COUNT(*) as count FROM turnos WHERE substr(data, 1, 10) = ?",
+        [dataHojeStr],
+      );
+      final countDia = (result.first['count'] as num?)?.toInt() ?? 0;
+      numeroTurno = countDia + 1;
+
+      id = await txn.insert('turnos', {
+        'numero': numeroTurno,
+        'data': dataCompletaStr,
+        'operador': operador,
+        'aberto': 1,
+        'vendas_sistema': 0.0,
+        'observacao': '',
+        'fundo_caixa': fundoCaixa,
+      });
     });
 
     return Turno(
@@ -618,7 +634,7 @@ class DatabaseService {
         'encerrantes',
         where: 'turno_id = ?',
         whereArgs: [turnoId],
-        orderBy: 'id ASC',
+        orderBy: 'bico ASC',
       );
     } catch (_) {
       return [];

@@ -13,7 +13,6 @@ class AppTheme {
         surface: AppColors.darkSurface,
         error: AppColors.red,
       ),
-      fontFamily: 'Roboto',
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.darkSurface,
         elevation: 0,
@@ -61,7 +60,6 @@ class AppTheme {
         surface: AppColors.lightSurface,
         error: AppColors.red,
       ),
-      fontFamily: 'Roboto',
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.lightSurface,
         elevation: 0,

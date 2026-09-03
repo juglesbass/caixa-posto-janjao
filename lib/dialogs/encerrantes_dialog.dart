@@ -74,6 +74,7 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
   void _carregarSalvos() async {
     final db = DatabaseService.instance;
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
 
     // 1. Carrega preferências salvas no aparelho (preços e nomes atualizados)
     for (final b in _bicos) {
@@ -89,7 +90,9 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
 
     // 2. Carrega os dados específicos salvos deste turno
     final salvos = await db.obterEncerrantes(widget.turnoId);
+    if (!mounted) return;
     if (salvos.isNotEmpty) {
+      if (_bicos.isEmpty) return;
       for (final s in salvos) {
         final bico = _bicos.firstWhere(
           (b) => b.bico == s['bico'],

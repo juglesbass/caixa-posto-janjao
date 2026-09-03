@@ -50,7 +50,6 @@ class Turno {
       'aberto': aberto ? 1 : 0,
       'fechado_em': fechadoEm,
       'vendas_sistema': vendasSistema,
-      'venda_sistema': vendasSistema,
       'observacao': observacao,
       'justificativa': justificativa ?? observacao,
       'canhotos': jsonEncode(canhotos),
@@ -69,10 +68,12 @@ class Turno {
         }
       } catch (_) {}
     } else if (map['canhotos'] is Map) {
-      canhotosMap = (map['canhotos'] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+      try {
+        canhotosMap = (map['canhotos'] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+      } catch (_) {}
     }
 
-    final valorVendas = (map['venda_sistema'] ?? map['vendas_sistema'] as num?)?.toDouble() ?? 0.0;
+    final valorVendas = ((map['venda_sistema'] ?? map['vendas_sistema']) as num?)?.toDouble() ?? 0.0;
     final obs = map['observacao'] as String? ?? '';
     final just = map['justificativa'] as String? ?? (obs.isNotEmpty ? obs : null);
 

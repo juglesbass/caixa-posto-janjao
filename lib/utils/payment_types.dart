@@ -139,7 +139,7 @@ class PaymentTypes {
     // 14. ALELO
     if (n.contains('alelo')) return 14;
     // 15. VR
-    if (n.contains('vr')) return 15;
+    if (n == 'vr' || n.startsWith('vr ') || n.endsWith(' vr') || n.contains(' vr ')) return 15;
 
     return 999;
   }
@@ -162,10 +162,12 @@ class PaymentTypes {
   }
 
   static bool ehCartao(String tipo) {
-    if (tipo.startsWith('Rede ') || tipo.startsWith('Cielo ') || tipo.startsWith('Stone ') || tipo.startsWith('PagBank ')) {
+    final t = tipo.trim();
+    final tLower = t.toLowerCase();
+    if (tLower.startsWith('rede ') || tLower.startsWith('cielo ') || tLower.startsWith('stone ') || tLower.startsWith('pagbank ')) {
       return true;
     }
-    return bandeirasPadrao.contains(tipo) || tipo == 'Cartões' || tipo.contains('Débito') || tipo.contains('Crédito');
+    return bandeirasPadrao.any((b) => b.toLowerCase() == tLower || t == b) || t == 'Cartões' || t.contains('Débito') || t.contains('Crédito');
   }
 
   static bool ehSangria(String tipo) => tipo == sangria;

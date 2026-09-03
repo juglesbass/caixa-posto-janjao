@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -91,38 +92,42 @@ class OperadoresSyncService {
       operadoresLocais = await _carregarCachePrefs();
     }
 
-    // 3. Se solicitado, sincroniza com o Firestore
+    // 3. Se solicitado, sincroniza com o Firestore em background
     if (sincronizarNuvem) {
-      try {
-        final operadoresNuvem = await _buscarDoFirestore();
-        if (operadoresNuvem.isNotEmpty) {
-          // Atualiza cache local (SQLite e SharedPreferences)
-          await db.salvarOperadoresCache(operadoresNuvem);
-          await _salvarCachePrefs(operadoresNuvem);
-          // Sincroniza também as chaves legadas de PIN no SharedPreferences
-          await _sincronizarChavesLocais(operadoresNuvem);
-
-          statusNotifier.value = SyncStatus(
-            online: true,
-            mensagem: 'Sincronizado com Firestore',
-            statusCode: 200,
-            ultimaSincronizacao: DateTime.now(),
-          );
-          return operadoresNuvem;
-        }
-      } catch (e) {
-        debugPrint('[Firestore Sync] ⚠️ Modo Offline ativo. Detalhe: $e');
-        statusNotifier.value = SyncStatus(
-          online: false,
-          mensagem: 'Modo Offline (Cache Local)',
-          detalheErro: ultimoErroDiagnostico ?? e.toString(),
-          statusCode: ultimoStatusCode,
-          ultimaSincronizacao: statusNotifier.value.ultimaSincronizacao,
-        );
-      }
+      unawaited(_sincronizarEmBackground());
     }
 
     return operadoresLocais;
+  }
+
+  static Future<void> _sincronizarEmBackground() async {
+    try {
+      final operadoresNuvem = await _buscarDoFirestore();
+      if (operadoresNuvem.isNotEmpty) {
+        final db = DatabaseService.instance;
+        // Atualiza cache local (SQLite e SharedPreferences)
+        await db.salvarOperadoresCache(operadoresNuvem);
+        await _salvarCachePrefs(operadoresNuvem);
+        // Sincroniza também as chaves legadas de PIN no SharedPreferences
+        await _sincronizarChavesLocais(operadoresNuvem);
+
+        statusNotifier.value = SyncStatus(
+          online: true,
+          mensagem: 'Sincronizado com Firestore',
+          statusCode: 200,
+          ultimaSincronizacao: DateTime.now(),
+        );
+      }
+    } catch (e) {
+      debugPrint('[Firestore Sync] ⚠️ Modo Offline ativo. Detalhe: $e');
+      statusNotifier.value = SyncStatus(
+        online: false,
+        mensagem: 'Modo Offline (Cache Local)',
+        detalheErro: ultimoErroDiagnostico ?? e.toString(),
+        statusCode: ultimoStatusCode,
+        ultimaSincronizacao: statusNotifier.value.ultimaSincronizacao,
+      );
+    }
   }
 
   /// Força a sincronização completa entre o dispositivo e o Firestore

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../dialogs/cadastro_pin_dialog.dart';
@@ -28,24 +29,30 @@ class _AuthDialogState extends State<AuthDialog> {
   bool _mostrarCampoPin = false;
   bool _processando = false;
 
+  Timer? _debounceTimer;
+
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _controllerNome.dispose();
     _controllerPin.dispose();
     super.dispose();
   }
 
-  void _onNomeChanged(String val) async {
-    if (_erroNome != null) setState(() => _erroNome = null);
-    if (Validator.validarNomeOperador(val) == null) {
-      final nomeFormatado = Validator.formatarNomeOperador(val);
-      final temPin = await AuthService.operadorTemPin(nomeFormatado);
-      if (mounted) {
-        setState(() => _mostrarCampoPin = temPin);
+  void _onNomeChanged(String val) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () async {
+      if (_erroNome != null) setState(() => _erroNome = null);
+      if (Validator.validarNomeOperador(val) == null) {
+        final nomeFormatado = Validator.formatarNomeOperador(val);
+        final temPin = await AuthService.operadorTemPin(nomeFormatado);
+        if (mounted) {
+          setState(() => _mostrarCampoPin = temPin);
+        }
+      } else {
+        if (_mostrarCampoPin) setState(() => _mostrarCampoPin = false);
       }
-    } else {
-      if (_mostrarCampoPin) setState(() => _mostrarCampoPin = false);
-    }
+    });
   }
 
   void _confirmar() async {

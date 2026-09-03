@@ -1,3 +1,4 @@
+import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -54,6 +55,15 @@ void main() async {
     debugPrint('[Firebase Diagnostic] Erro durante diagnóstico de inicialização: $e');
   }
 
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('[App Error] ${details.exceptionAsString()}');
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('[Platform Error] $error');
+    return true;
+  };
+
   runApp(const CaixaPostoJanjaoApp());
 }
 
@@ -77,6 +87,7 @@ class _CaixaPostoJanjaoAppState extends State<CaixaPostoJanjaoApp> {
 
   void _carregarTema() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _isDark = prefs.getBool('tema_escuro') ?? true;
     });
@@ -85,6 +96,7 @@ class _CaixaPostoJanjaoAppState extends State<CaixaPostoJanjaoApp> {
   void _mudarTema(bool escuro) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('tema_escuro', escuro);
+    if (!mounted) return;
     setState(() {
       _isDark = escuro;
     });

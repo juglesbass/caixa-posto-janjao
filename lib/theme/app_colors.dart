@@ -67,6 +67,7 @@ class AppColors {
       final bandeira = tipo.substring(6);
       return _coresPorTipo[bandeira] ?? cielo;
     }
+    tipo = tipo.replaceFirst('Stone ', '').replaceFirst('PagBank ', '');
     return _coresPorTipo[tipo] ?? accent;
   }
 
@@ -78,6 +79,7 @@ class AppColors {
     } else if (tipo.startsWith('Cielo ')) {
       limpo = tipo.substring(6);
     }
+    limpo = limpo.replaceFirst('Stone ', '').replaceFirst('PagBank ', '');
     return _iconesPorTipo[limpo] ?? Icons.credit_card_rounded;
   }
 

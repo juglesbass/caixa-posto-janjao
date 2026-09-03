@@ -110,6 +110,7 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
               onPressed: () async {
                 final pin = controller.text.trim();
                 final ok = await AuthService.validarPin(t.operador, pin);
+                if (!dialogCtx.mounted) return;
                 if (ok) {
                   Navigator.of(dialogCtx).pop(true);
                 } else {

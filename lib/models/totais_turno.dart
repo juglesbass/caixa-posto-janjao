@@ -54,8 +54,8 @@ class TotaisTurno {
   });
 
   bool get temDiferenca => diferenca.abs() >= 0.01;
-  bool get ehSobra => diferenca > 0.009;
-  bool get ehFalta => diferenca < -0.009;
+  bool get ehSobra => diferenca > 0.01;
+  bool get ehFalta => diferenca < -0.01;
 
   TotaisTurno copyWith({
     double? dinheiro,

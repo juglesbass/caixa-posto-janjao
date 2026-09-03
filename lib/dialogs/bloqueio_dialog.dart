@@ -67,11 +67,12 @@ class _BloqueioDialogState extends State<BloqueioDialog> {
       child: Dialog.fullscreen(
         backgroundColor: bgScaffold,
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -142,6 +143,7 @@ class _BloqueioDialogState extends State<BloqueioDialog> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

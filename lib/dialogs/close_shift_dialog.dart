@@ -76,6 +76,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
     });
 
     final valido = await AuthService.validarPin(widget.turno.operador, pin);
+    if (!mounted) return;
     if (!valido) {
       AppHaptics.heavy();
       if (mounted) {
@@ -214,6 +215,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                           }
                           setModalState(() => validandoGerente = true);
                           final ok = await AuthService.validarPinGerente(p);
+                          if (!ctx.mounted) return;
                           if (!ok) {
                             setModalState(() {
                               validandoGerente = false;
@@ -384,6 +386,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                       return;
                     }
                     await AuthService.cadastrarOuAlterarPin(widget.turno.operador, np);
+                    if (!ctx.mounted) return;
                     Navigator.of(ctx).pop(true);
                   },
                   child: const Text('Salvar Novo PIN'),

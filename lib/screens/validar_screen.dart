@@ -33,6 +33,7 @@ class ValidarScreen extends StatefulWidget {
 class _ValidarScreenState extends State<ValidarScreen> {
   bool _carregando = true;
   bool _encontrado = false;
+  bool _formatoReconhecido = false;
   String _authExibicao = '';
   String _operadorExibicao = 'Autenticado via PIN';
   String _turnoExibicao = 'Turno #Oficial';
@@ -95,47 +96,15 @@ class _ValidarScreenState extends State<ValidarScreen> {
         return;
       }
 
-      // 3. Se os parâmetros estiverem presentes na URL (exibição de dados reais com fallback elegante)
-      if (op.isNotEmpty || turno.isNotEmpty || total.isNotEmpty || data.isNotEmpty) {
-        final totalNum = double.tryParse(total.replaceAll(',', '.'));
-        final totalFormatado = (totalNum != null && totalNum > 0)
-            ? CurrencyFormatter.formatar(totalNum)
-            : (total.isNotEmpty ? 'R\$ $total' : 'R\$ Homologado');
-
-        setState(() {
-          _encontrado = true;
-          _turnoExibicao = turno.isNotEmpty ? 'Turno #$turno' : 'Turno #Oficial';
-          _operadorExibicao = op.isNotEmpty ? op : 'Autenticado via PIN';
-          _totalVendasExibicao = totalFormatado;
-          _dataHoraExibicao = data.isNotEmpty ? data : 'Registrada no Sistema';
-          _metodoAssinatura = 'SHA-256 Oficial Posto Janjão';
-          _carregando = false;
-        });
-        return;
-      }
-
-      // 4. Verificação de integridade da chave oficial SHA-256 (AUTH-XXXX-XXXX-XXXX)
+      // 3. Verificação de integridade da chave oficial SHA-256 (AUTH-XXXX-XXXX-XXXX)
       final formatoOficialValido = RegExp(
         r'^AUTH-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}$',
         caseSensitive: false,
       ).hasMatch(chave);
 
-      if (formatoOficialValido) {
-        setState(() {
-          _encontrado = true;
-          _turnoExibicao = 'Turno #Oficial';
-          _operadorExibicao = 'Autenticado via PIN';
-          _totalVendasExibicao = 'R\$ Homologado';
-          _dataHoraExibicao = 'Registrada no Sistema';
-          _metodoAssinatura = 'SHA-256 Oficial Posto Janjão';
-          _carregando = false;
-        });
-        return;
-      }
-
-      // 5. Chave inválida ou não reconhecida
       setState(() {
         _encontrado = false;
+        _formatoReconhecido = formatoOficialValido;
         _carregando = false;
       });
     } catch (e) {
@@ -494,7 +463,9 @@ class _ValidarScreenState extends State<ValidarScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'A chave informada não pôde ser autenticada nos registros do Posto Janjão. Certifique-se de que o fechamento foi homologado corretamente.',
+            _formatoReconhecido
+                ? 'Formato de chave reconhecido, porém não foi possível verificar no banco de dados local.'
+                : 'A chave informada não pôde ser autenticada nos registros do Posto Janjão. Certifique-se de que o fechamento foi homologado corretamente.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12.5,

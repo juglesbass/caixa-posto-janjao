@@ -35,7 +35,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void didUpdateWidget(covariant HistoryScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _carregar();
+    if (oldWidget.turno.id != widget.turno.id) {
+      _carregar();
+    }
   }
 
   Future<void> _carregar() async {
@@ -46,6 +48,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       if (mounted) {
         setState(() {
           _lancamentos = lista;
+          _lancamentosFiltradosCache = null;
           _carregando = false;
         });
       }
@@ -56,12 +59,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  List<Lancamento>? _lancamentosFiltradosCache;
+  String? _filtroCache;
+
   List<Lancamento> get _lancamentosFiltrados {
-    if (_filtroTipo == 'Todos') return _lancamentos;
-    if (_filtroTipo == 'Cartões') {
-      return _lancamentos.where((l) => PaymentTypes.ehCartao(l.tipo)).toList();
+    if (_lancamentosFiltradosCache != null && _filtroCache == _filtroTipo) {
+      return _lancamentosFiltradosCache!;
     }
-    return _lancamentos.where((l) => l.tipo.toLowerCase().contains(_filtroTipo.toLowerCase())).toList();
+    _filtroCache = _filtroTipo;
+    if (_filtroTipo == 'Todos') {
+      _lancamentosFiltradosCache = _lancamentos;
+    } else if (_filtroTipo == 'Cartões') {
+      _lancamentosFiltradosCache = _lancamentos.where((l) => PaymentTypes.ehCartao(l.tipo)).toList();
+    } else {
+      _lancamentosFiltradosCache = _lancamentos.where((l) => l.tipo.toLowerCase().contains(_filtroTipo.toLowerCase())).toList();
+    }
+    return _lancamentosFiltradosCache!;
   }
 
   void _abrirEdicao(Lancamento lancamento) async {
@@ -160,7 +173,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     label: Text(f),
                     selected: selecionado,
                     onSelected: (_) {
-                      setState(() => _filtroTipo = f);
+                      setState(() {
+                        _filtroTipo = f;
+                        _lancamentosFiltradosCache = null;
+                      });
                     },
                     selectedColor: AppColors.accent.withOpacity(0.2),
                     checkmarkColor: AppColors.accentLight,

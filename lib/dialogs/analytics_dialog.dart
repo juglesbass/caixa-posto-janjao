@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
@@ -130,22 +131,22 @@ class AnalyticsDialog extends StatelessWidget {
                           children: [
                             if (percCartoes > 0)
                               Expanded(
-                                flex: (percCartoes * 10).toInt(),
+                                flex: math.max(1, (percCartoes * 10).toInt()),
                                 child: Container(color: const Color(0xFF3B82F6)),
                               ),
                             if (percPix > 0)
                               Expanded(
-                                flex: (percPix * 10).toInt(),
+                                flex: math.max(1, (percPix * 10).toInt()),
                                 child: Container(color: const Color(0xFF10B981)),
                               ),
                             if (percDinheiro > 0)
                               Expanded(
-                                flex: (percDinheiro * 10).toInt(),
+                                flex: math.max(1, (percDinheiro * 10).toInt()),
                                 child: Container(color: const Color(0xFFF59E0B)),
                               ),
                             if (percOutros > 0)
                               Expanded(
-                                flex: (percOutros * 10).toInt(),
+                                flex: math.max(1, (percOutros * 10).toInt()),
                                 child: Container(color: const Color(0xFFA855F7)),
                               ),
                           ],

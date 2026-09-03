@@ -54,7 +54,7 @@ class OperadorModel {
       id: map['id'] as String? ?? '',
       nome: map['nome'] as String? ?? '',
       pinHash: map['pin_hash'] as String? ?? '',
-      ativo: map['ativo'] == 1 || map['ativo'] == true,
+      ativo: map['ativo'] == null ? true : (map['ativo'] == 1 || map['ativo'] == true),
       atualizadoEm: map['atualizado_em'] != null
           ? DateTime.tryParse(map['atualizado_em'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -85,7 +85,7 @@ class OperadorModel {
     if (fields.containsKey('id') && fields['id']['stringValue'] != null) {
       docId = fields['id']['stringValue'].toString();
     } else if (json.containsKey('name')) {
-      final pathParts = (json['name'] as String).split('/');
+      final pathParts = (json['name'] as String?)?.split('/') ?? [];
       if (pathParts.isNotEmpty) {
         docId = pathParts.last;
       }
