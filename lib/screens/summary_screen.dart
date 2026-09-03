@@ -2061,7 +2061,7 @@ class _ItemResumoCardState extends State<_ItemResumoCard> {
 
     final baseCardBg = isSummaryCard
         ? (isDark ? const Color(0xFF172554).withOpacity(0.4) : const Color(0xFFEFF6FF))
-        : (isDark ? const Color(0xFF111827) : Colors.white);
+        : (isDark ? const Color(0xFF121622) : Colors.white);
     final cardBorder = isSummaryCard
         ? (isDark ? const Color(0xFF3B82F6).withOpacity(0.5) : const Color(0xFFBFDBFE))
         : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0));
@@ -2123,61 +2123,127 @@ class _ItemResumoCardState extends State<_ItemResumoCard> {
                 : null,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // .card-info-esquerda (flex: 1; min-width: 0;)
-                  Expanded(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(7.5),
-                          decoration: BoxDecoration(
-                            color: widget.iconBg,
-                            borderRadius: BorderRadius.circular(9),
-                          ),
-                          child: Icon(widget.icon, color: widget.iconColor, size: 18),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            widget.titulo,
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              color: isSummaryCard && isDark ? const Color(0xFF93C5FD) : textTitle,
-                              fontWeight: isSummaryCard ? FontWeight.w800 : FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                  // 1. Ícone em Squircle (Caixa Arredondada 36x36)
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: widget.iconBg,
+                      borderRadius: BorderRadius.circular(10),
                     ),
+                    alignment: Alignment.center,
+                    child: Icon(widget.icon, color: widget.iconColor, size: 19),
                   ),
+                  const SizedBox(width: 10),
 
-                  // .card-badge-unidade (flex-shrink: 0; margin-right: 12px;)
+                  // 2. Container do Nome da Bandeira (Pill com relevo e micro-seta)
+                  if (!isSummaryCard)
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E2638) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1),
+                            width: 1.0,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
+                              blurRadius: 2,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                widget.titulo,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (temAcao) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                '▾',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  height: 1.0,
+                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: Text(
+                        widget.titulo,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E40AF),
+                          fontWeight: FontWeight.w800,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+
+                  // 3. Badge de Canhotos (un)
                   if (textoBadge != null && textoBadge.isNotEmpty) ...[
                     const SizedBox(width: 8),
-                    _buildBadgeUnidade(
-                      texto: textoBadge,
-                      temEdicao: widget.onTapSubtitulo != null || widget.onTap != null,
-                      onTap: widget.onTapSubtitulo ?? widget.onTap,
-                      isDark: isDark,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3B82F6).withOpacity(isDark ? 0.18 : 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: const Color(0xFF3B82F6).withOpacity(isDark ? 0.30 : 0.25),
+                          width: 1.0,
+                        ),
+                      ),
+                      child: Text(
+                        textoBadge,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+                          letterSpacing: 0.2,
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 12),
                   ],
 
-                  // .card-valor-direita (margin-left: auto; text-align: right; min-width: 110px; display: flex; justify-content: flex-end; font-variant-numeric: tabular-nums;)
+                  // 4. Espaçador elástico (margin-right: auto / margin-left: auto)
+                  const Spacer(),
+                  const SizedBox(width: 8),
+
+                  // 5. Valor Monetário à Direita (ancorado à margem direita, tabular)
                   Container(
-                    constraints: const BoxConstraints(minWidth: 110),
+                    constraints: const BoxConstraints(minWidth: 105),
                     alignment: Alignment.centerRight,
                     child: Text(
                       CurrencyFormatter.formatar(widget.valor),
                       textAlign: TextAlign.right,
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                         fontFeatures: const [FontFeature.tabularFigures()],
                         color: isSummaryCard && isDark ? const Color(0xFF38BDF8) : textValue,
@@ -2191,69 +2257,5 @@ class _ItemResumoCardState extends State<_ItemResumoCard> {
         ),
       ),
     );
-  }
-
-  Widget _buildBadgeUnidade({
-    required String texto,
-    bool temEdicao = false,
-    VoidCallback? onTap,
-    required bool isDark,
-  }) {
-    final badgeBg = const Color(0xFF3B82F6).withOpacity(isDark ? 0.18 : 0.12);
-    final badgeBorder = const Color(0xFF3B82F6).withOpacity(isDark ? 0.30 : 0.25);
-    final badgeTextCol = isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB);
-
-    final badgeContent = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-      decoration: BoxDecoration(
-        color: badgeBg,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: badgeBorder, width: 1.0),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            texto,
-            maxLines: 1,
-            softWrap: false,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: badgeTextCol,
-              letterSpacing: 0.2,
-            ),
-          ),
-          if (temEdicao) ...[
-            const SizedBox(width: 3),
-            Text(
-              '▾',
-              style: TextStyle(
-                fontSize: 9,
-                height: 1.0,
-                color: badgeTextCol.withOpacity(0.45),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-
-    if (onTap != null) {
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            AppHaptics.selection();
-            onTap();
-          },
-          borderRadius: BorderRadius.circular(6),
-          child: badgeContent,
-        ),
-      );
-    }
-
-    return badgeContent;
   }
 }
