@@ -17,6 +17,9 @@ class DatabaseService {
   static Database? _database;
   static Completer<Database>? _initCompleter;
 
+  /// Notifier reativo para sincronização instantânea de telas quando lançamentos são criados/alterados/excluídos
+  static final ValueNotifier<int> lancamentosNotifier = ValueNotifier<int>(0);
+
   DatabaseService._();
 
   static DatabaseService get instance {
@@ -401,6 +404,8 @@ class DatabaseService {
       'data_hora': dataHora,
     });
 
+    lancamentosNotifier.value++;
+
     return Lancamento(
       id: id,
       turnoId: turnoId,
@@ -430,6 +435,7 @@ class DatabaseService {
       where: 'id = ? AND turno_id = ?',
       whereArgs: [id, turnoId],
     );
+    lancamentosNotifier.value++;
   }
 
   Future<void> deletarLancamento(int id, int turnoId) async {
@@ -439,6 +445,7 @@ class DatabaseService {
       where: 'id = ? AND turno_id = ?',
       whereArgs: [id, turnoId],
     );
+    lancamentosNotifier.value++;
   }
 
   Future<List<Lancamento>> obterLancamentos(int turnoId) async {

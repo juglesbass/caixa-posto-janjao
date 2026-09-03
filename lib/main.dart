@@ -211,6 +211,13 @@ class _MainShellState extends State<MainShell> {
     super.initState();
     _inicializarApp();
     _tentarSincronizarFilaInicial();
+    DatabaseService.lancamentosNotifier.addListener(_recarregarDados);
+  }
+
+  @override
+  void dispose() {
+    DatabaseService.lancamentosNotifier.removeListener(_recarregarDados);
+    super.dispose();
   }
 
   void _tentarSincronizarFilaInicial() async {
@@ -516,6 +523,7 @@ class _MainShellState extends State<MainShell> {
           HistoryScreen(
             turno: _turnoAtual!,
             onAtualizado: _recarregarDados,
+            ativo: _indiceAba == 1,
           ),
 
           // Aba 2: Resumo

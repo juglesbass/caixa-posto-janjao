@@ -10,11 +10,13 @@ import '../utils/payment_types.dart';
 class HistoryScreen extends StatefulWidget {
   final Turno turno;
   final VoidCallback onAtualizado;
+  final bool ativo;
 
   const HistoryScreen({
     super.key,
     required this.turno,
     required this.onAtualizado,
+    this.ativo = true,
   });
 
   @override
@@ -30,18 +32,33 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void initState() {
     super.initState();
     _carregar();
+    DatabaseService.lancamentosNotifier.addListener(_onLancamentosMudaram);
+  }
+
+  @override
+  void dispose() {
+    DatabaseService.lancamentosNotifier.removeListener(_onLancamentosMudaram);
+    super.dispose();
+  }
+
+  void _onLancamentosMudaram() {
+    if (mounted && widget.turno.id != null) {
+      _carregar(silencioso: _lancamentos.isNotEmpty);
+    }
   }
 
   @override
   void didUpdateWidget(covariant HistoryScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.turno.id != widget.turno.id) {
-      _carregar();
+    if (oldWidget.turno.id != widget.turno.id || (widget.ativo && !oldWidget.ativo)) {
+      _carregar(silencioso: _lancamentos.isNotEmpty);
     }
   }
 
-  Future<void> _carregar() async {
-    setState(() => _carregando = true);
+  Future<void> _carregar({bool silencioso = false}) async {
+    if (!silencioso && _lancamentos.isEmpty) {
+      setState(() => _carregando = true);
+    }
     try {
       final db = DatabaseService.instance;
       final lista = await db.obterLancamentos(widget.turno.id!);
