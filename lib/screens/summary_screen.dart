@@ -1099,7 +1099,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'TOTAL FÍSICO APURADO',
+                                  'TOTAL DE VENDAS PISTA',
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
@@ -1501,12 +1501,17 @@ class _SummaryScreenState extends State<SummaryScreen> {
               ),
             ],
             const SizedBox(width: 10),
-            Text(
-              CurrencyFormatter.formatar(valor),
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: isSummaryCard && isDark ? const Color(0xFF38BDF8) : textValue,
+            Container(
+              constraints: const BoxConstraints(minWidth: 100),
+              alignment: Alignment.centerRight,
+              child: Text(
+                CurrencyFormatter.formatar(valor),
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: isSummaryCard && isDark ? const Color(0xFF38BDF8) : textValue,
+                ),
               ),
             ),
             if (showChevron) ...[

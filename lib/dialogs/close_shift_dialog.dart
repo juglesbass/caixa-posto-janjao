@@ -596,7 +596,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                             const Icon(Icons.analytics_outlined, size: 14, color: Color(0xFF38BDF8)),
                             const SizedBox(width: 5),
                             Text(
-                              'TOTAL FÍSICO APURADO',
+                              'TOTAL DE VENDAS PISTA',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
