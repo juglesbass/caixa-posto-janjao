@@ -896,7 +896,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                 ? AppColors.getCorTipo(e.key).withOpacity(0.18)
                                 : AppColors.getCorTipo(e.key).withOpacity(0.12),
                             titulo: e.key,
-                            subtitulo: '(${_canhotosManual[e.key] ?? e.value.qtd} un)',
+                            subtitulo: '${_canhotosManual[e.key] ?? e.value.qtd} un',
                             onTapSubtitulo: () => _dialogEditarCanhoto(e.key, _canhotosManual[e.key] ?? e.value.qtd),
                             valor: e.value.total,
                             isDark: isDark,
@@ -911,7 +911,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           iconColor: const Color(0xFF38BDF8),
                           iconBg: isDark ? const Color(0xFF0284C7).withOpacity(0.25) : const Color(0xFFE0F2FE),
                           titulo: 'Total Cartões e Vouchers',
-                          subtitulo: '(${widget.totais.detalheCartoes.entries.fold<int>(0, (acc, e) => acc + (_canhotosManual[e.key] ?? e.value.qtd))} un)',
+                          subtitulo: '${widget.totais.detalheCartoes.entries.fold<int>(0, (acc, e) => acc + (_canhotosManual[e.key] ?? e.value.qtd))} un',
                           valor: widget.totais.cartoes,
                           isDark: isDark,
                           isSummaryCard: true,
@@ -958,7 +958,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           iconColor: const Color(0xFF0284C7),
                           iconBg: isDark ? const Color(0xFF0C4A6E).withOpacity(0.5) : const Color(0xFFE0F2FE),
                           titulo: 'Pag Pix',
-                          subtitulo: '(${widget.totais.qtdPix} un)',
+                          subtitulo: '${widget.totais.qtdPix} un',
                           valor: widget.totais.pix,
                           isDark: isDark,
                           onTap: () => _abrirDetalhesCartao('Pag Pix'),
@@ -1439,6 +1439,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
     final textValue = isDark ? Colors.white : const Color(0xFF0F172A);
     final textSub = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
+    final textoBadge = subtitulo != null
+        ? subtitulo.replaceAll('(', '').replaceAll(')', '').trim()
+        : null;
+
     return InkWell(
       onTap: onTap == null
           ? null
@@ -1476,70 +1480,27 @@ class _SummaryScreenState extends State<SummaryScreen> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      titulo,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        color: isSummaryCard && isDark ? const Color(0xFF93C5FD) : textTitle,
-                        fontWeight: isSummaryCard ? FontWeight.w800 : FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (subtitulo != null) ...[
-                    const SizedBox(width: 6),
-                    if (onTapSubtitulo != null)
-                      InkWell(
-                        onTap: () {
-                          AppHaptics.selection();
-                          onTapSubtitulo();
-                        },
-                        borderRadius: BorderRadius.circular(5),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-                            borderRadius: BorderRadius.circular(5),
-                            border: Border.all(
-                              color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
-                              width: 0.8,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                subtitulo,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 3),
-                              Icon(
-                                Icons.edit_rounded,
-                                size: 11,
-                                color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      Text(
-                        subtitulo,
-                        style: TextStyle(fontSize: 11.5, color: textSub, fontWeight: FontWeight.w500),
-                      ),
-                  ],
-                ],
+              child: Text(
+                titulo,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: isSummaryCard && isDark ? const Color(0xFF93C5FD) : textTitle,
+                  fontWeight: isSummaryCard ? FontWeight.w800 : FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 8),
+            if (textoBadge != null && textoBadge.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              _buildBadgeUnidade(
+                texto: textoBadge,
+                onTap: onTapSubtitulo,
+                isDark: isDark,
+                isSummaryCard: isSummaryCard,
+              ),
+            ],
+            const SizedBox(width: 10),
             Text(
               CurrencyFormatter.formatar(valor),
               style: TextStyle(
@@ -1556,6 +1517,53 @@ class _SummaryScreenState extends State<SummaryScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildBadgeUnidade({
+    required String texto,
+    VoidCallback? onTap,
+    required bool isDark,
+    bool isSummaryCard = false,
+  }) {
+    final badgeBg = const Color(0xFF3B82F6).withOpacity(isDark ? 0.18 : 0.12);
+    final badgeBorder = const Color(0xFF3B82F6).withOpacity(isDark ? 0.28 : 0.22);
+    final badgeTextCol = isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB);
+
+    final badgeContent = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+      decoration: BoxDecoration(
+        color: badgeBg,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: badgeBorder, width: 0.8),
+      ),
+      child: Text(
+        texto,
+        maxLines: 1,
+        softWrap: false,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: badgeTextCol,
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+
+    if (onTap != null) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            AppHaptics.selection();
+            onTap();
+          },
+          borderRadius: BorderRadius.circular(6),
+          child: badgeContent,
+        ),
+      );
+    }
+
+    return badgeContent;
   }
 
   Widget _botaoAcao({
