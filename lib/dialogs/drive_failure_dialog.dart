@@ -55,7 +55,7 @@ class _DriveFailureDialogState extends State<DriveFailureDialog> {
     final textPri = isDark ? Colors.white : AppColors.lightTextPri;
     final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
     final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
-    final boxBg = isDark ? const Color(0xFF1E293B).withOpacity(0.6) : const Color(0xFFFEF3C7);
+    final boxBg = isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFFEF3C7);
     final boxBorder = isDark ? const Color(0xFF334155) : const Color(0xFFFDE68A);
     final boxText = isDark ? const Color(0xFFFCD34D) : const Color(0xFF92400E);
     final boxTextSec = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF78350F);
@@ -78,7 +78,7 @@ class _DriveFailureDialogState extends State<DriveFailureDialog> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withOpacity(0.2),
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
@@ -172,8 +172,8 @@ class _DriveFailureDialogState extends State<DriveFailureDialog> {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: _sucesso
-                      ? const Color(0xFF10B981).withOpacity(0.15)
-                      : const Color(0xFFEF4444).withOpacity(0.15),
+                      ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                      : const Color(0xFFEF4444).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: _sucesso ? const Color(0xFF10B981) : const Color(0xFFEF4444),

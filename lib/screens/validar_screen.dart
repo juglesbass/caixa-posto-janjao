@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
-import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/app_haptics.dart';
@@ -60,10 +59,6 @@ class _ValidarScreenState extends State<ValidarScreen> {
     }
 
     String chave = (widget.authHash ?? fragmentParams['auth'] ?? queryParams['auth'] ?? '').trim();
-    String op = (widget.operadorFallback ?? fragmentParams['op'] ?? queryParams['op'] ?? '').trim();
-    String turno = (widget.turnoFallback ?? fragmentParams['turno'] ?? queryParams['turno'] ?? '').trim();
-    String total = (widget.totalFallback ?? fragmentParams['total'] ?? queryParams['total'] ?? '').trim();
-    String data = (widget.dataFallback ?? fragmentParams['data'] ?? queryParams['data'] ?? '').trim();
 
     _authExibicao = chave;
 
@@ -143,7 +138,7 @@ class _ValidarScreenState extends State<ValidarScreen> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF1E3A8A).withOpacity(0.3),
+                            color: const Color(0xFF1E3A8A).withValues(alpha: 0.3),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -247,12 +242,12 @@ class _ValidarScreenState extends State<ValidarScreen> {
         color: isDark ? const Color(0xFF111420) : Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: const Color(0xFF10B981).withOpacity(0.5),
+          color: const Color(0xFF10B981).withValues(alpha: 0.5),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF10B981).withOpacity(0.12),
+            color: const Color(0xFF10B981).withValues(alpha: 0.12),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -278,7 +273,7 @@ class _ValidarScreenState extends State<ValidarScreen> {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: const Color(0xFF10B981).withOpacity(0.15),
+              color: const Color(0xFF10B981).withValues(alpha: 0.15),
               shape: BoxShape.circle,
               border: Border.all(color: const Color(0xFF10B981), width: 2),
             ),
@@ -409,12 +404,12 @@ class _ValidarScreenState extends State<ValidarScreen> {
         color: isDark ? const Color(0xFF111420) : Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: const Color(0xFFEF4444).withOpacity(0.5),
+          color: const Color(0xFFEF4444).withValues(alpha: 0.5),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFEF4444).withOpacity(0.12),
+            color: const Color(0xFFEF4444).withValues(alpha: 0.12),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -439,7 +434,7 @@ class _ValidarScreenState extends State<ValidarScreen> {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: const Color(0xFFEF4444).withOpacity(0.15),
+              color: const Color(0xFFEF4444).withValues(alpha: 0.15),
               shape: BoxShape.circle,
               border: Border.all(color: const Color(0xFFEF4444), width: 2),
             ),
@@ -481,7 +476,7 @@ class _ValidarScreenState extends State<ValidarScreen> {
                 color: isDark ? const Color(0xFF181D2E) : const Color(0xFFFEF2F2),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: const Color(0xFFEF4444).withOpacity(0.3),
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.3),
                 ),
               ),
               child: Row(

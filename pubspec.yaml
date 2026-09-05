@@ -14,8 +14,8 @@ dependencies:
   
   # Banco de Dados SQLite Local & Web
   sqflite: ^2.3.3+1
-  sqflite_common_ffi: ^2.3.3
-  sqflite_common_ffi_web: ^0.4.2+2
+  sqflite_common_ffi: ^2.4.2
+  sqflite_common_ffi_web: ^1.1.2
   path_provider: ^2.1.3
   path: ^1.9.0
   
@@ -30,16 +30,13 @@ dependencies:
   printing: ^5.13.1
   
   # Compartilhamento (WhatsApp / Sistema)
-  share_plus: ^9.0.0
+  share_plus: ^13.3.0
   
   # Preferências Locais (Tema, Máquina Ativa, PIN)
   shared_preferences: ^2.2.3
 
   # Criptografia e Autenticação SHA-256
   crypto: ^3.0.3
-
-dependency_overrides:
-  sqflite_android: 2.4.0
 
 dev_dependencies:
   flutter_test:

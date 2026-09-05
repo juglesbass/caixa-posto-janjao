@@ -77,7 +77,7 @@ class _BloqueioDialogState extends State<BloqueioDialog> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2563EB).withOpacity(0.15),
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                     border: Border.all(color: const Color(0xFF2563EB), width: 2),
                   ),
@@ -110,7 +110,7 @@ class _BloqueioDialogState extends State<BloqueioDialog> {
                     style: TextStyle(color: textPri, fontSize: 20, letterSpacing: 8, fontWeight: FontWeight.bold),
                     decoration: InputDecoration(
                       hintText: 'PIN',
-                      hintStyle: TextStyle(color: textSec.withOpacity(0.6), letterSpacing: 1),
+                      hintStyle: TextStyle(color: textSec.withValues(alpha: 0.6), letterSpacing: 1),
                       errorText: _erro,
                       filled: true,
                       fillColor: inputBg,

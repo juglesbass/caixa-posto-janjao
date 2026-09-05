@@ -27,6 +27,8 @@ class TotaisTurno {
   final double despesas;
   final double sangrias;
   final int qtdSangrias;
+  final double suprimentos;
+  final int qtdSuprimentos;
   final double fundoCaixa;
   final double totalGeral;
   final double diferenca;
@@ -45,6 +47,8 @@ class TotaisTurno {
     this.despesas = 0.0,
     this.sangrias = 0.0,
     this.qtdSangrias = 0,
+    this.suprimentos = 0.0,
+    this.qtdSuprimentos = 0,
     this.fundoCaixa = 0.0,
     this.totalGeral = 0.0,
     this.diferenca = 0.0,
@@ -68,6 +72,8 @@ class TotaisTurno {
     double? despesas,
     double? sangrias,
     int? qtdSangrias,
+    double? suprimentos,
+    int? qtdSuprimentos,
     double? fundoCaixa,
     double? totalGeral,
     double? diferenca,
@@ -86,6 +92,8 @@ class TotaisTurno {
       despesas: despesas ?? this.despesas,
       sangrias: sangrias ?? this.sangrias,
       qtdSangrias: qtdSangrias ?? this.qtdSangrias,
+      suprimentos: suprimentos ?? this.suprimentos,
+      qtdSuprimentos: qtdSuprimentos ?? this.qtdSuprimentos,
       fundoCaixa: fundoCaixa ?? this.fundoCaixa,
       totalGeral: totalGeral ?? this.totalGeral,
       diferenca: diferenca ?? this.diferenca,

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,8 +15,20 @@ class AuthService {
     return operador.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
   }
 
+  /// Chave legada, que guardava o PIN em texto plano (mantida só para migração)
   static String _chavePinOperador(String operador) {
     return 'pin_operador_${normalizarOperador(operador)}';
+  }
+
+  /// Chave oficial: guarda apenas o hash SHA-256 do PIN do operador
+  static String _chaveHashOperador(String operador) {
+    return 'pin_operador_${normalizarOperador(operador)}_hash';
+  }
+
+  /// Migra um PIN legado em texto plano para hash e apaga o texto plano
+  static Future<void> _migrarPinLegado(SharedPreferences prefs, String operador, String pinPlano) async {
+    await prefs.setString(_chaveHashOperador(operador), gerarHashPin(pinPlano));
+    await prefs.remove(_chavePinOperador(operador));
   }
 
   /// Verifica se o operador já possui PIN individual de 4 dígitos cadastrado
@@ -31,27 +44,29 @@ class AuthService {
       }
     } catch (_) {}
 
-    // 2. Verifica armazenamento local de PIN
+    // 2. Verifica o hash local do próprio operador
     final prefs = await SharedPreferences.getInstance();
-    final chave = _chavePinOperador(operador);
-    final pin = prefs.getString(chave);
-    if (pin != null && pin.trim().length == 4) {
+    final hashLocal = prefs.getString(_chaveHashOperador(operador));
+    if (hashLocal != null && hashLocal.trim().isNotEmpty) {
       return true;
     }
-    // Fallback legado: se operador for o mesmo e houver pin_acesso global
-    final pinLegado = prefs.getString('pin_acesso');
-    if (pinLegado != null && pinLegado.trim().length == 4) {
-      // Migra automaticamente para o operador
-      await prefs.setString(chave, pinLegado.trim());
+
+    // 3. PIN legado em texto plano deste operador: migra para hash na hora
+    final pinPlano = prefs.getString(_chavePinOperador(operador));
+    if (pinPlano != null && pinPlano.trim().length == 4) {
+      await _migrarPinLegado(prefs, operador, pinPlano.trim());
       return true;
     }
+
+    // Não existe mais fallback para 'pin_acesso' global: ele fazia o PIN do
+    // último operador cadastrado valer para qualquer outro operador.
     return false;
   }
 
-  /// Obtém o PIN do operador
-  static Future<String?> obterPin(String operador) async {
+  /// Obtém o hash SHA-256 do PIN do operador (o PIN em si nunca é armazenado)
+  static Future<String?> obterHashPin(String operador) async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_chavePinOperador(operador));
+    return prefs.getString(_chaveHashOperador(operador));
   }
 
   /// Cadastra ou altera o PIN individual do operador
@@ -61,17 +76,123 @@ class AuthService {
       return false;
     }
     final prefs = await SharedPreferences.getInstance();
-    final chave = _chavePinOperador(operador);
-    await prefs.setString(chave, limpo);
-    // Atualiza compatibilidade legado
-    await prefs.setString('pin_acesso', limpo);
+    await prefs.setString(_chaveHashOperador(operador), gerarHashPin(limpo));
+    // Remove qualquer resquício do PIN em texto plano deste operador
+    await prefs.remove(_chavePinOperador(operador));
     return true;
   }
 
-  /// Gera o hash SHA-256 de um PIN
+  // ──────────────────────────────────────────────────────────────────────────
+  // DERIVAÇÃO DE PIN (PBKDF2-HMAC-SHA256 com sal aleatório)
+  //
+  // O hash de PIN viaja até o Firestore e fica legível para quem tiver acesso à
+  // coleção. Com SHA-256 puro, um PIN de 4 dígitos caía em milissegundos e um
+  // único passe quebrava todos os operadores de uma vez. O sal por operador
+  // elimina o ataque em lote e as rainbow tables; as iterações encarecem cada
+  // tentativa. O número de iterações é moderado de propósito: o PIN é validado
+  // na abertura e no fechamento de turno, inclusive no PWA (dart2js, celular
+  // simples), e travar o caixa por segundos seria pior que o ganho marginal
+  // sobre um espaço de apenas 10.000 combinações.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  static const String _prefixoPbkdf2 = 'pbkdf2_sha256';
+  static const int _iteracoesPbkdf2 = 25000;
+  static final Random _random = Random.secure();
+
+  /// Gera o hash SHA-256 simples de um PIN (formato legado, mantido para
+  /// validar credenciais criadas antes da migração para PBKDF2)
   static String hashPin(String pin) {
     final bytes = utf8.encode(pin.trim());
     return sha256.convert(bytes).toString();
+  }
+
+  /// Gera o hash moderno de um PIN no formato
+  /// `pbkdf2_sha256:<iteracoes>:<sal_hex>:<derivado_hex>`
+  static String gerarHashPin(String pin) {
+    final sal = List<int>.generate(16, (_) => _random.nextInt(256));
+    final derivado = _pbkdf2(utf8.encode(pin.trim()), sal, _iteracoesPbkdf2, 32);
+    return [
+      _prefixoPbkdf2,
+      '$_iteracoesPbkdf2',
+      _paraHex(sal),
+      _paraHex(derivado),
+    ].join(':');
+  }
+
+  /// Confere um PIN contra um hash armazenado, aceitando o formato moderno e o legado
+  static bool verificarPin(String pin, String? hashArmazenado) {
+    if (hashArmazenado == null || hashArmazenado.trim().isEmpty) return false;
+    final limpo = pin.trim();
+    final armazenado = hashArmazenado.trim();
+
+    if (armazenado.startsWith('$_prefixoPbkdf2:')) {
+      final partes = armazenado.split(':');
+      if (partes.length != 4) return false;
+      final iteracoes = int.tryParse(partes[1]);
+      final sal = _deHex(partes[2]);
+      if (iteracoes == null || iteracoes <= 0 || sal.isEmpty) return false;
+      final derivado = _pbkdf2(utf8.encode(limpo), sal, iteracoes, 32);
+      return _comparacaoSegura(_paraHex(derivado), partes[3]);
+    }
+
+    return _comparacaoSegura(hashPin(limpo), armazenado);
+  }
+
+  /// Indica que o hash está no formato antigo e merece ser regravado
+  static bool hashEhLegado(String? hashArmazenado) {
+    if (hashArmazenado == null || hashArmazenado.trim().isEmpty) return false;
+    return !hashArmazenado.trim().startsWith('$_prefixoPbkdf2:');
+  }
+
+  /// Comparação em tempo constante, para não vazar o hash por timing
+  static bool _comparacaoSegura(String a, String b) {
+    if (a.length != b.length) return false;
+    var diferenca = 0;
+    for (var i = 0; i < a.length; i++) {
+      diferenca |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+    }
+    return diferenca == 0;
+  }
+
+  static String _paraHex(List<int> bytes) =>
+      bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+
+  static List<int> _deHex(String hex) {
+    if (hex.length.isOdd) return const [];
+    final bytes = <int>[];
+    for (var i = 0; i < hex.length; i += 2) {
+      final b = int.tryParse(hex.substring(i, i + 2), radix: 16);
+      if (b == null) return const [];
+      bytes.add(b);
+    }
+    return bytes;
+  }
+
+  /// PBKDF2-HMAC-SHA256 (RFC 2898)
+  static List<int> _pbkdf2(List<int> senha, List<int> sal, int iteracoes, int tamanho) {
+    final hmac = Hmac(sha256, senha);
+    const hLen = 32;
+    final blocos = (tamanho / hLen).ceil();
+    final saida = <int>[];
+
+    for (var i = 1; i <= blocos; i++) {
+      var u = hmac.convert([
+        ...sal,
+        (i >> 24) & 0xff,
+        (i >> 16) & 0xff,
+        (i >> 8) & 0xff,
+        i & 0xff,
+      ]).bytes;
+      final t = List<int>.from(u);
+      for (var j = 1; j < iteracoes; j++) {
+        u = hmac.convert(u).bytes;
+        for (var k = 0; k < hLen; k++) {
+          t[k] ^= u[k];
+        }
+      }
+      saida.addAll(t);
+    }
+    return saida.sublist(0, tamanho);
   }
 
   /// Valida se o PIN informado pertence à Gerência (PIN Mestre Criptografado com SHA-256)
@@ -80,7 +201,6 @@ class AuthService {
     if (digitado.length != 4 || int.tryParse(digitado) == null) return false;
 
     final prefs = await SharedPreferences.getInstance();
-    final hashDigitado = hashPin(digitado);
 
     // Obtém o hash salvo do PIN Mestre
     String? hashSalvo = prefs.getString('pin_gerente_hash');
@@ -88,16 +208,35 @@ class AuthService {
       // Migração automática caso existisse em texto plano legado
       final pinLegado = prefs.getString('pin_gerente');
       if (pinLegado != null && pinLegado.trim().length == 4) {
-        hashSalvo = hashPin(pinLegado.trim());
-        await prefs.setString('pin_gerente_hash', hashSalvo);
+        hashSalvo = gerarHashPin(pinLegado.trim());
       } else {
         // Padrão inicial de fábrica: '9999'
-        hashSalvo = hashPin(_pinGerentePadrao);
-        await prefs.setString('pin_gerente_hash', hashSalvo);
+        hashSalvo = gerarHashPin(_pinGerentePadrao);
       }
+      await prefs.setString('pin_gerente_hash', hashSalvo);
+      await prefs.remove('pin_gerente');
     }
 
-    return hashDigitado == hashSalvo;
+    if (!verificarPin(digitado, hashSalvo)) return false;
+
+    // Acertou: aproveita para reescrever hashes antigos no formato forte
+    if (hashEhLegado(hashSalvo)) {
+      await prefs.setString('pin_gerente_hash', gerarHashPin(digitado));
+    }
+    return true;
+  }
+
+  /// Informa se o PIN Mestre ainda é o padrão de fábrica ('9999'), para que a
+  /// tela da Gerência possa cobrar a troca
+  static Future<bool> pinGerenteEhPadrao() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hashSalvo = prefs.getString('pin_gerente_hash');
+      if (hashSalvo == null) return true;
+      return verificarPin(_pinGerentePadrao, hashSalvo);
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Altera com segurança o PIN Mestre da Gerência armazenando apenas seu hash SHA-256
@@ -105,7 +244,7 @@ class AuthService {
     final limpo = novoPin.trim();
     if (limpo.length != 4 || int.tryParse(limpo) == null) return false;
     final prefs = await SharedPreferences.getInstance();
-    final novoHash = hashPin(limpo);
+    final novoHash = gerarHashPin(limpo);
     await prefs.setString('pin_gerente_hash', novoHash);
     await prefs.remove('pin_gerente'); // Remove qualquer rastro de texto plano
     return true;
@@ -131,18 +270,24 @@ class AuthService {
 
     final prefs = await SharedPreferences.getInstance();
 
-    // 3. Verifica PIN individual do Operador legado
-    final pinSalvo = prefs.getString(_chavePinOperador(operador));
-    if (pinSalvo != null && pinSalvo.trim() == digitado) {
+    // 3. Hash local do próprio operador
+    final hashSalvo = prefs.getString(_chaveHashOperador(operador));
+    if (verificarPin(digitado, hashSalvo)) {
+      if (hashEhLegado(hashSalvo)) {
+        await prefs.setString(_chaveHashOperador(operador), gerarHashPin(digitado));
+      }
       return true;
     }
 
-    // 4. Fallback legado
-    final pinLegado = prefs.getString('pin_acesso');
-    if (pinLegado != null && pinLegado.trim() == digitado) {
+    // 4. PIN legado em texto plano deste operador: valida e migra para hash
+    final pinPlano = prefs.getString(_chavePinOperador(operador));
+    if (pinPlano != null && pinPlano.trim() == digitado) {
+      await _migrarPinLegado(prefs, operador, digitado);
       return true;
     }
 
+    // O antigo fallback em 'pin_acesso' foi removido de propósito: ele aceitava
+    // o PIN de um operador para autenticar qualquer outro.
     return false;
   }
 
@@ -165,12 +310,13 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys();
     for (final k in keys) {
-      if (k.startsWith('pin_operador_') && !k.endsWith('_hash')) {
-        final rawNome = k.replaceFirst('pin_operador_', '');
-        final nomeBonito = rawNome.replaceAll('_', ' ').toUpperCase();
-        if (nomeBonito.isNotEmpty) {
-          operadores.add(nomeBonito);
-        }
+      if (!k.startsWith('pin_operador_')) continue;
+      final rawNome = k
+          .replaceFirst('pin_operador_', '')
+          .replaceFirst(RegExp(r'_hash$'), '');
+      final nomeBonito = rawNome.replaceAll('_', ' ').toUpperCase();
+      if (nomeBonito.isNotEmpty) {
+        operadores.add(nomeBonito);
       }
     }
     return operadores.toList()..sort();
@@ -185,6 +331,7 @@ class AuthService {
   static Future<void> excluirPinOperador(String operador) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_chavePinOperador(operador));
+    await prefs.remove(_chaveHashOperador(operador));
   }
 
   /// Gera a chave de autenticação digital SHA-256 no formato AUTH-XXXX-XXXX-XXXX

@@ -80,7 +80,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0284C7).withOpacity(0.15),
+                      color: const Color(0xFF0284C7).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.person_add_rounded, color: Color(0xFF38BDF8), size: 22),
@@ -252,7 +252,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withOpacity(0.15),
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.password_rounded, color: Color(0xFFF59E0B), size: 22),
@@ -432,7 +432,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF38BDF8).withOpacity(0.15),
+                      color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.cloud_sync_rounded, color: Color(0xFF38BDF8), size: 22),
@@ -456,8 +456,8 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: status.online
-                            ? AppColors.green.withOpacity(0.15)
-                            : const Color(0xFFF59E0B).withOpacity(0.15),
+                            ? AppColors.green.withValues(alpha: 0.15)
+                            : const Color(0xFFF59E0B).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: status.online ? AppColors.green : const Color(0xFFF59E0B),
@@ -700,7 +700,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: (status.online ? AppColors.green : const Color(0xFFF59E0B)).withOpacity(0.15),
+                            color: (status.online ? AppColors.green : const Color(0xFFF59E0B)).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Row(
@@ -782,7 +782,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.person_off_rounded, size: 48, color: textSec.withOpacity(0.5)),
+                              Icon(Icons.person_off_rounded, size: 48, color: textSec.withValues(alpha: 0.5)),
                               const SizedBox(height: 12),
                               Text(
                                 _filtro.isEmpty
@@ -839,7 +839,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
         color: cardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: op.ativo ? borderCol : borderCol.withOpacity(0.4),
+          color: op.ativo ? borderCol : borderCol.withValues(alpha: 0.4),
         ),
       ),
       child: Row(
@@ -850,8 +850,8 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
             height: 42,
             decoration: BoxDecoration(
               color: op.ativo
-                  ? (isDark ? const Color(0xFF0369A1).withOpacity(0.4) : const Color(0xFFE0F2FE))
-                  : (isDark ? const Color(0xFF334155).withOpacity(0.4) : const Color(0xFFF1F5F9)),
+                  ? (isDark ? const Color(0xFF0369A1).withValues(alpha: 0.4) : const Color(0xFFE0F2FE))
+                  : (isDark ? const Color(0xFF334155).withValues(alpha: 0.4) : const Color(0xFFF1F5F9)),
               shape: BoxShape.circle,
               border: Border.all(
                 color: op.ativo ? const Color(0xFF0284C7) : const Color(0xFF64748B),
@@ -896,8 +896,8 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: op.ativo
-                            ? AppColors.green.withOpacity(0.15)
-                            : Colors.red.withOpacity(0.15),
+                            ? AppColors.green.withValues(alpha: 0.15)
+                            : Colors.red.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(

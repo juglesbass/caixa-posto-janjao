@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui' show FontFeature;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,6 +15,7 @@ import '../models/turno.dart';
 import '../services/csv_service.dart';
 import '../services/database_service.dart';
 import '../services/drive_service.dart';
+import '../services/notification_service.dart';
 import '../services/pdf_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/app_haptics.dart';
@@ -51,7 +50,6 @@ class _SummaryScreenState extends State<SummaryScreen> {
   Timer? _debounceTimer;
   Map<String, int> _canhotosManual = {};
   bool _processando = false;
-  bool _cartoesExpandidos = false;
 
   @override
   void initState() {
@@ -93,15 +91,29 @@ class _SummaryScreenState extends State<SummaryScreen> {
   @override
   void didUpdateWidget(covariant SummaryScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.turno.id != widget.turno.id ||
-        oldWidget.turno.vendasSistema != widget.turno.vendasSistema ||
-        oldWidget.turno.observacao != widget.turno.observacao ||
-        oldWidget.turno.justificativa != widget.turno.justificativa ||
-        oldWidget.turno.canhotos != widget.turno.canhotos) {
+
+    // Só recarrega os campos do zero quando realmente mudou de turno. Antes a
+    // comparação incluía o Map de canhotos (nunca igual entre instâncias), então
+    // qualquer lançamento novo reconstruía a tela e apagava o valor em digitação.
+    if (oldWidget.turno.id != widget.turno.id) {
       _vendasSistema = widget.turno.vendasSistema;
       _observacao = widget.turno.textoJustificativa;
       _vendasSistemaController.text = _vendasSistema > 0 ? CurrencyFormatter.formatar(_vendasSistema) : '';
       _observacaoController.text = _observacao;
+      _canhotosManual = Map<String, int>.from(widget.turno.canhotos);
+      return;
+    }
+
+    // Mesmo turno: só absorve valores vindos do banco em campos ainda intocados
+    if (_vendasSistema == 0.0 && widget.turno.vendasSistema > 0) {
+      _vendasSistema = widget.turno.vendasSistema;
+      _vendasSistemaController.text = CurrencyFormatter.formatar(_vendasSistema);
+    }
+    if (_observacao.isEmpty && widget.turno.textoJustificativa.isNotEmpty) {
+      _observacao = widget.turno.textoJustificativa;
+      _observacaoController.text = _observacao;
+    }
+    if (_canhotosManual.isEmpty && widget.turno.canhotos.isNotEmpty) {
       _canhotosManual = Map<String, int>.from(widget.turno.canhotos);
     }
   }
@@ -319,10 +331,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
     final texto = _montarTextoResumo();
     final origin = _obterOrigemCompartilhamento(btnContext);
     try {
-      await Share.share(
-        texto,
-        subject: 'Fechamento Turno #${widget.turno.numero} - ${widget.turno.operador}',
-        sharePositionOrigin: origin,
+      await SharePlus.instance.share(
+        ShareParams(
+          text: texto,
+          subject: 'Fechamento Turno #${widget.turno.numero} - ${widget.turno.operador}',
+          sharePositionOrigin: origin,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -374,10 +388,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
       );
 
       if (!kIsWeb && caminhoLocal != null) {
-        await Share.shareXFiles(
-          [XFile(caminhoLocal)],
-          subject: 'Fechamento de Turno - ${widget.turno.operador}',
-          sharePositionOrigin: origin,
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(caminhoLocal, mimeType: 'application/pdf')],
+            subject: 'Fechamento de Turno - ${widget.turno.operador}',
+            sharePositionOrigin: origin,
+          ),
         );
       } else {
         await Printing.sharePdf(
@@ -501,7 +517,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E3A8A).withOpacity(0.3),
+                        color: const Color(0xFF1E3A8A).withValues(alpha: 0.3),
                         shape: BoxShape.circle,
                         border: Border.all(color: const Color(0xFF38BDF8), width: 2),
                       ),
@@ -630,6 +646,22 @@ class _SummaryScreenState extends State<SummaryScreen> {
       }
       progressoNotifier.dispose();
     } catch (e) {
+      // O turno pode já ter sido gravado como fechado antes da falha (ex.: erro
+      // ao gerar o PDF). Enfileira a pendência para o Drive não perder o envio.
+      try {
+        if (widget.turno.id != null) {
+          final turnoNoBanco = await DatabaseService.instance.obterTurnoPorId(widget.turno.id!);
+          if (turnoNoBanco != null && !turnoNoBanco.aberto) {
+            await DatabaseService.instance.salvarPendenciaDrive(
+              widget.turno.id!,
+              PdfService.gerarNomeArquivo(turno: turnoNoBanco),
+              widget.turno.operador,
+            );
+            await NotificationService.atualizarPendencias();
+          }
+        }
+      } catch (_) {}
+
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
       }
@@ -638,7 +670,11 @@ class _SummaryScreenState extends State<SummaryScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao encerrar turno: $e'), backgroundColor: AppColors.red),
+        SnackBar(
+          content: Text('Erro ao encerrar turno: $e'),
+          backgroundColor: AppColors.red,
+          duration: const Duration(seconds: 5),
+        ),
       );
       progressoNotifier.dispose();
     }
@@ -676,7 +712,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF0284C7).withOpacity(0.35),
+                          color: const Color(0xFF0284C7).withValues(alpha: 0.35),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -704,7 +740,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF0284C7).withOpacity(0.15),
+                                color: const Color(0xFF0284C7).withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -738,7 +774,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           borderRadius: BorderRadius.circular(6),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFD97706).withOpacity(0.3),
+                              color: const Color(0xFFD97706).withValues(alpha: 0.3),
                               blurRadius: 4,
                             ),
                           ],
@@ -790,7 +826,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF78350F).withOpacity(0.35),
+                            color: const Color(0xFF78350F).withValues(alpha: 0.35),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: const Color(0xFFF59E0B)),
                           ),
@@ -820,19 +856,19 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              const Color(0xFF7F1D1D).withOpacity(isDark ? 0.35 : 0.12),
-                              const Color(0xFF991B1B).withOpacity(isDark ? 0.25 : 0.08),
+                              const Color(0xFF7F1D1D).withValues(alpha: isDark ? 0.35 : 0.12),
+                              const Color(0xFF991B1B).withValues(alpha: isDark ? 0.25 : 0.08),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.6), width: 1.2),
+                          border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.6), width: 1.2),
                         ),
                         child: Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.all(5),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEF4444).withOpacity(0.2),
+                                color: const Color(0xFFEF4444).withValues(alpha: 0.2),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.lock_rounded, color: Color(0xFFF87171), size: 16),
@@ -884,7 +920,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0284C7).withOpacity(0.15),
+                              color: const Color(0xFF0284C7).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -901,8 +937,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
                             icon: AppColors.getIconeTipo(e.key),
                             iconColor: AppColors.getCorTipo(e.key),
                             iconBg: isDark
-                                ? AppColors.getCorTipo(e.key).withOpacity(0.18)
-                                : AppColors.getCorTipo(e.key).withOpacity(0.12),
+                                ? AppColors.getCorTipo(e.key).withValues(alpha: 0.18)
+                                : AppColors.getCorTipo(e.key).withValues(alpha: 0.12),
                             titulo: e.key,
                             subtitulo: '${_canhotosManual[e.key] ?? e.value.qtd} un',
                             onTapSubtitulo: () => _abrirDetalhesCartao(e.key),
@@ -916,7 +952,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         _itemResumoCard(
                           icon: Icons.credit_card_rounded,
                           iconColor: const Color(0xFF38BDF8),
-                          iconBg: isDark ? const Color(0xFF0284C7).withOpacity(0.25) : const Color(0xFFE0F2FE),
+                          iconBg: isDark ? const Color(0xFF0284C7).withValues(alpha: 0.25) : const Color(0xFFE0F2FE),
                           titulo: 'Total Cartões e Vouchers',
                           subtitulo: '${widget.totais.detalheCartoes.entries.fold<int>(0, (acc, e) => acc + (_canhotosManual[e.key] ?? e.value.qtd))} un',
                           valor: widget.totais.cartoes,
@@ -950,7 +986,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         _itemResumoCard(
                           icon: Icons.money_rounded,
                           iconColor: const Color(0xFF059669),
-                          iconBg: isDark ? const Color(0xFF064E3B).withOpacity(0.5) : const Color(0xFFD1FAE5),
+                          iconBg: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.5) : const Color(0xFFD1FAE5),
                           titulo: 'Sobra de Dinheiro',
                           valor: widget.totais.dinheiro,
                           isDark: isDark,
@@ -963,7 +999,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         _itemResumoCard(
                           icon: Icons.qr_code_2_rounded,
                           iconColor: const Color(0xFF0284C7),
-                          iconBg: isDark ? const Color(0xFF0C4A6E).withOpacity(0.5) : const Color(0xFFE0F2FE),
+                          iconBg: isDark ? const Color(0xFF0C4A6E).withValues(alpha: 0.5) : const Color(0xFFE0F2FE),
                           titulo: 'Pag Pix',
                           subtitulo: '${widget.totais.qtdPix} un',
                           valor: widget.totais.pix,
@@ -978,7 +1014,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         _itemResumoCard(
                           icon: Icons.receipt_long_rounded,
                           iconColor: const Color(0xFF7C3AED),
-                          iconBg: isDark ? const Color(0xFF581C87).withOpacity(0.5) : const Color(0xFFF3E8FF),
+                          iconBg: isDark ? const Color(0xFF581C87).withValues(alpha: 0.5) : const Color(0xFFF3E8FF),
                           titulo: 'Requisição',
                           valor: widget.totais.requisicao,
                           isDark: isDark,
@@ -991,7 +1027,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         _itemResumoCard(
                           icon: Icons.account_balance_rounded,
                           iconColor: const Color(0xFFD97706),
-                          iconBg: isDark ? const Color(0xFF78350F).withOpacity(0.5) : const Color(0xFFFEF3C7),
+                          iconBg: isDark ? const Color(0xFF78350F).withValues(alpha: 0.5) : const Color(0xFFFEF3C7),
                           titulo: 'Depósito Global',
                           valor: widget.totais.depositoGlobal,
                           isDark: isDark,
@@ -1004,7 +1040,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         _itemResumoCard(
                           icon: Icons.money_off_rounded,
                           iconColor: const Color(0xFFDC2626),
-                          iconBg: isDark ? const Color(0xFF7F1D1D).withOpacity(0.5) : const Color(0xFFFEE2E2),
+                          iconBg: isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.5) : const Color(0xFFFEE2E2),
                           titulo: 'Despesas',
                           valor: widget.totais.despesas,
                           isDark: isDark,
@@ -1053,7 +1089,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF2563EB).withOpacity(0.15),
+                            color: const Color(0xFF2563EB).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text(
@@ -1073,18 +1109,18 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: isDark
-                              ? [const Color(0xFF1E3A8A).withOpacity(0.55), const Color(0xFF0F172A)]
+                              ? [const Color(0xFF1E3A8A).withValues(alpha: 0.55), const Color(0xFF0F172A)]
                               : [const Color(0xFFEFF6FF), const Color(0xFFDBEAFE)],
                         ),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: isDark ? const Color(0xFF38BDF8).withOpacity(0.4) : const Color(0xFF3B82F6),
+                          color: isDark ? const Color(0xFF38BDF8).withValues(alpha: 0.4) : const Color(0xFF3B82F6),
                           width: 1.2,
                         ),
                         boxShadow: [
                           if (isDark)
                             BoxShadow(
-                              color: const Color(0xFF1E3A8A).withOpacity(0.2),
+                              color: const Color(0xFF1E3A8A).withValues(alpha: 0.2),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -1095,7 +1131,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF38BDF8).withOpacity(0.18),
+                              color: const Color(0xFF38BDF8).withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(Icons.point_of_sale_rounded, color: Color(0xFF38BDF8), size: 22),
@@ -1179,10 +1215,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                       decoration: BoxDecoration(
                         color: diferenca.abs() < 0.01
-                            ? (isDark ? const Color(0xFF064E3B).withOpacity(0.35) : const Color(0xFFD1FAE5))
+                            ? (isDark ? const Color(0xFF064E3B).withValues(alpha: 0.35) : const Color(0xFFD1FAE5))
                             : (diferenca > 0
-                                ? (isDark ? const Color(0xFF78350F).withOpacity(0.35) : const Color(0xFFFEF3C7))
-                                : (isDark ? const Color(0xFF7F1D1D).withOpacity(0.35) : const Color(0xFFFEE2E2))),
+                                ? (isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : const Color(0xFFFEF3C7))
+                                : (isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.35) : const Color(0xFFFEE2E2))),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: diferenca.abs() < 0.01
@@ -1199,7 +1235,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                               color: (diferenca.abs() < 0.01
                                       ? const Color(0xFF10B981)
                                       : (diferenca > 0 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)))
-                                  .withOpacity(0.2),
+                                  .withValues(alpha: 0.2),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -1308,7 +1344,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: const Color(0xFF16A34A).withOpacity(0.25),
+                                        color: const Color(0xFF16A34A).withValues(alpha: 0.25),
                                         blurRadius: 6,
                                         offset: const Offset(0, 2),
                                       ),
@@ -1356,7 +1392,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: const Color(0xFF0D9488).withOpacity(0.25),
+                                        color: const Color(0xFF0D9488).withValues(alpha: 0.25),
                                         blurRadius: 6,
                                         offset: const Offset(0, 2),
                                       ),
@@ -1381,7 +1417,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                     boxShadow: widget.turno.aberto
                                         ? [
                                             BoxShadow(
-                                              color: const Color(0xFF2563EB).withOpacity(0.3),
+                                              color: const Color(0xFF2563EB).withValues(alpha: 0.3),
                                               blurRadius: 8,
                                               offset: const Offset(0, 2),
                                             ),
@@ -1432,7 +1468,6 @@ class _SummaryScreenState extends State<SummaryScreen> {
     required double valor,
     VoidCallback? onTap,
     VoidCallback? onTapSubtitulo,
-    bool showChevron = false,
     bool isSummaryCard = false,
     required bool isDark,
   }) {
@@ -1570,7 +1605,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: corTipo.withOpacity(0.18),
+                            color: corTipo.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(iconeTipo, color: corTipo, size: 22),
@@ -1714,7 +1749,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: corTipo.withOpacity(0.12),
+                                      color: corTipo.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
@@ -1770,7 +1805,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF78350F).withOpacity(0.3),
+                                        color: const Color(0xFF78350F).withValues(alpha: 0.3),
                                         borderRadius: BorderRadius.circular(6),
                                         border: Border.all(color: const Color(0xFFF59E0B), width: 0.8),
                                       ),
@@ -2060,10 +2095,10 @@ class _ItemResumoCardState extends State<_ItemResumoCard> {
     final isSummaryCard = widget.isSummaryCard;
 
     final baseCardBg = isSummaryCard
-        ? (isDark ? const Color(0xFF172554).withOpacity(0.4) : const Color(0xFFEFF6FF))
+        ? (isDark ? const Color(0xFF172554).withValues(alpha: 0.4) : const Color(0xFFEFF6FF))
         : (isDark ? const Color(0xFF121622) : Colors.white);
     final cardBorder = isSummaryCard
-        ? (isDark ? const Color(0xFF3B82F6).withOpacity(0.5) : const Color(0xFFBFDBFE))
+        ? (isDark ? const Color(0xFF3B82F6).withValues(alpha: 0.5) : const Color(0xFFBFDBFE))
         : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0));
     final textTitle = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
     final textValue = isDark ? Colors.white : const Color(0xFF0F172A);
@@ -2071,8 +2106,8 @@ class _ItemResumoCardState extends State<_ItemResumoCard> {
     // Efeito de clareamento sutil no toque: rgba(255, 255, 255, 0.05) no modo noturno
     final cardBg = _isPressed && (widget.onTap != null || widget.onTapSubtitulo != null)
         ? (isDark
-            ? Color.alphaBlend(Colors.white.withOpacity(0.05), baseCardBg)
-            : Color.alphaBlend(Colors.black.withOpacity(0.03), baseCardBg))
+            ? Color.alphaBlend(Colors.white.withValues(alpha: 0.05), baseCardBg)
+            : Color.alphaBlend(Colors.black.withValues(alpha: 0.03), baseCardBg))
         : baseCardBg;
 
     final textoBadge = widget.subtitulo != null
@@ -2096,8 +2131,8 @@ class _ItemResumoCardState extends State<_ItemResumoCard> {
             if (!isDark || isSummaryCard)
               BoxShadow(
                 color: isSummaryCard
-                    ? const Color(0xFF3B82F6).withOpacity(0.12)
-                    : Colors.black.withOpacity(0.04),
+                    ? const Color(0xFF3B82F6).withValues(alpha: 0.12)
+                    : Colors.black.withValues(alpha: 0.04),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -2148,12 +2183,12 @@ class _ItemResumoCardState extends State<_ItemResumoCard> {
                         color: isDark ? const Color(0xFF1E2638) : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(7),
                         border: Border.all(
-                          color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1),
+                          color: isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFCBD5E1),
                           width: 1.0,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
+                            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
                             blurRadius: 2,
                             offset: const Offset(0, 1),
                           ),
@@ -2200,10 +2235,10 @@ class _ItemResumoCardState extends State<_ItemResumoCard> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF3B82F6).withOpacity(isDark ? 0.18 : 0.12),
+                        color: const Color(0xFF3B82F6).withValues(alpha: isDark ? 0.18 : 0.12),
                         borderRadius: BorderRadius.circular(5),
                         border: Border.all(
-                          color: const Color(0xFF3B82F6).withOpacity(isDark ? 0.30 : 0.25),
+                          color: const Color(0xFF3B82F6).withValues(alpha: isDark ? 0.30 : 0.25),
                           width: 1.0,
                         ),
                       ),

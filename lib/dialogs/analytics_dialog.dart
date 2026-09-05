@@ -22,7 +22,7 @@ class AnalyticsDialog extends StatelessWidget {
     final textPri = isDark ? Colors.white : AppColors.lightTextPri;
     final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
     final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
-    final cardBg = isDark ? const Color(0xFF1E293B).withOpacity(0.6) : const Color(0xFFF1F5F9);
+    final cardBg = isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF1F5F9);
     final cardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
 
     final totalGeral = totais.totalGeral > 0 ? totais.totalGeral : 1.0;
@@ -47,7 +47,7 @@ class AnalyticsDialog extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFA855F7).withOpacity(0.2),
+                    color: const Color(0xFFA855F7).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.auto_graph_rounded, color: Color(0xFFA855F7), size: 22),
@@ -228,7 +228,7 @@ class AnalyticsDialog extends StatelessWidget {
   }) {
     final textPri = isDark ? Colors.white : AppColors.lightTextPri;
     final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
-    final cardBg = isDark ? const Color(0xFF1E293B).withOpacity(0.4) : const Color(0xFFF8FAFC);
+    final cardBg = isDark ? const Color(0xFF1E293B).withValues(alpha: 0.4) : const Color(0xFFF8FAFC);
     final cardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
 
     return Container(

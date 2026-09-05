@@ -45,7 +45,7 @@ class TrocoCalculator extends StatelessWidget {
                 labelText: 'Valor Recebido em Dinheiro',
                 labelStyle: TextStyle(fontSize: 12, color: textSec),
                 hintText: 'R\$ 0,00',
-                hintStyle: TextStyle(color: textSec.withOpacity(0.5)),
+                hintStyle: TextStyle(color: textSec.withValues(alpha: 0.5)),
                 isDense: true,
                 filled: true,
                 fillColor: isDark ? AppColors.darkBg : AppColors.lightBg,
@@ -71,9 +71,9 @@ class TrocoCalculator extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.green.withOpacity(0.15),
+                color: AppColors.green.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                border: Border.all(color: AppColors.green.withOpacity(0.4)),
+                border: Border.all(color: AppColors.green.withValues(alpha: 0.4)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,

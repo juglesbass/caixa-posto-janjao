@@ -325,9 +325,9 @@ class _ConsultaProdutosScreenState extends State<ConsultaProdutosScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF0284C7).withOpacity(0.16),
+                                    color: const Color(0xFF0284C7).withValues(alpha: 0.16),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.4)),
+                                    border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.4)),
                                   ),
                                   child: Text(
                                     p.codigo,

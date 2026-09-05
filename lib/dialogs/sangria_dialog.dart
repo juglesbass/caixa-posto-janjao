@@ -55,7 +55,7 @@ class _SangriaDialogState extends State<SangriaDialog> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.orange.withOpacity(0.15),
+              color: AppColors.orange.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(AppColors.radiusSm),
             ),
             child: const Icon(Icons.call_made_rounded, color: AppColors.orange, size: 22),
@@ -75,9 +75,9 @@ class _SangriaDialogState extends State<SangriaDialog> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.green.withOpacity(0.12),
+                color: AppColors.green.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                border: Border.all(color: AppColors.green.withOpacity(0.3)),
+                border: Border.all(color: AppColors.green.withValues(alpha: 0.3)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,

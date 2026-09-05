@@ -39,7 +39,7 @@ class HudTotais extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
+              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -79,7 +79,7 @@ class HudTotais extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.accent.withOpacity(0.14),
+                    color: AppColors.accent.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(AppColors.radiusMd),
                   ),
                   child: const Icon(
@@ -157,15 +157,15 @@ class _MiniCardTotais extends StatelessWidget {
         ? (cor == AppColors.purple ? const Color(0xFFE9D5FF) : corVibrante)
         : cor;
     final corBadge = isDark
-        ? (cor == AppColors.purple ? const Color(0xFFDDD6FE) : corVibrante.withOpacity(0.9))
-        : cor.withOpacity(0.85);
+        ? (cor == AppColors.purple ? const Color(0xFFDDD6FE) : corVibrante.withValues(alpha: 0.9))
+        : cor.withValues(alpha: 0.85);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: corVibrante.withOpacity(isDark ? 0.14 : 0.10),
+        color: corVibrante.withValues(alpha: isDark ? 0.14 : 0.10),
         borderRadius: BorderRadius.circular(AppColors.radiusSm),
-        border: Border.all(color: corVibrante.withOpacity(isDark ? 0.40 : 0.25)),
+        border: Border.all(color: corVibrante.withValues(alpha: isDark ? 0.40 : 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -191,7 +191,7 @@ class _MiniCardTotais extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   decoration: BoxDecoration(
-                    color: corVibrante.withOpacity(isDark ? 0.25 : 0.15),
+                    color: corVibrante.withValues(alpha: isDark ? 0.25 : 0.15),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(

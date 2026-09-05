@@ -9,8 +9,19 @@ import 'pdf_service.dart';
 class DriveService {
   static final http.Client _client = http.Client();
 
-  static const String defaultWebhookUrl =
-      'https://script.google.com/macros/s/AKfycbzes0dAFXK3_Us145YsnfKXAI_UzVjMHlVG4uK2-cYkxHy2f5M_VCaLEVEJhWOIvcVITQ/exec';
+  /// URL do webhook do Apps Script.
+  ///
+  /// A ordem de precedência é: configuração salva no banco
+  /// ('google_drive_webhook_url') → `--dart-define=DRIVE_WEBHOOK_URL=...` no
+  /// build → o valor abaixo. Como este repositório é público, o endereço aqui
+  /// é conhecido por qualquer um: se precisar rotacionar o webhook, publique um
+  /// novo Apps Script e informe a URL nova pelo dart-define ou pela tela de
+  /// configuração, sem depender de mudar o código.
+  static const String defaultWebhookUrl = String.fromEnvironment(
+    'DRIVE_WEBHOOK_URL',
+    defaultValue:
+        'https://script.google.com/macros/s/AKfycbzes0dAFXK3_Us145YsnfKXAI_UzVjMHlVG4uK2-cYkxHy2f5M_VCaLEVEJhWOIvcVITQ/exec',
+  );
 
   /// ID da Pasta Oficial (Fechamentos Posto Janjao) no Google Drive
   static const String pastaOficialId = '1lW3RYNyOzPz1R8A-vT9t9QWoLNvkADsC';

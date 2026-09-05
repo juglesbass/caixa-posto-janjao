@@ -145,7 +145,7 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
     final textPri = isDark ? Colors.white : AppColors.lightTextPri;
     final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
     final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
-    final cardBg = isDark ? const Color(0xFF1E293B).withOpacity(0.5) : const Color(0xFFF1F5F9);
+    final cardBg = isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF1F5F9);
     final cardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
 
     return Dialog(
@@ -164,7 +164,7 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF06B6D4).withOpacity(0.2),
+                    color: const Color(0xFF06B6D4).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.history_rounded, color: Color(0xFF06B6D4), size: 22),
@@ -226,8 +226,8 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: statusAberto
-                                          ? const Color(0xFF064E3B).withOpacity(0.6)
-                                          : (isDark ? const Color(0xFF334155).withOpacity(0.6) : const Color(0xFFE2E8F0)),
+                                          ? const Color(0xFF064E3B).withValues(alpha: 0.6)
+                                          : (isDark ? const Color(0xFF334155).withValues(alpha: 0.6) : const Color(0xFFE2E8F0)),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
@@ -278,7 +278,7 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF10B981).withOpacity(0.2),
+                                        color: const Color(0xFF10B981).withValues(alpha: 0.2),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: const Text(

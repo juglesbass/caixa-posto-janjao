@@ -137,7 +137,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withOpacity(0.15),
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
@@ -266,7 +266,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withOpacity(0.15),
+                        color: const Color(0xFF10B981).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.verified_user_rounded, color: Color(0xFF10B981), size: 24),
@@ -435,7 +435,6 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
     final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
-    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     final diferenca = widget.totais.totalGeral - _vendasSistema;
     final bool temVendasSistema = _vendasSistema > 0;
@@ -492,7 +491,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0284C7).withOpacity(0.35),
+                    color: const Color(0xFF0284C7).withValues(alpha: 0.35),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -520,7 +519,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0284C7).withOpacity(0.15),
+                          color: const Color(0xFF0284C7).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -579,7 +578,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   boxShadow: [
                     if (isDark)
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.25),
+                        color: Colors.black.withValues(alpha: 0.25),
                         blurRadius: 10,
                         offset: const Offset(0, 3),
                       ),
@@ -609,7 +608,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.green.withOpacity(0.12),
+                            color: AppColors.green.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text(
@@ -637,7 +636,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                     Container(
                       height: 1,
                       color: isDark
-                          ? const Color(0xFF334155).withOpacity(0.6)
+                          ? const Color(0xFF334155).withValues(alpha: 0.6)
                           : const Color(0xFFE2E8F0),
                     ),
                     const SizedBox(height: 10),
@@ -680,7 +679,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                           width: 1,
                           height: 26,
                           color: isDark
-                              ? const Color(0xFF334155).withOpacity(0.5)
+                              ? const Color(0xFF334155).withValues(alpha: 0.5)
                               : const Color(0xFFCBD5E1),
                         ),
                         const SizedBox(width: 12),
@@ -741,7 +740,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   hintText: 'R\$ 0,00',
                   prefixIcon: const Icon(Icons.point_of_sale_rounded, color: Color(0xFF38BDF8), size: 19),
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF1E293B).withOpacity(0.4) : const Color(0xFFF1F5F9),
+                  fillColor: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.4) : const Color(0xFFF1F5F9),
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
                   enabledBorder: OutlineInputBorder(
@@ -769,16 +768,16 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: corAuditoria.withOpacity(isDark ? 0.14 : 0.08),
+                    color: corAuditoria.withValues(alpha: isDark ? 0.14 : 0.08),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: corAuditoria.withOpacity(0.5), width: 1.2),
+                    border: Border.all(color: corAuditoria.withValues(alpha: 0.5), width: 1.2),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: corAuditoria.withOpacity(0.2),
+                          color: corAuditoria.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(iconeAuditoria, color: corAuditoria, size: 20),
@@ -880,7 +879,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                         hintStyle: TextStyle(
                           letterSpacing: 8,
                           fontSize: 17,
-                          color: textSec.withOpacity(0.35),
+                          color: textSec.withValues(alpha: 0.35),
                         ),
                         counterText: '',
                         errorText: _erroPin,
@@ -959,16 +958,16 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   labelText: 'Observação / Justificativa (Opcional)',
                   labelStyle: TextStyle(fontSize: 12, color: textSec),
                   hintText: 'Ex: Troca de turno, divergência...',
-                  hintStyle: TextStyle(fontSize: 11.5, color: textSec.withOpacity(0.5)),
+                  hintStyle: TextStyle(fontSize: 11.5, color: textSec.withValues(alpha: 0.5)),
                   prefixIcon: const Icon(Icons.edit_note_rounded, color: Color(0xFF94A3B8), size: 19),
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF1E293B).withOpacity(0.3) : const Color(0xFFF1F5F9),
+                  fillColor: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.3) : const Color(0xFFF1F5F9),
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(
-                      color: isDark ? const Color(0xFF334155).withOpacity(0.7) : const Color(0xFFCBD5E1),
+                      color: isDark ? const Color(0xFF334155).withValues(alpha: 0.7) : const Color(0xFFCBD5E1),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
@@ -1016,7 +1015,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF2563EB).withOpacity(0.35),
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.35),
                       blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),

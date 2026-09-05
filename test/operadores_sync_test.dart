@@ -87,21 +87,48 @@ void main() {
       expect(desativado.pinHash, equals(novoHash));
     });
 
-    test('Validação de Hash SHA-256 e Comparação de PIN', () {
+    test('Hash legado SHA-256 continua sendo aceito na validação', () {
       const pinCorreto = '4321';
       const pinIncorreto = '9999';
 
-      final hash1 = AuthService.hashPin(pinCorreto);
-      final hash2 = AuthService.hashPin(pinCorreto);
-      final hashIncorreto = AuthService.hashPin(pinIncorreto);
+      final hashLegado = AuthService.hashPin(pinCorreto);
 
-      expect(hash1, equals(hash2));
-      expect(hash1, isNot(equals(hashIncorreto)));
+      // A fórmula legada continua sendo SHA-256 puro do PIN
+      expect(hashLegado, equals(sha256.convert(utf8.encode(pinCorreto)).toString()));
+      expect(AuthService.hashEhLegado(hashLegado), isTrue);
 
-      // Validação manual da fórmula SHA-256
-      final bytes = utf8.encode(pinCorreto);
-      final digestEsperado = sha256.convert(bytes).toString();
-      expect(hash1, equals(digestEsperado));
+      // Credenciais antigas (na nuvem ou no cache) seguem validando
+      expect(AuthService.verificarPin(pinCorreto, hashLegado), isTrue);
+      expect(AuthService.verificarPin(pinIncorreto, hashLegado), isFalse);
+    });
+
+    test('Hash moderno PBKDF2 usa sal aleatório e valida corretamente', () {
+      const pinCorreto = '4321';
+      const pinIncorreto = '9999';
+
+      final hash1 = AuthService.gerarHashPin(pinCorreto);
+      final hash2 = AuthService.gerarHashPin(pinCorreto);
+
+      // Formato: pbkdf2_sha256:<iteracoes>:<sal_hex>:<derivado_hex>
+      expect(hash1.split(':').length, equals(4));
+      expect(hash1.startsWith('pbkdf2_sha256:'), isTrue);
+      expect(AuthService.hashEhLegado(hash1), isFalse);
+
+      // O sal aleatório faz o mesmo PIN gerar hashes diferentes, o que impede
+      // quebrar todos os operadores de uma vez e inutiliza rainbow tables
+      expect(hash1, isNot(equals(hash2)));
+
+      expect(AuthService.verificarPin(pinCorreto, hash1), isTrue);
+      expect(AuthService.verificarPin(pinCorreto, hash2), isTrue);
+      expect(AuthService.verificarPin(pinIncorreto, hash1), isFalse);
+    });
+
+    test('verificarPin rejeita hashes vazios ou corrompidos', () {
+      expect(AuthService.verificarPin('1234', null), isFalse);
+      expect(AuthService.verificarPin('1234', ''), isFalse);
+      expect(AuthService.verificarPin('1234', 'pbkdf2_sha256:xxx'), isFalse);
+      expect(AuthService.verificarPin('1234', 'pbkdf2_sha256:0::'), isFalse);
+      expect(AuthService.verificarPin('1234', 'pbkdf2_sha256:1000:zz:aa'), isFalse);
     });
   });
 }

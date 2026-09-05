@@ -101,7 +101,7 @@ class _BotaoMaquina extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
         decoration: BoxDecoration(
-          color: selecionada ? cor.withOpacity(0.18) : surfaceColor,
+          color: selecionada ? cor.withValues(alpha: 0.18) : surfaceColor,
           borderRadius: BorderRadius.circular(AppColors.radiusMd),
           border: Border.all(
             color: selecionada ? cor : borderColor,
@@ -110,7 +110,7 @@ class _BotaoMaquina extends StatelessWidget {
           boxShadow: selecionada
               ? [
                   BoxShadow(
-                    color: cor.withOpacity(0.25),
+                    color: cor.withValues(alpha: 0.25),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),

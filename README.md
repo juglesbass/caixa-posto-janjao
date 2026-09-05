@@ -1,118 +1,133 @@
-# Caixa - Posto Janjão
+# Caixa — Posto Janjão
 
-Aplicativo de caixa para controle de turno no posto: lançamentos por forma de pagamento, totais em tempo real, histórico e fechamento de turno.
+Aplicativo de caixa para controle de turno no posto: lançamentos por forma de pagamento, totais em tempo real, histórico, fechamento de turno com assinatura digital e envio automático do PDF para o Google Drive do gerente.
+
+Roda em **Android (APK)**, **iOS (IPA)** e como **PWA instalável** a partir do mesmo código.
+
+> O app já foi um projeto Python/Flet. Hoje é **Flutter/Dart** — se você encontrar `main.py`, `requirements.txt` ou a pasta `venv/`, são resíduos da versão antiga e não fazem parte do build.
 
 ## Requisitos
 
-- Python 3.11+
-- [Flet](https://flet.dev/) 0.85.3 ou superior
-
-## Instalação
-
-```bash
-pip install -r requirements.txt
-```
-
-Ou com `uv`:
+- Flutter 3.44 ou superior (canal `stable`)
+- Para Android: JDK 17 + Android SDK
+- Para iOS: macOS + Xcode
 
 ```bash
-uv sync
+flutter pub get
 ```
 
 ## Executar
 
 ```bash
-python main.py
+flutter run
 ```
 
-O app abre no navegador na porta `5000` (ou na porta definida pela variável `PORT`).
+## Build
 
-## Variáveis de ambiente
-
-| Variável | Descrição | Padrão |
-|---|---|---|
-| `PORT` | Porta do servidor web | `5000` |
-| `CAIXA_PIN` | PIN de acesso (se definido, exige login) | desativado |
-| `CAIXA_DB_PATH` | Caminho do banco SQLite | `meu_caixa.db` |
-| `CAIXA_BACKUP_DIR` | Pasta dos backups CSV ao zerar turno | `backups/` |
-
-Exemplo com PIN e banco persistente:
+### PWA / Web
 
 ```bash
-CAIXA_PIN=4321 CAIXA_DB_PATH=/dados/meu_caixa.db python main.py
+flutter build web --release
 ```
+
+> **Importante:** o banco local no Web depende de `web/sqlite3.wasm`, que está versionado no repositório. Se por algum motivo ele sumir, o app abre mas **nenhum dado é gravado** — o banco cai para memória e some ao recarregar a página (o app mostra um banner vermelho avisando). Para regerar:
+>
+> ```bash
+> dart run sqflite_common_ffi_web:setup
+> ```
+
+Sirva o conteúdo de `build/web/` em HTTPS. Sem HTTPS o navegador não oferece a instalação do PWA nem libera notificações.
+
+### Android
+
+```bash
+flutter build apk --release
+```
+
+### iOS
+
+```bash
+flutter build ios --release
+```
+
+O workflow `.github/workflows/build-ios.yml` gera APK e IPA (não assinado) a cada push na `main`, e publica os dois como artefatos da execução.
+
+> Não fixe `compileSdk`/`minSdk` na mão no `android/app/build.gradle.kts`. Os valores vêm do próprio Flutter (`flutter.compileSdkVersion`); travá-los em versões antigas quebra `share_plus`, `sqflite_android` e `printing`.
+
+## Configuração
+
+### Webhook do Google Drive
+
+A URL do Apps Script que recebe os PDFs é resolvida nesta ordem:
+
+1. Configuração `google_drive_webhook_url` salva no banco (tela de configurações)
+2. `--dart-define=DRIVE_WEBHOOK_URL=...` no momento do build
+3. O valor padrão em `lib/services/drive_service.dart`
+
+```bash
+flutter build web --release --dart-define=DRIVE_WEBHOOK_URL=https://script.google.com/macros/s/SEU_ID/exec
+```
+
+Como este repositório é público, a URL padrão é conhecida por qualquer um. Para rotacionar o webhook, publique um novo Apps Script e informe a URL nova por uma das duas primeiras opções — sem depender de alterar o código.
+
+### Firestore (sincronização de operadores)
+
+Os operadores e os hashes de PIN são sincronizados via API REST do Cloud Firestore, em modo *offline-first*: o app funciona 100% com o cache local e sincroniza quando há rede.
+
+As regras de segurança recomendadas estão em [`firestore.rules`](firestore.rules):
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+**Leia o cabeçalho do arquivo antes de publicar.** O app hoje acessa o Firestore sem autenticação, então a leitura da coleção `operadores` precisa estar liberada — e isso expõe os hashes de PIN a quem descobrir o ID do projeto. As regras do arquivo reduzem o dano (negam tudo por padrão, validam o formato dos documentos, proíbem exclusão), mas o fechamento definitivo exige **Firebase App Check** ou mover a validação de PIN para uma Cloud Function.
+
+### PIN mestre da gerência
+
+O PIN mestre de fábrica é `9999` e abre qualquer turno e qualquer operação. **Troque no primeiro uso**, em Menu → Área da Gerência → Alterar PIN Mestre. Enquanto ele for o padrão, o painel da gerência exibe um alerta vermelho.
+
+Os PINs são armazenados apenas como hash **PBKDF2-HMAC-SHA256 com sal aleatório por operador**. Hashes antigos (SHA-256 puro) continuam validando e são regravados no formato forte no primeiro acesso correto.
 
 ## Funcionalidades
 
-- Lançamento rápido com botões de valor e atalho **Completou**
-- Enter no teclado para lançar abastecimento
-- Totais de dinheiro físico, PIX, cartões, requisição e sangria
-- Histórico recente com confirmação antes de apagar
-- Resumo do turno com **copiar para área de transferência**
-- Encerramento de turno com histórico de turnos anteriores
-- Backup automático em CSV antes de zerar o turno atual
-- Layout responsivo para celular e desktop
-- Proteção opcional por PIN
+- Lançamento rápido por forma de pagamento, com atalhos de valor e calculadora de troco
+- Seleção de maquininha (Rede/Cielo) e bandeiras de cartão em ordem operacional
+- Totais em tempo real: dinheiro na gaveta, PIX, cartões, requisição, depósito, despesas, sangria e suprimento
+- Histórico do turno com filtros e edição/exclusão de lançamentos
+- Encerrantes de bico e consulta de produtos
+- Fechamento de turno com PIN, assinatura digital SHA-256 e página pública de validação (`/validar?auth=...`)
+- PDF de fechamento gerado no dispositivo e enviado ao Google Drive do gerente
+- Fila offline: se faltar internet no fechamento, o PDF fica pendente e é reenviado automaticamente
+- Exportação em CSV e compartilhamento por WhatsApp
+- Gestão de operadores e PINs sincronizada via Firestore
+- Tema claro/escuro e feedback tátil configurável
 
-## Persistência do banco
+## Testes
 
-O SQLite fica no caminho configurado em `CAIXA_DB_PATH`. Em ambientes como Replit ou containers efêmeros, use um volume ou caminho persistente para não perder os dados ao reiniciar.
+```bash
+flutter analyze
+flutter test
+```
 
 ## Estrutura
 
-- `main.py` — interface Flet
-- `db.py` — banco de dados, turnos e exportação CSV
-- `assets/` — ícone e splash para build mobile
-- `scripts/build-ios.sh` — script de build iOS (macOS)
-
-## App iOS (iPhone/iPad)
-
-O mesmo código Python vira app nativo com [Flet](https://flet.dev/docs/publish/ios/). O build **precisa ser feito em um Mac** com Xcode instalado.
-
-### O que já está configurado
-
-- Bundle ID: `br.com.postojanjao.caixa`
-- Banco SQLite persistente em `FLET_APP_STORAGE_DATA` (sobrevive a atualizações do app)
-- Ícone e splash em `assets/`
-- `SafeArea` automática no iOS/Android
-
-### 1. Testar no Simulador (Mac)
-
-```bash
-pip install "flet>=0.85.3"
-chmod +x scripts/build-ios.sh
-./scripts/build-ios.sh simulator
+```
+lib/
+├── main.dart              # Bootstrap, rotas e shell de navegação
+├── models/                # Turno, Lançamento, Totais, Operador
+├── services/              # Banco (SQLite), Drive, PDF, CSV, Auth, sync Firestore
+├── screens/               # Início, Histórico, Resumo, Menu, Validação, Gerência
+├── dialogs/               # Fechamento, PIN, sangria, encerrantes, lançamento rápido
+├── widgets/               # Grade de pagamentos, HUD, navegação, banners
+├── utils/                 # Moeda, tipos de pagamento, haptics, validação
+└── theme/                 # Cores e tema
 ```
 
-Depois abra o **Simulator** e arraste `build/ios-simulator/Runner.app` para a janela.
+## Persistência
 
-### 2. Instalar no iPhone/iPad
+| Plataforma | Onde ficam os dados |
+|---|---|
+| Android / iOS | SQLite no diretório de bancos do app |
+| Web / PWA | SQLite sobre IndexedDB (via `sqlite3.wasm`) |
 
-1. Crie um **App ID** no [Apple Developer Portal](https://developer.apple.com/account/resources/identifiers/list) com o bundle `br.com.postojanjao.caixa`.
-2. Gere certificado **Apple Development** e um **Provisioning Profile** de desenvolvimento.
-3. Edite `pyproject.toml` e preencha em `[tool.flet.ios]`:
-
-```toml
-team_id = "SEU_TEAM_ID"
-provisioning_profile = "Nome do Profile"
-signing_certificate = "Apple Development"
-export_method = "debugging"
-```
-
-4. No Mac:
-
-```bash
-./scripts/build-ios.sh ipa
-```
-
-5. Instale o `.ipa` com **Apple Configurator** (arrastar para o iPhone conectado) ou pelo Xcode.
-
-Documentação completa: [Packaging app for iOS | Flet](https://flet.dev/docs/publish/ios/)
-
-### 3. Publicar na App Store
-
-Use `export_method = "app-store-connect"` e envie o `.ipa` pelo app **Transporter** da Apple.
-
-### Desenvolvimento local (web)
-
-Continua igual — `python main.py` abre no navegador. O modo app nativo só entra quando `FLET_PLATFORM=ios` (build empacotado).
+Preferências (tema, maquininha ativa, haptics, hashes de PIN) ficam em `SharedPreferences` — `localStorage` no Web.

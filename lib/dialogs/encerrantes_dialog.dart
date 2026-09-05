@@ -173,7 +173,7 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
     final textPri = isDark ? Colors.white : AppColors.lightTextPri;
     final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
     final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
-    final cardBg = isDark ? const Color(0xFF1E293B).withOpacity(0.5) : const Color(0xFFF8FAFC);
+    final cardBg = isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF8FAFC);
     final cardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
     final inputBg = isDark ? const Color(0xFF0F172A) : Colors.white;
 
@@ -195,7 +195,7 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withOpacity(0.2),
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.local_gas_station_rounded, color: Color(0xFFF59E0B), size: 22),
@@ -247,9 +247,9 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB).withOpacity(0.15),
+                                color: const Color(0xFF2563EB).withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFF2563EB).withOpacity(0.3)),
+                                border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -274,7 +274,7 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                                 borderRadius: BorderRadius.circular(6),
                                 child: Padding(
                                   padding: const EdgeInsets.all(4),
-                                  child: Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.red.withOpacity(0.8)),
+                                  child: Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.red.withValues(alpha: 0.8)),
                                 ),
                               ),
                           ],
@@ -364,7 +364,7 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                                   labelText: 'Litros Vendidos',
                                   labelStyle: TextStyle(color: textSec, fontSize: 11),
                                   hintText: '0.00',
-                                  hintStyle: TextStyle(color: textSec.withOpacity(0.5)),
+                                  hintStyle: TextStyle(color: textSec.withValues(alpha: 0.5)),
                                   suffixText: 'L',
                                   suffixStyle: TextStyle(fontSize: 12, color: textSec, fontWeight: FontWeight.bold),
                                   isDense: true,
@@ -387,9 +387,9 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF10B981).withOpacity(0.12),
+                                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -447,7 +447,7 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E3A8A).withOpacity(0.3),
+                color: const Color(0xFF1E3A8A).withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: const Color(0xFF2563EB)),
               ),

@@ -34,22 +34,9 @@ jobs:
 
       - name: Configure Flutter iOS Platform
         run: |
+          # A pasta ios/ é versionada: o `flutter create` aqui só completa o que
+          # porventura falte, sem sobrescrever o Info.plist do repositório.
           flutter create . --org com.postojanjao --project-name caixa_posto_janjao --platforms ios
-          
-          python3 - << 'EOF'
-          path = 'ios/Runner/Info.plist'
-          try:
-              with open(path, 'r') as f:
-                  content = f.read()
-              if 'NSAppTransportSecurity' not in content:
-                  ats = '    <key>NSAppTransportSecurity</key>\n    <dict>\n        <key>NSAllowsArbitraryLoads</key>\n        <true/>\n    </dict>'
-                  content = content.replace('</dict>\n</plist>', ats + '\n</dict>\n</plist>')
-                  with open(path, 'w') as f:
-                      f.write(content)
-                  print('Injetado ATS no Info.plist com sucesso')
-          except Exception as e:
-              print('Erro Info.plist', e)
-          EOF
 
       - name: Generate App Icons
         run: python3 scripts/generate_icons.py
@@ -98,46 +85,14 @@ jobs:
 
       - name: Configure Flutter Android Platform
         run: |
+          # A pasta android/ é versionada (permissão de INTERNET, nome do app e
+          # applicationId já estão no repositório). O `flutter create` aqui só
+          # completa arquivos faltantes; compileSdk/minSdk vêm do próprio Flutter
+          # e NÃO devem ser fixados na mão — travar em 34/21 quebra share_plus,
+          # sqflite_android e printing.
           flutter create . --org com.postojanjao --project-name caixa_posto_janjao --platforms android
-          
-          python3 - << 'EOF'
-          import glob
-          for path in glob.glob('android/app/src/**/AndroidManifest.xml', recursive=True):
-              try:
-                  with open(path, 'r') as f:
-                      content = f.read()
-                  if 'android.permission.INTERNET' not in content:
-                      content = content.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>')
-                  if 'android:usesCleartextTraffic' not in content:
-                      content = content.replace('<application', '<application android:usesCleartextTraffic="true"')
-                  with open(path, 'w') as f:
-                      f.write(content)
-                  print('Injetado permissoes com sucesso em', path)
-              except Exception as e:
-                  print('Erro em', path, e)
-          EOF
-
-          # Forçar compileSdkVersion 34 em todos os subprojetos
-          cat << 'EOF' >> android/build.gradle
-
-          subprojects {
-              afterEvaluate { project ->
-                  if (project.hasProperty("android")) {
-                      project.android {
-                          compileSdkVersion 34
-                      }
-                  }
-              }
-          }
-          EOF
-
-          # Ajustar app/build.gradle
-          sed -i 's/compileSdk = .*/compileSdk = 34/g' android/app/build.gradle || true
-          sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle || true
-          sed -i 's/targetSdk = .*/targetSdk = 34/g' android/app/build.gradle || true
-          sed -i 's/targetSdkVersion .*/targetSdkVersion 34/g' android/app/build.gradle || true
-          sed -i 's/minSdk = .*/minSdk = 21/g' android/app/build.gradle || true
-          sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle || true
+          echo "── AndroidManifest ──"
+          cat android/app/src/main/AndroidManifest.xml
 
       - name: Generate App Icons
         run: |
@@ -147,17 +102,16 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build APK with Gradle
-        working-directory: android
-        run: ./gradlew assembleRelease
+      - name: Build APK
+        run: flutter build apk --release --build-number "${{ github.run_number }}"
 
       - name: Collect APK output
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p dist
-          APK_FILE=$(find . -name "*release*.apk" -o -name "app-release.apk" -o -name "*.apk" | head -n 1)
-          echo "Encontrado APK em: $APK_FILE"
-          cp "$APK_FILE" dist/caixa-posto-janjao.apk
+          cp build/app/outputs/flutter-apk/app-release.apk dist/caixa-posto-janjao.apk
+          ls -la dist/
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

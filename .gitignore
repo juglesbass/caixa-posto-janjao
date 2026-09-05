@@ -1,5 +1,6 @@
 # Flutter / Dart
 .dart_tool/
+.flutter-plugins-dependencies
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
@@ -20,8 +21,15 @@ meu_caixa.db*
 Thumbs.db
 .vscode/
 .idea/
+*.iml
 *.swp
 *.swo
+
+# Resíduos da versão antiga em Python/Flet
+venv/
+.pytest_cache/
+__pycache__/
+*.pyc
 
 # Environment variables
 .env

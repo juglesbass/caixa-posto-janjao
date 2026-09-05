@@ -171,6 +171,7 @@ class PaymentTypes {
   }
 
   static bool ehSangria(String tipo) => tipo == sangria;
+  static bool ehSuprimento(String tipo) => tipo == suprimento;
   static bool ehDespesa(String tipo) => tipo == despesas;
   static bool ehDinheiro(String tipo) => tipo == dinheiro;
   static bool ehPix(String tipo) => tipo == pix || tipo == 'Pix Caixa' || tipo == 'Pix Direto';

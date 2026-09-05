@@ -174,23 +174,40 @@ class OperadoresSyncService {
     debugPrint('[Firestore Sync] Conectando à coleção "operadores" via REST...');
     debugPrint('[Firestore Sync] URL: $url');
 
-    final response = await _client.get(
-      Uri.parse(url),
-      headers: {'Accept': 'application/json'},
-    ).timeout(const Duration(seconds: 6));
+    // A API REST do Firestore pagina a listagem (padrão pequeno). Sem seguir o
+    // nextPageToken, operadores além da primeira página nunca sincronizavam.
+    final List<OperadorModel> lista = [];
+    String? pageToken;
+    http.Response response;
+    var paginas = 0;
 
-    debugPrint('[Firestore Sync] Resposta HTTP: ${response.statusCode}');
+    do {
+      final uri = Uri.parse(url).replace(queryParameters: {
+        'pageSize': '300',
+        if (pageToken != null) 'pageToken': pageToken,
+      });
 
-    if (response.statusCode == 200) {
+      response = await _client.get(
+        uri,
+        headers: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 6));
+
+      debugPrint('[Firestore Sync] Resposta HTTP: ${response.statusCode}');
+
+      if (response.statusCode != 200) break;
+
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final docs = data['documents'] as List<dynamic>? ?? [];
-      final List<OperadorModel> lista = [];
-
       for (final doc in docs) {
         if (doc is Map<String, dynamic>) {
           lista.add(OperadorModel.fromFirestoreRest(doc));
         }
       }
+      pageToken = data['nextPageToken'] as String?;
+      paginas++;
+    } while (pageToken != null && pageToken.isNotEmpty && paginas < 20);
+
+    if (response.statusCode == 200) {
       debugPrint('[Firestore Sync] ✅ Sucesso! ${lista.length} operadores encontrados na nuvem.');
       ultimoErroDiagnostico = null;
       ultimoStatusCode = 200;
@@ -231,7 +248,7 @@ class OperadoresSyncService {
       return false;
     }
 
-    final pinHash = AuthService.hashPin(pinLimpo);
+    final pinHash = AuthService.gerarHashPin(pinLimpo);
     final docId = 'op_${DateTime.now().millisecondsSinceEpoch}_${nomeLimpo.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}';
     final novoOperador = OperadorModel(
       id: docId,
@@ -288,7 +305,7 @@ class OperadoresSyncService {
     if (index == -1) return false;
 
     final operadorExistente = operadores[index];
-    final novoHash = AuthService.hashPin(pinLimpo);
+    final novoHash = AuthService.gerarHashPin(pinLimpo);
     final atualizado = operadorExistente.copyWith(
       pinHash: novoHash,
       atualizadoEm: DateTime.now(),
@@ -384,8 +401,8 @@ class OperadoresSyncService {
         debugPrint('Operador ${op.nome} está desativado.');
         return false;
       }
-      final hashDigitado = AuthService.hashPin(pinLimpo);
-      if (hashDigitado == op.pinHash) {
+      // Aceita tanto o hash PBKDF2 com sal quanto o SHA-256 legado da nuvem
+      if (AuthService.verificarPin(pinLimpo, op.pinHash)) {
         return true;
       }
     }

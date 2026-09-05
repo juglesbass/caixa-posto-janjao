@@ -5,10 +5,13 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Caixa Posto Janjão - Sistema de Fechamento de Turno">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- viewport-fit=cover garante que o app ocupe a área do notch no iPhone -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#08090f">
 
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Caixa Janjão">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
@@ -20,13 +23,22 @@
   <link rel="manifest" href="manifest.json">
 
   <style>
+    html {
+      /* Evita o "puxar para atualizar" e o rebote elástico dentro do PWA */
+      overscroll-behavior: none;
+      height: 100%;
+    }
     body {
       background-color: #08090f;
       margin: 0;
       padding: 0;
+      height: 100%;
       overflow: hidden;
+      overscroll-behavior: none;
       user-select: none;
       -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
     #loading-container {
@@ -56,6 +68,15 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+    #loading-lento {
+      display: none;
+      margin-top: 10px;
+      font-size: 11px;
+      color: #64748b;
+      text-align: center;
+      max-width: 260px;
+      line-height: 1.5;
+    }
   </style>
 </head>
 <body>
@@ -65,10 +86,14 @@
       POSTO JANJÃO
     </p>
     <span style="font-size: 12px; color: #94a3b8;">Carregando Caixa...</span>
+    <span id="loading-lento">Conexão lenta. Aguarde, o app está terminando de carregar.</span>
   </div>
 
   <script>
+    var loaderRemovido = false;
     function removeLoader() {
+      if (loaderRemovido) return;
+      loaderRemovido = true;
       var loader = document.getElementById('loading-container');
       if (loader) {
         loader.style.opacity = '0';
@@ -77,9 +102,17 @@
         }, 300);
       }
     }
+    // O primeiro frame do Flutter é o sinal correto para esconder o loader.
     window.addEventListener('flutter-first-frame', removeLoader);
-    // Timeout de segurança caso o evento demore
-    setTimeout(removeLoader, 4000);
+
+    // Em rede lenta o bundle pode levar bem mais que alguns segundos. Em vez de
+    // sumir com o loader (deixando tela preta), avisa o usuário e só desiste
+    // depois de bastante tempo.
+    setTimeout(function() {
+      var aviso = document.getElementById('loading-lento');
+      if (aviso && !loaderRemovido) aviso.style.display = 'block';
+    }, 6000);
+    setTimeout(removeLoader, 45000);
   </script>
 
   <script src="flutter_bootstrap.js" async></script>

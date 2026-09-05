@@ -33,7 +33,7 @@ class BottomNavBar extends StatelessWidget {
         border: Border(top: BorderSide(color: borderColor)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
             blurRadius: 12,
             offset: const Offset(0, -2),
           ),
@@ -81,7 +81,7 @@ class BottomNavBar extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.accent.withOpacity(0.4),
+                        color: AppColors.accent.withValues(alpha: 0.4),
                         blurRadius: 10,
                         offset: const Offset(0, 3),
                       ),

@@ -167,7 +167,7 @@ class _CardMetodo extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: selecionado
-              ? corVibrante.withOpacity(isDark ? 0.20 : 0.14)
+              ? corVibrante.withValues(alpha: isDark ? 0.20 : 0.14)
               : surfaceColor,
           borderRadius: BorderRadius.circular(AppColors.radiusMd),
           border: Border.all(
@@ -179,7 +179,7 @@ class _CardMetodo extends StatelessWidget {
           boxShadow: selecionado
               ? [
                   BoxShadow(
-                    color: corVibrante.withOpacity(0.35),
+                    color: corVibrante.withValues(alpha: 0.35),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
@@ -191,7 +191,7 @@ class _CardMetodo extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: corVibrante.withOpacity(isDark ? 0.25 : 0.18),
+                color: corVibrante.withValues(alpha: isDark ? 0.25 : 0.18),
                 borderRadius: BorderRadius.circular(AppColors.radiusSm),
               ),
               child: Icon(icon, color: corVibrante, size: 22),
@@ -219,12 +219,12 @@ class _CardMetodo extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                           decoration: BoxDecoration(
                             color: selecionado
-                                ? (isDark ? corVibrante.withOpacity(0.25) : cor.withOpacity(0.12))
+                                ? (isDark ? corVibrante.withValues(alpha: 0.25) : cor.withValues(alpha: 0.12))
                                 : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(
                               color: selecionado
-                                  ? (isDark ? corVibrante.withOpacity(0.6) : cor.withOpacity(0.4))
+                                  ? (isDark ? corVibrante.withValues(alpha: 0.6) : cor.withValues(alpha: 0.4))
                                   : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
                               width: 0.8,
                             ),
@@ -297,7 +297,7 @@ class _CardMetodo extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: corVibrante.withOpacity(0.6),
+                      color: corVibrante.withValues(alpha: 0.6),
                       blurRadius: 4,
                     ),
                   ],

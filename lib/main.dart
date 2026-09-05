@@ -426,7 +426,7 @@ class _MainShellState extends State<MainShell> {
                         Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: AppColors.accent.withOpacity(0.14),
+                            color: AppColors.accent.withValues(alpha: 0.14),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.local_gas_station_rounded, size: 54, color: AppColors.accentLight),

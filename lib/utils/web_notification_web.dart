@@ -3,7 +3,11 @@ import 'dart:html' as html;
 
 void requestNotificationPermission() {
   try {
-    if (html.Notification.supported) {
+    if (!html.Notification.supported) return;
+    // Só pede quando o usuário ainda não decidiu. Chamar repetidamente (ou já
+    // negado/concedido) só gera ruído e alguns navegadores penalizam pedidos
+    // feitos fora de um gesto do usuário.
+    if (html.Notification.permission == 'default') {
       html.Notification.requestPermission();
     }
   } catch (_) {}

@@ -61,7 +61,6 @@ class _QuickLaunchModalState extends State<QuickLaunchModal> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
-    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
 
     return Padding(
       padding: EdgeInsets.only(

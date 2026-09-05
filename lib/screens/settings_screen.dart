@@ -214,7 +214,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
                 side: BorderSide(
-                  color: const Color(0xFFF59E0B).withOpacity(0.4),
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
                   width: 1.2,
                 ),
               ),
@@ -223,7 +223,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withOpacity(0.15),
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
@@ -412,7 +412,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withOpacity(0.15),
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.key_rounded, color: Color(0xFFF59E0B), size: 22),
@@ -425,7 +425,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Defina um novo PIN Mestre de 4 dígitos para a gerência (armazenado com hash SHA-256):', style: TextStyle(fontSize: 12.5, color: textSec)),
+                  Text('Defina um novo PIN Mestre de 4 dígitos para a gerência (armazenado como hash PBKDF2 com sal):', style: TextStyle(fontSize: 12.5, color: textSec)),
                   const SizedBox(height: 16),
                   TextField(
                     controller: controllerNovoPin,
@@ -534,12 +534,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: const Color(0xFFF59E0B).withOpacity(isDark ? 0.8 : 0.6),
+          color: const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.8 : 0.6),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFF59E0B).withOpacity(isDark ? 0.12 : 0.08),
+            color: const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.12 : 0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -560,7 +560,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withOpacity(0.2),
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                     border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
                   ),
@@ -590,10 +590,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF59E0B).withOpacity(0.2),
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                color: const Color(0xFFF59E0B).withOpacity(0.4),
+                                color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
                                 width: 0.8,
                               ),
                             ),
@@ -623,7 +623,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withOpacity(0.15),
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
@@ -661,7 +661,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E3A8A).withOpacity(0.4),
+                      color: const Color(0xFF1E3A8A).withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Icon(Icons.widgets_rounded, color: Color(0xFF38BDF8), size: 18),
@@ -725,7 +725,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _itemMenuCard(
                     icon: Icons.north_east_rounded,
                     iconColor: const Color(0xFFEA580C),
-                    iconBg: const Color(0xFF7C2D12).withOpacity(0.4),
+                    iconBg: const Color(0xFF7C2D12).withValues(alpha: 0.4),
                     titulo: 'Sangria de Caixa',
                     subtitulo: 'Registrar retirada de dinheiro para o cofre',
                     onTap: () => _abrirSangria(context),
@@ -736,7 +736,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _itemMenuCard(
                     icon: Icons.local_gas_station_rounded,
                     iconColor: const Color(0xFFF59E0B),
-                    iconBg: const Color(0xFF78350F).withOpacity(0.4),
+                    iconBg: const Color(0xFF78350F).withValues(alpha: 0.4),
                     titulo: 'Encerrantes de Bombas',
                     subtitulo: 'Conferência de litros vendidos nos bicos',
                     onTap: () => _abrirEncerrantes(context),
@@ -747,7 +747,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _itemMenuCard(
                     icon: Icons.shopping_bag_rounded,
                     iconColor: const Color(0xFF38BDF8),
-                    iconBg: const Color(0xFF0C4A6E).withOpacity(0.4),
+                    iconBg: const Color(0xFF0C4A6E).withValues(alpha: 0.4),
                     titulo: 'Tabela de Códigos / Produtos',
                     subtitulo: 'Consulta rápida por código ou nome do produto',
                     onTap: () => _abrirConsultaProdutos(context),
@@ -758,7 +758,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _itemMenuCard(
                     icon: Icons.lock_rounded,
                     iconColor: const Color(0xFF2563EB),
-                    iconBg: const Color(0xFF1E3A8A).withOpacity(0.4),
+                    iconBg: const Color(0xFF1E3A8A).withValues(alpha: 0.4),
                     titulo: 'Bloquear Caixa',
                     subtitulo: 'Travar tela por ausência do operador',
                     onTap: () => _bloquearCaixa(context),
@@ -769,7 +769,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _itemMenuCard(
                     icon: Icons.cloud_sync_rounded,
                     iconColor: const Color(0xFF10B981),
-                    iconBg: const Color(0xFF064E3B).withOpacity(0.4),
+                    iconBg: const Color(0xFF064E3B).withValues(alpha: 0.4),
                     titulo: 'Sincronizar com Google Drive',
                     subtitulo: 'Forçar reenvio de relatórios pendentes na fila',
                     onTap: () => _sincronizarDrive(context),
@@ -780,7 +780,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _itemMenuCard(
                     icon: Icons.password_rounded,
                     iconColor: const Color(0xFF38BDF8),
-                    iconBg: const Color(0xFF0369A1).withOpacity(0.4),
+                    iconBg: const Color(0xFF0369A1).withValues(alpha: 0.4),
                     titulo: 'Alterar Meu PIN',
                     subtitulo: 'Atualizar senha individual do operador ${widget.turno?.operador ?? ""}',
                     onTap: () => _abrirTrocarPin(context),
@@ -807,7 +807,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _itemMenuCard(
                     icon: Icons.bar_chart_rounded,
                     iconColor: const Color(0xFF6366F1),
-                    iconBg: const Color(0xFF312E81).withOpacity(0.4),
+                    iconBg: const Color(0xFF312E81).withValues(alpha: 0.4),
                     titulo: 'Fechar Caixa & Resumo',
                     subtitulo: 'Conferir totais, conciliação e encerrar',
                     onTap: widget.onAbrirResumo,
@@ -818,7 +818,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _itemMenuCard(
                     icon: Icons.history_rounded,
                     iconColor: const Color(0xFF06B6D4),
-                    iconBg: const Color(0xFF164E63).withOpacity(0.4),
+                    iconBg: const Color(0xFF164E63).withValues(alpha: 0.4),
                     titulo: 'Histórico de Turnos',
                     subtitulo: 'Consultar ou reabrir turnos anteriores',
                     onTap: () => _abrirHistoricoTurnos(context),
@@ -829,7 +829,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _itemMenuCard(
                     icon: isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
                     iconColor: isDark ? const Color(0xFFFBBF24) : const Color(0xFF2563EB),
-                    iconBg: isDark ? const Color(0xFF78350F).withOpacity(0.4) : const Color(0xFFDBEAFE),
+                    iconBg: isDark ? const Color(0xFF78350F).withValues(alpha: 0.4) : const Color(0xFFDBEAFE),
                     titulo: isDark ? 'Ativar Tema Claro' : 'Ativar Tema Escuro',
                     subtitulo: isDark ? 'Mudar interface para fundo claro' : 'Mudar interface para modo noturno',
                     onTap: () => widget.onMudarTema(!isDark),
@@ -843,8 +843,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ? const Color(0xFF10B981)
                         : const Color(0xFF94A3B8),
                     iconBg: AppHaptics.habilitado
-                        ? (isDark ? const Color(0xFF064E3B).withOpacity(0.4) : const Color(0xFFD1FAE5))
-                        : (isDark ? const Color(0xFF1E293B).withOpacity(0.4) : const Color(0xFFF1F5F9)),
+                        ? (isDark ? const Color(0xFF064E3B).withValues(alpha: 0.4) : const Color(0xFFD1FAE5))
+                        : (isDark ? const Color(0xFF1E293B).withValues(alpha: 0.4) : const Color(0xFFF1F5F9)),
                     titulo: AppHaptics.habilitado ? 'Vibração: Suave (Ativa)' : 'Vibração: Desativada',
                     subtitulo: AppHaptics.habilitado
                         ? 'Feedback tátil calibrado bem suave ao tocar'
@@ -863,7 +863,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _itemMenuCard(
                     icon: Icons.person_outline_rounded,
                     iconColor: const Color(0xFFD97706),
-                    iconBg: const Color(0xFF78350F).withOpacity(0.4),
+                    iconBg: const Color(0xFF78350F).withValues(alpha: 0.4),
                     titulo: 'Trocar / Sair do Operador',
                     subtitulo: 'Manter turno aberto e desconectar usuário',
                     onTap: widget.onAbrirNovoTurno,
@@ -954,74 +954,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
-  Widget _itemMenuSwitch({
-    required IconData icon,
-    required Color iconColor,
-    required Color iconBg,
-    required String titulo,
-    required String subtitulo,
-    required bool valor,
-    required ValueChanged<bool> onChanged,
-  }) {
-    final cardBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
-    final cardBorder = valor
-        ? const Color(0xFFF59E0B).withOpacity(0.6)
-        : (isDark ? const Color(0xFF1E293B) : AppColors.lightBorder);
-    final titleCol = valor
-        ? const Color(0xFFFBBF24)
-        : (isDark ? Colors.white : AppColors.lightTextPri);
-    final subCol = isDark ? const Color(0xFF64748B) : AppColors.lightTextSec;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: valor ? const Color(0xFF78350F).withOpacity(0.18) : cardBg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: cardBorder, width: valor ? 1.5 : 1.0),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  titulo,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: titleCol,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitulo,
-                  style: TextStyle(fontSize: 11, color: subCol),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            value: valor,
-            activeColor: const Color(0xFFF59E0B),
-            onChanged: onChanged,
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _PainelGerenciaPage extends StatelessWidget {
@@ -1092,13 +1024,61 @@ class _PainelGerenciaPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         children: [
+          // 0. Cobra a troca do PIN Mestre enquanto ele for o padrão de fábrica
+          FutureBuilder<bool>(
+            future: AuthService.pinGerenteEhPadrao(),
+            builder: (context, snap) {
+              if (snap.data != true) return const SizedBox.shrink();
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.45) : const Color(0xFFFEE2E2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.red),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.gpp_maybe_rounded, color: AppColors.red, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'PIN MESTRE AINDA É O DE FÁBRICA',
+                            style: TextStyle(
+                              color: isDark ? const Color(0xFFFECACA) : const Color(0xFF991B1B),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          Text(
+                            'O PIN mestre abre qualquer turno e libera qualquer operação. Troque agora para um valor que só a gerência conheça.',
+                            style: TextStyle(
+                              color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFB91C1C),
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
           // 1. Alterar PIN Mestre da Gerência
           _itemGerenciaCard(
             icon: Icons.key_rounded,
             iconColor: const Color(0xFFF59E0B),
-            iconBg: const Color(0xFF78350F).withOpacity(0.4),
+            iconBg: const Color(0xFF78350F).withValues(alpha: 0.4),
             titulo: 'Alterar PIN Mestre da Gerência',
-            subtitulo: 'Modificar a senha administrativa mestre (SHA-256)',
+            subtitulo: 'Modificar a senha administrativa mestre (PBKDF2 com sal)',
             onTap: onAlterarPinMestre,
           ),
           const SizedBox(height: 10),
@@ -1107,7 +1087,7 @@ class _PainelGerenciaPage extends StatelessWidget {
           _itemGerenciaCard(
             icon: Icons.badge_rounded,
             iconColor: const Color(0xFF38BDF8),
-            iconBg: const Color(0xFF0369A1).withOpacity(0.4),
+            iconBg: const Color(0xFF0369A1).withValues(alpha: 0.4),
             titulo: 'Gestão de Operadores & Senhas',
             subtitulo: 'Visualizar operadores cadastrados e redefinir PINs',
             onTap: onGestaoOperadores,
@@ -1118,7 +1098,7 @@ class _PainelGerenciaPage extends StatelessWidget {
           _itemGerenciaCard(
             icon: Icons.auto_graph_rounded,
             iconColor: const Color(0xFFA855F7),
-            iconBg: const Color(0xFF581C87).withOpacity(0.4),
+            iconBg: const Color(0xFF581C87).withValues(alpha: 0.4),
             titulo: 'Analytics & Desempenho',
             subtitulo: 'Gráficos de vendas, ticket médio e formas de pagamento',
             onTap: onAnalytics,
@@ -1129,7 +1109,7 @@ class _PainelGerenciaPage extends StatelessWidget {
           _itemGerenciaCard(
             icon: Icons.table_chart_rounded,
             iconColor: const Color(0xFF10B981),
-            iconBg: const Color(0xFF064E3B).withOpacity(0.4),
+            iconBg: const Color(0xFF064E3B).withValues(alpha: 0.4),
             titulo: 'Exportar Planilha Excel (CSV)',
             subtitulo: 'Salvar ou compartilhar dados estruturados',
             onTap: onExportarCsv,
@@ -1142,7 +1122,7 @@ class _PainelGerenciaPage extends StatelessWidget {
             builder: (context, modoTeste, _) {
               final cardBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
               final cardBorder = modoTeste
-                  ? const Color(0xFFF59E0B).withOpacity(0.6)
+                  ? const Color(0xFFF59E0B).withValues(alpha: 0.6)
                   : (isDark ? const Color(0xFF1E293B) : AppColors.lightBorder);
               final titleCol = modoTeste
                   ? const Color(0xFFFBBF24)
@@ -1151,7 +1131,7 @@ class _PainelGerenciaPage extends StatelessWidget {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: modoTeste ? const Color(0xFF78350F).withOpacity(0.18) : cardBg,
+                  color: modoTeste ? const Color(0xFF78350F).withValues(alpha: 0.18) : cardBg,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: cardBorder, width: modoTeste ? 1.5 : 1.0),
                 ),
@@ -1160,7 +1140,7 @@ class _PainelGerenciaPage extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF78350F).withOpacity(0.4),
+                        color: const Color(0xFF78350F).withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.science_outlined, color: Color(0xFFF59E0B), size: 20),
@@ -1219,10 +1199,10 @@ class _PainelGerenciaPage extends StatelessWidget {
           _itemGerenciaCard(
             icon: Icons.delete_forever_rounded,
             iconColor: const Color(0xFFEF4444),
-            iconBg: const Color(0xFF7F1D1D).withOpacity(0.4),
+            iconBg: const Color(0xFF7F1D1D).withValues(alpha: 0.4),
             titulo: 'Limpar / Zerar Tudo',
             subtitulo: 'Reset completo e irreversível dos dados locais',
-            corBorda: const Color(0xFF7F1D1D).withOpacity(0.6),
+            corBorda: const Color(0xFF7F1D1D).withValues(alpha: 0.6),
             corTitulo: const Color(0xFFF87171),
             onTap: onLimparZerarTudo,
           ),

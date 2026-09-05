@@ -9,7 +9,6 @@ import 'package:share_plus/share_plus.dart';
 import '../models/lancamento.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
-import '../utils/currency_formatter.dart';
 import '../utils/payment_types.dart';
 
 class CsvService {
@@ -72,17 +71,34 @@ class CsvService {
     final dataHojeStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
     final nomeArquivo = '$operadorLimpo $dataHojeStr.csv';
 
+    const origem = ui.Rect.fromLTWH(0, 0, 100, 100);
+
     if (kIsWeb) {
-      // No Web compartilha como texto
-      await Share.share(csvContent, subject: 'Fechamento CSV - $operadorLimpo', sharePositionOrigin: const ui.Rect.fromLTWH(0, 0, 100, 100));
+      // No Web o arquivo vai em memória (não há sistema de arquivos gravável)
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile.fromData(
+              utf8.encode(csvContent),
+              name: nomeArquivo,
+              mimeType: 'text/csv',
+            ),
+          ],
+          fileNameOverrides: [nomeArquivo],
+          subject: 'Fechamento CSV - $operadorLimpo',
+          sharePositionOrigin: origem,
+        ),
+      );
     } else {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/$nomeArquivo');
       await file.writeAsString(csvContent, encoding: utf8);
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        subject: 'Fechamento CSV - $operadorLimpo',
-        sharePositionOrigin: const ui.Rect.fromLTWH(0, 0, 100, 100),
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'text/csv')],
+          subject: 'Fechamento CSV - $operadorLimpo',
+          sharePositionOrigin: origem,
+        ),
       );
     }
   }

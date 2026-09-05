@@ -20,6 +20,13 @@ class DatabaseService {
   /// Notifier reativo para sincronização instantânea de telas quando lançamentos são criados/alterados/excluídos
   static final ValueNotifier<int> lancamentosNotifier = ValueNotifier<int>(0);
 
+  /// Indica se o banco aberto grava em disco/IndexedDB. Falso significa banco
+  /// apenas em memória (dados perdidos ao recarregar) — usado para alertar o caixa.
+  static bool armazenamentoPersistente = true;
+
+  /// Detalhe técnico da falha de armazenamento, quando houver
+  static String? erroArmazenamento;
+
   DatabaseService._();
 
   static DatabaseService get instance {
@@ -45,16 +52,21 @@ class DatabaseService {
   Future<Database> _initDatabase() async {
     Database db;
     if (kIsWeb) {
+      databaseFactory = databaseFactoryFfiWebNoWebWorker;
       try {
-        databaseFactory = databaseFactoryFfiWebNoWebWorker;
         db = await openDatabase(
           'caixa_posto_janjao_web.db',
           version: 1,
           onCreate: _onCreate,
         );
+        armazenamentoPersistente = true;
       } catch (e) {
-        debugPrint('Aviso Web DB: $e -> Usando inMemoryDatabasePath como fallback');
-        databaseFactory = databaseFactoryFfiWebNoWebWorker;
+        // Causa mais comum: 'web/sqlite3.wasm' ausente no build (rode
+        // `dart run sqflite_common_ffi_web:setup`) ou bloqueado pelo servidor.
+        debugPrint('[DB] Falha ao abrir banco persistente no Web: $e');
+        debugPrint('[DB] Ativando banco em memória — os dados NÃO sobrevivem ao recarregar a página.');
+        armazenamentoPersistente = false;
+        erroArmazenamento = e.toString();
         db = await openDatabase(
           inMemoryDatabasePath,
           version: 1,
@@ -69,6 +81,7 @@ class DatabaseService {
         version: 1,
         onCreate: _onCreate,
       );
+      armazenamentoPersistente = true;
     }
     await _garantirTabelas(db);
     return db;
@@ -113,6 +126,20 @@ class DatabaseService {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_turnos_auth_hash ON turnos (auth_hash)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_drive_pendencias_turno ON drive_pendencias (turno_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_operadores_cache_nome ON operadores_cache (nome)');
+
+    // Garante uma única pendência por turno: sem isso um fechamento que falha
+    // várias vezes enfileira linhas duplicadas e o PDF é enviado repetido ao Drive.
+    try {
+      await db.execute(
+        'DELETE FROM drive_pendencias WHERE id NOT IN '
+        '(SELECT MIN(id) FROM drive_pendencias GROUP BY turno_id)',
+      );
+      await db.execute(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_drive_pendencias_turno_unico ON drive_pendencias (turno_id)',
+      );
+    } catch (e) {
+      debugPrint('[DB] Não foi possível aplicar índice único da fila do Drive: $e');
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -493,6 +520,8 @@ class DatabaseService {
     double despesas = 0.0;
     double sangrias = 0.0;
     int qtdSangrias = 0;
+    double suprimentos = 0.0;
+    int qtdSuprimentos = 0;
 
     final Map<String, ({double total, int qtd})> detalheCartoes = {};
 
@@ -514,6 +543,12 @@ class DatabaseService {
       } else if (PaymentTypes.ehSangria(tipo)) {
         sangrias += valor;
         qtdSangrias++;
+      } else if (PaymentTypes.ehSuprimento(tipo)) {
+        // Suprimento é dinheiro que entra na gaveta (troco reposto pela
+        // gerência), não é venda: entra no caixa físico e fica fora do total
+        // de vendas comparado com o PDV.
+        suprimentos += valor;
+        qtdSuprimentos++;
       } else if (PaymentTypes.ehCartao(tipo)) {
         cartoes += valor;
         qtdCartoes++;
@@ -524,7 +559,7 @@ class DatabaseService {
 
     final totalGeral = dinheiro + pix + cartoes + requisicao + depositoGlobal + despesas;
     final diferenca = totalGeral - vendasSistema;
-    final dinheiroGaveta = fundoCaixa + dinheiro - sangrias - despesas;
+    final dinheiroGaveta = fundoCaixa + dinheiro + suprimentos - sangrias - despesas;
 
     final sortedDetalheCartoes = Map<String, ({double total, int qtd})>.fromEntries(
       PaymentTypes.ordenarCartoes(detalheCartoes.entries),
@@ -541,6 +576,8 @@ class DatabaseService {
       despesas: despesas,
       sangrias: sangrias,
       qtdSangrias: qtdSangrias,
+      suprimentos: suprimentos,
+      qtdSuprimentos: qtdSuprimentos,
       fundoCaixa: fundoCaixa,
       totalGeral: totalGeral,
       diferenca: diferenca,
@@ -584,6 +621,8 @@ class DatabaseService {
 
   Future<void> salvarPendenciaDrive(int turnoId, String caminhoPdf, String operador) async {
     final db = await database;
+    // Substitui a pendência anterior do mesmo turno em vez de acumular linhas
+    await db.delete('drive_pendencias', where: 'turno_id = ?', whereArgs: [turnoId]);
     await db.insert(
       'drive_pendencias',
       {

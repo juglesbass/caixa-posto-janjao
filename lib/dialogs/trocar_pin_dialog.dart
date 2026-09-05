@@ -110,7 +110,7 @@ class _TrocarPinDialogState extends State<TrocarPinDialog> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF2563EB).withOpacity(0.15),
+              color: const Color(0xFF2563EB).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(AppColors.radiusSm),
             ),
             child: const Icon(Icons.password_rounded, color: Color(0xFF38BDF8), size: 22),

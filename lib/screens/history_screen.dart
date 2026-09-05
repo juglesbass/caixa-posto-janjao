@@ -148,7 +148,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.amber.withOpacity(0.2),
+                  color: AppColors.amber.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: AppColors.amber, width: 0.8),
                 ),
@@ -195,7 +195,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         _lancamentosFiltradosCache = null;
                       });
                     },
-                    selectedColor: AppColors.accent.withOpacity(0.2),
+                    selectedColor: AppColors.accent.withValues(alpha: 0.2),
                     checkmarkColor: AppColors.accentLight,
                     labelStyle: TextStyle(
                       fontSize: 12,
@@ -218,7 +218,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.receipt_long_outlined, size: 48, color: textSec.withOpacity(0.5)),
+                            Icon(Icons.receipt_long_outlined, size: 48, color: textSec.withValues(alpha: 0.5)),
                             const SizedBox(height: 12),
                             Text(
                               'Nenhum lançamento encontrado neste turno.',
@@ -266,7 +266,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     Container(
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
-                                        color: cor.withOpacity(0.14),
+                                        color: cor.withValues(alpha: 0.14),
                                         borderRadius: BorderRadius.circular(AppColors.radiusSm),
                                       ),
                                       child: Icon(icone, color: cor, size: 20),
@@ -296,7 +296,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                           const SizedBox(height: 2),
                                           Text(
                                             l.hora,
-                                            style: TextStyle(fontSize: 11, color: textSec.withOpacity(0.7)),
+                                            style: TextStyle(fontSize: 11, color: textSec.withValues(alpha: 0.7)),
                                           ),
                                         ],
                                       ),
@@ -319,7 +319,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                             child: Icon(Icons.lock_rounded, size: 14, color: AppColors.amber),
                                           )
                                         else
-                                          Icon(Icons.edit_outlined, size: 14, color: textSec.withOpacity(0.5)),
+                                          Icon(Icons.edit_outlined, size: 14, color: textSec.withValues(alpha: 0.5)),
                                       ],
                                     ),
                                   ],
