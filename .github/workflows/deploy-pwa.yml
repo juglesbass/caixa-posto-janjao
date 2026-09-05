@@ -34,19 +34,35 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Download sqlite3.wasm for Web
+      # O sqlite3.wasm é versionado em web/ e precisa ser exatamente o da versão
+      # que o sqflite_common_ffi_web espera (gerado por
+      # `dart run sqflite_common_ffi_web:setup`). Baixar de uma release fixa era
+      # a causa raiz do PWA quebrado: a URL apontava para outra versão do sqlite3
+      # e o `|| true` engolia qualquer falha de download, publicando um app em
+      # que nenhum lançamento era gravado.
+      - name: Verify web SQLite binaries
         run: |
-          mkdir -p web
-          curl -sSL -o web/sqlite3.wasm https://github.com/simolus3/sqlite3.dart/releases/download/sqlite3-2.4.6/sqlite3.wasm || true
+          set -euo pipefail
+          for f in web/sqlite3.wasm web/sqflite_sw.js; do
+            if [ ! -s "$f" ]; then
+              echo "::error::$f ausente ou vazio. Rode 'dart run sqflite_common_ffi_web:setup' e faça commit do resultado."
+              exit 1
+            fi
+            echo "OK: $f ($(stat -c%s "$f") bytes)"
+          done
 
       - name: Build Web PWA
         run: flutter build web --release --base-href "/caixa-posto-janjao/"
 
-      - name: Ensure sqlite3.wasm in build/web
+      - name: Verify build output
         run: |
-          if [ -f "web/sqlite3.wasm" ]; then
-            cp -f web/sqlite3.wasm build/web/
-          fi
+          set -euo pipefail
+          for f in build/web/sqlite3.wasm build/web/index.html build/web/manifest.json; do
+            if [ ! -s "build/web/$(basename "$f")" ] && [ ! -s "$f" ]; then
+              echo "::error::$f não foi gerado — o PWA seria publicado quebrado."
+              exit 1
+            fi
+          done
           ls -la build/web/
 
       - name: Setup Pages
