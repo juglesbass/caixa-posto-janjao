@@ -1,4 +1,4 @@
-import 'dart:ui' show PlatformDispatcher;
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -335,6 +335,10 @@ class _MainShellState extends State<MainShell> {
 
       final novoTurnoObj = await db.abrirNovoTurno(operador, fundoCaixa: fundo);
       final totais = await db.obterTotaisTurno(novoTurnoObj.id!);
+
+      // Momento certo de pedir notificação: o operador acabou de agir e vai
+      // querer ser avisado se o PDF do fechamento ficar preso na fila.
+      unawaited(NotificationService.solicitarPermissao());
 
       if (!mounted) return;
 

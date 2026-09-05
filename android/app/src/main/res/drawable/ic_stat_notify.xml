@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Ícone monocromático da barra de status (Android tinge o desenho e usa
+    apenas o canal alfa, por isso não dá para reaproveitar o ícone colorido
+    do app aqui: ele apareceria como um quadrado branco sólido).
+    Silhueta de bomba de combustível: corpo com visor vazado + mangueira.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+
+    <!-- Corpo da bomba, com o visor vazado por fillType evenOdd -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M3,2 L14,2 L14,22 L3,22 Z M5,4.5 L12,4.5 L12,9.5 L5,9.5 Z" />
+
+    <!-- Mangueira e bico -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M15.5,6 L17.5,6 L17.5,15.5 L19.5,15.5 L19.5,9 L21,9 L21,17 L16,17 L16,7.5 L15.5,7.5 Z" />
+</vector>

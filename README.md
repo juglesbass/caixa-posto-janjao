@@ -52,7 +52,9 @@ flutter build ios --release
 
 O workflow `.github/workflows/build-ios.yml` gera APK e IPA (não assinado) a cada push na `main`, e publica os dois como artefatos da execução.
 
-> Não fixe `compileSdk`/`minSdk` na mão no `android/app/build.gradle.kts`. Os valores vêm do próprio Flutter (`flutter.compileSdkVersion`); travá-los em versões antigas quebra `share_plus`, `sqflite_android` e `printing`.
+> Não fixe `compileSdk`/`minSdk` na mão no `android/app/build.gradle.kts`. Os valores vêm do próprio Flutter (`flutter.compileSdkVersion` = 36, `flutter.minSdkVersion` = 24); travá-los em versões antigas quebra `share_plus`, `sqflite_android`, `printing` e `flutter_local_notifications`.
+>
+> O `isCoreLibraryDesugaringEnabled = true` e a dependência `desugar_jdk_libs` no `android/app/build.gradle.kts` são exigidos pelo `flutter_local_notifications` — não remova, o build do APK falha sem eles.
 
 ## Configuração
 
@@ -98,6 +100,7 @@ Os PINs são armazenados apenas como hash **PBKDF2-HMAC-SHA256 com sal aleatóri
 - Fechamento de turno com PIN, assinatura digital SHA-256 e página pública de validação (`/validar?auth=...`)
 - PDF de fechamento gerado no dispositivo e enviado ao Google Drive do gerente
 - Fila offline: se faltar internet no fechamento, o PDF fica pendente e é reenviado automaticamente
+- Notificação do sistema quando o PDF fica pendente e quando é entregue (Android, iOS e Web)
 - Exportação em CSV e compartilhamento por WhatsApp
 - Gestão de operadores e PINs sincronizada via Firestore
 - Tema claro/escuro e feedback tátil configurável

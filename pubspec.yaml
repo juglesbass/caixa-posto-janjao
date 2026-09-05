@@ -37,6 +37,7 @@ dependencies:
 
   # Criptografia e Autenticação SHA-256
   crypto: ^3.0.3
+  flutter_local_notifications: ^22.3.0
 
 dev_dependencies:
   flutter_test:
