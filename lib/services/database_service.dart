@@ -144,6 +144,11 @@ class DatabaseService {
     try {
       await db.execute("ALTER TABLE drive_pendencias ADD COLUMN proxima_tentativa TEXT NOT NULL DEFAULT ''");
     } catch (_) {}
+    // Guarda a causa da pendência: a fila sobrevive ao fechamento do app, e sem
+    // isso o banner só sabia dizer "sem internet" para qualquer tipo de falha.
+    try {
+      await db.execute('ALTER TABLE drive_pendencias ADD COLUMN motivo TEXT');
+    } catch (_) {}
 
     // Fila de sincronização offline de operadores (para envio quando restabelecer a conexão)
     await db.execute('''
@@ -225,7 +230,8 @@ class DatabaseService {
         operador TEXT NOT NULL,
         criado_em TEXT NOT NULL,
         tentativas INTEGER NOT NULL DEFAULT 0,
-        proxima_tentativa TEXT NOT NULL DEFAULT ''
+        proxima_tentativa TEXT NOT NULL DEFAULT '',
+        motivo TEXT
       )
     ''');
 
@@ -675,7 +681,12 @@ class DatabaseService {
     return escala[idx];
   }
 
-  Future<void> salvarPendenciaDrive(int turnoId, String caminhoPdf, String operador) async {
+  Future<void> salvarPendenciaDrive(
+    int turnoId,
+    String caminhoPdf,
+    String operador, {
+    String? motivo,
+  }) async {
     final db = await database;
 
     // Preserva o histórico de tentativas ao regravar a pendência do mesmo turno,
@@ -707,9 +718,23 @@ class DatabaseService {
         'criado_em': DateTime.now().toIso8601String(),
         'tentativas': tentativas,
         'proxima_tentativa': proxima.toIso8601String(),
+        'motivo': motivo,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  /// Atualiza só a causa de uma pendência já enfileirada, sem mexer no backoff
+  Future<void> atualizarMotivoPendencia(int turnoId, String motivo) async {
+    final db = await database;
+    try {
+      await db.update(
+        'drive_pendencias',
+        {'motivo': motivo},
+        where: 'turno_id = ?',
+        whereArgs: [turnoId],
+      );
+    } catch (_) {}
   }
 
   Future<void> removerPendenciaDrive(int turnoId) async {

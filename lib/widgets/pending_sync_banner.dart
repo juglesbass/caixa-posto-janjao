@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/motivo_pendencia.dart';
 import '../services/database_service.dart';
 import '../services/drive_service.dart';
 import '../services/notification_service.dart';
@@ -138,12 +139,19 @@ class _PendingSyncBannerState extends State<PendingSyncBanner> {
                         fontSize: 12,
                       ),
                     ),
-                    Text(
-                      'Sem internet no momento do fechamento.',
-                      style: TextStyle(
-                        color: textSub,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w500,
+                    // O texto vem da causa gravada com a pendência: antes era
+                    // fixo em "sem internet", o que mentia quando a falha era
+                    // timeout com rede boa, erro do servidor ou tela de login.
+                    ValueListenableBuilder<String?>(
+                      valueListenable: NotificationService.motivoPendencia,
+                      builder: (context, motivo, _) => Text(
+                        MotivoPendencia.descricao(motivo),
+                        style: TextStyle(
+                          color: textSub,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w500,
+                          height: 1.3,
+                        ),
                       ),
                     ),
                   ],

@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/motivo_pendencia.dart';
 import 'database_service.dart';
 import 'notification_service.dart';
 import 'pdf_service.dart';
@@ -239,13 +241,20 @@ class DriveService {
         );
       } else {
         // Falha real no servidor (4xx ou 5xx): salva na fila offline e notifica
-        await db.salvarPendenciaDrive(turnoId, nomeEnvio, operador);
+        final pareceLogin = _pareceTelaDeLogin(response.body);
+        await db.salvarPendenciaDrive(
+          turnoId,
+          nomeEnvio,
+          operador,
+          motivo: pareceLogin
+              ? MotivoPendencia.precisaLogin
+              : MotivoPendencia.erroServidor,
+        );
         await NotificationService.atualizarPendencias();
         NotificationService.notificarPendenciaDrive(
           turnoNumero: numeroTurnoExibicao,
           operador: operador,
         );
-        final pareceLogin = _pareceTelaDeLogin(response.body);
         return (
           sucesso: false,
           mensagem: pareceLogin
@@ -258,11 +267,24 @@ class DriveService {
       if (kDebugMode) {
         print('[DriveService] Erro no envio: $e');
       }
-      // Falha de conexão real: salva na fila offline e notifica
+
+      // Timeout não é o mesmo que estar sem rede: o pedido pode ter chegado e
+      // sido processado, e só a resposta ter se perdido. Dizer "sem internet"
+      // com o aparelho em 5G faz o operador desconfiar do app — e, pior, esconde
+      // que o PDF provavelmente já está no Drive.
+      final bool foiTimeout = e is TimeoutException;
+
       final nomeEnvio = isTeste && !nomeArquivo.startsWith('[TESTE]')
           ? '[TESTE] $nomeArquivo'
           : nomeArquivo;
-      await db.salvarPendenciaDrive(turnoId, nomeEnvio, operador);
+      await db.salvarPendenciaDrive(
+        turnoId,
+        nomeEnvio,
+        operador,
+        motivo: foiTimeout
+            ? MotivoPendencia.servidorDemorou
+            : MotivoPendencia.semConexao,
+      );
       await NotificationService.atualizarPendencias();
       NotificationService.notificarPendenciaDrive(
         turnoNumero: numeroTurnoExibicao,
@@ -270,7 +292,10 @@ class DriveService {
       );
       return (
         sucesso: false,
-        mensagem: 'Sem conexão com a internet. O PDF foi salvo na fila para envio automático.'
+        mensagem: foiTimeout
+            ? 'O servidor demorou para responder. O PDF pode já ter sido entregue — '
+                'ele ficou na fila e o reenvio confirma a entrega.'
+            : 'Sem conexão com a internet. O PDF foi salvo na fila para envio automático.'
       );
     }
   }
@@ -384,14 +409,28 @@ class DriveService {
           } else {
             // Regrava a pendência para incrementar o contador de tentativas e
             // empurrar a próxima tentativa automática para mais longe.
-            await db.salvarPendenciaDrive(turnoId, nomeArquivo, operador);
+            await db.salvarPendenciaDrive(
+              turnoId,
+              nomeArquivo,
+              operador,
+              motivo: _pareceTelaDeLogin(response.body)
+                  ? MotivoPendencia.precisaLogin
+                  : MotivoPendencia.erroServidor,
+            );
           }
         } catch (e) {
           if (kDebugMode) {
             print('[DriveService] Erro ao sincronizar turno $turnoId: $e');
           }
           try {
-            await db.salvarPendenciaDrive(turnoId, nomeArquivo, operador);
+            await db.salvarPendenciaDrive(
+              turnoId,
+              nomeArquivo,
+              operador,
+              motivo: e is TimeoutException
+                  ? MotivoPendencia.servidorDemorou
+                  : MotivoPendencia.semConexao,
+            );
           } catch (_) {}
         }
       }
@@ -409,7 +448,7 @@ class DriveService {
           ? 'Todos os $sucessos relatórios foram enviados com sucesso para o Drive! 🚀'
           : (sucessos > 0
               ? '$sucessos de $total relatórios enviados. Restam ${total - sucessos} pendentes.'
-              : 'Ainda sem conexão com a internet. Tente novamente mais tarde.');
+              : 'Nenhum relatório pôde ser entregue agora. O envio automático continua tentando.');
 
       return (
         enviados: sucessos,

@@ -7,6 +7,10 @@ class NotificationService {
   /// Notifier reativo para exibir badge ou banner na interface quando houver pendências
   static final ValueNotifier<int> pendenciasCount = ValueNotifier<int>(0);
 
+  /// Causa da pendência mais recente da fila, para o banner explicar o que houve
+  /// em vez de sempre culpar a internet
+  static final ValueNotifier<String?> motivoPendencia = ValueNotifier<String?>(null);
+
   /// IDs fixos: cada aviso substitui o anterior em vez de empilhar na bandeja
   static const int _idPendencia = 1001;
   static const int _idSucesso = 1002;
@@ -41,6 +45,9 @@ class NotificationService {
       final db = DatabaseService.instance;
       final lista = await db.obterPendenciasDrive();
       pendenciasCount.value = lista.length;
+      // A lista vem ordenada por id ASC: a última é a pendência mais recente
+      motivoPendencia.value =
+          lista.isNotEmpty ? lista.last['motivo'] as String? : null;
       return lista.length;
     } catch (_) {
       return 0;
