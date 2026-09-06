@@ -111,13 +111,16 @@
     // O primeiro frame do Flutter é o sinal correto para esconder o loader.
     window.addEventListener('flutter-first-frame', removeLoader);
 
-    // Garante que o histórico do navegador no iOS PWA mantenha estado ativo,
-    // evitando que o gesto de swipe-back descarregue/recarregue o PWA
+    // Uma entrada extra no histórico dá ao PWA do iOS algo para onde "voltar",
+    // evitando que o primeiro swipe-back descarregue a página.
+    //
+    // O que existia aqui antes era um listener de 'popstate' que reempilhava a
+    // entrada a cada volta. Isso prendia o usuário: no Android instalado, o
+    // botão voltar deixava de funcionar, e o pior é que o próprio Flutter Web
+    // usa o histórico do navegador para navegar entre rotas e fechar diálogos —
+    // reempilhar por fora disputava o controle com ele.
     if (window.history && window.history.pushState) {
       window.history.pushState({ app: 'caixa-janjao' }, '', window.location.href);
-      window.addEventListener('popstate', function(event) {
-        window.history.pushState({ app: 'caixa-janjao' }, '', window.location.href);
-      });
     }
 
     // Em rede lenta o bundle pode levar bem mais que alguns segundos. Em vez de

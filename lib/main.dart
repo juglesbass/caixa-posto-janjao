@@ -202,7 +202,7 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   int _indiceAba = 0;
   Turno? _turnoAtual;
   TotaisTurno _totais = TotaisTurno();
@@ -211,6 +211,7 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _inicializarApp();
     _tentarSincronizarFilaInicial();
     DatabaseService.lancamentosNotifier.addListener(_recarregarDados);
@@ -218,14 +219,40 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     DatabaseService.lancamentosNotifier.removeListener(_recarregarDados);
     super.dispose();
+  }
+
+  /// O caso mais comum de PDF preso na fila é fechar o turno sem sinal, guardar
+  /// o celular e voltar depois já com internet. Sem este gancho, nada tentava de
+  /// novo até o app ser reaberto do zero — o fechamento ficava parado no
+  /// aparelho, fora da pasta do gerente, sem ninguém perceber.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    final emPrimeiroPlano = state == AppLifecycleState.resumed;
+    OperadoresSyncService.definirAppEmPrimeiroPlano(emPrimeiroPlano);
+
+    if (!emPrimeiroPlano) return;
+
+    unawaited(_sincronizarAoRetomar());
+  }
+
+  Future<void> _sincronizarAoRetomar() async {
+    try {
+      await DriveService.sincronizarTodasPendencias(respeitarBackoff: true);
+    } catch (_) {}
+    try {
+      await NotificationService.atualizarPendencias();
+    } catch (_) {}
+    if (mounted) await _recarregarDados();
   }
 
   void _tentarSincronizarFilaInicial() async {
     try {
       await Future.delayed(const Duration(seconds: 2));
-      await DriveService.sincronizarTodasPendencias();
+      await DriveService.sincronizarTodasPendencias(respeitarBackoff: true);
     } catch (_) {}
   }
 

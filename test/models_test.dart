@@ -118,7 +118,7 @@ void main() {
       expect(totaisFalta.ehSobra, isFalse);
     });
 
-    test(r'PdfService.gerarNomeArquivo formato ${operador} ${data_dd-MM-yyyy}.pdf', () {
+    test(r'PdfService.gerarNomeArquivo formato ${operador} ${data_dd-MM-yyyy} T${numero}.pdf', () {
       final turno = Turno(
         id: 1,
         numero: 1,
@@ -128,7 +128,32 @@ void main() {
       );
 
       final nome = PdfService.gerarNomeArquivo(turno: turno);
-      expect(nome, equals('João Victor 25-08-2026.pdf'));
+      expect(nome, equals('João Victor 25-08-2026 T1.pdf'));
+    });
+
+    test('gerarNomeArquivo distingue turnos do mesmo operador no mesmo dia', () {
+      // Sem o número do turno no nome, o segundo fechamento do dia sobrescreveria
+      // o primeiro dentro da pasta do gerente no Google Drive.
+      final primeiro = Turno(
+        id: 1,
+        numero: 1,
+        data: '25/08/2026 06:00',
+        operador: 'João Victor',
+        aberto: false,
+      );
+      final segundo = Turno(
+        id: 2,
+        numero: 2,
+        data: '25/08/2026 14:00',
+        operador: 'João Victor',
+        aberto: false,
+      );
+
+      expect(
+        PdfService.gerarNomeArquivo(turno: primeiro),
+        isNot(equals(PdfService.gerarNomeArquivo(turno: segundo))),
+      );
+      expect(PdfService.gerarNomeArquivo(turno: segundo), equals('João Victor 25-08-2026 T2.pdf'));
     });
 
     test('PaymentTypes.ordenarCartoes - Ordenação isolada Cielo', () {

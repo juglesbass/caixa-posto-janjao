@@ -117,6 +117,7 @@ class DatabaseService {
         pin_hash TEXT NOT NULL,
         perfil TEXT NOT NULL DEFAULT 'operador',
         ativo INTEGER NOT NULL DEFAULT 1,
+        removido INTEGER NOT NULL DEFAULT 0,
         posto_id TEXT NOT NULL DEFAULT 'posto_janjao',
         criado_em TEXT NOT NULL DEFAULT '',
         atualizado_em TEXT NOT NULL
@@ -130,6 +131,18 @@ class DatabaseService {
     } catch (_) {}
     try {
       await db.execute("ALTER TABLE operadores_cache ADD COLUMN criado_em TEXT NOT NULL DEFAULT ''");
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE operadores_cache ADD COLUMN removido INTEGER NOT NULL DEFAULT 0');
+    } catch (_) {}
+
+    // Controle de tentativas da fila do Drive: sem isso o reenvio fica em laço
+    // apertado contra um webhook que está fora do ar, gastando bateria e dados.
+    try {
+      await db.execute('ALTER TABLE drive_pendencias ADD COLUMN tentativas INTEGER NOT NULL DEFAULT 0');
+    } catch (_) {}
+    try {
+      await db.execute("ALTER TABLE drive_pendencias ADD COLUMN proxima_tentativa TEXT NOT NULL DEFAULT ''");
     } catch (_) {}
 
     // Fila de sincronização offline de operadores (para envio quando restabelecer a conexão)
@@ -210,7 +223,9 @@ class DatabaseService {
         turno_id INTEGER NOT NULL,
         caminho_pdf TEXT NOT NULL,
         operador TEXT NOT NULL,
-        criado_em TEXT NOT NULL
+        criado_em TEXT NOT NULL,
+        tentativas INTEGER NOT NULL DEFAULT 0,
+        proxima_tentativa TEXT NOT NULL DEFAULT ''
       )
     ''');
 
@@ -232,6 +247,7 @@ class DatabaseService {
         nome TEXT NOT NULL,
         pin_hash TEXT NOT NULL,
         ativo INTEGER NOT NULL DEFAULT 1,
+        removido INTEGER NOT NULL DEFAULT 0,
         atualizado_em TEXT NOT NULL
       )
     ''');
@@ -643,9 +659,44 @@ class DatabaseService {
   // FILA OFFLINE DO GOOGLE DRIVE
   // ──────────────────────────────────────────────────────────────────────────
 
+  /// Espera antes da próxima tentativa automática, por número de falhas.
+  /// Cresce até 30 minutos: o fechamento não é urgente ao ponto de justificar
+  /// martelar um webhook fora do ar de segundo em segundo no 4G do frentista.
+  static Duration backoffDaFila(int tentativas) {
+    const escala = [
+      Duration(seconds: 30),
+      Duration(minutes: 2),
+      Duration(minutes: 5),
+      Duration(minutes: 15),
+      Duration(minutes: 30),
+    ];
+    if (tentativas <= 0) return Duration.zero;
+    final idx = (tentativas - 1).clamp(0, escala.length - 1);
+    return escala[idx];
+  }
+
   Future<void> salvarPendenciaDrive(int turnoId, String caminhoPdf, String operador) async {
     final db = await database;
-    // Substitui a pendência anterior do mesmo turno em vez de acumular linhas
+
+    // Preserva o histórico de tentativas ao regravar a pendência do mesmo turno,
+    // senão o backoff zera a cada falha e volta a ser um laço apertado.
+    int tentativas = 0;
+    try {
+      final atuais = await db.query(
+        'drive_pendencias',
+        columns: ['tentativas'],
+        where: 'turno_id = ?',
+        whereArgs: [turnoId],
+        limit: 1,
+      );
+      if (atuais.isNotEmpty) {
+        tentativas = (atuais.first['tentativas'] as num?)?.toInt() ?? 0;
+      }
+    } catch (_) {}
+
+    tentativas += 1;
+    final proxima = DateTime.now().add(backoffDaFila(tentativas));
+
     await db.delete('drive_pendencias', where: 'turno_id = ?', whereArgs: [turnoId]);
     await db.insert(
       'drive_pendencias',
@@ -654,6 +705,8 @@ class DatabaseService {
         'caminho_pdf': caminhoPdf,
         'operador': operador,
         'criado_em': DateTime.now().toIso8601String(),
+        'tentativas': tentativas,
+        'proxima_tentativa': proxima.toIso8601String(),
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -668,9 +721,25 @@ class DatabaseService {
     );
   }
 
+  /// Todas as pendências da fila, inclusive as que ainda estão em backoff.
+  /// É esta contagem que alimenta o banner e a notificação: o operador precisa
+  /// ver que existe PDF preso mesmo enquanto o reenvio automático está esperando.
   Future<List<Map<String, dynamic>>> obterPendenciasDrive() async {
     final db = await database;
     return await db.query('drive_pendencias', orderBy: 'id ASC');
+  }
+
+  /// Só as pendências cuja janela de backoff já venceu. Usada pelo reenvio
+  /// automático; o botão "Reenviar" da tela ignora o backoff de propósito.
+  Future<List<Map<String, dynamic>>> obterPendenciasDriveVencidas() async {
+    final agora = DateTime.now();
+    final todas = await obterPendenciasDrive();
+    return todas.where((p) {
+      final bruto = (p['proxima_tentativa'] as String?)?.trim() ?? '';
+      if (bruto.isEmpty) return true;
+      final quando = DateTime.tryParse(bruto);
+      return quando == null || !quando.isAfter(agora);
+    }).toList();
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -687,8 +756,25 @@ class DatabaseService {
     return maps.map((m) => Turno.fromMap(m)).toList();
   }
 
-  Future<void> resetarTudo() async {
+  /// Zera turnos, lançamentos e encerrantes do dispositivo.
+  ///
+  /// Recusa a operação enquanto houver PDF de fechamento na fila do Drive: os
+  /// turnos apagados nunca mais poderiam ser reenviados, e o fechamento sumiria
+  /// sem nunca ter chegado à pasta do gerente. Quem chama deve tratar o
+  /// [StateError] e mandar o usuário sincronizar antes.
+  Future<void> resetarTudo({bool ignorarPendenciasDrive = false}) async {
     final db = await database;
+
+    if (!ignorarPendenciasDrive) {
+      final pendentes = await obterPendenciasDrive();
+      if (pendentes.isNotEmpty) {
+        throw StateError(
+          'Existem ${pendentes.length} PDF(s) de fechamento aguardando envio ao '
+          'Google Drive. Envie-os antes de zerar os dados.',
+        );
+      }
+    }
+
     await db.delete('lancamentos');
     await db.delete('turnos');
     await db.delete('drive_pendencias');
@@ -731,9 +817,37 @@ class DatabaseService {
   // CACHE DE OPERADORES (OFFLINE-FIRST FIRESTORE)
   // ──────────────────────────────────────────────────────────────────────────
 
-  Future<void> salvarOperadoresCache(List<OperadorModel> operadores) async {
+  /// Grava a lista vinda da nuvem no cache local.
+  ///
+  /// Com [substituirTudo] o cache passa a espelhar exatamente a nuvem: quem não
+  /// veio na lista é apagado daqui. Sem isso, um operador excluído pela gerência
+  /// ficava para sempre no cache deste aparelho e era reenviado ao Firestore na
+  /// próxima migração, ressuscitando sozinho.
+  ///
+  /// Só use [substituirTudo] quando a busca na nuvem realmente tiver sucesso —
+  /// aplicar isso com uma lista vazia por falha de rede apagaria o cache inteiro
+  /// e deixaria o caixa sem conseguir autenticar offline.
+  Future<void> salvarOperadoresCache(
+    List<OperadorModel> operadores, {
+    bool substituirTudo = false,
+  }) async {
     final db = await database;
     final batch = db.batch();
+
+    if (substituirTudo) {
+      final idsNuvem = operadores.map((o) => o.id).where((id) => id.isNotEmpty).toList();
+      if (idsNuvem.isEmpty) {
+        batch.delete('operadores_cache');
+      } else {
+        final placeholders = List.filled(idsNuvem.length, '?').join(',');
+        batch.delete(
+          'operadores_cache',
+          where: 'id NOT IN ($placeholders)',
+          whereArgs: idsNuvem,
+        );
+      }
+    }
+
     for (final op in operadores) {
       batch.insert(
         'operadores_cache',
@@ -753,23 +867,35 @@ class DatabaseService {
     );
   }
 
-  Future<List<OperadorModel>> obterOperadoresCache() async {
+  Future<List<OperadorModel>> obterOperadoresCache({bool incluirRemovidos = false}) async {
     final db = await database;
     try {
-      final rows = await db.query('operadores_cache', orderBy: 'nome ASC');
+      final rows = await db.query(
+        'operadores_cache',
+        where: incluirRemovidos ? null : 'removido = 0',
+        orderBy: 'nome ASC',
+      );
       return rows.map((r) => OperadorModel.fromMap(r)).toList();
     } catch (_) {
       return [];
     }
   }
 
-  Future<OperadorModel?> obterOperadorCachePorNome(String nome) async {
+  /// Busca pelo nome. Por padrão devolve também os removidos, porque quem
+  /// autentica precisa distinguir "operador desconhecido" de "operador excluído"
+  /// — no segundo caso o acesso tem de ser negado, não cair em algum fallback.
+  Future<OperadorModel?> obterOperadorCachePorNome(
+    String nome, {
+    bool incluirRemovidos = true,
+  }) async {
     final db = await database;
     try {
       final nomeLimpo = nome.trim();
       final rows = await db.query(
         'operadores_cache',
-        where: 'LOWER(nome) = LOWER(?)',
+        where: incluirRemovidos
+            ? 'LOWER(nome) = LOWER(?)'
+            : 'LOWER(nome) = LOWER(?) AND removido = 0',
         whereArgs: [nomeLimpo],
         limit: 1,
       );

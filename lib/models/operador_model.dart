@@ -5,20 +5,31 @@ class OperadorModel {
   final String pinHash;
   final String perfil; // 'operador' ou 'gerente'
   final bool ativo;
+
+  /// Exclusão reversível. O documento nunca é apagado do Firestore: a gerência
+  /// marca `removido = true` e ele deixa de aparecer nas listas e de autenticar.
+  /// Apagar de verdade permitiria que qualquer um zerasse a coleção inteira, e
+  /// destruiria o histórico de quem assinou fechamentos antigos.
+  final bool removido;
   final String postoId;
   final DateTime criadoEm;
   final DateTime atualizadoEm;
 
-  const OperadorModel({
+  /// [criadoEm] é opcional: quando a origem do dado não informa a data de
+  /// criação (documento antigo do Firestore, cadastro migrado de uma versão
+  /// anterior), ela passa a valer a data de atualização em vez de exigir que
+  /// cada chamador invente uma.
+  OperadorModel({
     required this.id,
     required this.nome,
     required this.pinHash,
     this.perfil = 'operador',
     this.ativo = true,
+    this.removido = false,
     this.postoId = 'posto_janjao',
-    required this.criadoEm,
+    DateTime? criadoEm,
     required this.atualizadoEm,
-  });
+  }) : criadoEm = criadoEm ?? atualizadoEm;
 
   /// Nome formatado para exibição (ex: "João Victor")
   String get nomeExibicao => nome.trim();
@@ -33,6 +44,7 @@ class OperadorModel {
     String? pinHash,
     String? perfil,
     bool? ativo,
+    bool? removido,
     String? postoId,
     DateTime? criadoEm,
     DateTime? atualizadoEm,
@@ -43,6 +55,7 @@ class OperadorModel {
       pinHash: pinHash ?? this.pinHash,
       perfil: perfil ?? this.perfil,
       ativo: ativo ?? this.ativo,
+      removido: removido ?? this.removido,
       postoId: postoId ?? this.postoId,
       criadoEm: criadoEm ?? this.criadoEm,
       atualizadoEm: atualizadoEm ?? this.atualizadoEm,
@@ -57,6 +70,7 @@ class OperadorModel {
       'pin_hash': pinHash,
       'perfil': perfil,
       'ativo': ativo ? 1 : 0,
+      'removido': removido ? 1 : 0,
       'posto_id': postoId,
       'criado_em': criadoEm.toIso8601String(),
       'atualizado_em': atualizadoEm.toIso8601String(),
@@ -85,6 +99,7 @@ class OperadorModel {
       pinHash: map['pin_hash'] as String? ?? (map['pin'] as String? ?? ''),
       perfil: map['perfil'] as String? ?? (map['role'] as String? ?? 'operador'),
       ativo: map['ativo'] == null ? true : (map['ativo'] == 1 || map['ativo'] == true),
+      removido: map['removido'] == 1 || map['removido'] == true,
       postoId: map['posto_id'] as String? ?? (map['postoId'] as String? ?? 'posto_janjao'),
       criadoEm: dataCriado,
       atualizadoEm: dataAtualizada,
@@ -102,6 +117,7 @@ class OperadorModel {
         'perfil': {'stringValue': perfil},
         'role': {'stringValue': perfil},
         'ativo': {'booleanValue': ativo},
+        'removido': {'booleanValue': removido},
         'postoId': {'stringValue': postoId},
         'posto_id': {'stringValue': postoId},
         'criadoEm': {
@@ -141,6 +157,7 @@ class OperadorModel {
     final perfil = fields['perfil']?['stringValue']?.toString() ??
         (fields['role']?['stringValue']?.toString() ?? 'operador');
     final ativo = fields['ativo']?['booleanValue'] as bool? ?? true;
+    final removido = fields['removido']?['booleanValue'] as bool? ?? false;
     final postoId = fields['postoId']?['stringValue']?.toString() ??
         (fields['posto_id']?['stringValue']?.toString() ?? 'posto_janjao');
 
@@ -168,6 +185,7 @@ class OperadorModel {
       pinHash: pinHash,
       perfil: perfil,
       ativo: ativo,
+      removido: removido,
       postoId: postoId,
       criadoEm: dataCriado,
       atualizadoEm: dataAtualizada,

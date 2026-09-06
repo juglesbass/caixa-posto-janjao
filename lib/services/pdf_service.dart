@@ -32,7 +32,12 @@ class PdfService {
     }
   }
 
-  /// Gera o nome do arquivo dinâmico no formato: "${operador} ${data_dd-MM-yyyy}.pdf"
+  /// Gera o nome do arquivo no formato: "${operador} ${data_dd-MM-yyyy} T${numero}.pdf"
+  ///
+  /// O número do turno faz parte do nome de propósito. Sem ele, dois turnos do
+  /// mesmo operador no mesmo dia (ou um turno reaberto e fechado de novo) geram
+  /// arquivos de nome idêntico e um fechamento pode substituir o outro dentro da
+  /// pasta do gerente no Google Drive.
   static String gerarNomeArquivo({required Turno turno}) {
     // Normalizar nome do operador (ex: "João Victor")
     final operadorLimpo = turno.operador.trim().replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
@@ -66,7 +71,7 @@ class PdfService {
       dataFormatada = DateFormat('dd-MM-yyyy').format(DateTime.now());
     }
 
-    return '$operadorLimpo $dataFormatada.pdf';
+    return '$operadorLimpo $dataFormatada T${turno.numero}.pdf';
   }
 
   /// Salva os bytes do PDF em arquivo local antes do compartilhamento

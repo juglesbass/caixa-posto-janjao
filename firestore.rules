@@ -17,14 +17,16 @@ rules_version = '2';
 // mesmo com PBKDF2 e sal, quem tiver o hash em mãos consegue quebrá-lo com
 // tempo de máquina. Estas regras reduzem o dano, não eliminam o problema.
 //
-// O QUE ESTAS REGRAS JÁ FAZEM:
+// O QUE ESTAS REGRAS FAZEM:
 //   • Negam tudo por padrão — nenhuma outra coleção fica exposta.
 //   • Só aceitam gravação em documentos de operador bem formados (impede
 //     poluir a base com lixo ou campos inesperados).
-//   • Exigem que o pin_hash gravado esteja no formato forte (PBKDF2 com sal),
-//     bloqueando a regravação de hashes fracos.
-//   • Impedem exclusão de operadores (a desativação é feita por 'ativo: false',
-//     preservando o histórico).
+//   • Exigem que qualquer pin_hash NOVO esteja no formato forte (PBKDF2 com
+//     sal). Hashes SHA-256 legados que já estão na base continuam funcionando,
+//     mas não é possível introduzir nem reintroduzir um hash fraco.
+//   • Impedem exclusão de documentos. A gerência exclui marcando
+//     'removido: true' (exclusão reversível), o que preserva o histórico e
+//     impede que alguém zere a coleção inteira com um DELETE.
 //
 // O QUE AINDA FALTA (decisão de arquitetura, precisa ser feita no projeto):
 //   1. Firebase App Check — garante que só o app legítimo fala com o Firestore.
@@ -33,6 +35,10 @@ rules_version = '2';
 //      valide o PIN no servidor e nunca devolva o hash ao cliente.
 //   Com qualquer um dos dois, troque a leitura abaixo por `allow read: if false`
 //   (ou por `if request.auth != null`).
+//
+//   Enquanto isso não existir, a escrita segue aberta: um terceiro consegue
+//   sobrescrever o pin_hash de um operador e assumir a conta dele. As regras
+//   abaixo limitam o formato do estrago, não o impedem.
 // ═══════════════════════════════════════════════════════════════════════════
 
 service cloud.firestore {
@@ -40,28 +46,62 @@ service cloud.firestore {
 
     function operadorBemFormado() {
       let d = request.resource.data;
-      return d.keys().hasAll(['nome'])
+      return d.keys().hasAll(['nome', 'pin_hash'])
           && d.nome is string
           && d.nome.size() > 0
-          && d.nome.size() <= 80;
+          && d.nome.size() <= 80
+          && d.pin_hash is string
+          && (!('ativo' in d.keys()) || d.ativo is bool)
+          && (!('removido' in d.keys()) || d.removido is bool);
+    }
+
+    // Formato forte obrigatório: pbkdf2_sha256:<iteracoes>:<sal_hex>:<derivado_hex>
+    function pinHashForte() {
+      return request.resource.data.pin_hash
+          .matches('pbkdf2_sha256:[0-9]+:[0-9a-f]+:[0-9a-f]+');
+    }
+
+    // Permite atualizar um documento antigo (status, nome, exclusão reversível)
+    // sem reescrever um pin_hash legado que ainda não foi migrado.
+    function pinHashInalterado() {
+      return request.resource.data.pin_hash == resource.data.pin_hash;
     }
 
     match /operadores/{operadorId} {
       // Leitura e sincronização reativa em tempo real para os caixas e gerência
       allow read: if true;
 
-      // Criação e atualização de documentos de operador com validação estrutural
-      allow create, update: if operadorBemFormado();
+      allow create: if operadorBemFormado() && pinHashForte();
+      allow update: if operadorBemFormado() && (pinHashInalterado() || pinHashForte());
 
-      // Permite exclusão de operadores diretamente pela gerência
-      allow delete: if true;
+      // Exclusão definitiva bloqueada: a gerência usa 'removido: true'.
+      allow delete: if false;
+    }
+
+    // Configuração da gerência: hoje guarda apenas o hash do PIN Mestre, para
+    // que trocá-lo num aparelho valha em todos os outros. O hash é público como
+    // o dos operadores — por isso ele é derivado com um número de iterações
+    // muito maior (ver AuthService._iteracoesPbkdf2Mestre).
+    match /configuracoes/{docId} {
+      allow read: if true;
+
+      allow create, update: if docId == 'gerencia'
+          && request.resource.data.keys().hasAll(['pin_mestre_hash'])
+          && request.resource.data.pin_mestre_hash is string
+          && request.resource.data.pin_mestre_hash
+              .matches('pbkdf2_sha256:[0-9]+:[0-9a-f]+:[0-9a-f]+')
+          && (!('personalizado' in request.resource.data.keys())
+              || request.resource.data.personalizado is bool);
+
+      allow delete: if false;
     }
 
     // Suporte complementar caso o posto utilize prefixo postos/{postoId}/operadores
     match /postos/{postoId}/operadores/{operadorId} {
       allow read: if true;
-      allow create, update: if operadorBemFormado();
-      allow delete: if true;
+      allow create: if operadorBemFormado() && pinHashForte();
+      allow update: if operadorBemFormado() && (pinHashInalterado() || pinHashForte());
+      allow delete: if false;
     }
 
     // Nenhuma outra coleção é acessível

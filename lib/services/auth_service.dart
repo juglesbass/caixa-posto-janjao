@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/operador_model.dart';
 import 'database_service.dart';
 import 'operadores_sync_service.dart';
 
@@ -36,12 +37,21 @@ class AuthService {
   static Future<bool> operadorTemPin(String operador) async {
     if (operador.trim().isEmpty) return false;
 
-    // 1. Verifica no cache de Operadores sincronizados via Firestore
+    // 1. Verifica no cache de Operadores sincronizados via Firestore.
+    //    O cadastro sincronizado é a fonte da verdade: se ele diz que o operador
+    //    foi excluído ou desativado, não existe PIN válido para ele, por mais
+    //    que sobre um hash antigo neste aparelho.
     try {
       final db = DatabaseService.instance;
       final op = await db.obterOperadorCachePorNome(operador);
-      if (op != null && op.pinHash.isNotEmpty) {
-        return true;
+      if (op != null) {
+        if (op.removido || !op.ativo) {
+          await _revogarCredenciaisLocais(operador);
+          return false;
+        }
+        if (op.pinHash.isNotEmpty) {
+          return true;
+        }
       }
     } catch (_) {}
 
@@ -79,11 +89,11 @@ class AuthService {
     final hash = gerarHashPin(limpo);
     await salvarHashLocal(operador, hash);
 
-    // Sincroniza em tempo real com o Cloud Firestore e adiciona à fila offline se não houver rede
+    // Sincroniza em tempo real com o Cloud Firestore e adiciona à fila offline
+    // se não houver rede. Sem `perfil`, o cadastro existente é preservado.
     unawaited(OperadoresSyncService.sincronizarCadastroOperador(
       nome: operador,
       pin: limpo,
-      perfil: 'operador',
     ));
 
     return true;
@@ -96,6 +106,24 @@ class AuthService {
     await prefs.remove(_chavePinOperador(operador));
   }
 
+  /// Apaga qualquer credencial local do operador neste aparelho.
+  ///
+  /// Chamado assim que a sincronização revela que ele foi excluído ou
+  /// desativado. Sem isso o hash local sobrevivia e continuava autenticando —
+  /// e pior, era reenviado ao Firestore, reativando quem a gerência tinha
+  /// acabado de bloquear.
+  static Future<void> _revogarCredenciaisLocais(String operador) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_chaveHashOperador(operador));
+      await prefs.remove(_chavePinOperador(operador));
+    } catch (_) {}
+  }
+
+  /// Versão pública da revogação, usada pela sincronização de operadores.
+  static Future<void> revogarCredenciaisLocais(String operador) =>
+      _revogarCredenciaisLocais(operador);
+
   // ──────────────────────────────────────────────────────────────────────────
   // DERIVAÇÃO DE PIN (PBKDF2-HMAC-SHA256 com sal aleatório)
   //
@@ -103,18 +131,35 @@ class AuthService {
   // coleção. Com SHA-256 puro, um PIN de 4 dígitos caía em milissegundos e um
   // único passe quebrava todos os operadores de uma vez. O sal por operador
   // elimina o ataque em lote e as rainbow tables; as iterações encarecem cada
-  // tentativa. O número de iterações é moderado de propósito: o PIN é validado
-  // na abertura e no fechamento de turno, inclusive no PWA (dart2js, celular
-  // simples), e travar o caixa por segundos seria pior que o ganho marginal
-  // sobre um espaço de apenas 10.000 combinações.
+  // tentativa. O número de iterações é um meio-termo deliberado: o PIN é
+  // validado na abertura e no fechamento de turno, inclusive no PWA (dart2js,
+  // celular simples), e travar o caixa por segundos seria pior que o ganho
+  // marginal sobre um espaço de apenas 10.000 combinações.
+  //
+  // Nenhum número de iterações resolve o problema de fundo: enquanto a leitura
+  // da coleção 'operadores' estiver aberta, o hash é público e 10.000
+  // combinações caem com tempo de máquina. O fechamento real é Firebase App
+  // Check ou validar o PIN numa Cloud Function (ver firestore.rules).
   // ──────────────────────────────────────────────────────────────────────────
 
   static const String _prefixoPbkdf2 = 'pbkdf2_sha256';
-  // 600 iterações no Web (PWA) e 1.200 no nativo: executa em <15ms sem travar a UI thread,
-  // mantendo a proteção criptográfica do sal aleatório por PIN contra ataques em lote
-  static const int _iteracoesPbkdf2Web = 600;
-  static const int _iteracoesPbkdf2Nativo = 1200;
+
+  // PIN de operador: validado na abertura e no fechamento de turno, às vezes
+  // várias vezes seguidas. O custo aqui é pago na thread de UI (no PWA não há
+  // isolate), então o teto é o que roda em ~100ms num celular simples.
+  static const int _iteracoesPbkdf2Web = 4000;
+  static const int _iteracoesPbkdf2Nativo = 12000;
   static int get _iteracoesPbkdf2 => kIsWeb ? _iteracoesPbkdf2Web : _iteracoesPbkdf2Nativo;
+
+  // PIN Mestre da gerência: digitado raras vezes e sempre atrás de um botão com
+  // spinner, então aguenta um custo bem maior. Isso é o que separa "quebra em
+  // segundos" de "quebra em horas" caso o hash vaze pela leitura aberta do
+  // Firestore.
+  static const int _iteracoesPbkdf2MestreWeb = 20000;
+  static const int _iteracoesPbkdf2MestreNativo = 50000;
+  static int get _iteracoesPbkdf2Mestre =>
+      kIsWeb ? _iteracoesPbkdf2MestreWeb : _iteracoesPbkdf2MestreNativo;
+
   static final Random _random = Random.secure();
 
   // Cache em memória de validação de PIN (chave: '$pin|$hash' -> bool)
@@ -139,13 +184,13 @@ class AuthService {
 
   /// Gera o hash moderno de um PIN no formato
   /// `pbkdf2_sha256:<iteracoes>:<sal_hex>:<derivado_hex>`
-  static String gerarHashPin(String pin) {
+  static String gerarHashPin(String pin, {int? iteracoes}) {
     final sal = List<int>.generate(16, (_) => _random.nextInt(256));
-    final iteracoes = _iteracoesPbkdf2;
-    final derivado = _pbkdf2(utf8.encode(pin.trim()), sal, iteracoes, 32);
+    final iteracoesUsadas = iteracoes ?? _iteracoesPbkdf2;
+    final derivado = _pbkdf2(utf8.encode(pin.trim()), sal, iteracoesUsadas, 32);
     final hashGerado = [
       _prefixoPbkdf2,
-      '$iteracoes',
+      '$iteracoesUsadas',
       _paraHex(sal),
       _paraHex(derivado),
     ].join(':');
@@ -190,7 +235,9 @@ class AuthService {
     return resultado;
   }
 
-  /// Indica que o hash está no formato antigo ou com iterações pesadas e merece ser regravado
+  /// Indica que o hash está no formato antigo (SHA-256 puro) ou foi derivado com
+  /// menos iterações do que a versão atual exige, e merece ser regravado no
+  /// primeiro acesso correto.
   static bool hashEhLegado(String? hashArmazenado) {
     if (hashArmazenado == null || hashArmazenado.trim().isEmpty) return false;
     final armazenado = hashArmazenado.trim();
@@ -198,9 +245,11 @@ class AuthService {
     final partes = armazenado.split(':');
     if (partes.length == 4) {
       final iteracoes = int.tryParse(partes[1]) ?? 0;
-      // Hashes com mais de 2000 iterações foram criados na versão anterior e travam o PWA;
-      // devem ser re-gravados no novo formato leve
-      if (iteracoes > 2000) return true;
+      // Hashes derivados por uma versão antiga (600/1200 iterações) ou por uma
+      // plataforma mais leve são reforçados de graça no próximo login correto.
+      // O critério é "abaixo do alvo", nunca "acima": marcar hashes mais fortes
+      // como legados faria o app enfraquecê-los sozinho a cada acesso.
+      if (iteracoes < _iteracoesPbkdf2) return true;
     }
     return false;
   }
@@ -256,66 +305,130 @@ class AuthService {
     return saida.sublist(0, tamanho);
   }
 
-  /// Valida se o PIN informado pertence à Gerência (PIN Mestre Criptografado com PBKDF2/SHA-256)
+  // Chaves do PIN Mestre. Ficam em SharedPreferences, mas quem manda é o
+  // Firestore: OperadoresSyncService.sincronizarPinMestre() reescreve estas
+  // chaves com o valor da nuvem. Sem isso, trocar o PIN Mestre num aparelho
+  // deixava todos os outros (e qualquer navegador com os dados limpos) valendo
+  // o padrão de fábrica para sempre.
+  static const String keyPinGerenteHash = 'pin_gerente_hash';
+  static const String keyPinGerentePersonalizado = 'pin_gerente_personalizado';
+
+  /// Valida se o PIN informado pertence à Gerência (PIN Mestre PBKDF2-HMAC-SHA256)
+  ///
+  /// Atenção ao custo: [validarPin] chama este método **antes** de conferir o PIN
+  /// do operador, ou seja, ele está no caminho de toda abertura e todo
+  /// fechamento de turno. Enquanto o PIN Mestre for o de fábrica, a resposta sai
+  /// por comparação direta, sem derivar hash nenhum — derivar as dezenas de
+  /// milhares de iterações do PIN Mestre aqui congelaria a tela a cada PIN
+  /// digitado no caixa.
   static Future<bool> validarPinGerente(String pinDigitado) async {
     final digitado = pinDigitado.trim();
     if (digitado.length != 4 || int.tryParse(digitado) == null) return false;
 
-    // Fast-path imediato (0ms): se o PIN ainda é o de fábrica e o usuário digitou '9999'
-    if (_cachePinGerenteEhPadrao == true && digitado == _pinGerentePadrao) {
-      return true;
+    // Fast-path imediato (0ms): PIN ainda de fábrica e o usuário digitou o padrão
+    if (_cachePinGerenteEhPadrao == true) {
+      return digitado == _pinGerentePadrao;
     }
 
     final prefs = await SharedPreferences.getInstance();
-    final personalizado = prefs.getBool('pin_gerente_personalizado') ?? false;
+    final personalizado = prefs.getBool(keyPinGerentePersonalizado);
+    String? hashSalvo = prefs.getString(keyPinGerenteHash);
+    final pinLegado = prefs.getString('pin_gerente')?.trim();
 
-    if (!personalizado && digitado == _pinGerentePadrao) {
-      _cachePinGerenteEhPadrao = true;
-      return true;
+    // Aparelho legado: a flag ainda não existe. Resolve uma única vez qual é o
+    // PIN Mestre, persiste a flag e segue pelo caminho barato daqui em diante.
+    if (personalizado == null) {
+      if (pinLegado != null && pinLegado.length == 4) {
+        // Texto plano de uma versão antiga: converte em hash e apaga o rastro.
+        final ehPadrao = pinLegado == _pinGerentePadrao;
+        hashSalvo = gerarHashPin(pinLegado, iteracoes: _iteracoesPbkdf2Mestre);
+        await prefs.setString(keyPinGerenteHash, hashSalvo);
+        await prefs.setBool(keyPinGerentePersonalizado, !ehPadrao);
+        await prefs.remove('pin_gerente');
+        _cachePinGerenteEhPadrao = ehPadrao;
+        return digitado == pinLegado;
+      }
+
+      if (hashSalvo == null) {
+        // Instalação nova: PIN Mestre é o de fábrica, nada a derivar.
+        await prefs.setBool(keyPinGerentePersonalizado, false);
+        _cachePinGerenteEhPadrao = true;
+        return digitado == _pinGerentePadrao;
+      }
+
+      // Existe hash mas não se sabe se é o de fábrica: descobre uma vez só.
+      final ehPadrao = verificarPin(_pinGerentePadrao, hashSalvo);
+      await prefs.setBool(keyPinGerentePersonalizado, !ehPadrao);
+      _cachePinGerenteEhPadrao = ehPadrao;
+      if (ehPadrao) {
+        return digitado == _pinGerentePadrao;
+      }
+      // cai para a verificação por hash abaixo
     }
 
-    // Obtém o hash salvo do PIN Mestre
-    String? hashSalvo = prefs.getString('pin_gerente_hash');
+    // PIN Mestre ainda é o de fábrica: comparação direta, custo zero.
+    if (personalizado == false) {
+      _cachePinGerenteEhPadrao = true;
+      return digitado == _pinGerentePadrao;
+    }
+
     if (hashSalvo == null) {
-      // Migração automática caso existisse em texto plano legado
-      final pinLegado = prefs.getString('pin_gerente');
-      if (pinLegado != null && pinLegado.trim().length == 4) {
-        hashSalvo = gerarHashPin(pinLegado.trim());
-      } else {
-        // Padrão inicial de fábrica: '9999'
-        hashSalvo = gerarHashPin(_pinGerentePadrao);
-      }
-      await prefs.setString('pin_gerente_hash', hashSalvo);
-      await prefs.remove('pin_gerente');
+      // Estado inconsistente (flag diz personalizado, mas o hash sumiu). Nega em
+      // vez de aceitar o PIN de fábrica, que seria abrir a gerência de graça.
+      return false;
     }
 
     if (!verificarPin(digitado, hashSalvo)) return false;
 
-    // Acertou: reescreve hashes antigos ou pesados (>2000 iterações) no novo formato veloz
-    if (hashEhLegado(hashSalvo)) {
-      await prefs.setString('pin_gerente_hash', gerarHashPin(digitado));
+    // Acertou: reforça hashes derivados por versões antigas, com poucas iterações
+    if (_hashMestreEhFraco(hashSalvo)) {
+      await prefs.setString(
+        keyPinGerenteHash,
+        gerarHashPin(digitado, iteracoes: _iteracoesPbkdf2Mestre),
+      );
     }
     return true;
   }
 
-  /// Informa se o PIN Mestre ainda é o padrão de fábrica ('9999'), para que a
-  /// tela da Gerência possa cobrar a troca
+  /// O PIN Mestre tem alvo próprio de iterações, bem acima do PIN de operador
+  static bool _hashMestreEhFraco(String? hashArmazenado) {
+    if (hashArmazenado == null || hashArmazenado.trim().isEmpty) return false;
+    final armazenado = hashArmazenado.trim();
+    if (!armazenado.startsWith('$_prefixoPbkdf2:')) return true;
+    final partes = armazenado.split(':');
+    if (partes.length != 4) return true;
+    final iteracoes = int.tryParse(partes[1]) ?? 0;
+    return iteracoes < _iteracoesPbkdf2Mestre;
+  }
+
+  /// Informa se o PIN Mestre ainda é o padrão de fábrica, para que a tela da
+  /// Gerência possa cobrar a troca.
+  ///
+  /// Responde pela flag persistida em vez de derivar o hash: o painel da
+  /// gerência chama isto ao abrir, e rodar PBKDF2 do PIN Mestre aqui travaria a
+  /// tela por meio segundo no PWA. A flag só é calculada por hash uma única vez,
+  /// em aparelhos vindos de uma versão que ainda não a gravava.
   static Future<bool> pinGerenteEhPadrao() async {
     if (_cachePinGerenteEhPadrao != null) {
       return _cachePinGerenteEhPadrao!;
     }
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (prefs.getBool('pin_gerente_personalizado') == true) {
-        _cachePinGerenteEhPadrao = false;
-        return false;
+      final flag = prefs.getBool(keyPinGerentePersonalizado);
+      if (flag != null) {
+        _cachePinGerenteEhPadrao = !flag;
+        return !flag;
       }
-      final hashSalvo = prefs.getString('pin_gerente_hash');
+
+      final hashSalvo = prefs.getString(keyPinGerenteHash);
       if (hashSalvo == null) {
         _cachePinGerenteEhPadrao = true;
         return true;
       }
+
+      // Aparelho legado sem a flag: calcula uma vez e persiste o resultado.
       final ehPadrao = verificarPin(_pinGerentePadrao, hashSalvo);
+      await prefs.setBool(keyPinGerentePersonalizado, !ehPadrao);
       _cachePinGerenteEhPadrao = ehPadrao;
       return ehPadrao;
     } catch (_) {
@@ -323,18 +436,49 @@ class AuthService {
     }
   }
 
-  /// Altera com segurança o PIN Mestre da Gerência armazenando apenas seu hash PBKDF2 veloz
+  /// Altera o PIN Mestre da Gerência e propaga a mudança para os outros aparelhos
   static Future<bool> alterarPinGerente(String novoPin) async {
     final limpo = novoPin.trim();
     if (limpo.length != 4 || int.tryParse(limpo) == null) return false;
     final prefs = await SharedPreferences.getInstance();
-    final novoHash = gerarHashPin(limpo);
-    await prefs.setString('pin_gerente_hash', novoHash);
-    await prefs.setBool('pin_gerente_personalizado', limpo != _pinGerentePadrao);
+    final novoHash = gerarHashPin(limpo, iteracoes: _iteracoesPbkdf2Mestre);
+    final personalizado = limpo != _pinGerentePadrao;
+
+    await prefs.setString(keyPinGerenteHash, novoHash);
+    await prefs.setBool(keyPinGerentePersonalizado, personalizado);
     await prefs.remove('pin_gerente'); // Remove qualquer rastro de texto plano
-    _cachePinGerenteEhPadrao = (limpo == _pinGerentePadrao);
+    _cachePinGerenteEhPadrao = !personalizado;
     _cacheVerificacao.clear();
+
+    // Publica na nuvem para que o PIN novo valha em todos os aparelhos e
+    // sobreviva a uma reinstalação ou à limpeza dos dados do site no PWA.
+    unawaited(OperadoresSyncService.sincronizarPinMestre(
+      hash: novoHash,
+      personalizado: personalizado,
+    ));
+
     return true;
+  }
+
+  /// Aplica localmente o PIN Mestre que veio da nuvem.
+  /// Chamado só pela sincronização — nunca por tela.
+  static Future<void> aplicarPinMestreDaNuvem({
+    required String hash,
+    required bool personalizado,
+  }) async {
+    if (hash.trim().isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getString(keyPinGerenteHash) == hash &&
+          (prefs.getBool(keyPinGerentePersonalizado) ?? false) == personalizado) {
+        return;
+      }
+      await prefs.setString(keyPinGerenteHash, hash);
+      await prefs.setBool(keyPinGerentePersonalizado, personalizado);
+      await prefs.remove('pin_gerente');
+      _cachePinGerenteEhPadrao = !personalizado;
+      _cacheVerificacao.clear();
+    } catch (_) {}
   }
 
   /// Valida o PIN digitado contra o PIN do operador ativo ou contra o PIN Mestre da Gerência
@@ -347,27 +491,60 @@ class AuthService {
       return true;
     }
 
-    // 2. Valida contra o hash SHA-256 no cache de operadores sincronizados via Firestore
+    // 2. Estado oficial do operador no cadastro sincronizado.
+    //
+    //    Este passo é a trava: se o cadastro existe e diz que o operador foi
+    //    excluído ou desativado, a validação termina aqui, negando. Antes, a
+    //    checagem apenas "não aprovava" e a execução seguia para o hash local
+    //    do passo 3 — que aprovava o acesso de quem a gerência tinha acabado de
+    //    bloquear e ainda reenviava o cadastro à nuvem, reativando o operador.
+    OperadorModel? cadastro;
     try {
-      final validoSync = await OperadoresSyncService.validarPin(operador, digitado);
-      if (validoSync) {
-        return true;
-      }
+      cadastro = await DatabaseService.instance.obterOperadorCachePorNome(operador);
     } catch (_) {}
+
+    if (cadastro != null && (cadastro.removido || !cadastro.ativo)) {
+      await _revogarCredenciaisLocais(operador);
+      return false;
+    }
+
+    if (cadastro != null &&
+        cadastro.pinHash.isNotEmpty &&
+        verificarPin(digitado, cadastro.pinHash)) {
+      // Reforça o hash da nuvem se ele veio de uma versão mais fraca
+      if (hashEhLegado(cadastro.pinHash)) {
+        unawaited(OperadoresSyncService.redefinirPin(
+          operadorId: cadastro.id,
+          novoPin: digitado,
+        ));
+      } else {
+        await salvarHashLocal(operador, cadastro.pinHash);
+      }
+      return true;
+    }
 
     final prefs = await SharedPreferences.getInstance();
 
-    // 3. Hash local do próprio operador
+    // 3. Hash local. Chega aqui quem não está no cadastro da nuvem (aparelho que
+    //    nunca sincronizou, ou operador anterior ao Firestore) e também quem
+    //    trocou o PIN neste aparelho e a gravação na nuvem ainda está na fila
+    //    offline — nesse caso o hash local é o mais novo dos dois, e recusar
+    //    aqui trancaria o operador para fora do próprio caixa.
+    //
+    //    Operador excluído ou desativado nunca alcança este ponto: o passo 2
+    //    encerra antes.
     final hashSalvo = prefs.getString(_chaveHashOperador(operador));
     if (verificarPin(digitado, hashSalvo)) {
       if (hashEhLegado(hashSalvo)) {
         await prefs.setString(_chaveHashOperador(operador), gerarHashPin(digitado));
       }
-      // Sincroniza em segundo plano com o Cloud Firestore para garantir presença na nuvem
+      // Sincroniza em segundo plano com o Cloud Firestore para garantir presença
+      // na nuvem. O perfil vem do cadastro existente: fixar 'operador' aqui
+      // rebaixava um gerente a cada login dele.
       unawaited(OperadoresSyncService.sincronizarCadastroOperador(
         nome: operador,
         pin: digitado,
-        perfil: 'operador',
+        perfil: cadastro?.perfil,
       ));
       return true;
     }
@@ -379,7 +556,7 @@ class AuthService {
       unawaited(OperadoresSyncService.sincronizarCadastroOperador(
         nome: operador,
         pin: digitado,
-        perfil: 'operador',
+        perfil: cadastro?.perfil,
       ));
       return true;
     }
@@ -394,17 +571,23 @@ class AuthService {
     final Set<String> operadores = {};
 
     // 1. Carrega do cache de operadores sincronizados via Firestore
+    final Set<String> bloqueados = {};
     try {
       final db = DatabaseService.instance;
-      final lista = await db.obterOperadoresCache();
+      final lista = await db.obterOperadoresCache(incluirRemovidos: true);
       for (final o in lista) {
-        if (o.nome.trim().isNotEmpty && o.ativo) {
-          operadores.add(o.nomeExibicao);
+        if (o.nome.trim().isEmpty) continue;
+        if (o.removido || !o.ativo) {
+          bloqueados.add(normalizarOperador(o.nome));
+          continue;
         }
+        operadores.add(o.nomeExibicao);
       }
     } catch (_) {}
 
-    // 2. Fallback para chaves locais legadas
+    // 2. Fallback para chaves locais legadas, pulando quem o cadastro da nuvem
+    //    já marcou como excluído ou desativado — senão o operador bloqueado
+    //    reaparecia na lista de seleção por causa de um hash local antigo.
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys();
     for (final k in keys) {
@@ -412,6 +595,7 @@ class AuthService {
       final rawNome = k
           .replaceFirst('pin_operador_', '')
           .replaceFirst(RegExp(r'_hash$'), '');
+      if (rawNome.isEmpty || bloqueados.contains(rawNome)) continue;
       final nomeBonito = rawNome.replaceAll('_', ' ').toUpperCase();
       if (nomeBonito.isNotEmpty) {
         operadores.add(nomeBonito);

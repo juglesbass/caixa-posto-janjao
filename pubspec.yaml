@@ -4,7 +4,11 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.2.0 <4.0.0'
+  # 3.4 é o piso real: as notificações e a vibração no Web usam
+  # `dart:js_interop` / `dart:js_interop_unsafe` (callAsConstructor), que
+  # substituíram `dart:html` e `dart:js` e são o único caminho que também
+  # compila para WebAssembly.
+  sdk: '>=3.4.0 <4.0.0'
 
 dependencies:
   flutter:

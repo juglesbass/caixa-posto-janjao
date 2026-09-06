@@ -9,6 +9,7 @@ on:
 
 jobs:
   test:
+    name: Análise, testes e build do PWA
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -23,5 +24,20 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Informativo: o analyze aponta avisos de estilo que já existiam antes
+      # desta configuração. Ele não derruba o workflow para não confundir
+      # "aviso antigo" com "mudança quebrada" — quem reprova de verdade são os
+      # dois passos abaixo, que compilam o app para a VM e para o Web.
+      - name: Run Flutter Analyze
+        continue-on-error: true
+        run: flutter analyze
+
       - name: Run Flutter Tests
         run: flutter test
+
+      # O build do PWA roda aqui, e não só no deploy, porque é o alvo que mais
+      # quebra em silêncio: erro de compilação em código Web (`dart:js_interop`,
+      # imports condicionais) não aparece em `flutter test`, que roda na VM.
+      # Este passo só compila — não publica nada.
+      - name: Build Web PWA (verificação, sem deploy)
+        run: flutter build web --release

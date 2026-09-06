@@ -102,8 +102,60 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Assina o APK com a chave oficial do posto quando os secrets estiverem
+      # configurados. Sem eles o build continua saindo (com a chave de debug),
+      # mas esse APK NÃO instala por cima de uma versão anterior assinada com
+      # outra chave — e desinstalar apaga o banco local de turnos.
+      #
+      # Secrets necessários no repositório:
+      #   ANDROID_KEYSTORE_BASE64  -> base64 -w0 upload-keystore.jks
+      #   ANDROID_KEYSTORE_PASSWORD
+      #   ANDROID_KEY_PASSWORD
+      #   ANDROID_KEY_ALIAS
+      - name: Configure release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+            echo "::warning::ANDROID_KEYSTORE_BASE64 ausente — o APK sairá assinado com a chave de DEBUG e não substituirá instalações anteriores."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+          cat > android/key.properties <<PROPS
+          storePassword=${KEYSTORE_PASSWORD}
+          keyPassword=${KEY_PASSWORD}
+          keyAlias=${KEY_ALIAS}
+          storeFile=upload-keystore.jks
+          PROPS
+          echo "Assinatura de release configurada."
+
       - name: Build APK
         run: flutter build apk --release --build-number "${{ github.run_number }}"
+
+      # Informativo: imprime o certificado do APK para conferir, no log da
+      # execução, se ele saiu com a chave do posto ou com a de debug. Nunca
+      # derruba o build — o APK já está pronto neste ponto.
+      - name: Show APK signing certificate
+        continue-on-error: true
+        shell: bash
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          BUILD_TOOLS=$(ls -d "${ANDROID_HOME:-$ANDROID_SDK_ROOT}"/build-tools/* 2>/dev/null | sort -V | tail -1)
+          if [ -n "$BUILD_TOOLS" ] && [ -x "$BUILD_TOOLS/apksigner" ]; then
+            "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
+          else
+            echo "apksigner não encontrado — verificação de assinatura ignorada."
+          fi
+
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: rm -f android/key.properties android/app/upload-keystore.jks
 
       - name: Collect APK output
         shell: bash

@@ -33,6 +33,8 @@ class OperadoresSyncService {
   static const String defaultProjectId = 'caixa-posto-janjao';
   static const String _keyProjectId = 'firebase_firestore_project_id';
   static const String _keyCacheOperadoresJson = 'operadores_cache_json';
+  static const String _keyMigracaoConcluida = 'operadores_migracao_inicial_concluida';
+  static const String _keyPinMestreSyncEm = 'pin_gerente_sync_em';
 
   /// Variáveis estáticas de diagnóstico para inspeção na interface
   static String? ultimoErroDiagnostico;
@@ -48,11 +50,38 @@ class OperadoresSyncService {
   static final ValueNotifier<List<OperadorModel>> operadoresNotifier =
       ValueNotifier<List<OperadorModel>>([]);
 
-  /// Timer de sincronização reativa periódica (polling a cada 4 segundos)
+  /// Timer de sincronização reativa periódica da tela de gestão
   static Timer? _pollingTimer;
   static int _activeListenersCount = 0;
   static bool _pollingEmExecucao = false;
   static bool _migracaoExecutada = false;
+
+  /// Intervalo base do polling. O timer dispara nesse ritmo, mas cada ciclo
+  /// respeita o backoff acumulado — em rede ruim ele espaça sozinho em vez de
+  /// martelar o Firestore de 4 em 4 segundos gastando bateria e franquia.
+  static const Duration _intervaloPollingBase = Duration(seconds: 5);
+  static const Duration _backoffMaximo = Duration(minutes: 2);
+  static int _falhasConsecutivas = 0;
+  static DateTime? _proximoCicloPermitido;
+
+  /// Só sincroniza com o app em primeiro plano. Um app minimizado que continua
+  /// varrendo a rede é a maior fonte de consumo silencioso de bateria no celular
+  /// do frentista.
+  static bool _appEmPrimeiroPlano = true;
+
+  /// Informado pelo shell do app ao mudar o ciclo de vida (resumed/paused)
+  static void definirAppEmPrimeiroPlano(bool emPrimeiroPlano) {
+    _appEmPrimeiroPlano = emPrimeiroPlano;
+    if (emPrimeiroPlano) {
+      // Voltou para a tela: zera o backoff e sincroniza na hora, se alguma tela
+      // estiver observando.
+      _falhasConsecutivas = 0;
+      _proximoCicloPermitido = null;
+      if (_activeListenersCount > 0) {
+        unawaited(_executarCicloPolling());
+      }
+    }
+  }
 
   /// Inicia monitoramento em tempo real da coleção 'operadores' do Firestore
   static void iniciarMonitoramentoEmTempoReal() {
@@ -69,9 +98,10 @@ class OperadoresSyncService {
     }
 
     // Executa uma sincronização imediata
+    _proximoCicloPermitido = null;
     unawaited(_executarCicloPolling());
 
-    _pollingTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+    _pollingTimer = Timer.periodic(_intervaloPollingBase, (_) {
       unawaited(_executarCicloPolling());
     });
   }
@@ -82,11 +112,28 @@ class OperadoresSyncService {
     if (_activeListenersCount == 0) {
       _pollingTimer?.cancel();
       _pollingTimer = null;
+      _falhasConsecutivas = 0;
+      _proximoCicloPermitido = null;
     }
+  }
+
+  static Duration _backoffAtual() {
+    if (_falhasConsecutivas <= 0) return Duration.zero;
+    // O expoente é limitado porque no Web os inteiros são doubles: deslocar
+    // além de ~32 bits produz lixo em vez de um número grande.
+    final expoente = (_falhasConsecutivas - 1).clamp(0, 8);
+    final segundos = _intervaloPollingBase.inSeconds * (1 << expoente);
+    final calculado = Duration(seconds: segundos);
+    return calculado > _backoffMaximo ? _backoffMaximo : calculado;
   }
 
   static Future<void> _executarCicloPolling() async {
     if (_pollingEmExecucao) return;
+    if (!_appEmPrimeiroPlano) return;
+
+    final espera = _proximoCicloPermitido;
+    if (espera != null && DateTime.now().isBefore(espera)) return;
+
     _pollingEmExecucao = true;
     try {
       // 1. Tenta descarregar pendências offline acumuladas
@@ -100,12 +147,13 @@ class OperadoresSyncService {
 
       // 3. Busca lista fresca do Firestore
       final operadoresNuvem = await _buscarDoFirestore();
-      final db = DatabaseService.instance;
-      await db.salvarOperadoresCache(operadoresNuvem);
-      await _salvarCachePrefs(operadoresNuvem);
-      await _sincronizarChavesLocais(operadoresNuvem);
+      await _aplicarListaDaNuvem(operadoresNuvem);
 
-      operadoresNotifier.value = operadoresNuvem;
+      // 4. Traz o PIN Mestre da gerência definido em outro aparelho
+      await sincronizarPinMestreDaNuvem();
+
+      _falhasConsecutivas = 0;
+      _proximoCicloPermitido = null;
 
       statusNotifier.value = SyncStatus(
         online: true,
@@ -114,7 +162,10 @@ class OperadoresSyncService {
         ultimaSincronizacao: DateTime.now(),
       );
     } catch (e) {
-      // Se falhar a conexão, preserva dados locais
+      // Se falhar a conexão, preserva dados locais e espaça a próxima tentativa
+      _falhasConsecutivas++;
+      _proximoCicloPermitido = DateTime.now().add(_backoffAtual());
+
       final db = DatabaseService.instance;
       final locais = await db.obterOperadoresCache();
       if (operadoresNotifier.value.isEmpty && locais.isNotEmpty) {
@@ -123,6 +174,31 @@ class OperadoresSyncService {
     } finally {
       _pollingEmExecucao = false;
     }
+  }
+
+  /// Aplica no aparelho a lista que veio da nuvem.
+  ///
+  /// A lista da nuvem é a verdade completa, então o cache local passa a
+  /// espelhá-la: quem não veio foi excluído de fato e precisa sair daqui, senão
+  /// é reenviado ao Firestore na próxima migração e ressuscita sozinho.
+  /// Operadores marcados como removidos continuam no cache (para que a
+  /// autenticação saiba negar), mas ficam fora das listas visíveis.
+  static Future<void> _aplicarListaDaNuvem(List<OperadorModel> daNuvem) async {
+    final db = DatabaseService.instance;
+
+    // Lista vazia não apaga o cache. Uma coleção realmente vazia só acontece em
+    // projeto novo — mas um ID de projeto errado também devolve vazio (HTTP 404),
+    // e nesse caso zerar o cache deixaria o caixa sem conseguir autenticar
+    // ninguém offline. Na dúvida, preserva o que já está no aparelho.
+    await db.salvarOperadoresCache(daNuvem, substituirTudo: daNuvem.isNotEmpty);
+
+    if (daNuvem.isEmpty) return;
+
+    final visiveis = daNuvem.where((o) => !o.removido).toList();
+    await _salvarCachePrefs(visiveis);
+    await _sincronizarChavesLocais(daNuvem);
+
+    operadoresNotifier.value = visiveis;
   }
 
   /// Obtém o ID do projeto Firebase configurado
@@ -154,6 +230,13 @@ class OperadoresSyncService {
   static Future<String> _getUrlDocumento(String docId) async {
     final baseUrl = await _getUrlColecao();
     return '$baseUrl/$docId';
+  }
+
+  /// URL do documento de configuração da gerência (hash do PIN Mestre)
+  static Future<String> _getUrlConfigGerencia() async {
+    final projectId = await getProjectId();
+    return 'https://firestore.googleapis.com/v1/projects/$projectId'
+        '/databases/(default)/documents/configuracoes/gerencia';
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -192,23 +275,15 @@ class OperadoresSyncService {
       await sincronizarFilaOffline();
 
       final operadoresNuvem = await _buscarDoFirestore();
-      if (operadoresNuvem.isNotEmpty) {
-        final db = DatabaseService.instance;
-        // Atualiza cache local (SQLite e SharedPreferences)
-        await db.salvarOperadoresCache(operadoresNuvem);
-        await _salvarCachePrefs(operadoresNuvem);
-        // Sincroniza também as chaves legadas de PIN no SharedPreferences
-        await _sincronizarChavesLocais(operadoresNuvem);
+      await _aplicarListaDaNuvem(operadoresNuvem);
+      await sincronizarPinMestreDaNuvem();
 
-        operadoresNotifier.value = operadoresNuvem;
-
-        statusNotifier.value = SyncStatus(
-          online: true,
-          mensagem: 'Sincronizado com Firestore',
-          statusCode: 200,
-          ultimaSincronizacao: DateTime.now(),
-        );
-      }
+      statusNotifier.value = SyncStatus(
+        online: true,
+        mensagem: 'Sincronizado com Firestore',
+        statusCode: 200,
+        ultimaSincronizacao: DateTime.now(),
+      );
     } catch (e) {
       debugPrint('[Firestore Sync] ⚠️ Modo Offline ativo. Detalhe: $e');
       statusNotifier.value = SyncStatus(
@@ -227,13 +302,13 @@ class OperadoresSyncService {
       await sincronizarFilaOffline();
 
       final operadoresNuvem = await _buscarDoFirestore();
-      final db = DatabaseService.instance;
-      await db.salvarOperadoresCache(operadoresNuvem);
-      await _salvarCachePrefs(operadoresNuvem);
-      await _sincronizarChavesLocais(operadoresNuvem);
+      await _aplicarListaDaNuvem(operadoresNuvem);
+      await sincronizarPinMestreDaNuvem();
 
-      operadoresNotifier.value = operadoresNuvem;
+      _falhasConsecutivas = 0;
+      _proximoCicloPermitido = null;
 
+      final visiveis = operadoresNotifier.value;
       statusNotifier.value = SyncStatus(
         online: true,
         mensagem: 'Sincronizado com Nuvem',
@@ -242,8 +317,8 @@ class OperadoresSyncService {
       );
       return (
         sucesso: true,
-        mensagem: '✅ ${operadoresNuvem.length} operadores sincronizados via Firestore.',
-        operadores: operadoresNuvem
+        mensagem: '✅ ${visiveis.length} operadores sincronizados via Firestore.',
+        operadores: visiveis
       );
     } catch (e) {
       final locais = await DatabaseService.instance.obterOperadoresCache();
@@ -329,11 +404,18 @@ class OperadoresSyncService {
 
   /// Sincroniza o cadastro ou alteração de PIN de um operador com o Firestore
   /// Chamado sempre que um operador digita ou redefine o PIN em qualquer dispositivo
+  /// Grava (ou atualiza) o cadastro de um operador com o PIN informado.
+  ///
+  /// [perfil] nulo preserva o perfil já cadastrado — passar 'operador' às cegas
+  /// aqui rebaixava um gerente toda vez que ele digitava o próprio PIN.
+  /// [restaurar] traz de volta um operador que a gerência tinha excluído; sem
+  /// ele, um cadastro removido continua removido.
   static Future<bool> sincronizarCadastroOperador({
     required String nome,
     required String pin,
-    String perfil = 'operador',
+    String? perfil,
     String? operadorId,
+    bool restaurar = false,
   }) async {
     final nomeLimpo = nome.trim();
     final pinLimpo = pin.trim();
@@ -345,19 +427,43 @@ class OperadoresSyncService {
     final pinHash = AuthService.gerarHashPin(pinLimpo);
     final docId = operadorId ?? 'op_${AuthService.normalizarOperador(nomeLimpo)}';
 
+    final db = DatabaseService.instance;
+
+    // Recupera o cadastro atual para não sobrescrever perfil, data de criação
+    // nem o estado de exclusão com valores inventados na hora.
+    OperadorModel? existente;
+    try {
+      final todos = await db.obterOperadoresCache(incluirRemovidos: true);
+      for (final o in todos) {
+        if (o.id == docId ||
+            o.nomeNormalizado == AuthService.normalizarOperador(nomeLimpo)) {
+          existente = o;
+          break;
+        }
+      }
+    } catch (_) {}
+
+    // Operador excluído não recebe PIN novo por caminho automático. Só o
+    // cadastro explícito da gerência (restaurar: true) o traz de volta — do
+    // contrário, qualquer rotina de sincronização acabaria reabrindo a conta.
+    if (!restaurar && (existente?.removido ?? false)) {
+      debugPrint('[Firestore Sync] Cadastro de $nomeLimpo ignorado: operador excluído.');
+      return false;
+    }
+
     final operadorAtualizado = OperadorModel(
       id: docId,
       nome: nomeLimpo,
       pinHash: pinHash,
-      perfil: perfil,
-      ativo: true,
-      postoId: 'posto_janjao',
-      criadoEm: DateTime.now(),
+      perfil: perfil ?? existente?.perfil ?? 'operador',
+      ativo: restaurar ? true : (existente?.ativo ?? true),
+      removido: false,
+      postoId: existente?.postoId ?? 'posto_janjao',
+      criadoEm: existente?.criadoEm ?? DateTime.now(),
       atualizadoEm: DateTime.now(),
     );
 
     // 1. Salva imediatamente no cache local (Offline-First)
-    final db = DatabaseService.instance;
     await db.salvarOperadorCache(operadorAtualizado);
     await AuthService.salvarHashLocal(nomeLimpo, pinHash);
 
@@ -423,10 +529,13 @@ class OperadoresSyncService {
     required String pin,
     String perfil = 'operador',
   }) async {
+    // Cadastro feito pela gerência: se existir um documento com esse nome que
+    // tinha sido excluído, esta é a intenção explícita de trazê-lo de volta.
     return sincronizarCadastroOperador(
       nome: nome,
       pin: pin,
       perfil: perfil,
+      restaurar: true,
     );
   }
 
@@ -559,13 +668,47 @@ class OperadoresSyncService {
     return true;
   }
 
-  /// Exclui o operador permanentemente do Firestore e do armazenamento local
+  /// Exclui o operador: some das listas e deixa de autenticar em todo aparelho.
+  ///
+  /// A exclusão é reversível (`removido: true`), não um DELETE. Apagar o
+  /// documento exigiria manter a permissão de exclusão aberta no Firestore — e,
+  /// sem autenticação, isso deixa qualquer um zerar a coleção inteira. O
+  /// documento marcado também preserva o rastro de quem assinou fechamentos
+  /// antigos.
   static Future<bool> excluirOperador({
     required String operadorId,
     required String nome,
   }) async {
     final db = DatabaseService.instance;
-    await db.excluirOperadorCache(operadorId);
+
+    OperadorModel? existente;
+    try {
+      final todos = await db.obterOperadoresCache(incluirRemovidos: true);
+      for (final o in todos) {
+        if (o.id == operadorId) {
+          existente = o;
+          break;
+        }
+      }
+    } catch (_) {}
+
+    final marcado = (existente ??
+            OperadorModel(
+              id: operadorId,
+              nome: nome,
+              pinHash: '',
+              criadoEm: DateTime.now(),
+              atualizadoEm: DateTime.now(),
+            ))
+        .copyWith(
+      ativo: false,
+      removido: true,
+      atualizadoEm: DateTime.now(),
+    );
+
+    // Cache local mantém o registro marcado: é ele que faz a autenticação negar
+    // o acesso mesmo offline, em vez de tratar o operador como desconhecido.
+    await db.salvarOperadorCache(marcado);
     await AuthService.excluirPinOperador(nome);
 
     // Atualiza o notifier reativo na tela do gerente imediatamente
@@ -576,12 +719,13 @@ class OperadoresSyncService {
     bool enviado = false;
     try {
       final url = await _getUrlDocumento(operadorId);
-      final response = await _client.delete(
+      final response = await _client.patch(
         Uri.parse(url),
-        headers: {'Accept': 'application/json'},
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(marcado.toFirestoreRest()),
       ).timeout(const Duration(seconds: 8));
 
-      if (response.statusCode == 200 || response.statusCode == 404) {
+      if (response.statusCode == 200) {
         enviado = true;
         await db.limparPendenciasDoOperador(operadorId);
         statusNotifier.value = SyncStatus(
@@ -598,8 +742,8 @@ class OperadoresSyncService {
     if (!enviado) {
       await db.salvarPendenciaOperador(
         operadorId: operadorId,
-        acao: 'delete',
-        dados: {'id': operadorId, 'nome': nome},
+        acao: 'upsert',
+        dados: marcado.toMap(),
       );
     }
 
@@ -636,14 +780,21 @@ class OperadoresSyncService {
             debugPrint('[Firestore Sync] ✅ Pendência $pendenciaId enviada com sucesso ao Firestore.');
           }
         } else if (acao == 'delete') {
+          // Pendência criada por uma versão anterior, quando a exclusão era um
+          // DELETE de verdade. As regras atuais recusam DELETE (403): nesse caso
+          // o operador já está marcado como removido no cache e no próximo
+          // upsert a nuvem recebe a marcação, então a pendência sai da fila em
+          // vez de ficar girando para sempre.
           final response = await _client.delete(
             Uri.parse(url),
             headers: {'Accept': 'application/json'},
           ).timeout(const Duration(seconds: 6));
 
-          if (response.statusCode == 200 || response.statusCode == 404) {
+          if (response.statusCode == 200 ||
+              response.statusCode == 404 ||
+              response.statusCode == 403) {
             await db.removerPendenciaOperador(pendenciaId);
-            debugPrint('[Firestore Sync] ✅ Exclusão pendente $pendenciaId concluída no Firestore.');
+            debugPrint('[Firestore Sync] ✅ Exclusão pendente $pendenciaId encerrada (HTTP ${response.statusCode}).');
           }
         }
       } catch (e) {
@@ -652,13 +803,38 @@ class OperadoresSyncService {
     }
   }
 
-  /// Migra e envia automaticamente todos os operadores cadastrados anteriormente
-  /// neste dispositivo (em SharedPreferences ou SQLite) para o Cloud Firestore.
-  static Future<int> migrarOperadoresLocaisParaFirestore() async {
+  /// Migra, **uma única vez por instalação**, os operadores que já existiam
+  /// neste dispositivo (SharedPreferences ou SQLite) para o Cloud Firestore.
+  ///
+  /// A execução repetida era o que ressuscitava operador excluído: a cada
+  /// abertura do app, o aparelho reenviava à nuvem tudo que tinha no cache
+  /// local, desfazendo exclusões e reativações feitas em outro aparelho.
+  /// Agora ela roda só enquanto houver algo de fato pendente de migração, e
+  /// nunca sobrescreve um cadastro que já existe na nuvem.
+  static Future<int> migrarOperadoresLocaisParaFirestore({bool forcar = false}) async {
     int migrados = 0;
     try {
       final db = DatabaseService.instance;
       final prefs = await SharedPreferences.getInstance();
+
+      if (!forcar && (prefs.getBool(_keyMigracaoConcluida) ?? false)) {
+        return 0;
+      }
+
+      // Cadastros que já vivem na nuvem não são tocados: quem manda sobre eles
+      // é o Firestore, não o cache deste aparelho.
+      final Set<String> jaNaNuvem = {};
+      try {
+        for (final o in await _buscarDoFirestore()) {
+          jaNaNuvem.add(o.id);
+          jaNaNuvem.add(o.nomeNormalizado);
+        }
+      } catch (e) {
+        // Sem rede não dá para saber o que já existe lá. Tentar assim mesmo
+        // arriscaria sobrescrever a nuvem com dados velhos: adia a migração.
+        debugPrint('[Firestore Sync] Migração adiada (nuvem indisponível): $e');
+        return 0;
+      }
 
       // 1. Mapeia nomes reais dos turnos para preservar a formatação bonita (ex: "Carlos Silva")
       final Map<String, String> nomesReais = {};
@@ -705,6 +881,7 @@ class OperadoresSyncService {
         }
 
         if (hash == null || hash.isEmpty) continue;
+        if (jaNaNuvem.contains(chave) || jaNaNuvem.contains('op_$chave')) continue;
 
         // Recupera nome original ou formata
         String nomeFinal = nomesReais[chave] ?? chave.replaceAll('_', ' ');
@@ -754,17 +931,32 @@ class OperadoresSyncService {
         }
       }
 
-      // Garante envio de qualquer operador que esteja no SQLite mas não foi para a nuvem
+      // Envia apenas os operadores do SQLite que ainda não existem na nuvem.
+      //
+      // Antes, este trecho reenviava **todos** os operadores do cache local a
+      // cada execução. Era um "last writer wins" com dado velho: bastava um
+      // aparelho desatualizado abrir o app para reativar quem tinha acabado de
+      // ser desativado, ou trazer de volta quem tinha sido excluído.
       for (final op in locaisDb) {
+        if (op.removido) continue;
+        if (jaNaNuvem.contains(op.id) || jaNaNuvem.contains(op.nomeNormalizado)) continue;
         try {
           final url = await _getUrlDocumento(op.id);
-          await _client.patch(
+          final res = await _client.patch(
             Uri.parse(url),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode(op.toFirestoreRest()),
           ).timeout(const Duration(seconds: 4));
+          if (res.statusCode == 200) {
+            migrados++;
+            jaNaNuvem.add(op.id);
+          }
         } catch (_) {}
       }
+
+      // A migração é um evento único do aparelho. A partir daqui, quem sincroniza
+      // é o fluxo normal (cadastro, redefinição de PIN e fila offline).
+      await prefs.setBool(_keyMigracaoConcluida, true);
 
       if (migrados > 0) {
         debugPrint('[Firestore Sync] ✅ $migrados operadores anteriores sincronizados com a nuvem.');
@@ -792,6 +984,10 @@ class OperadoresSyncService {
     final db = DatabaseService.instance;
     final op = await db.obterOperadorCachePorNome(nomeOperador);
     if (op != null) {
+      if (op.removido) {
+        debugPrint('Operador ${op.nome} foi excluído pela gerência.');
+        return false;
+      }
       if (!op.ativo) {
         debugPrint('Operador ${op.nome} está desativado.');
         return false;
@@ -803,6 +999,84 @@ class OperadoresSyncService {
     }
 
     return false;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // PIN MESTRE DA GERÊNCIA
+  //
+  // O PIN Mestre vivia só no SharedPreferences de cada aparelho. Na prática isso
+  // significava que trocá-lo num celular não valia em lugar nenhum: todo aparelho
+  // novo, toda reinstalação e todo PWA com os dados do site limpos voltavam ao
+  // PIN de fábrica — e o painel da gerência, com "Zerar Tudo" dentro, ficava
+  // aberto para quem soubesse o padrão.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /// Publica o hash do PIN Mestre na nuvem para valer em todos os aparelhos
+  static Future<bool> sincronizarPinMestre({
+    required String hash,
+    required bool personalizado,
+  }) async {
+    if (hash.trim().isEmpty) return false;
+    try {
+      final url = await _getUrlConfigGerencia();
+      final response = await _client
+          .patch(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'fields': {
+                'pin_mestre_hash': {'stringValue': hash},
+                'personalizado': {'booleanValue': personalizado},
+                'atualizado_em': {
+                  'timestampValue': DateTime.now().toUtc().toIso8601String()
+                },
+              }
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(_keyPinMestreSyncEm, DateTime.now().toIso8601String());
+        } catch (_) {}
+        debugPrint('[Firestore Sync] ✅ PIN Mestre publicado para todos os aparelhos.');
+        return true;
+      }
+
+      debugPrint('[Firestore Sync] ⚠️ HTTP ${response.statusCode} ao publicar o PIN Mestre.');
+    } catch (e) {
+      debugPrint('[Firestore Sync] ⚠️ PIN Mestre alterado apenas neste aparelho: $e');
+    }
+    return false;
+  }
+
+  /// Traz o PIN Mestre definido em outro aparelho e aplica localmente.
+  ///
+  /// Falha em silêncio de propósito: sem rede, o aparelho continua validando
+  /// pelo último PIN Mestre que recebeu, que é exatamente o comportamento
+  /// offline-first esperado no caixa.
+  static Future<void> sincronizarPinMestreDaNuvem() async {
+    try {
+      final url = await _getUrlConfigGerencia();
+      final response = await _client
+          .get(Uri.parse(url), headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 6));
+
+      // 404 = a gerência ainda não trocou o PIN em aparelho nenhum
+      if (response.statusCode != 200) return;
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final fields = data['fields'] as Map<String, dynamic>? ?? {};
+      final hash = fields['pin_mestre_hash']?['stringValue']?.toString() ?? '';
+      if (hash.isEmpty) return;
+
+      final personalizado = fields['personalizado']?['booleanValue'] as bool? ?? true;
+      await AuthService.aplicarPinMestreDaNuvem(
+        hash: hash,
+        personalizado: personalizado,
+      );
+    } catch (_) {}
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -831,13 +1105,25 @@ class OperadoresSyncService {
     return [];
   }
 
+  /// Espelha os hashes da nuvem nas chaves locais usadas pela autenticação
+  /// offline — e, principalmente, **apaga** as chaves de quem foi excluído ou
+  /// desativado.
+  ///
+  /// Sem essa limpeza, o hash local sobrevivia à exclusão e continuava
+  /// autenticando o operador bloqueado, além de reenviá-lo ao Firestore.
   static Future<void> _sincronizarChavesLocais(List<OperadorModel> lista) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
       for (final op in lista) {
-        final chave = 'pin_operador_${op.nomeNormalizado}';
-        // Guarda hash ou referência
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('${chave}_hash', op.pinHash);
+        if (op.nome.trim().isEmpty) continue;
+
+        if (op.removido || !op.ativo) {
+          await AuthService.revogarCredenciaisLocais(op.nome);
+          continue;
+        }
+
+        if (op.pinHash.isEmpty) continue;
+        await prefs.setString('pin_operador_${op.nomeNormalizado}_hash', op.pinHash);
       }
     } catch (_) {}
   }

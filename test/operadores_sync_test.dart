@@ -87,6 +87,54 @@ void main() {
       expect(desativado.pinHash, equals(novoHash));
     });
 
+    test('Exclusão reversível sobrevive à ida e volta do Firestore', () {
+      final op = OperadorModel(
+        id: 'op_excluido',
+        nome: 'Ex Operador',
+        pinHash: AuthService.gerarHashPin('3333'),
+        ativo: true,
+        atualizadoEm: DateTime.utc(2026, 9, 6),
+        criadoEm: DateTime.utc(2026, 1, 1),
+      );
+
+      expect(op.removido, isFalse);
+
+      final marcado = op.copyWith(ativo: false, removido: true);
+      expect(marcado.removido, isTrue);
+      expect(marcado.ativo, isFalse);
+
+      // SQLite / SharedPreferences
+      expect(OperadorModel.fromMap(marcado.toMap()).removido, isTrue);
+
+      // Firestore REST: o documento continua existindo, só marcado.
+      final fields = marcado.toFirestoreRest()['fields'] as Map<String, dynamic>;
+      expect(fields['removido']['booleanValue'], isTrue);
+
+      final daNuvem = OperadorModel.fromFirestoreRest({
+        'name': 'projects/x/databases/(default)/documents/operadores/op_excluido',
+        'fields': fields,
+      });
+      expect(daNuvem.removido, isTrue);
+      expect(daNuvem.ativo, isFalse);
+    });
+
+    test('Documento antigo sem o campo removido é lido como não removido', () {
+      // Compatibilidade com os operadores que já estão na nuvem desde antes da
+      // exclusão reversível existir.
+      final antigo = OperadorModel.fromFirestoreRest({
+        'name': 'projects/x/databases/(default)/documents/operadores/op_antigo',
+        'fields': {
+          'nome': {'stringValue': 'Antigo'},
+          'pin_hash': {'stringValue': AuthService.hashPin('1234')},
+          'ativo': {'booleanValue': true},
+        },
+      });
+
+      expect(antigo.removido, isFalse);
+      expect(antigo.ativo, isTrue);
+      expect(OperadorModel.fromMap({'id': 'x', 'nome': 'Y', 'pin_hash': 'z'}).removido, isFalse);
+    });
+
     test('Hash legado SHA-256 continua sendo aceito na validação', () {
       const pinCorreto = '4321';
       const pinIncorreto = '9999';
@@ -121,6 +169,26 @@ void main() {
       expect(AuthService.verificarPin(pinCorreto, hash1), isTrue);
       expect(AuthService.verificarPin(pinCorreto, hash2), isTrue);
       expect(AuthService.verificarPin(pinIncorreto, hash1), isFalse);
+    });
+
+    test('hashEhLegado marca hashes fracos e poupa os fortes', () {
+      // Formato antigo (SHA-256 puro)
+      expect(AuthService.hashEhLegado(AuthService.hashPin('1234')), isTrue);
+
+      // PBKDF2 com contagem de iterações das versões anteriores
+      const hashFraco = 'pbkdf2_sha256:600:aabb:ccdd';
+      expect(AuthService.hashEhLegado(hashFraco), isTrue);
+
+      // Um hash gerado agora nunca pode ser considerado legado — se fosse, o app
+      // o reescreveria a cada login, sem fim.
+      final atual = AuthService.gerarHashPin('1234');
+      expect(AuthService.hashEhLegado(atual), isFalse);
+
+      // Hash mais forte que o alvo desta plataforma também não é legado: marcar
+      // como legado faria o app enfraquecê-lo sozinho.
+      final maisForte = AuthService.gerarHashPin('1234', iteracoes: 200000);
+      expect(AuthService.hashEhLegado(maisForte), isFalse);
+      expect(AuthService.verificarPin('1234', maisForte), isTrue);
     });
 
     test('verificarPin rejeita hashes vazios ou corrompidos', () {

@@ -64,18 +64,51 @@ class DriveService {
     } catch (_) {}
   }
 
-  /// Avalia de forma definitiva se a resposta HTTP do upload representa sucesso real.
-  /// Suporta códigos 2xx (200 OK, 201 Created, 204 No Content),
-  /// códigos 3xx (301, 302, 303, 307, 308 de redirecionamento do Google Apps Script),
-  /// e verificação de confirmação textual/JSON no corpo da resposta.
+  /// Detecta a tela de login do Google devolvida no lugar da execução do script.
+  ///
+  /// É o falso positivo mais perigoso do fluxo: se a implantação do Apps Script
+  /// estiver como "Qualquer pessoa **com conta Google**" em vez de "Qualquer
+  /// pessoa", o Google responde **HTTP 200** com a página de login. Tratar isso
+  /// como sucesso fazia o app anunciar "entregue" e apagar a pendência, sem que
+  /// nada tivesse chegado à pasta do gerente.
+  static bool _pareceTelaDeLogin(String body) {
+    final b = body.toLowerCase();
+    return b.contains('accounts.google.com') ||
+        b.contains('servicelogin') ||
+        b.contains('signin/v2') ||
+        b.contains('faça login') ||
+        (b.contains('<html') && b.contains('sign in'));
+  }
+
+  /// Detecta a página de erro que o Apps Script devolve quando a execução quebra
+  static bool _pareceErroDeExecucao(String body) {
+    final b = body.toLowerCase();
+    return b.contains('script function not found') ||
+        b.contains('ocorreu um erro') ||
+        b.contains('exception:') ||
+        b.contains('typeerror') ||
+        b.contains('errorpage');
+  }
+
+  /// Avalia se a resposta HTTP do upload representa entrega real no Drive.
+  ///
+  /// Suporta 2xx, os redirecionamentos 3xx típicos do Apps Script e confirmação
+  /// textual/JSON no corpo — mas recusa explicitamente a tela de login e a página
+  /// de erro do Google, que também chegam como 200.
   static bool isRespostaSucesso(http.Response response) {
     final status = response.statusCode;
+    final body = response.body;
+
+    // Uma tela de login ou de erro nunca é entrega, qualquer que seja o status
+    if (body.isNotEmpty && (_pareceTelaDeLogin(body) || _pareceErroDeExecucao(body))) {
+      return false;
+    }
 
     // 1. Respostas HTTP 2xx (Sucesso explícito)
     if (status >= 200 && status < 300) {
       // Se houver corpo em JSON, certifica-se de que não é uma mensagem de erro explícita do Apps Script
       try {
-        final bodyTrim = response.body.trim();
+        final bodyTrim = body.trim();
         if (bodyTrim.startsWith('{') && bodyTrim.endsWith('}')) {
           final decoded = jsonDecode(bodyTrim);
           if (decoded is Map) {
@@ -88,7 +121,7 @@ class DriveService {
           }
         }
       } catch (_) {
-        // Se não for JSON (ex: texto simples ou resposta vazia), 2xx é sucesso absoluto
+        // Se não for JSON (ex: texto simples ou resposta vazia), 2xx é sucesso
       }
       return true;
     }
@@ -102,7 +135,7 @@ class DriveService {
     }
 
     // 3. Fallback de verificação de palavras-chave no corpo
-    final bodyLower = response.body.toLowerCase();
+    final bodyLower = body.toLowerCase();
     if (bodyLower.contains('success') ||
         bodyLower.contains('"status":"ok"') ||
         bodyLower.contains('sucesso')) {
@@ -212,9 +245,13 @@ class DriveService {
           turnoNumero: numeroTurnoExibicao,
           operador: operador,
         );
+        final pareceLogin = _pareceTelaDeLogin(response.body);
         return (
           sucesso: false,
-          mensagem: 'Servidor retornou código ${response.statusCode}. Salvo na fila offline.'
+          mensagem: pareceLogin
+              ? 'O Google pediu login em vez de executar o script. Publique o Apps '
+                  'Script com acesso "Qualquer pessoa". PDF salvo na fila offline.'
+              : 'Servidor retornou código ${response.statusCode}. Salvo na fila offline.'
         );
       }
     } catch (e) {
@@ -240,8 +277,15 @@ class DriveService {
 
   static bool _sincronizando = false;
 
-  /// Sincroniza todas as pendências da fila offline do Google Drive
-  static Future<({int enviados, int total, bool todosOk, String mensagem})> sincronizarTodasPendencias() async {
+  /// Sincroniza as pendências da fila offline do Google Drive.
+  ///
+  /// Com [respeitarBackoff] só entram na rodada as pendências cuja janela de
+  /// espera já venceu — é o modo das tentativas automáticas, para não martelar
+  /// um webhook fora do ar. O botão "Reenviar" da tela chama sem backoff:
+  /// quando o operador pede, a tentativa é imediata.
+  static Future<({int enviados, int total, bool todosOk, String mensagem})> sincronizarTodasPendencias({
+    bool respeitarBackoff = false,
+  }) async {
     if (_sincronizando) {
       return (
         enviados: 0,
@@ -253,15 +297,27 @@ class DriveService {
     _sincronizando = true;
     try {
       final db = DatabaseService.instance;
-      final pendencias = await db.obterPendenciasDrive();
+      final naFila = await db.obterPendenciasDrive();
 
-      if (pendencias.isEmpty) {
+      if (naFila.isEmpty) {
         await NotificationService.atualizarPendencias();
         return (
           enviados: 0,
           total: 0,
           todosOk: true,
           mensagem: 'Nenhum PDF pendente. Tudo sincronizado no Google Drive! ✅'
+        );
+      }
+
+      final pendencias =
+          respeitarBackoff ? await db.obterPendenciasDriveVencidas() : naFila;
+
+      if (pendencias.isEmpty) {
+        return (
+          enviados: 0,
+          total: naFila.length,
+          todosOk: false,
+          mensagem: 'Aguardando a próxima tentativa automática de envio ao Drive.'
         );
       }
 
@@ -279,6 +335,9 @@ class DriveService {
       for (final p in pendencias) {
         final turnoId = p['turno_id'] as int;
         final operador = (p['operador'] as String?) ?? 'Operador';
+        // Nome já gravado na fila, usado se a falha acontecer antes de o nome
+        // definitivo ser recalculado a partir do turno.
+        var nomeArquivo = (p['caminho_pdf'] as String?) ?? '';
 
         try {
           final turno = await db.obterTurnoPorId(turnoId);
@@ -293,7 +352,7 @@ class DriveService {
           final isTeste = await isModoTeste();
           final folderId = isTeste ? pastaTestesId : pastaOficialId;
           final nomeBase = PdfService.gerarNomeArquivo(turno: turno);
-          final nomeArquivo = isTeste
+          nomeArquivo = isTeste
               ? (nomeBase.startsWith('[TESTE]') ? nomeBase : '[TESTE] $nomeBase')
               : nomeBase.replaceFirst(RegExp(r'^\[TESTE\]\s*'), '');
           final pdfBytes = await PdfService.gerarPdfFechamento(
@@ -322,11 +381,18 @@ class DriveService {
           if (isRespostaSucesso(response)) {
             await db.removerPendenciaDrive(turnoId);
             sucessos++;
+          } else {
+            // Regrava a pendência para incrementar o contador de tentativas e
+            // empurrar a próxima tentativa automática para mais longe.
+            await db.salvarPendenciaDrive(turnoId, nomeArquivo, operador);
           }
         } catch (e) {
           if (kDebugMode) {
             print('[DriveService] Erro ao sincronizar turno $turnoId: $e');
           }
+          try {
+            await db.salvarPendenciaDrive(turnoId, nomeArquivo, operador);
+          } catch (_) {}
         }
       }
 
@@ -337,7 +403,7 @@ class DriveService {
       }
 
       final total = pendencias.length;
-      final todosOk = sucessos == total;
+      final todosOk = sucessos == total && sucessos == naFila.length;
 
       final msg = todosOk
           ? 'Todos os $sucessos relatórios foram enviados com sucesso para o Drive! 🚀'

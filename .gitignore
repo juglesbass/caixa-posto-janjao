@@ -35,3 +35,9 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+
+# Assinatura de release do Android — NUNCA versionar.
+# Quem perder este arquivo perde a capacidade de publicar atualizações do app.
+android/key.properties
+android/app/*.jks
+android/app/*.keystore
