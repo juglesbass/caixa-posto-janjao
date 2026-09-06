@@ -1042,15 +1042,17 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
       return op.nome.toLowerCase().contains(_filtro.toLowerCase());
     }).toList();
 
-    return Scaffold(
-      backgroundColor: bgScaffold,
-      appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: textPri),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+    return PopScope(
+      canPop: true,
+      child: Scaffold(
+        backgroundColor: bgScaffold,
+        appBar: AppBar(
+          backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_rounded, color: textPri),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1390,6 +1392,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

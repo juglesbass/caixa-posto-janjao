@@ -376,6 +376,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
+        settings: const RouteSettings(name: '/gerencia'),
         builder: (ctx) => _PainelGerenciaPage(
           isDark: widget.isDark,
           turno: widget.turno,
@@ -517,6 +518,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
+        settings: const RouteSettings(name: '/gestao-operadores'),
         builder: (ctx) => GestaoOperadoresScreen(isDark: widget.isDark),
       ),
     );
@@ -956,7 +958,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-class _PainelGerenciaPage extends StatelessWidget {
+class _PainelGerenciaPage extends StatefulWidget {
   final bool isDark;
   final Turno? turno;
   final TotaisTurno totais;
@@ -978,58 +980,78 @@ class _PainelGerenciaPage extends StatelessWidget {
   });
 
   @override
+  State<_PainelGerenciaPage> createState() => _PainelGerenciaPageState();
+}
+
+class _PainelGerenciaPageState extends State<_PainelGerenciaPage> {
+  bool _pinEhPadrao = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checarPinPadrao();
+  }
+
+  void _checarPinPadrao() async {
+    final ehPadrao = await AuthService.pinGerenteEhPadrao();
+    if (mounted) {
+      setState(() => _pinEhPadrao = ehPadrao);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isDark = widget.isDark;
     final bgScaffold = isDark ? const Color(0xFF090D16) : AppColors.lightBg;
     final textPri = isDark ? Colors.white : AppColors.lightTextPri;
     final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
     final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
 
-    return Scaffold(
-      backgroundColor: bgScaffold,
-      appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: textPri),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFFF59E0B), size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Painel da Gerência',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: textPri,
+    return PopScope(
+      canPop: true,
+      child: Scaffold(
+        backgroundColor: bgScaffold,
+        appBar: AppBar(
+          backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_rounded, color: textPri),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFFF59E0B), size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Painel da Gerência',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: textPri,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            Text(
-              'Configurações administrativas e segurança',
-              style: TextStyle(fontSize: 11, color: textSec, fontWeight: FontWeight.normal),
-            ),
-          ],
+                ],
+              ),
+              Text(
+                'Configurações administrativas e segurança',
+                style: TextStyle(fontSize: 11, color: textSec, fontWeight: FontWeight.normal),
+              ),
+            ],
+          ),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Divider(height: 1, color: borderCol),
+          ),
         ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Divider(height: 1, color: borderCol),
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        children: [
-          // 0. Cobra a troca do PIN Mestre enquanto ele for o padrão de fábrica
-          FutureBuilder<bool>(
-            future: AuthService.pinGerenteEhPadrao(),
-            builder: (context, snap) {
-              if (snap.data != true) return const SizedBox.shrink();
-              return Container(
+        body: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          children: [
+            // 0. Cobra a troca do PIN Mestre enquanto ele for o padrão de fábrica
+            if (_pinEhPadrao)
+              Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
@@ -1068,146 +1090,148 @@ class _PainelGerenciaPage extends StatelessWidget {
                     ),
                   ],
                 ),
-              );
-            },
-          ),
+              ),
 
-          // 1. Alterar PIN Mestre da Gerência
-          _itemGerenciaCard(
-            icon: Icons.key_rounded,
-            iconColor: const Color(0xFFF59E0B),
-            iconBg: const Color(0xFF78350F).withValues(alpha: 0.4),
-            titulo: 'Alterar PIN Mestre da Gerência',
-            subtitulo: 'Modificar a senha administrativa mestre (PBKDF2 com sal)',
-            onTap: onAlterarPinMestre,
-          ),
-          const SizedBox(height: 10),
+            // 1. Alterar PIN Mestre da Gerência
+            _itemGerenciaCard(
+              icon: Icons.key_rounded,
+              iconColor: const Color(0xFFF59E0B),
+              iconBg: const Color(0xFF78350F).withValues(alpha: 0.4),
+              titulo: 'Alterar PIN Mestre da Gerência',
+              subtitulo: 'Modificar a senha administrativa mestre (PBKDF2 com sal)',
+              onTap: () async {
+                widget.onAlterarPinMestre();
+                _checarPinPadrao();
+              },
+            ),
+            const SizedBox(height: 10),
 
-          // 2. Gestão de Operadores & Senhas
-          _itemGerenciaCard(
-            icon: Icons.badge_rounded,
-            iconColor: const Color(0xFF38BDF8),
-            iconBg: const Color(0xFF0369A1).withValues(alpha: 0.4),
-            titulo: 'Gestão de Operadores & Senhas',
-            subtitulo: 'Visualizar operadores cadastrados e redefinir PINs',
-            onTap: onGestaoOperadores,
-          ),
-          const SizedBox(height: 10),
+            // 2. Gestão de Operadores & Senhas
+            _itemGerenciaCard(
+              icon: Icons.badge_rounded,
+              iconColor: const Color(0xFF38BDF8),
+              iconBg: const Color(0xFF0369A1).withValues(alpha: 0.4),
+              titulo: 'Gestão de Operadores & Senhas',
+              subtitulo: 'Visualizar operadores cadastrados e redefinir PINs',
+              onTap: widget.onGestaoOperadores,
+            ),
+            const SizedBox(height: 10),
 
-          // 3. Analytics & Desempenho
-          _itemGerenciaCard(
-            icon: Icons.auto_graph_rounded,
-            iconColor: const Color(0xFFA855F7),
-            iconBg: const Color(0xFF581C87).withValues(alpha: 0.4),
-            titulo: 'Analytics & Desempenho',
-            subtitulo: 'Gráficos de vendas, ticket médio e formas de pagamento',
-            onTap: onAnalytics,
-          ),
-          const SizedBox(height: 10),
+            // 3. Analytics & Desempenho
+            _itemGerenciaCard(
+              icon: Icons.auto_graph_rounded,
+              iconColor: const Color(0xFFA855F7),
+              iconBg: const Color(0xFF581C87).withValues(alpha: 0.4),
+              titulo: 'Analytics & Desempenho',
+              subtitulo: 'Gráficos de vendas, ticket médio e formas de pagamento',
+              onTap: widget.onAnalytics,
+            ),
+            const SizedBox(height: 10),
 
-          // 4. Exportar Planilha Excel (CSV)
-          _itemGerenciaCard(
-            icon: Icons.table_chart_rounded,
-            iconColor: const Color(0xFF10B981),
-            iconBg: const Color(0xFF064E3B).withValues(alpha: 0.4),
-            titulo: 'Exportar Planilha Excel (CSV)',
-            subtitulo: 'Salvar ou compartilhar dados estruturados',
-            onTap: onExportarCsv,
-          ),
-          const SizedBox(height: 10),
+            // 4. Exportar Planilha Excel (CSV)
+            _itemGerenciaCard(
+              icon: Icons.table_chart_rounded,
+              iconColor: const Color(0xFF10B981),
+              iconBg: const Color(0xFF064E3B).withValues(alpha: 0.4),
+              titulo: 'Exportar Planilha Excel (CSV)',
+              subtitulo: 'Salvar ou compartilhar dados estruturados',
+              onTap: widget.onExportarCsv,
+            ),
+            const SizedBox(height: 10),
 
-          // 5. Modo Teste / Simulação (Toggle)
-          ValueListenableBuilder<bool>(
-            valueListenable: DriveService.modoTesteNotifier,
-            builder: (context, modoTeste, _) {
-              final cardBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
-              final cardBorder = modoTeste
-                  ? const Color(0xFFF59E0B).withValues(alpha: 0.6)
-                  : (isDark ? const Color(0xFF1E293B) : AppColors.lightBorder);
-              final titleCol = modoTeste
-                  ? const Color(0xFFFBBF24)
-                  : (isDark ? Colors.white : AppColors.lightTextPri);
+            // 5. Modo Teste / Simulação (Toggle)
+            ValueListenableBuilder<bool>(
+              valueListenable: DriveService.modoTesteNotifier,
+              builder: (context, modoTeste, _) {
+                final cardBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
+                final cardBorder = modoTeste
+                    ? const Color(0xFFF59E0B).withValues(alpha: 0.6)
+                    : (isDark ? const Color(0xFF1E293B) : AppColors.lightBorder);
+                final titleCol = modoTeste
+                    ? const Color(0xFFFBBF24)
+                    : (isDark ? Colors.white : AppColors.lightTextPri);
 
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: modoTeste ? const Color(0xFF78350F).withValues(alpha: 0.18) : cardBg,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: cardBorder, width: modoTeste ? 1.5 : 1.0),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF78350F).withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(8),
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: modoTeste ? const Color(0xFF78350F).withValues(alpha: 0.18) : cardBg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: cardBorder, width: modoTeste ? 1.5 : 1.0),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF78350F).withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.science_outlined, color: Color(0xFFF59E0B), size: 20),
                       ),
-                      child: const Icon(Icons.science_outlined, color: Color(0xFFF59E0B), size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Modo Teste / Simulação',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: titleCol,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Envia os relatórios para a pasta de homologação no Drive',
-                            style: TextStyle(fontSize: 11, color: textSec),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: modoTeste,
-                      activeColor: const Color(0xFFF59E0B),
-                      onChanged: (novoValor) async {
-                        await DriveService.setModoTeste(novoValor);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                novoValor
-                                    ? '🧪 Modo Teste ativado! Relatórios irão para a homologação.'
-                                    : '✅ Modo Teste desativado. Relatórios irão para a pasta oficial.',
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Modo Teste / Simulação',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: titleCol,
                               ),
-                              backgroundColor: novoValor ? AppColors.amber : AppColors.green,
-                              duration: const Duration(seconds: 3),
                             ),
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 10),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Envia os relatórios para a pasta de homologação no Drive',
+                              style: TextStyle(fontSize: 11, color: textSec),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: modoTeste,
+                        activeColor: const Color(0xFFF59E0B),
+                        onChanged: (novoValor) async {
+                          await DriveService.setModoTeste(novoValor);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  novoValor
+                                      ? '🧪 Modo Teste ativado! Relatórios irão para a homologação.'
+                                      : '✅ Modo Teste desativado. Relatórios irão para a pasta oficial.',
+                                ),
+                                backgroundColor: novoValor ? AppColors.amber : AppColors.green,
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
 
-          // 6. Limpar / Zerar Tudo
-          _itemGerenciaCard(
-            icon: Icons.delete_forever_rounded,
-            iconColor: const Color(0xFFEF4444),
-            iconBg: const Color(0xFF7F1D1D).withValues(alpha: 0.4),
-            titulo: 'Limpar / Zerar Tudo',
-            subtitulo: 'Reset completo e irreversível dos dados locais',
-            corBorda: const Color(0xFF7F1D1D).withValues(alpha: 0.6),
-            corTitulo: const Color(0xFFF87171),
-            onTap: onLimparZerarTudo,
-          ),
-          const SizedBox(height: 24),
-        ],
+            // 6. Limpar / Zerar Tudo
+            _itemGerenciaCard(
+              icon: Icons.delete_forever_rounded,
+              iconColor: const Color(0xFFEF4444),
+              iconBg: const Color(0xFF7F1D1D).withValues(alpha: 0.4),
+              titulo: 'Limpar / Zerar Tudo',
+              subtitulo: 'Reset completo e irreversível dos dados locais',
+              corBorda: const Color(0xFF7F1D1D).withValues(alpha: 0.6),
+              corTitulo: const Color(0xFFF87171),
+              onTap: widget.onLimparZerarTudo,
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }
@@ -1222,6 +1246,7 @@ class _PainelGerenciaPage extends StatelessWidget {
     Color? corBorda,
     Color? corTitulo,
   }) {
+    final isDark = widget.isDark;
     final cardBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
     final cardBorder = corBorda ?? (isDark ? const Color(0xFF1E293B) : AppColors.lightBorder);
     final titleCol = corTitulo ?? (isDark ? Colors.white : AppColors.lightTextPri);
