@@ -115,8 +115,31 @@ class DatabaseService {
         id TEXT PRIMARY KEY,
         nome TEXT NOT NULL,
         pin_hash TEXT NOT NULL,
+        perfil TEXT NOT NULL DEFAULT 'operador',
         ativo INTEGER NOT NULL DEFAULT 1,
+        posto_id TEXT NOT NULL DEFAULT 'posto_janjao',
+        criado_em TEXT NOT NULL DEFAULT '',
         atualizado_em TEXT NOT NULL
+      )
+    ''');
+    try {
+      await db.execute("ALTER TABLE operadores_cache ADD COLUMN perfil TEXT NOT NULL DEFAULT 'operador'");
+    } catch (_) {}
+    try {
+      await db.execute("ALTER TABLE operadores_cache ADD COLUMN posto_id TEXT NOT NULL DEFAULT 'posto_janjao'");
+    } catch (_) {}
+    try {
+      await db.execute("ALTER TABLE operadores_cache ADD COLUMN criado_em TEXT NOT NULL DEFAULT ''");
+    } catch (_) {}
+
+    // Fila de sincronização offline de operadores (para envio quando restabelecer a conexão)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS operadores_pendentes_sync (
+        id TEXT PRIMARY KEY,
+        operador_id TEXT NOT NULL,
+        acao TEXT NOT NULL,
+        dados_json TEXT NOT NULL,
+        criado_em TEXT NOT NULL
       )
     ''');
 
@@ -126,6 +149,7 @@ class DatabaseService {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_turnos_auth_hash ON turnos (auth_hash)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_drive_pendencias_turno ON drive_pendencias (turno_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_operadores_cache_nome ON operadores_cache (nome)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_operadores_pendentes_sync_op ON operadores_pendentes_sync (operador_id)');
 
     // Garante uma única pendência por turno: sem isso um fechamento que falha
     // várias vezes enfileira linhas duplicadas e o PDF é enviado repetido ao Drive.
@@ -754,5 +778,81 @@ class DatabaseService {
       }
     } catch (_) {}
     return null;
+  }
+
+  Future<void> excluirOperadorCache(String id) async {
+    final db = await database;
+    try {
+      await db.delete(
+        'operadores_cache',
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      debugPrint('[DB] Erro ao remover operador do cache: $e');
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // FILA DE SINCRONIZAÇÃO OFFLINE DE OPERADORES
+  // ──────────────────────────────────────────────────────────────────────────
+
+  Future<void> salvarPendenciaOperador({
+    required String operadorId,
+    required String acao,
+    required Map<String, dynamic> dados,
+  }) async {
+    final db = await database;
+    try {
+      await db.insert(
+        'operadores_pendentes_sync',
+        {
+          'id': 'sync_${operadorId}_${DateTime.now().millisecondsSinceEpoch}',
+          'operador_id': operadorId,
+          'acao': acao,
+          'dados_json': jsonEncode(dados),
+          'criado_em': DateTime.now().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      debugPrint('[DB] Erro ao salvar pendência de operador: $e');
+    }
+  }
+
+  Future<void> removerPendenciaOperador(String pendenciaId) async {
+    final db = await database;
+    try {
+      await db.delete(
+        'operadores_pendentes_sync',
+        where: 'id = ?',
+        whereArgs: [pendenciaId],
+      );
+    } catch (e) {
+      debugPrint('[DB] Erro ao remover pendência de operador: $e');
+    }
+  }
+
+  Future<void> limparPendenciasDoOperador(String operadorId) async {
+    final db = await database;
+    try {
+      await db.delete(
+        'operadores_pendentes_sync',
+        where: 'operador_id = ?',
+        whereArgs: [operadorId],
+      );
+    } catch (e) {
+      debugPrint('[DB] Erro ao limpar pendências do operador: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> obterPendenciasOperadores() async {
+    final db = await database;
+    try {
+      return await db.query('operadores_pendentes_sync', orderBy: 'criado_em ASC');
+    } catch (e) {
+      debugPrint('[DB] Erro ao obter pendências de operadores: $e');
+      return [];
+    }
   }
 }

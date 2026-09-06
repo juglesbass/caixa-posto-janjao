@@ -25,11 +25,13 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
   @override
   void initState() {
     super.initState();
+    OperadoresSyncService.iniciarMonitoramentoEmTempoReal();
     _carregarDados();
   }
 
   @override
   void dispose() {
+    OperadoresSyncService.pararMonitoramentoEmTempoReal();
     _searchController.dispose();
     super.dispose();
   }
@@ -406,6 +408,424 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
     }
   }
 
+  void _modalGerenciarOperador(OperadorModel operador) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final isDark = widget.isDark;
+            final bgModal = isDark ? const Color(0xFF111420) : Colors.white;
+            final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+            final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+            final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
+            final cardInnerBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+
+            // Busca operador mais recente da memória reativa
+            final opAtual = OperadoresSyncService.operadoresNotifier.value
+                .firstWhere((o) => o.id == operador.id, orElse: () => operador);
+
+            final dataAtualizada = DateFormat('dd/MM/yyyy HH:mm').format(opAtual.atualizadoEm.toLocal());
+            final dataCriada = DateFormat('dd/MM/yyyy HH:mm').format(opAtual.criadoEm.toLocal());
+
+            return Container(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              decoration: BoxDecoration(
+                color: bgModal,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border(top: BorderSide(color: borderCol)),
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Barra superior indicadora de arraste
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: textSec.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Cabeçalho do Operador
+                    Row(
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: opAtual.ativo
+                                ? (isDark ? const Color(0xFF0369A1).withValues(alpha: 0.4) : const Color(0xFFE0F2FE))
+                                : (isDark ? const Color(0xFF334155).withValues(alpha: 0.4) : const Color(0xFFF1F5F9)),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: opAtual.ativo ? const Color(0xFF0284C7) : const Color(0xFF64748B),
+                              width: 2,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              opAtual.nomeExibicao.isNotEmpty ? opAtual.nomeExibicao[0].toUpperCase() : '?',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: opAtual.ativo
+                                    ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7))
+                                    : textSec,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                opAtual.nomeExibicao,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: textPri,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: opAtual.ativo
+                                          ? AppColors.green.withValues(alpha: 0.15)
+                                          : Colors.red.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Text(
+                                      opAtual.ativo ? 'ATIVO NO CAIXA' : 'BLOQUEADO / INATIVO',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: opAtual.ativo ? AppColors.green : Colors.red,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF0284C7).withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Text(
+                                      opAtual.perfil.toUpperCase(),
+                                      style: const TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF38BDF8),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close_rounded, color: textSec),
+                          onPressed: () => Navigator.of(ctx).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Detalhes do Documento no Firestore
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: cardInnerBg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: borderCol),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.cloud_outlined, size: 16, color: textSec),
+                              const SizedBox(width: 8),
+                              Text('Documento Firestore: ', style: TextStyle(fontSize: 11.5, color: textSec)),
+                              Expanded(
+                                child: Text(
+                                  opAtual.id,
+                                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: textPri),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(Icons.local_gas_station_outlined, size: 16, color: textSec),
+                              const SizedBox(width: 8),
+                              Text('Posto: ', style: TextStyle(fontSize: 11.5, color: textSec)),
+                              Text(
+                                opAtual.postoId,
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: textPri),
+                              ),
+                              const Spacer(),
+                              Icon(Icons.access_time_rounded, size: 14, color: textSec),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Cadastrado: $dataCriada',
+                                style: TextStyle(fontSize: 10.5, color: textSec),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    Text(
+                      'AÇÕES DE GERENCIAMENTO',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.1,
+                        color: textSec,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Ação 1: Alterar PIN / Redefinir Senha
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(color: borderCol),
+                      ),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.password_rounded, color: Color(0xFFF59E0B), size: 20),
+                      ),
+                      title: Text(
+                        'Alterar PIN de 4 Dígitos',
+                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textPri),
+                      ),
+                      subtitle: Text(
+                        'Redefine a senha de autenticação e homologação no caixa',
+                        style: TextStyle(fontSize: 11, color: textSec),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFFF59E0B)),
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        _dialogRedefinirPin(opAtual);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Ação 2: Ativar / Desativar Operador
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(color: borderCol),
+                      ),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: (opAtual.ativo ? AppColors.green : Colors.grey).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          opAtual.ativo ? Icons.check_circle_outline_rounded : Icons.block_rounded,
+                          color: opAtual.ativo ? AppColors.green : textSec,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        opAtual.ativo ? 'Desativar Operador' : 'Ativar Operador',
+                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textPri),
+                      ),
+                      subtitle: Text(
+                        opAtual.ativo
+                            ? 'Bloqueia o operador no caixa sem apagar seu histórico'
+                            : 'Libera o operador para abertura e fechamento de caixa',
+                        style: TextStyle(fontSize: 11, color: textSec),
+                      ),
+                      trailing: Switch(
+                        value: opAtual.ativo,
+                        activeColor: AppColors.green,
+                        onChanged: (val) async {
+                          await OperadoresSyncService.alternarStatusOperador(
+                            operadorId: opAtual.id,
+                            ativo: val,
+                          );
+                          setSheetState(() {});
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(val
+                                    ? '✅ Operador ${opAtual.nomeExibicao} ativado.'
+                                    : '⚠️ Operador ${opAtual.nomeExibicao} desativado.'),
+                                backgroundColor: val ? AppColors.green : AppColors.amber,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Ação 3: Excluir Operador do Firestore
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
+                      ),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.delete_forever_rounded, color: Colors.red, size: 20),
+                      ),
+                      title: const Text(
+                        'Excluir Operador',
+                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.red),
+                      ),
+                      subtitle: Text(
+                        'Remove permanentemente da nuvem (Firestore) e do banco local',
+                        style: TextStyle(fontSize: 11, color: textSec),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.red),
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        _dialogConfirmarExclusao(opAtual);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _dialogConfirmarExclusao(OperadorModel op) {
+    bool excluindo = false;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final isDark = widget.isDark;
+          final textPri = isDark ? Colors.white : AppColors.lightTextPri;
+          final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+
+          return AlertDialog(
+            backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.delete_forever_rounded, color: Colors.red, size: 24),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Excluir Operador',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Tem certeza que deseja excluir permanentemente o operador "${op.nomeExibicao}"?',
+                  style: TextStyle(fontSize: 13.5, color: textPri, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Esta ação removerá o operador da coleção "operadores" no Cloud Firestore e de todos os dispositivos conectados.',
+                  style: TextStyle(fontSize: 12, color: textSec, height: 1.35),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: excluindo ? null : () => Navigator.of(ctx).pop(),
+                child: Text('Cancelar', style: TextStyle(color: textSec)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: excluindo
+                    ? null
+                    : () async {
+                        setModalState(() => excluindo = true);
+                        final ok = await OperadoresSyncService.excluirOperador(
+                          operadorId: op.id,
+                          nome: op.nome,
+                        );
+                        if (ctx.mounted) {
+                          Navigator.of(ctx).pop();
+                          AppHaptics.heavy();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(ok
+                                    ? '🗑️ Operador "${op.nomeExibicao}" excluído com sucesso.'
+                                    : 'Operador removido localmente.'),
+                                backgroundColor: Colors.red,
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                child: excluindo
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Excluir Definitivamente', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   void _dialogDiagnosticoEConfiguracao() async {
     final projIdAtual = await OperadoresSyncService.getProjectId();
     final projController = TextEditingController(text: projIdAtual);
@@ -773,49 +1193,64 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
               ),
             ),
 
-            // ── Lista de Operadores ──
+            // ── Lista de Operadores Reativa em Tempo Real ──
             Expanded(
-              child: _carregando
-                  ? const Center(child: CircularProgressIndicator())
-                  : operadoresFiltrados.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.person_off_rounded, size: 48, color: textSec.withValues(alpha: 0.5)),
-                              const SizedBox(height: 12),
-                              Text(
-                                _filtro.isEmpty
-                                    ? 'Nenhum operador cadastrado'
-                                    : 'Nenhum operador encontrado para "$_filtro"',
-                                style: TextStyle(fontSize: 14, color: textSec, fontWeight: FontWeight.w600),
-                              ),
-                              const SizedBox(height: 14),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0284C7),
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                ),
-                                onPressed: _dialogNovoOperador,
-                                icon: const Icon(Icons.person_add_rounded, size: 18),
-                                label: const Text('Cadastrar Primeiro Operador'),
-                              ),
-                            ],
+              child: ValueListenableBuilder<List<OperadorModel>>(
+                valueListenable: OperadoresSyncService.operadoresNotifier,
+                builder: (context, listaNuvem, _) {
+                  final listaAtual = listaNuvem.isNotEmpty ? listaNuvem : _operadores;
+                  final operadoresFiltrados = listaAtual.where((op) {
+                    if (_filtro.isEmpty) return true;
+                    return op.nome.toLowerCase().contains(_filtro.toLowerCase());
+                  }).toList();
+
+                  if (_carregando && listaAtual.isEmpty) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (operadoresFiltrados.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.person_off_rounded, size: 48, color: textSec.withValues(alpha: 0.5)),
+                          const SizedBox(height: 12),
+                          Text(
+                            _filtro.isEmpty
+                                ? 'Nenhum operador cadastrado'
+                                : 'Nenhum operador encontrado para "$_filtro"',
+                            style: TextStyle(fontSize: 14, color: textSec, fontWeight: FontWeight.w600),
                           ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: () => _carregarDados(forcarNuvem: true),
-                          child: ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                            itemCount: operadoresFiltrados.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 10),
-                            itemBuilder: (ctx, i) {
-                              final op = operadoresFiltrados[i];
-                              return _cardOperador(op, isDark, textPri, textSec, borderCol);
-                            },
+                          const SizedBox(height: 14),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0284C7),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: _dialogNovoOperador,
+                            icon: const Icon(Icons.person_add_rounded, size: 18),
+                            label: const Text('Cadastrar Primeiro Operador'),
                           ),
-                        ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return RefreshIndicator(
+                    onRefresh: () => _carregarDados(forcarNuvem: true),
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                      itemCount: operadoresFiltrados.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (ctx, i) {
+                        final op = operadoresFiltrados[i];
+                        return _cardOperador(op, isDark, textPri, textSec, borderCol);
+                      },
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -833,115 +1268,127 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
     final dataFormatada = DateFormat('dd/MM/yyyy HH:mm').format(op.atualizadoEm.toLocal());
     final cardBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: cardBg,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: op.ativo ? borderCol : borderCol.withValues(alpha: 0.4),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Avatar com inicial
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: op.ativo
-                  ? (isDark ? const Color(0xFF0369A1).withValues(alpha: 0.4) : const Color(0xFFE0F2FE))
-                  : (isDark ? const Color(0xFF334155).withValues(alpha: 0.4) : const Color(0xFFF1F5F9)),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: op.ativo ? const Color(0xFF0284C7) : const Color(0xFF64748B),
-                width: 1.5,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                op.nomeExibicao.isNotEmpty ? op.nomeExibicao[0].toUpperCase() : '?',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: op.ativo ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7)) : textSec,
-                ),
-              ),
+        onTap: () => _modalGerenciarOperador(op),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: op.ativo ? borderCol : borderCol.withValues(alpha: 0.4),
             ),
           ),
-          const SizedBox(width: 12),
-
-          // Informações do Operador
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        op.nomeExibicao,
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.bold,
-                          color: op.ativo ? textPri : textSec,
-                          decoration: op.ativo ? null : TextDecoration.lineThrough,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+          child: Row(
+            children: [
+              // Avatar com inicial
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: op.ativo
+                      ? (isDark ? const Color(0xFF0369A1).withValues(alpha: 0.4) : const Color(0xFFE0F2FE))
+                      : (isDark ? const Color(0xFF334155).withValues(alpha: 0.4) : const Color(0xFFF1F5F9)),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: op.ativo ? const Color(0xFF0284C7) : const Color(0xFF64748B),
+                    width: 1.5,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    op.nomeExibicao.isNotEmpty ? op.nomeExibicao[0].toUpperCase() : '?',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: op.ativo ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7)) : textSec,
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: op.ativo
-                            ? AppColors.green.withValues(alpha: 0.15)
-                            : Colors.red.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        op.ativo ? 'ATIVO' : 'INATIVO',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: op.ativo ? AppColors.green : Colors.red,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Informações do Operador
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            op.nomeExibicao,
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.bold,
+                              color: op.ativo ? textPri : textSec,
+                              decoration: op.ativo ? null : TextDecoration.lineThrough,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: op.ativo
+                                ? AppColors.green.withValues(alpha: 0.15)
+                                : Colors.red.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            op.ativo ? 'ATIVO' : 'INATIVO',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: op.ativo ? AppColors.green : Colors.red,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Atualizado: $dataFormatada • Toque para gerenciar',
+                      style: TextStyle(fontSize: 11, color: textSec),
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Atualizado: $dataFormatada',
-                  style: TextStyle(fontSize: 11, color: textSec),
-                ),
-              ],
-            ),
-          ),
-
-          // Ações: Redefinir PIN e Alternar Status
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.password_rounded, size: 20),
-                color: const Color(0xFFF59E0B),
-                tooltip: 'Redefinir PIN de 4 dígitos',
-                onPressed: () => _dialogRedefinirPin(op),
               ),
-              IconButton(
-                icon: Icon(
-                  op.ativo ? Icons.toggle_on_rounded : Icons.toggle_off_rounded,
-                  size: 28,
-                ),
-                color: op.ativo ? AppColors.green : textSec,
-                tooltip: op.ativo ? 'Desativar Operador' : 'Ativar Operador',
-                onPressed: () => _alternarStatus(op),
+
+              // Ações Rápidas: Redefinir PIN, Alternar Status e Acessar Modal
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.password_rounded, size: 20),
+                    color: const Color(0xFFF59E0B),
+                    tooltip: 'Redefinir PIN de 4 dígitos',
+                    onPressed: () => _dialogRedefinirPin(op),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      op.ativo ? Icons.toggle_on_rounded : Icons.toggle_off_rounded,
+                      size: 28,
+                    ),
+                    color: op.ativo ? AppColors.green : textSec,
+                    tooltip: op.ativo ? 'Desativar Operador' : 'Ativar Operador',
+                    onPressed: () => _alternarStatus(op),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: textSec.withValues(alpha: 0.6),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

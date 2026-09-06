@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
@@ -69,17 +70,30 @@ class AuthService {
     return prefs.getString(_chaveHashOperador(operador));
   }
 
-  /// Cadastra ou altera o PIN individual do operador
+  /// Cadastra ou altera o PIN individual do operador e sincroniza com o Firestore
   static Future<bool> cadastrarOuAlterarPin(String operador, String novoPin) async {
     final limpo = novoPin.trim();
     if (limpo.length != 4 || int.tryParse(limpo) == null) {
       return false;
     }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_chaveHashOperador(operador), gerarHashPin(limpo));
-    // Remove qualquer resquício do PIN em texto plano deste operador
-    await prefs.remove(_chavePinOperador(operador));
+    final hash = gerarHashPin(limpo);
+    await salvarHashLocal(operador, hash);
+
+    // Sincroniza em tempo real com o Cloud Firestore e adiciona à fila offline se não houver rede
+    unawaited(OperadoresSyncService.sincronizarCadastroOperador(
+      nome: operador,
+      pin: limpo,
+      perfil: 'operador',
+    ));
+
     return true;
+  }
+
+  /// Salva o hash do operador no SharedPreferences local
+  static Future<void> salvarHashLocal(String operador, String hash) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_chaveHashOperador(operador), hash);
+    await prefs.remove(_chavePinOperador(operador));
   }
 
   // ──────────────────────────────────────────────────────────────────────────

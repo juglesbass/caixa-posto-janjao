@@ -3,14 +3,20 @@ class OperadorModel {
   final String id;
   final String nome;
   final String pinHash;
+  final String perfil; // 'operador' ou 'gerente'
   final bool ativo;
+  final String postoId;
+  final DateTime criadoEm;
   final DateTime atualizadoEm;
 
   const OperadorModel({
     required this.id,
     required this.nome,
     required this.pinHash,
+    this.perfil = 'operador',
     this.ativo = true,
+    this.postoId = 'posto_janjao',
+    required this.criadoEm,
     required this.atualizadoEm,
   });
 
@@ -25,14 +31,20 @@ class OperadorModel {
     String? id,
     String? nome,
     String? pinHash,
+    String? perfil,
     bool? ativo,
+    String? postoId,
+    DateTime? criadoEm,
     DateTime? atualizadoEm,
   }) {
     return OperadorModel(
       id: id ?? this.id,
       nome: nome ?? this.nome,
       pinHash: pinHash ?? this.pinHash,
+      perfil: perfil ?? this.perfil,
       ativo: ativo ?? this.ativo,
+      postoId: postoId ?? this.postoId,
+      criadoEm: criadoEm ?? this.criadoEm,
       atualizadoEm: atualizadoEm ?? this.atualizadoEm,
     );
   }
@@ -43,21 +55,39 @@ class OperadorModel {
       'id': id,
       'nome': nome,
       'pin_hash': pinHash,
+      'perfil': perfil,
       'ativo': ativo ? 1 : 0,
+      'posto_id': postoId,
+      'criado_em': criadoEm.toIso8601String(),
       'atualizado_em': atualizadoEm.toIso8601String(),
     };
   }
 
   /// Constrói a partir de Map plano (SQLite / SharedPreferences)
   factory OperadorModel.fromMap(Map<String, dynamic> map) {
+    DateTime dataCriado = DateTime.now();
+    if (map['criado_em'] != null) {
+      dataCriado = DateTime.tryParse(map['criado_em'].toString()) ?? DateTime.now();
+    } else if (map['criadoEm'] != null) {
+      dataCriado = DateTime.tryParse(map['criadoEm'].toString()) ?? DateTime.now();
+    }
+
+    DateTime dataAtualizada = DateTime.now();
+    if (map['atualizado_em'] != null) {
+      dataAtualizada = DateTime.tryParse(map['atualizado_em'].toString()) ?? DateTime.now();
+    } else if (map['atualizadoEm'] != null) {
+      dataAtualizada = DateTime.tryParse(map['atualizadoEm'].toString()) ?? DateTime.now();
+    }
+
     return OperadorModel(
       id: map['id'] as String? ?? '',
       nome: map['nome'] as String? ?? '',
-      pinHash: map['pin_hash'] as String? ?? '',
+      pinHash: map['pin_hash'] as String? ?? (map['pin'] as String? ?? ''),
+      perfil: map['perfil'] as String? ?? (map['role'] as String? ?? 'operador'),
       ativo: map['ativo'] == null ? true : (map['ativo'] == 1 || map['ativo'] == true),
-      atualizadoEm: map['atualizado_em'] != null
-          ? DateTime.tryParse(map['atualizado_em'].toString()) ?? DateTime.now()
-          : DateTime.now(),
+      postoId: map['posto_id'] as String? ?? (map['postoId'] as String? ?? 'posto_janjao'),
+      criadoEm: dataCriado,
+      atualizadoEm: dataAtualizada,
     );
   }
 
@@ -67,8 +97,22 @@ class OperadorModel {
       'fields': {
         'id': {'stringValue': id},
         'nome': {'stringValue': nome},
+        'pin': {'stringValue': pinHash},
         'pin_hash': {'stringValue': pinHash},
+        'perfil': {'stringValue': perfil},
+        'role': {'stringValue': perfil},
         'ativo': {'booleanValue': ativo},
+        'postoId': {'stringValue': postoId},
+        'posto_id': {'stringValue': postoId},
+        'criadoEm': {
+          'timestampValue': criadoEm.toUtc().toIso8601String()
+        },
+        'criado_em': {
+          'timestampValue': criadoEm.toUtc().toIso8601String()
+        },
+        'atualizadoEm': {
+          'timestampValue': atualizadoEm.toUtc().toIso8601String()
+        },
         'atualizado_em': {
           'timestampValue': atualizadoEm.toUtc().toIso8601String()
         },
@@ -92,11 +136,27 @@ class OperadorModel {
     }
 
     final nome = fields['nome']?['stringValue']?.toString() ?? '';
-    final pinHash = fields['pin_hash']?['stringValue']?.toString() ?? '';
+    final pinHash = fields['pin_hash']?['stringValue']?.toString() ??
+        (fields['pin']?['stringValue']?.toString() ?? '');
+    final perfil = fields['perfil']?['stringValue']?.toString() ??
+        (fields['role']?['stringValue']?.toString() ?? 'operador');
     final ativo = fields['ativo']?['booleanValue'] as bool? ?? true;
+    final postoId = fields['postoId']?['stringValue']?.toString() ??
+        (fields['posto_id']?['stringValue']?.toString() ?? 'posto_janjao');
+
+    DateTime dataCriado = DateTime.now();
+    if (fields['criadoEm']?['timestampValue'] != null) {
+      dataCriado = DateTime.tryParse(fields['criadoEm']['timestampValue'].toString()) ?? DateTime.now();
+    } else if (fields['criado_em']?['timestampValue'] != null) {
+      dataCriado = DateTime.tryParse(fields['criado_em']['timestampValue'].toString()) ?? DateTime.now();
+    } else if (json['createTime'] != null) {
+      dataCriado = DateTime.tryParse(json['createTime'].toString()) ?? DateTime.now();
+    }
 
     DateTime dataAtualizada = DateTime.now();
-    if (fields['atualizado_em']?['timestampValue'] != null) {
+    if (fields['atualizadoEm']?['timestampValue'] != null) {
+      dataAtualizada = DateTime.tryParse(fields['atualizadoEm']['timestampValue'].toString()) ?? DateTime.now();
+    } else if (fields['atualizado_em']?['timestampValue'] != null) {
       dataAtualizada = DateTime.tryParse(fields['atualizado_em']['timestampValue'].toString()) ?? DateTime.now();
     } else if (json['updateTime'] != null) {
       dataAtualizada = DateTime.tryParse(json['updateTime'].toString()) ?? DateTime.now();
@@ -106,7 +166,10 @@ class OperadorModel {
       id: docId,
       nome: nome,
       pinHash: pinHash,
+      perfil: perfil,
       ativo: ativo,
+      postoId: postoId,
+      criadoEm: dataCriado,
       atualizadoEm: dataAtualizada,
     );
   }
