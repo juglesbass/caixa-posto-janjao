@@ -187,6 +187,7 @@ class DriveService {
     required int turnoId,
     required String operador,
     int? turnoNumero,
+    String? authHash,
   }) async {
     final db = DatabaseService.instance;
     final numeroTurnoExibicao = turnoNumero ?? turnoId;
@@ -213,6 +214,10 @@ class DriveService {
       final payload = {
         'nome_arquivo': nomeEnvio,
         'turno_id': turnoId,
+        // Identifica o FECHAMENTO, não só o turno: o webhook usa isso para
+        // saber se é reenvio (substitui) ou um fechamento novo do mesmo turno
+        // (preserva o anterior em vez de sobrescrever).
+        'auth_hash': authHash ?? '',
         'operador': operador,
         'arquivo_base64': base64Encode(pdfBytes),
         'folderId': folderId,
@@ -389,6 +394,9 @@ class DriveService {
           final payload = {
             'nome_arquivo': nomeArquivo,
             'turno_id': turnoId,
+            // Mesmo fechamento da tentativa original: o hash vem gravado no
+            // turno, então o reenvio substitui em vez de duplicar
+            'auth_hash': turno.authHash ?? '',
             'operador': operador,
             'arquivo_base64': base64Encode(pdfBytes),
             'folderId': folderId,

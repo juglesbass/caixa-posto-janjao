@@ -6,7 +6,21 @@ O app manda o PDF de fechamento para um **Google Apps Script**, que grava o arqu
 
 O app não consegue distinguir "o envio não chegou" de "o envio chegou e a resposta se perdeu". Quando o servidor demora e o cliente desiste por timeout, o PDF vai para a fila e é reenviado depois — e o gerente fica com **dois arquivos do mesmo turno**.
 
-Isso não tem conserto do lado do app. O `Codigo.gs` resolve tornando o `doPost` **idempotente**: receber o mesmo turno duas vezes substitui o arquivo em vez de criar outro.
+Isso não tem conserto do lado do app. O `Codigo.gs` resolve tornando o `doPost` **idempotente**: receber o mesmo fechamento duas vezes substitui o arquivo em vez de criar outro.
+
+### A chave é o fechamento, não o turno
+
+Deduplicar por `turno_id` seria perigoso. Se o operador reabrisse um turno já entregue só para mexer no app — talvez apagando um lançamento sem querer — e fechasse de novo, o relatório ruim sobrescreveria o bom e o gerente perderia o original sem aviso nenhum.
+
+Por isso a chave é o **`auth_hash`**, que o app gera a cada fechamento a partir de `operador|turno|total|horário`:
+
+| Situação | `auth_hash` | O que acontece na pasta |
+|---|---|---|
+| Reenvio do mesmo fechamento (timeout, fila offline) | igual | Substitui. Continua **um** arquivo |
+| Turno reaberto e fechado de novo | diferente | Cria o novo e **preserva** o anterior, renomeado para `... (fechamento anterior dd-MM-yyyy HH:mm).pdf` |
+| Turno diferente | diferente | Arquivo novo, nada é tocado |
+
+Em relatório financeiro, guardar demais é melhor que apagar de menos: nada é descartado por um reabrir sem querer.
 
 ## Passo 1 — Achar o script
 
@@ -29,9 +43,10 @@ Se não achar na lista, o script pode estar **vinculado a uma planilha**. Nesse 
 Abra o `Codigo.gs` que já está lá e veja o que ele faz.
 
 - Se ele **só** recebe o PDF e salva no Drive: pode substituir pelo conteúdo de [`Codigo.gs`](Codigo.gs).
-- Se ele faz **mais coisas** (registra numa planilha, manda e-mail, renomeia, etc.): **não cole por cima.** Aproveite só as duas partes que dão a idempotência:
-  - a chave em `PropertiesService` (`var chave = 'turno_' + pastaId + '_' + turnoId;`)
-  - a função `localizarArquivoAnterior()` e o bloco que cria o novo arquivo e só depois manda o antigo para a lixeira
+- Se ele faz **mais coisas** (registra numa planilha, manda e-mail, renomeia, etc.): **não cole por cima.** Aproveite só as partes que dão a idempotência:
+  - as duas chaves em `PropertiesService`: `chaveEnvio` (por `auth_hash`, identifica o fechamento) e `chaveTurno` (aponta para o último arquivo do turno)
+  - as funções `abrirArquivo()`, `localizarPeloNome()` e `nomeDeArquivado()`
+  - o bloco que cria o novo arquivo **antes** de mexer no antigo, e então decide entre mandar para a lixeira (reenvio) ou renomear (fechamento novo)
 
 ## Passo 3 — Conferir os IDs das pastas
 
@@ -79,8 +94,10 @@ Teste de verdade, com o app:
 
 1. No app, ligue o **Modo Teste** (Menu → Gerência) — assim tudo vai para a pasta de Testes.
 2. Feche um turno e confirme que o PDF chegou.
-3. **Feche o mesmo turno de novo** (reabra pelo histórico e feche outra vez). Com a idempotência funcionando, a pasta continua com **um único arquivo**, atualizado — não dois.
+3. **Reabra o mesmo turno pelo histórico e feche de novo.** Agora a pasta deve ter **dois** arquivos: o novo com o nome limpo e o anterior renomeado para `… (fechamento anterior dd-MM-yyyy HH:mm).pdf`. É o comportamento correto — um fechamento novo nunca apaga o anterior.
 4. Desligue o Modo Teste.
+
+Para ver a substituição de verdade (um arquivo só) seria preciso simular um reenvio do **mesmo** fechamento — o que acontece sozinho quando o envio cai na fila offline e é reenviado depois.
 
 ## Como rotacionar o webhook
 

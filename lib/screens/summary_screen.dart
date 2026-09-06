@@ -666,6 +666,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
         turnoId: widget.turno.id!,
         operador: widget.turno.operador,
         turnoNumero: widget.turno.numero,
+        authHash: dadosFechamento!.authHash,
       );
 
       envioDriveOk = resultadoDrive.sucesso;

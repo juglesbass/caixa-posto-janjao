@@ -10,8 +10,22 @@
  * reenvia depois — e o gerente acaba com dois arquivos do mesmo turno.
  *
  * A solução não está no app: está aqui. Este doPost é IDEMPOTENTE — receber o
- * mesmo turno duas vezes substitui o arquivo em vez de criar outro. Com isso o
- * reenvio vira inofensivo e o problema todo desaparece.
+ * mesmo fechamento duas vezes substitui o arquivo em vez de criar outro. Com
+ * isso o reenvio vira inofensivo e o problema todo desaparece.
+ *
+ * A CHAVE É O FECHAMENTO, NÃO O TURNO
+ *
+ * Usar turno_id como chave seria perigoso: se o operador reabrir um turno já
+ * entregue só para mexer no app e fechar de novo — talvez com um lançamento
+ * apagado sem querer — o relatório ruim sobrescreveria o bom, e o gerente
+ * perderia o original sem nenhum aviso.
+ *
+ * Por isso a chave é o `auth_hash`, que o app gera a cada fechamento a partir de
+ * operador|turno|total|horário. Reenvio do mesmo fechamento tem o mesmo hash e
+ * substitui. Um fechamento NOVO do mesmo turno tem hash diferente: vira um
+ * arquivo novo, e o anterior é PRESERVADO, apenas renomeado com a marca
+ * "(fechamento anterior ...)". Em relatório financeiro, guardar demais é sempre
+ * melhor que apagar de menos.
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * ATENÇÃO: se o seu script atual já faz outras coisas (registrar em planilha,
@@ -21,7 +35,8 @@
  *
  * Payload enviado pelo app (Content-Type: text/plain, corpo em JSON):
  *   nome_arquivo    "Agildo 05-09-2026 T1.pdf"
- *   turno_id        1                      <- chave de idempotência
+ *   turno_id        1
+ *   auth_hash       "AUTH-1A2B-3C4D-5E6F"  <- chave de idempotência (por fechamento)
  *   operador        "Agildo"
  *   arquivo_base64  "JVBERi0xLjQK..."
  *   folderId        id da pasta de destino (também vem como folder_id/pasta_id/pastaId)
@@ -58,38 +73,74 @@ function doPost(e) {
     var blob  = Utilities.newBlob(Utilities.base64Decode(base64), MimeType.PDF, nome);
 
     // ── Idempotência ────────────────────────────────────────────────────────
-    // Procura um arquivo já gravado para este turno. Primeiro pelo id que
-    // guardamos; se o registro tiver se perdido, cai para a busca pelo nome
-    // (que já inclui o número do turno, então não colide entre turnos).
     var props = PropertiesService.getScriptProperties();
-    var chave = 'turno_' + pastaId + '_' + turnoId;
 
-    var anterior = localizarArquivoAnterior(props, chave, pasta, nome);
+    // Chave do FECHAMENTO. Sem auth_hash (app antigo) cai para o turno, que é o
+    // comportamento anterior: melhor deduplicar por turno do que não deduplicar.
+    var authHash = String(dados.auth_hash || '').trim();
+    var chaveEnvio = 'envio_' + pastaId + '_' + (authHash || ('turno' + turnoId));
 
-    var arquivo = pasta.createFile(blob);
-    arquivo.setDescription('Turno ' + turnoId + ' | Operador: ' + (dados.operador || '-'));
+    // Ponteiro para o último arquivo entregue deste turno, seja qual for o
+    // fechamento. Serve para marcar o anterior quando chega um fechamento novo.
+    var chaveTurno = 'turno_' + pastaId + '_' + turnoId;
 
-    // Só descarta o antigo DEPOIS que o novo existe: se algo falhar no meio,
-    // o gerente fica com uma cópia a mais, nunca com nenhuma.
-    var substituido = false;
-    if (anterior) {
-      try {
-        anterior.setTrashed(true);
-        substituido = true;
-      } catch (err) {
-        // Sem permissão ou já removido: não é motivo para falhar o envio
+    // 1. Este MESMO fechamento já foi entregue? Então é reenvio: substitui.
+    var mesmoFechamento = abrirArquivo(props.getProperty(chaveEnvio));
+
+    // 2. Senão, é um fechamento novo: o arquivo anterior do turno será mantido.
+    var fechamentoAnterior = null;
+    if (!mesmoFechamento) {
+      fechamentoAnterior = abrirArquivo(props.getProperty(chaveTurno));
+      if (!fechamentoAnterior) {
+        // Registro perdido (script republicado do zero): tenta pelo nome, que
+        // já inclui o número do turno e não colide entre turnos diferentes.
+        fechamentoAnterior = localizarPeloNome(pasta, nome);
       }
     }
 
-    props.setProperty(chave, arquivo.getId());
+    var arquivo = pasta.createFile(blob);
+    arquivo.setDescription(
+      'Turno ' + turnoId +
+      ' | Operador: ' + (dados.operador || '-') +
+      (authHash ? ' | Autenticacao: ' + authHash : '')
+    );
+
+    // Só mexe no antigo DEPOIS que o novo existe: se algo falhar no meio, o
+    // gerente fica com uma cópia a mais, nunca com nenhuma.
+    var substituido = false;
+    var preservado = null;
+
+    if (mesmoFechamento) {
+      // Reenvio do mesmo fechamento: o antigo é redundante, pode ir embora
+      try {
+        mesmoFechamento.setTrashed(true);
+        substituido = true;
+      } catch (err) {}
+    } else if (fechamentoAnterior) {
+      // Fechamento NOVO do mesmo turno: preserva o anterior renomeado, para que
+      // ninguém perca o relatório bom por causa de um reabrir sem querer.
+      try {
+        fechamentoAnterior.setName(nomeDeArquivado(fechamentoAnterior));
+        preservado = fechamentoAnterior.getId();
+      } catch (err) {}
+    }
+
+    props.setProperty(chaveEnvio, arquivo.getId());
+    props.setProperty(chaveTurno, arquivo.getId());
 
     return responder({
       status: 'success',
-      message: substituido ? 'Arquivo do turno substituido' : 'Arquivo criado',
+      message: substituido
+        ? 'Reenvio do mesmo fechamento: arquivo substituido'
+        : (preservado
+            ? 'Novo fechamento do turno: anterior preservado e renomeado'
+            : 'Arquivo criado'),
       turno_id: turnoId,
+      auth_hash: authHash,
       file_id: arquivo.getId(),
       file_url: arquivo.getUrl(),
-      substituido: substituido
+      substituido: substituido,
+      preservado_id: preservado
     });
 
   } catch (err) {
@@ -98,33 +149,50 @@ function doPost(e) {
 }
 
 /**
- * Devolve o arquivo já gravado para este turno, ou null se não houver.
+ * Abre um arquivo pelo id guardado, ou null se ele nao existe mais.
  */
-function localizarArquivoAnterior(props, chave, pasta, nome) {
-  // 1. Pelo id guardado no envio anterior — caminho exato
-  var idSalvo = props.getProperty(chave);
-  if (idSalvo) {
-    try {
-      var f = DriveApp.getFileById(idSalvo);
-      if (!f.isTrashed()) {
-        return f;
-      }
-    } catch (err) {
-      // Arquivo apagado de vez: segue para a busca por nome
-    }
+function abrirArquivo(id) {
+  if (!id) return null;
+  try {
+    var f = DriveApp.getFileById(id);
+    return f.isTrashed() ? null : f;
+  } catch (err) {
+    return null; // apagado de vez
   }
+}
 
-  // 2. Pelo nome dentro da pasta — cobre o caso de o registro ter sido perdido
-  //    (script republicado do zero, propriedades limpas). O nome traz o número
-  //    do turno, então dois turnos diferentes nunca casam aqui.
+/**
+ * Procura na pasta um arquivo com exatamente este nome. Rede de seguranca para
+ * quando o registro em PropertiesService se perde.
+ */
+function localizarPeloNome(pasta, nome) {
   try {
     var iter = pasta.getFilesByName(nome);
     if (iter.hasNext()) {
       return iter.next();
     }
   } catch (err) {}
-
   return null;
+}
+
+/**
+ * Nome do arquivo superado por um fechamento mais novo. Mantem o original
+ * reconhecivel e deixa claro que ele nao e mais o relatorio valido.
+ */
+function nomeDeArquivado(arquivo) {
+  var nome = arquivo.getName();
+  // Se ja foi arquivado antes, nao empilha marcas
+  if (nome.indexOf('(fechamento anterior') !== -1) {
+    return nome;
+  }
+  var quando = Utilities.formatDate(
+    arquivo.getDateCreated(),
+    Session.getScriptTimeZone(),
+    'dd-MM-yyyy HH:mm'
+  );
+  var marca = ' (fechamento anterior ' + quando + ')';
+  var i = nome.lastIndexOf('.pdf');
+  return i === -1 ? nome + marca : nome.substring(0, i) + marca + '.pdf';
 }
 
 function responder(obj) {

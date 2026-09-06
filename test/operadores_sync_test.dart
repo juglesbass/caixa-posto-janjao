@@ -199,4 +199,89 @@ void main() {
       expect(AuthService.verificarPin('1234', 'pbkdf2_sha256:1000:zz:aa'), isFalse);
     });
   });
+
+  group('Chave de autenticacao - identidade do FECHAMENTO', () {
+    // O webhook do Drive usa esta chave para decidir entre substituir (reenvio
+    // do mesmo fechamento) e preservar o anterior (fechamento novo do mesmo
+    // turno). Se ela deixar de ser única por fechamento, um operador que
+    // reabrisse um turno já entregue e fechasse de novo sobrescreveria o
+    // relatório bom do gerente.
+
+    test('Reenvio do mesmo fechamento produz a mesma chave', () {
+      final a = AuthService.gerarChaveAutenticacao(
+        operador: 'Agildo',
+        turnoId: 7,
+        totalVendas: 1234.56,
+        timestamp: '06/09/2026 14:30:00',
+      );
+      final b = AuthService.gerarChaveAutenticacao(
+        operador: 'Agildo',
+        turnoId: 7,
+        totalVendas: 1234.56,
+        timestamp: '06/09/2026 14:30:00',
+      );
+
+      expect(a, equals(b));
+      expect(a, startsWith('AUTH-'));
+    });
+
+    test('Fechar o mesmo turno de novo gera chave diferente', () {
+      const operador = 'Agildo';
+      const turnoId = 7;
+
+      // Fechamento original
+      final original = AuthService.gerarChaveAutenticacao(
+        operador: operador,
+        turnoId: turnoId,
+        totalVendas: 1234.56,
+        timestamp: '06/09/2026 14:30:00',
+      );
+
+      // Operador reabre "só para mexer" e fecha de novo, minutos depois
+      final refeito = AuthService.gerarChaveAutenticacao(
+        operador: operador,
+        turnoId: turnoId,
+        totalVendas: 1234.56,
+        timestamp: '06/09/2026 14:45:00',
+      );
+
+      expect(refeito, isNot(equals(original)),
+          reason: 'Chaves iguais fariam o segundo fechamento sobrescrever o primeiro no Drive');
+    });
+
+    test('Mudar o total tambem muda a chave', () {
+      final antes = AuthService.gerarChaveAutenticacao(
+        operador: 'Agildo',
+        turnoId: 7,
+        totalVendas: 1234.56,
+        timestamp: '06/09/2026 14:30:00',
+      );
+      // Ex.: um lancamento foi apagado antes de fechar de novo
+      final depois = AuthService.gerarChaveAutenticacao(
+        operador: 'Agildo',
+        turnoId: 7,
+        totalVendas: 1000.00,
+        timestamp: '06/09/2026 14:30:00',
+      );
+
+      expect(depois, isNot(equals(antes)));
+    });
+
+    test('Turnos diferentes nunca compartilham chave', () {
+      final t1 = AuthService.gerarChaveAutenticacao(
+        operador: 'Agildo',
+        turnoId: 1,
+        totalVendas: 500.00,
+        timestamp: '06/09/2026 14:30:00',
+      );
+      final t2 = AuthService.gerarChaveAutenticacao(
+        operador: 'Agildo',
+        turnoId: 2,
+        totalVendas: 500.00,
+        timestamp: '06/09/2026 14:30:00',
+      );
+
+      expect(t1, isNot(equals(t2)));
+    });
+  });
 }
