@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - correcoes-analise
     tags:
       - "v*"
 
@@ -32,12 +33,6 @@ jobs:
           xcodebuild -version
           flutter --version
 
-      - name: Configure Flutter iOS Platform
-        run: |
-          # A pasta ios/ é versionada: o `flutter create` aqui só completa o que
-          # porventura falte, sem sobrescrever o Info.plist do repositório.
-          flutter create . --org com.postojanjao --project-name caixa_posto_janjao --platforms ios
-
       - name: Generate App Icons
         run: python3 scripts/generate_icons.py
 
@@ -45,7 +40,30 @@ jobs:
         run: flutter pub get
 
       - name: Build unsigned iOS app (device)
-        run: flutter build ios --release --no-codesign --build-number "${{ github.run_number }}"
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Iniciando compilação do iOS para dispositivo sem assinatura..."
+          if ! flutter build ios --release --no-codesign --build-number "${{ github.run_number }}"; then
+            echo "::warning::flutter build ios falhou ou exigiu equipe Apple. Executando compilação direta via xcodebuild..."
+            flutter build ios --config-only --release --no-codesign --build-number "${{ github.run_number }}"
+            xcodebuild -workspace ios/Runner.xcworkspace \
+              -scheme Runner \
+              -configuration Release \
+              -destination 'generic/platform=iOS' \
+              -derivedDataPath build/ios_derived \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGN_STYLE=Manual \
+              DEVELOPMENT_TEAM="" \
+              PROVISIONING_PROFILE_SPECIFIER="" \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              clean build
+            rm -rf build/ios/iphoneos/Runner.app
+            mkdir -p build/ios/iphoneos
+            cp -R build/ios_derived/Build/Products/Release-iphoneos/Runner.app build/ios/iphoneos/Runner.app
+          fi
 
       - name: Package unsigned IPA (Payload)
         shell: bash
