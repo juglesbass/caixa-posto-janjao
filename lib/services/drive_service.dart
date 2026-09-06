@@ -64,6 +64,87 @@ class DriveService {
     } catch (_) {}
   }
 
+  /// Avalia de forma definitiva se a resposta HTTP do upload representa sucesso real.
+  /// Suporta códigos 2xx (200 OK, 201 Created, 204 No Content),
+  /// códigos 3xx (301, 302, 303, 307, 308 de redirecionamento do Google Apps Script),
+  /// e verificação de confirmação textual/JSON no corpo da resposta.
+  static bool isRespostaSucesso(http.Response response) {
+    final status = response.statusCode;
+
+    // 1. Respostas HTTP 2xx (Sucesso explícito)
+    if (status >= 200 && status < 300) {
+      // Se houver corpo em JSON, certifica-se de que não é uma mensagem de erro explícita do Apps Script
+      try {
+        final bodyTrim = response.body.trim();
+        if (bodyTrim.startsWith('{') && bodyTrim.endsWith('}')) {
+          final decoded = jsonDecode(bodyTrim);
+          if (decoded is Map) {
+            final erroExplicito = decoded['status'] == 'error' ||
+                decoded['success'] == false ||
+                decoded['error'] != null;
+            if (erroExplicito) {
+              return false;
+            }
+          }
+        }
+      } catch (_) {
+        // Se não for JSON (ex: texto simples ou resposta vazia), 2xx é sucesso absoluto
+      }
+      return true;
+    }
+
+    // 2. Respostas HTTP 3xx (Redirecionamentos típicos do Google Apps Script)
+    // O Apps Script executa a função doPost() e salva o arquivo no Google Drive ANTES
+    // de retornar o redirecionamento 302 com o cabeçalho 'Location'. Portanto, se o
+    // servidor respondeu 302/303/307, o arquivo já foi entregue com sucesso no Drive.
+    if (status >= 300 && status < 400) {
+      return true;
+    }
+
+    // 3. Fallback de verificação de palavras-chave no corpo
+    final bodyLower = response.body.toLowerCase();
+    if (bodyLower.contains('success') ||
+        bodyLower.contains('"status":"ok"') ||
+        bodyLower.contains('sucesso')) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /// Executa o envio HTTP POST com suporte resiliente a redes móveis (timeout de 35s)
+  /// e acompanhamento automático de redirecionamento 302/303/307 do Apps Script via GET.
+  static Future<http.Response> _executarPostWebhook(String url, String bodyJson) async {
+    http.Response response = await _client
+        .post(
+          Uri.parse(url),
+          headers: {'Content-Type': 'text/plain;charset=utf-8'},
+          body: bodyJson,
+        )
+        .timeout(const Duration(seconds: 35));
+
+    // Se o Apps Script respondeu com redirecionamento, segue via GET para validar a resposta final
+    if (response.statusCode >= 300 && response.statusCode < 400) {
+      final location = response.headers['location'];
+      if (location != null && location.trim().isNotEmpty) {
+        try {
+          final redirectResponse = await _client
+              .get(Uri.parse(location))
+              .timeout(const Duration(seconds: 20));
+          response = redirectResponse;
+        } catch (e) {
+          // Mesmo se o GET de confirmação do redirect der timeout em rede móvel lenta,
+          // o POST original já foi recebido e o PDF já foi gravado no Google Drive.
+          if (kDebugMode) {
+            print('[DriveService] Aviso ao seguir redirect do Apps Script: $e (upload já concluído)');
+          }
+        }
+      }
+    }
+
+    return response;
+  }
+
   /// Envia o arquivo PDF (em bytes) para o Google Drive do Gerente via Webhook
   static Future<({bool sucesso, String mensagem})> enviarPdfDrive({
     required Uint8List pdfBytes,
@@ -81,6 +162,8 @@ class DriveService {
       final webhookUrl = await db.getConfig('google_drive_webhook_url', padrao: defaultWebhookUrl);
 
       if (webhookUrl.isEmpty) {
+        await db.removerPendenciaDrive(turnoId);
+        await NotificationService.atualizarPendencias();
         return (
           sucesso: true,
           mensagem: 'PDF salvo localmente (Drive não configurado)'
@@ -106,17 +189,13 @@ class DriveService {
 
       final bodyJson = jsonEncode(payload);
 
-      // Usando text/plain para evitar bloqueio de CORS preflight em navegadores Web (PWA)
-      final response = await _client
-          .post(
-            Uri.parse(webhookUrl),
-            headers: {'Content-Type': 'text/plain;charset=utf-8'},
-            body: bodyJson,
-          )
-          .timeout(const Duration(seconds: 25));
+      // Executa o envio HTTP POST direto com timeout ampliado e suporte a redirects
+      final response = await _executarPostWebhook(webhookUrl, bodyJson);
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        // Envio confirmado com sucesso: remove qualquer pendência residual
+      final bool ok = isRespostaSucesso(response);
+
+      if (ok) {
+        // Envio confirmado com sucesso absoluto: remove pendência e limpa banners
         await db.removerPendenciaDrive(turnoId);
         await NotificationService.atualizarPendencias();
         return (
@@ -126,7 +205,7 @@ class DriveService {
               : '✅ Fechamento enviado com sucesso!'
         );
       } else {
-        // Falha no servidor: salva na fila offline e notifica
+        // Falha real no servidor (4xx ou 5xx): salva na fila offline e notifica
         await db.salvarPendenciaDrive(turnoId, nomeEnvio, operador);
         await NotificationService.atualizarPendencias();
         NotificationService.notificarPendenciaDrive(
@@ -235,15 +314,12 @@ class DriveService {
             'modo_teste': isTeste,
           };
 
-          final response = await http
-              .post(
-                Uri.parse(webhookUrl),
-                headers: {'Content-Type': 'text/plain;charset=utf-8'},
-                body: jsonEncode(payload),
-              )
-              .timeout(const Duration(seconds: 25));
+          final response = await _executarPostWebhook(
+            webhookUrl,
+            jsonEncode(payload),
+          );
 
-          if (response.statusCode == 200 || response.statusCode == 201) {
+          if (isRespostaSucesso(response)) {
             await db.removerPendenciaDrive(turnoId);
             sucessos++;
           }

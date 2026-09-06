@@ -557,6 +557,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
       ),
     );
 
+    bool envioDriveOk = false;
+
     try {
       final db = DatabaseService.instance;
       
@@ -606,6 +608,16 @@ class _SummaryScreenState extends State<SummaryScreen> {
         turnoNumero: widget.turno.numero,
       );
 
+      envioDriveOk = resultadoDrive.sucesso;
+
+      if (envioDriveOk) {
+        // Validação direta: garante limpeza imediata de qualquer resíduo na fila offline
+        try {
+          await DatabaseService.instance.removerPendenciaDrive(widget.turno.id!);
+          await NotificationService.atualizarPendencias();
+        } catch (_) {}
+      }
+
       // Redefine a preferência de máquina ativa para Rede ao fechar o turno
       try {
         final prefs = await SharedPreferences.getInstance();
@@ -623,7 +635,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
       widget.onTurnoAlterado();
 
-      if (!resultadoDrive.sucesso) {
+      if (!envioDriveOk) {
         showDialog(
           context: context,
           builder: (ctx) => DriveFailureDialog(
@@ -644,12 +656,15 @@ class _SummaryScreenState extends State<SummaryScreen> {
           ),
         );
       }
-      progressoNotifier.dispose();
-    } catch (e) {
-      // O turno pode já ter sido gravado como fechado antes da falha (ex.: erro
-      // ao gerar o PDF). Enfileira a pendência para o Drive não perder o envio.
       try {
-        if (widget.turno.id != null) {
+        progressoNotifier.dispose();
+      } catch (_) {}
+    } catch (e) {
+      // SÓ salva na fila offline se o upload NÃO tiver sido concluído com sucesso.
+      // Se o envio ao Drive já obteve confirmação HTTP, qualquer falha posterior
+      // (ex: na interface ou transição de tela) NUNCA deve gerar falso positivo de pendência.
+      try {
+        if (!envioDriveOk && widget.turno.id != null) {
           final turnoNoBanco = await DatabaseService.instance.obterTurnoPorId(widget.turno.id!);
           if (turnoNoBanco != null && !turnoNoBanco.aberto) {
             await DatabaseService.instance.salvarPendenciaDrive(
@@ -666,7 +681,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
         Navigator.pop(context);
       }
       if (!mounted) {
-        progressoNotifier.dispose();
+        try {
+          progressoNotifier.dispose();
+        } catch (_) {}
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
@@ -676,7 +693,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
           duration: const Duration(seconds: 5),
         ),
       );
-      progressoNotifier.dispose();
+      try {
+        progressoNotifier.dispose();
+      } catch (_) {}
     }
   }
 
