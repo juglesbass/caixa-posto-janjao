@@ -493,8 +493,21 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Diálogo de Progresso Animado
-    final progressoNotifier = ValueNotifier<String>('Autenticando e gravando turno no banco...');
+    // Diálogo de Progresso com Animações Dinâmicas (PDF -> Drive -> Sucesso)
+    final progressoNotifier = ValueNotifier<({
+      String titulo,
+      String subtitulo,
+      IconData icone,
+      Color corTema,
+      bool carregando,
+    })>((
+      titulo: 'HOMOLOGANDO TURNO',
+      subtitulo: 'Autenticando e gravando turno no banco local...',
+      icone: Icons.lock_clock_rounded,
+      corTema: const Color(0xFF38BDF8),
+      carregando: true,
+    ));
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -503,52 +516,87 @@ class _SummaryScreenState extends State<SummaryScreen> {
         child: Dialog(
           backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.lightSurface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             side: BorderSide(color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-            child: ValueListenableBuilder<String>(
+            child: ValueListenableBuilder(
               valueListenable: progressoNotifier,
-              builder: (context, status, _) {
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E3A8A).withValues(alpha: 0.3),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFF38BDF8), width: 2),
-                      ),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          color: Color(0xFF38BDF8),
-                          strokeWidth: 3,
+              builder: (context, estado, _) {
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Column(
+                    key: ValueKey(estado.titulo),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 76,
+                        height: 76,
+                        decoration: BoxDecoration(
+                          color: estado.corTema.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: estado.corTema, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: estado.corTema.withValues(alpha: 0.25),
+                              blurRadius: 18,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: estado.carregando
+                              ? Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 48,
+                                      height: 48,
+                                      child: CircularProgressIndicator(
+                                        color: estado.corTema,
+                                        strokeWidth: 3,
+                                      ),
+                                    ),
+                                    Icon(
+                                      estado.icone,
+                                      color: estado.corTema,
+                                      size: 22,
+                                    ),
+                                  ],
+                                )
+                              : Icon(
+                                  estado.icone,
+                                  color: estado.corTema,
+                                  size: 42,
+                                ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'HOMOLOGANDO TURNO',
-                      style: TextStyle(
-                        color: isDark ? Colors.white : AppColors.lightTextPri,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
-                        letterSpacing: 1,
+                      const SizedBox(height: 20),
+                      Text(
+                        estado.titulo,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: estado.carregando
+                              ? (isDark ? Colors.white : AppColors.lightTextPri)
+                              : estado.corTema,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                          letterSpacing: 0.8,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      status,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec,
-                        fontSize: 13,
-                        height: 1.4,
+                      const SizedBox(height: 10),
+                      Text(
+                        estado.subtitulo,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 );
               },
             ),
@@ -578,7 +626,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
       );
       final lancamentos = await db.obterLancamentos(widget.turno.id!);
 
-      progressoNotifier.value = 'Gerando relatório PDF autenticado digitalmente...';
+      progressoNotifier.value = (
+        titulo: 'GERANDO RELATÓRIO',
+        subtitulo: 'Criando documento PDF autenticado digitalmente...',
+        icone: Icons.picture_as_pdf_rounded,
+        corTema: const Color(0xFF38BDF8),
+        carregando: true,
+      );
       final turnoFechado = widget.turno.copyWith(
         aberto: false,
         vendasSistema: dadosFechamento!.vendasSistema,
@@ -599,7 +653,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
         lancamentos: lancamentos,
       );
 
-      progressoNotifier.value = 'Enviando PDF para o Google Drive do gerente...';
+      progressoNotifier.value = (
+        titulo: 'ENVIANDO AO GOOGLE DRIVE',
+        subtitulo: 'Entregando fechamento na pasta oficial do gerente...',
+        icone: Icons.cloud_upload_rounded,
+        corTema: const Color(0xFF60A5FA),
+        carregando: true,
+      );
       final resultadoDrive = await DriveService.enviarPdfDrive(
         pdfBytes: pdfBytes,
         nomeArquivo: nomeArquivo,
@@ -624,8 +684,19 @@ class _SummaryScreenState extends State<SummaryScreen> {
         await prefs.setString('maquina_ativa', PaymentTypes.maquinaRede);
       } catch (_) {}
 
-      progressoNotifier.value = '✅ Concluído com sucesso!';
-      await Future.delayed(const Duration(milliseconds: 150));
+      if (envioDriveOk) {
+        progressoNotifier.value = (
+          titulo: 'ENTREGUE COM SUCESSO!',
+          subtitulo: resultadoDrive.mensagem,
+          icone: Icons.cloud_done_rounded,
+          corTema: const Color(0xFF10B981),
+          carregando: false,
+        );
+        AppHaptics.medium();
+        await Future.delayed(const Duration(milliseconds: 1400));
+      } else {
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
 
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context); // Fecha diálogo de progresso
