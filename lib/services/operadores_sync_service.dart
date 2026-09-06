@@ -52,6 +52,7 @@ class OperadoresSyncService {
   static Timer? _pollingTimer;
   static int _activeListenersCount = 0;
   static bool _pollingEmExecucao = false;
+  static bool _migracaoExecutada = false;
 
   /// Inicia monitoramento em tempo real da coleção 'operadores' do Firestore
   static void iniciarMonitoramentoEmTempoReal() {
@@ -91,7 +92,13 @@ class OperadoresSyncService {
       // 1. Tenta descarregar pendências offline acumuladas
       await sincronizarFilaOffline();
 
-      // 2. Busca lista fresca do Firestore
+      // 2. Migra cadastros locais anteriores deste dispositivo para a nuvem
+      if (!_migracaoExecutada) {
+        _migracaoExecutada = true;
+        await migrarOperadoresLocaisParaFirestore();
+      }
+
+      // 3. Busca lista fresca do Firestore
       final operadoresNuvem = await _buscarDoFirestore();
       final db = DatabaseService.instance;
       await db.salvarOperadoresCache(operadoresNuvem);
@@ -643,6 +650,129 @@ class OperadoresSyncService {
         debugPrint('[Firestore Sync] Pendência $pendenciaId continua na fila (falha de rede): $e');
       }
     }
+  }
+
+  /// Migra e envia automaticamente todos os operadores cadastrados anteriormente
+  /// neste dispositivo (em SharedPreferences ou SQLite) para o Cloud Firestore.
+  static Future<int> migrarOperadoresLocaisParaFirestore() async {
+    int migrados = 0;
+    try {
+      final db = DatabaseService.instance;
+      final prefs = await SharedPreferences.getInstance();
+
+      // 1. Mapeia nomes reais dos turnos para preservar a formatação bonita (ex: "Carlos Silva")
+      final Map<String, String> nomesReais = {};
+      try {
+        final turnosDb = await db.database;
+        final rows = await turnosDb.rawQuery(
+          'SELECT DISTINCT operador FROM turnos WHERE operador IS NOT NULL AND TRIM(operador) != ""',
+        );
+        for (final r in rows) {
+          final op = r['operador']?.toString().trim() ?? '';
+          if (op.isNotEmpty) {
+            nomesReais[AuthService.normalizarOperador(op)] = op;
+          }
+        }
+      } catch (_) {}
+
+      // 2. Coleta operadores do cache SQLite existente
+      final locaisDb = await db.obterOperadoresCache();
+      for (final op in locaisDb) {
+        if (op.nome.trim().isNotEmpty) {
+          nomesReais[op.nomeNormalizado] = op.nomeExibicao;
+        }
+      }
+
+      // 3. Varre chaves de PIN existentes no SharedPreferences (cadastros anteriores)
+      final Set<String> chavesOperadores = {};
+      for (final k in prefs.getKeys()) {
+        if (!k.startsWith('pin_operador_')) continue;
+        final raw = k.replaceFirst('pin_operador_', '').replaceFirst(RegExp(r'_hash$'), '');
+        if (raw.isNotEmpty) {
+          chavesOperadores.add(raw);
+        }
+      }
+
+      // 4. Para cada operador antigo encontrado, prepara o OperadorModel e envia ao Firestore
+      for (final chave in chavesOperadores) {
+        String? hash = prefs.getString('pin_operador_${chave}_hash');
+        final pinPlano = prefs.getString('pin_operador_$chave');
+
+        if ((hash == null || hash.isEmpty) && pinPlano != null && pinPlano.trim().length == 4) {
+          hash = AuthService.gerarHashPin(pinPlano.trim());
+          await prefs.setString('pin_operador_${chave}_hash', hash);
+          await prefs.remove('pin_operador_$chave');
+        }
+
+        if (hash == null || hash.isEmpty) continue;
+
+        // Recupera nome original ou formata
+        String nomeFinal = nomesReais[chave] ?? chave.replaceAll('_', ' ');
+        if (!nomeFinal.contains(' ') && nomeFinal.isNotEmpty) {
+          nomeFinal = nomeFinal[0].toUpperCase() + nomeFinal.substring(1);
+        } else {
+          nomeFinal = nomeFinal
+              .split(' ')
+              .map((p) => p.isNotEmpty ? (p[0].toUpperCase() + p.substring(1).toLowerCase()) : '')
+              .join(' ')
+              .trim();
+        }
+
+        final docId = 'op_$chave';
+        final opModel = OperadorModel(
+          id: docId,
+          nome: nomeFinal,
+          pinHash: hash,
+          perfil: 'operador',
+          ativo: true,
+          postoId: 'posto_janjao',
+          criadoEm: DateTime.now(),
+          atualizadoEm: DateTime.now(),
+        );
+
+        // Salva no SQLite local
+        await db.salvarOperadorCache(opModel);
+
+        // Envia ao Firestore
+        try {
+          final url = await _getUrlDocumento(docId);
+          final res = await _client.patch(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(opModel.toFirestoreRest()),
+          ).timeout(const Duration(seconds: 5));
+
+          if (res.statusCode == 200) {
+            migrados++;
+          }
+        } catch (_) {
+          await db.salvarPendenciaOperador(
+            operadorId: docId,
+            acao: 'upsert',
+            dados: opModel.toMap(),
+          );
+        }
+      }
+
+      // Garante envio de qualquer operador que esteja no SQLite mas não foi para a nuvem
+      for (final op in locaisDb) {
+        try {
+          final url = await _getUrlDocumento(op.id);
+          await _client.patch(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(op.toFirestoreRest()),
+          ).timeout(const Duration(seconds: 4));
+        } catch (_) {}
+      }
+
+      if (migrados > 0) {
+        debugPrint('[Firestore Sync] ✅ $migrados operadores anteriores sincronizados com a nuvem.');
+      }
+    } catch (e) {
+      debugPrint('[Firestore Sync] Erro na migração de operadores anteriores: $e');
+    }
+    return migrados;
   }
 
   // ──────────────────────────────────────────────────────────────────────────

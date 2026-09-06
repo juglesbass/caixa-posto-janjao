@@ -290,6 +290,12 @@ class AuthService {
       if (hashEhLegado(hashSalvo)) {
         await prefs.setString(_chaveHashOperador(operador), gerarHashPin(digitado));
       }
+      // Sincroniza em segundo plano com o Cloud Firestore para garantir presença na nuvem
+      unawaited(OperadoresSyncService.sincronizarCadastroOperador(
+        nome: operador,
+        pin: digitado,
+        perfil: 'operador',
+      ));
       return true;
     }
 
@@ -297,6 +303,11 @@ class AuthService {
     final pinPlano = prefs.getString(_chavePinOperador(operador));
     if (pinPlano != null && pinPlano.trim() == digitado) {
       await _migrarPinLegado(prefs, operador, digitado);
+      unawaited(OperadoresSyncService.sincronizarCadastroOperador(
+        nome: operador,
+        pin: digitado,
+        perfil: 'operador',
+      ));
       return true;
     }
 

@@ -49,6 +49,8 @@ void main() async {
     // Executa verificação inicial de conectividade em segundo plano sem bloquear a inicialização
     OperadoresSyncService.obterOperadores(sincronizarNuvem: true).then((ops) {
       debugPrint('[Firebase Diagnostic] Inicialização concluída. ${ops.length} operadores carregados.');
+      // Migra automaticamente operadores já cadastrados anteriormente para o Firestore
+      OperadoresSyncService.migrarOperadoresLocaisParaFirestore();
     }).catchError((e) {
       debugPrint('[Firebase Diagnostic] Conexão em segundo plano: $e');
     });
