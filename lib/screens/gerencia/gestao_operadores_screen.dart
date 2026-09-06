@@ -1257,6 +1257,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -1392,7 +1393,6 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
