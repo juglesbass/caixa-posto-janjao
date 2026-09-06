@@ -112,6 +112,8 @@ flutter build web --release --dart-define=DRIVE_WEBHOOK_URL=https://script.googl
 
 Como este repositório é público, a URL padrão é conhecida por qualquer um. Para rotacionar o webhook, publique um novo Apps Script e informe a URL nova por uma das duas primeiras opções — sem depender de alterar o código.
 
+O código do Apps Script que recebe os PDFs e o passo a passo para atualizá-lo estão em [`apps-script/`](apps-script/README.md). Vale a leitura: é lá que mora a idempotência que impede o gerente de receber o mesmo turno duas vezes quando o envio é reenviado após um timeout.
+
 ### Firestore (sincronização de operadores)
 
 Os operadores e os hashes de PIN são sincronizados via API REST do Cloud Firestore, em modo *offline-first*: o app funciona 100% com o cache local e sincroniza quando há rede.
