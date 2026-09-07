@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../dialogs/cadastro_pin_dialog.dart';
 import '../models/operador_model.dart';
@@ -36,7 +35,6 @@ class _AuthDialogState extends State<AuthDialog> {
   final _controllerNome = TextEditingController();
   final _controllerPin = TextEditingController();
   final _focusNome = FocusNode();
-  final _focusPin = FocusNode();
 
   String? _erroNome;
   String? _erroPin;
@@ -62,24 +60,17 @@ class _AuthDialogState extends State<AuthDialog> {
   @override
   void initState() {
     super.initState();
-    _focusPin.addListener(_repintar);
     // Puxa a lista mais recente sem travar a abertura do diálogo
     unawaited(OperadoresSyncService.obterOperadores(sincronizarNuvem: true));
-  }
-
-  void _repintar() {
-    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _debounceTimer?.cancel();
-    _focusPin.removeListener(_repintar);
     _controllerNome.dispose();
     _controllerPin.dispose();
     _controllerBusca.dispose();
     _focusNome.dispose();
-    _focusPin.dispose();
     super.dispose();
   }
 
@@ -103,9 +94,6 @@ class _AuthDialogState extends State<AuthDialog> {
     final temPin = await AuthService.operadorTemPin(op.nomeExibicao);
     if (!mounted) return;
     setState(() => _mostrarCampoPin = temPin);
-    if (temPin) {
-      _focusPin.requestFocus();
-    }
   }
 
   void _entrarNoModoManual() {
@@ -151,15 +139,6 @@ class _AuthDialogState extends State<AuthDialog> {
         setState(() => _mostrarCampoPin = false);
       }
     });
-  }
-
-  void _onPinChanged(String val) {
-    if (_erroPin != null) setState(() => _erroPin = null);
-    setState(() {}); // redesenha as casas do PIN
-    // 4 dígitos completos: confirma sozinho, sem exigir mais um toque
-    if (val.length == 4 && !_processando) {
-      _confirmar();
-    }
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -211,7 +190,6 @@ class _AuthDialogState extends State<AuthDialog> {
           _mostrarCampoPin = true;
           _erroPin = 'Digite os 4 números do seu PIN';
         });
-        _focusPin.requestFocus();
         return;
       }
 
@@ -226,7 +204,6 @@ class _AuthDialogState extends State<AuthDialog> {
           _erroPin = 'PIN incorreto. Tente novamente.';
         });
         _controllerPin.clear();
-        _focusPin.requestFocus();
         return;
       }
     }
@@ -538,11 +515,12 @@ class _AuthDialogState extends State<AuthDialog> {
       height: 42,
       child: TextField(
         controller: _controllerBusca,
-        style: TextStyle(color: textPri, fontSize: 13.5),
+        // Também 16px, pelo mesmo motivo do campo de nome
+        style: TextStyle(color: textPri, fontSize: 16),
         decoration: InputDecoration(
           isDense: true,
           hintText: 'Buscar operador',
-          hintStyle: TextStyle(color: textSec, fontSize: 13.5),
+          hintStyle: TextStyle(color: textSec, fontSize: 15),
           prefixIcon: Icon(Icons.search_rounded, size: 18, color: textSec),
           suffixIcon: _busca.isEmpty
               ? null
@@ -607,7 +585,9 @@ class _AuthDialogState extends State<AuthDialog> {
         autofocus: podeVoltar == false,
         textCapitalization: TextCapitalization.words,
         textInputAction: TextInputAction.done,
-        style: TextStyle(color: textPri, fontSize: 15, fontWeight: FontWeight.w600),
+        // 16px é o mínimo: abaixo disso o Safari do iOS aplica zoom automático
+        // ao focar, ampliando a tela inteira.
+        style: TextStyle(color: textPri, fontSize: 16, fontWeight: FontWeight.w600),
         decoration: InputDecoration(
           hintText: 'Digite o nome completo',
           prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
@@ -793,60 +773,28 @@ class _AuthDialogState extends State<AuthDialog> {
       children: [
         _rotulo('PIN DE ACESSO', isDark),
         const SizedBox(height: 10),
-        // Um único campo guarda o valor; as quatro casas são só a representação
-        // dele. Evita a dança de foco entre quatro campos, que quebra colar e
-        // apagar.
+        // Quatro casas apenas de leitura: quem digita é o teclado abaixo.
         //
-        // O campo fica no fluxo normal, ocupando exatamente a área das casas,
-        // apenas com texto e cursor transparentes. Escondê-lo dentro de um
-        // Opacity(0) tirava o input do lugar onde o navegador acha que ele
-        // está, e no iOS o Safari rolava a página atrás dele — foi o que fazia
-        // o diálogo sumir ao tocar no PIN.
-        SizedBox(
-          height: 54,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: Row(
-                    children: List.generate(4, (i) => Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.only(right: i == 3 ? 0 : 8),
-                            child: _casaPin(i, isDark),
-                          ),
-                        )),
-                  ),
+        // Não há TextField aqui de propósito. Campo de texto abre o teclado do
+        // sistema, e no iOS qualquer campo com fonte menor que 16px dispara o
+        // zoom automático do Safari — que ampliava a tela inteira e derrubava o
+        // app. Teclado próprio também resolve o resto de uma vez: nada mais
+        // cobre o diálogo, nada rola atrás do foco, e o alvo de toque fica bem
+        // maior que o de um teclado numérico de sistema.
+        Row(
+          children: List.generate(4, (i) => Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: i == 3 ? 0 : 8),
+                  child: _casaPin(i, isDark),
                 ),
-              ),
-              TextField(
-                controller: _controllerPin,
-                focusNode: _focusPin,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                obscureText: true,
-                showCursor: false,
-                enableInteractiveSelection: false,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.transparent, fontSize: 1),
-                cursorColor: Colors.transparent,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(
-                  counterText: '',
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                onChanged: _onPinChanged,
-                onSubmitted: (_) => _confirmar(),
-              ),
-            ],
-          ),
+              )),
         ),
         if (_erroPin != null) ...[
           const SizedBox(height: 10),
           _mensagemErro(_erroPin!),
         ],
+        const SizedBox(height: 12),
+        _tecladoNumerico(isDark),
       ],
     );
   }
@@ -854,23 +802,23 @@ class _AuthDialogState extends State<AuthDialog> {
   Widget _casaPin(int indice, bool isDark) {
     final valor = _controllerPin.text;
     final preenchido = indice < valor.length;
-    final ativo = _focusPin.hasFocus && indice == valor.length;
+    final proxima = indice == valor.length;
     final temErro = _erroPin != null;
 
     final corBorda = temErro
         ? AppColors.red
-        : ativo
+        : proxima
             ? AppColors.accentLight
             : (isDark ? const Color(0xFF1E293B) : AppColors.lightBorder);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 140),
-      height: 54,
+      height: 52,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF161E31) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(AppColors.radiusMd),
-        border: Border.all(color: corBorda, width: ativo || temErro ? 1.6 : 1),
+        border: Border.all(color: corBorda, width: proxima || temErro ? 1.6 : 1),
       ),
       child: preenchido
           ? Container(
@@ -881,14 +829,110 @@ class _AuthDialogState extends State<AuthDialog> {
                 color: temErro ? AppColors.red : AppColors.accentLight,
               ),
             )
-          : (ativo
-              ? Container(
-                  width: 2,
-                  height: 22,
-                  color: AppColors.accentLight.withValues(alpha: 0.8),
-                )
-              : const SizedBox.shrink()),
+          : const SizedBox.shrink(),
     );
+  }
+
+  Widget _tecladoNumerico(bool isDark) {
+    const linhas = [
+      ['1', '2', '3'],
+      ['4', '5', '6'],
+      ['7', '8', '9'],
+      ['C', '0', '<'],
+    ];
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final linha in linhas)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                for (final t in linha)
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: t == linha.last ? 0 : 8),
+                      child: _tecla(t, isDark),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _tecla(String valor, bool isDark) {
+    final ehAcao = valor == 'C' || valor == '<';
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+
+    return Material(
+      color: isDark ? const Color(0xFF161E31) : const Color(0xFFF1F5F9),
+      borderRadius: BorderRadius.circular(AppColors.radiusMd),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppColors.radiusMd),
+        onTap: _processando ? null : () => _teclar(valor),
+        child: Container(
+          height: 48,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppColors.radiusMd),
+            border: Border.all(
+              color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder,
+            ),
+          ),
+          child: valor == '<'
+              ? Icon(Icons.backspace_outlined, size: 19, color: textSec)
+              : Text(
+                  valor,
+                  style: TextStyle(
+                    fontSize: ehAcao ? 15 : 20,
+                    fontWeight: FontWeight.w700,
+                    color: ehAcao ? textSec : textPri,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  void _teclar(String valor) {
+    final atual = _controllerPin.text;
+
+    if (valor == 'C') {
+      AppHaptics.light();
+      setState(() {
+        _controllerPin.clear();
+        _erroPin = null;
+      });
+      return;
+    }
+
+    if (valor == '<') {
+      if (atual.isEmpty) return;
+      AppHaptics.light();
+      setState(() {
+        _controllerPin.text = atual.substring(0, atual.length - 1);
+        _erroPin = null;
+      });
+      return;
+    }
+
+    if (atual.length >= 4) return;
+
+    AppHaptics.selection();
+    final novo = atual + valor;
+    setState(() {
+      _controllerPin.text = novo;
+      _erroPin = null;
+    });
+
+    // Quarto dígito: confirma sozinho, sem pedir mais um toque
+    if (novo.length == 4 && !_processando) {
+      _confirmar();
+    }
   }
 
   // ── Rodapé ───────────────────────────────────────────────────────────────
