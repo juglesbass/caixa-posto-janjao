@@ -330,6 +330,16 @@ class AuthService {
       return digitado == _pinGerentePadrao;
     }
 
+    // Daqui para baixo vem a derivação cara (20.000 iterações no Web), e ela
+    // roda na thread da interface. Sem esta pausa, o indicador de carregamento
+    // que a tela acabou de ligar nunca chega a ser desenhado: a thread já está
+    // ocupada quando o frame seria pintado, e o usuário vê travamento em vez de
+    // espera. Dois frames bastam para o spinner aparecer.
+    //
+    // Fica aqui, e não em cada tela, porque o PIN Mestre é pedido em vários
+    // lugares — gerência, override de fechamento, reabertura de turno.
+    await Future<void>.delayed(const Duration(milliseconds: 32));
+
     final prefs = await SharedPreferences.getInstance();
     final personalizado = prefs.getBool(keyPinGerentePersonalizado);
     String? hashSalvo = prefs.getString(keyPinGerenteHash);
