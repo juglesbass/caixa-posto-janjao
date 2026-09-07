@@ -139,6 +139,7 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
       _pin = '';
     });
 
+    await Future<void>.delayed(const Duration(milliseconds: 16));
     final temPin = await AuthService.operadorTemPin(formatado);
     if (!mounted) return;
 
@@ -211,6 +212,11 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
   Future<void> _validarPin() async {
     if (_processando) return;
     setState(() => _processando = true);
+
+    // Dois frames antes de começar: a derivação do PIN é pesada e roda na
+    // thread da interface. Sem esta pausa, o setState acima nunca chega a ser
+    // desenhado — a tela congela sem nenhum sinal de que algo está em curso.
+    await Future<void>.delayed(const Duration(milliseconds: 32));
 
     final valido = await AuthService.validarPin(_nomeEmValidacao, _pin);
     if (!mounted) return;
@@ -508,28 +514,16 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
           children: [
             if (nomesRecentes.isNotEmpty) ...[
               _rotulo('RECENTES NESTE CAIXA', isDark),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final nome in nomesRecentes) _cartaoNome(nome, isDark, destaque: true),
-                ],
-              ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 8),
+              _grade(nomesRecentes, isDark, destaque: true),
+              const SizedBox(height: 18),
             ],
             _rotulo(
               nomesRecentes.isEmpty ? 'QUEM ESTÁ ASSUMINDO O CAIXA?' : 'OUTROS OPERADORES',
               isDark,
             ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final op in demais) _cartaoNome(op.nomeExibicao, isDark),
-              ],
-            ),
+            const SizedBox(height: 8),
+            _grade([for (final op in demais) op.nomeExibicao], isDark),
             const SizedBox(height: 18),
             _botaoOutroNome(isDark),
             if (_erroNome != null) ...[
@@ -542,20 +536,45 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
     );
   }
 
+  /// Duas colunas de cartões compactos.
+  ///
+  /// Um por linha ficava confortável com 2 operadores e insustentável com 12:
+  /// a lista virava uma rolagem longa antes de chegar em qualquer outra coisa.
+  Widget _grade(List<String> nomes, bool isDark, {bool destaque = false}) {
+    if (nomes.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const espaco = 8.0;
+        final largura = (constraints.maxWidth - espaco) / 2;
+        return Wrap(
+          spacing: espaco,
+          runSpacing: espaco,
+          children: [
+            for (final nome in nomes)
+              SizedBox(
+                width: largura,
+                child: _cartaoNome(nome, isDark, destaque: destaque),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _cartaoNome(String nome, bool isDark, {bool destaque = false}) {
     final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
 
     return InkWell(
       onTap: _processando ? null : () => _selecionarNome(nome),
-      borderRadius: BorderRadius.circular(AppColors.radiusLg),
+      borderRadius: BorderRadius.circular(AppColors.radiusMd),
       child: Container(
-        width: 190,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
         decoration: BoxDecoration(
           color: destaque
               ? AppColors.accent.withValues(alpha: isDark ? 0.16 : 0.08)
               : (isDark ? const Color(0xFF121A2B) : const Color(0xFFF8FAFC)),
-          borderRadius: BorderRadius.circular(AppColors.radiusLg),
+          borderRadius: BorderRadius.circular(AppColors.radiusMd),
           border: Border.all(
             color: destaque
                 ? AppColors.accentLight.withValues(alpha: 0.6)
@@ -565,16 +584,15 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
         child: Row(
           children: [
             _avatar(nome, destaque, isDark),
-            const SizedBox(width: 10),
+            const SizedBox(width: 9),
             Expanded(
               child: Text(
                 nome,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  height: 1.15,
                   color: destaque ? AppColors.accentLight : textPri,
                 ),
               ),
@@ -595,8 +613,8 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
             : '${partes.first.substring(0, 1)}${partes.last.substring(0, 1)}');
 
     return Container(
-      width: 38,
-      height: 38,
+      width: 30,
+      height: 30,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -614,7 +632,7 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
       child: Text(
         iniciais.toUpperCase(),
         style: TextStyle(
-          fontSize: 13.5,
+          fontSize: 11.5,
           fontWeight: FontWeight.w800,
           color: destaque
               ? Colors.white
@@ -629,7 +647,7 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
 
     return SizedBox(
       width: double.infinity,
-      height: 50,
+      height: 46,
       child: OutlinedButton.icon(
         onPressed: _processando ? null : _irParaDigitacao,
         icon: const Icon(Icons.person_add_alt_1_rounded, size: 19),

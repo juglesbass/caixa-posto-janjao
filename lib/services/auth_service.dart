@@ -486,12 +486,17 @@ class AuthService {
     final digitado = pinDigitado.trim();
     if (digitado.length != 4) return false;
 
-    // 1. O PIN Mestre da Gerência é soberano e valida qualquer operação (fallback de emergência)
-    if (await validarPinGerente(digitado)) {
-      return true;
-    }
+    // O PIN Mestre continua valendo para qualquer operação, mas é conferido por
+    // ÚLTIMO, não por primeiro.
+    //
+    // Ele usa uma contagem de iterações bem maior que a do operador (20.000
+    // contra 4.000 no Web). Testá-lo antes fazia todo login pagar as duas
+    // contas, na thread da interface: no Safari do iPhone isso travava a tela
+    // por mais de um segundo, e o próprio indicador de carregamento não chegava
+    // a ser desenhado. Agora o caminho comum — o operador digitando o próprio
+    // PIN — paga só a conta barata.
 
-    // 2. Estado oficial do operador no cadastro sincronizado.
+    // 1. Estado oficial do operador no cadastro sincronizado.
     //
     //    Este passo é a trava: se o cadastro existe e diz que o operador foi
     //    excluído ou desativado, a validação termina aqui, negando. Antes, a
@@ -504,6 +509,10 @@ class AuthService {
     } catch (_) {}
 
     if (cadastro != null && (cadastro.removido || !cadastro.ativo)) {
+      // A gerência continua conseguindo agir sobre um operador removido — por
+      // exemplo, reabrir um turno antigo dele. O PIN do próprio removido segue
+      // negado. Aqui o custo alto do PIN Mestre não incomoda: é caminho raro.
+      if (await validarPinGerente(digitado)) return true;
       await _revogarCredenciaisLocais(operador);
       return false;
     }
@@ -525,13 +534,13 @@ class AuthService {
 
     final prefs = await SharedPreferences.getInstance();
 
-    // 3. Hash local. Chega aqui quem não está no cadastro da nuvem (aparelho que
+    // 2. Hash local. Chega aqui quem não está no cadastro da nuvem (aparelho que
     //    nunca sincronizou, ou operador anterior ao Firestore) e também quem
     //    trocou o PIN neste aparelho e a gravação na nuvem ainda está na fila
     //    offline — nesse caso o hash local é o mais novo dos dois, e recusar
     //    aqui trancaria o operador para fora do próprio caixa.
     //
-    //    Operador excluído ou desativado nunca alcança este ponto: o passo 2
+    //    Operador excluído ou desativado nunca alcança este ponto: o passo 1
     //    encerra antes.
     final hashSalvo = prefs.getString(_chaveHashOperador(operador));
     if (verificarPin(digitado, hashSalvo)) {
@@ -558,6 +567,13 @@ class AuthService {
         pin: digitado,
         perfil: cadastro?.perfil,
       ));
+      return true;
+    }
+
+    // Por último, o PIN Mestre da Gerência, que valida qualquer operação.
+    // Ficar no fim é o que mantém o login comum rápido: só quem errou o próprio
+    // PIN, ou é de fato a gerência, paga as 20.000 iterações.
+    if (await validarPinGerente(digitado)) {
       return true;
     }
 
