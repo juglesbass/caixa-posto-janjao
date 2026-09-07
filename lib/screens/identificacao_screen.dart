@@ -277,32 +277,39 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
       // É justamente o que o diálogo não conseguia fazer.
       resizeToAvoidBottomInset: true,
       body: Container(
+        // Precisa preencher a tela: sem isto o Container se dimensiona pelo
+        // conteúdo e o gradiente corta numa linha dura no meio da tela.
+        width: double.infinity,
+        height: double.infinity,
         // Fundo com profundidade. Preto chapado deixava a tela com cara de
         // vazio, principalmente com poucos operadores na lista.
         decoration: BoxDecoration(
+          // Azul fosco embaixo: o conteúdo fica ancorado no topo, então a cor
+          // ocupa a área que sobra — e é justamente a área que o teclado cobre
+          // quando sobe, sem empurrar nada.
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: isDark
-                ? const [Color(0xFF101B33), Color(0xFF0A0F1A), Color(0xFF070A11)]
-                : const [Color(0xFFEFF4FF), Color(0xFFF8FAFC), Color(0xFFF1F5F9)],
-            stops: const [0.0, 0.45, 1.0],
+                ? const [Color(0xFF090D16), Color(0xFF0C1526), Color(0xFF13223F)]
+                : const [Color(0xFFF8FAFC), Color(0xFFF1F5F9), Color(0xFFE2EBFB)],
+            stops: const [0.0, 0.55, 1.0],
           ),
         ),
         child: Stack(
           children: [
-            // Brilho suave atrás do topo, para o fundo não ser uma chapa só
+            // Brilho suave na parte de baixo, acompanhando o azul
             Positioned(
-              top: -140,
+              bottom: -160,
               left: -80,
               right: -80,
-              height: 380,
+              height: 420,
               child: IgnorePointer(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: RadialGradient(
                       colors: [
-                        AppColors.accent.withValues(alpha: isDark ? 0.20 : 0.12),
+                        AppColors.accent.withValues(alpha: isDark ? 0.22 : 0.14),
                         Colors.transparent,
                       ],
                     ),
@@ -310,32 +317,29 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
                 ),
               ),
             ),
-            SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                      // Centraliza quando sobra espaço e rola quando o teclado
-                      // encolhe a área útil
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 460),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (widget.banner != null) widget.banner!,
-                                _painel(isDark),
-                              ],
-                            ),
-                          ),
+            // Ancorado no topo, de propósito. Centralizado, o conteúdo subia
+            // quando o teclado reduzia a área útil — e a tela inteira parecia
+            // se mexer. No topo ele fica parado: o teclado só cobre o azul.
+            Positioned.fill(
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 16),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 460),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.banner != null) widget.banner!,
+                            _painel(isDark),
+                          ],
                         ),
                       ),
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
             ),
           ],
@@ -516,7 +520,7 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
               _rotulo('RECENTES NESTE CAIXA', isDark),
               const SizedBox(height: 8),
               _grade(nomesRecentes, isDark, destaque: true),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
             ],
             _rotulo(
               nomesRecentes.isEmpty ? 'QUEM ESTÁ ASSUMINDO O CAIXA?' : 'OUTROS OPERADORES',
@@ -540,13 +544,21 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
   ///
   /// Um por linha ficava confortável com 2 operadores e insustentável com 12:
   /// a lista virava uma rolagem longa antes de chegar em qualquer outra coisa.
+  /// Grade de nomes. O cartão é deliberadamente baixo: com 12 operadores, um
+  /// cartão alto transforma a lista numa rolagem longa antes de o operador
+  /// chegar em qualquer outra coisa da tela.
   Widget _grade(List<String> nomes, bool isDark, {bool destaque = false}) {
     if (nomes.isEmpty) return const SizedBox.shrink();
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        const espaco = 8.0;
-        final largura = (constraints.maxWidth - espaco) / 2;
+        const espaco = 6.0;
+        // Largura mínima por cartão define quantas colunas cabem: 2 no celular,
+        // 3 quando há mais espaço.
+        final colunas = (constraints.maxWidth / 150).floor().clamp(2, 3);
+        final largura =
+            (constraints.maxWidth - espaco * (colunas - 1)) / colunas;
+
         return Wrap(
           spacing: espaco,
           runSpacing: espaco,
@@ -569,7 +581,7 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
       onTap: _processando ? null : () => _selecionarNome(nome),
       borderRadius: BorderRadius.circular(AppColors.radiusMd),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
           color: destaque
               ? AppColors.accent.withValues(alpha: isDark ? 0.16 : 0.08)
@@ -584,14 +596,14 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
         child: Row(
           children: [
             _avatar(nome, destaque, isDark),
-            const SizedBox(width: 9),
+            const SizedBox(width: 7),
             Expanded(
               child: Text(
                 nome,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12.5,
                   fontWeight: FontWeight.w700,
                   color: destaque ? AppColors.accentLight : textPri,
                 ),
@@ -613,8 +625,8 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
             : '${partes.first.substring(0, 1)}${partes.last.substring(0, 1)}');
 
     return Container(
-      width: 30,
-      height: 30,
+      width: 22,
+      height: 22,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -632,7 +644,7 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
       child: Text(
         iniciais.toUpperCase(),
         style: TextStyle(
-          fontSize: 11.5,
+          fontSize: 9.5,
           fontWeight: FontWeight.w800,
           color: destaque
               ? Colors.white
