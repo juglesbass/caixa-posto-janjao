@@ -91,9 +91,23 @@ class AuthService {
 
     // Sincroniza em tempo real com o Cloud Firestore e adiciona à fila offline
     // se não houver rede. Sem `perfil`, o cadastro existente é preservado.
+    //
+    // `restaurar: true` porque chegar aqui exige uma pessoa digitando um PIN
+    // novo duas vezes num diálogo — é ação deliberada, não rotina de fundo.
+    //
+    // Sem isso, recadastrar um operador excluído entrava num ciclo: o cadastro
+    // era recusado em silêncio, o documento continuava marcado como removido, o
+    // operador não aparecia em lista nenhuma, e no login seguinte a própria
+    // credencial local recém-criada era revogada. Registrava, entrava uma vez,
+    // sumia, e repetia.
+    //
+    // As sincronizações automáticas que acontecem depois de um login bem
+    // sucedido continuam com `restaurar: false`: rotina de fundo não pode
+    // ressuscitar quem a gerência excluiu.
     unawaited(OperadoresSyncService.sincronizarCadastroOperador(
       nome: operador,
       pin: limpo,
+      restaurar: true,
     ));
 
     return true;
