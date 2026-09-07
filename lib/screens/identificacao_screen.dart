@@ -224,26 +224,109 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
       // Padrão do Scaffold: o teclado reduz a altura útil e o conteúdo rola.
       // É justamente o que o diálogo não conseguia fazer.
       resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: Column(
+      body: Container(
+        // Fundo com profundidade. Preto chapado deixava a tela com cara de
+        // vazio, principalmente com poucos operadores na lista.
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: isDark
+                ? const [Color(0xFF101B33), Color(0xFF0A0F1A), Color(0xFF070A11)]
+                : const [Color(0xFFEFF4FF), Color(0xFFF8FAFC), Color(0xFFF1F5F9)],
+            stops: const [0.0, 0.45, 1.0],
+          ),
+        ),
+        child: Stack(
           children: [
-            _topo(isDark),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: switch (_etapa) {
-                    _Etapa.escolha => _passoEscolha(isDark),
-                    _Etapa.digitarNome => _passoDigitarNome(isDark),
-                    _Etapa.pin => _passoPin(isDark),
-                  },
+            // Brilho suave atrás do topo, para o fundo não ser uma chapa só
+            Positioned(
+              top: -140,
+              left: -80,
+              right: -80,
+              height: 380,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      colors: [
+                        AppColors.accent.withValues(alpha: isDark ? 0.20 : 0.12),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-            if (_etapa == _Etapa.escolha && widget.novoTurno) _rodapeHistorico(isDark),
+            SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                      // Centraliza quando sobra espaço e rola quando o teclado
+                      // encolhe a área útil
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 460),
+                            child: _painel(isDark),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Superfície onde o conteúdo vive. É ela que devolve a contenção que o
+  /// diálogo tinha — borda, elevação e cantos — sem trazer de volta o problema
+  /// do teclado, porque quem gerencia a altura continua sendo o Scaffold.
+  Widget _painel(bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0E1524) : Colors.white,
+        borderRadius: BorderRadius.circular(AppColors.radiusXl),
+        border: Border.all(
+          color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.10),
+            blurRadius: 40,
+            spreadRadius: -6,
+            offset: const Offset(0, 18),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _topo(isDark),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              alignment: Alignment.topCenter,
+              child: switch (_etapa) {
+                _Etapa.escolha => _passoEscolha(isDark),
+                _Etapa.digitarNome => _passoDigitarNome(isDark),
+                _Etapa.pin => _passoPin(isDark),
+              },
+            ),
+          ),
+          if (_etapa == _Etapa.escolha && widget.novoTurno) _rodapeHistorico(isDark),
+          const SizedBox(height: 6),
+        ],
       ),
     );
   }
@@ -255,8 +338,22 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
     final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
     final naEscolha = _etapa == _Etapa.escolha;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [const Color(0xFF16223C), const Color(0xFF0E1524)]
+              : [const Color(0xFFEFF6FF), Colors.white],
+        ),
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder,
+          ),
+        ),
+      ),
       child: Row(
         children: [
           if (naEscolha)
@@ -388,8 +485,8 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
       onTap: _processando ? null : () => _selecionarNome(nome),
       borderRadius: BorderRadius.circular(AppColors.radiusLg),
       child: Container(
-        width: 152,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        width: 190,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
         decoration: BoxDecoration(
           color: destaque
               ? AppColors.accent.withValues(alpha: isDark ? 0.16 : 0.08)
@@ -670,8 +767,15 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
 
   Widget _rodapeHistorico(bool isDark) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-      child: SizedBox(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Divider(
+            height: 18,
+            color: isDark ? const Color(0xFF1B2233) : AppColors.lightBorder,
+          ),
+          SizedBox(
         width: double.infinity,
         height: 46,
         child: TextButton.icon(
@@ -683,13 +787,15 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
             'Histórico e reabrir turno',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.blue,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppColors.radiusMd),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.blue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
