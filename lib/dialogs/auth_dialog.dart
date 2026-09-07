@@ -253,10 +253,22 @@ class _AuthDialogState extends State<AuthDialog> {
     // o diálogo respeita a área livre acima do teclado.
     final alturaTeclado = MediaQuery.viewInsetsOf(context).bottom;
 
+    final comTeclado = alturaTeclado > 0;
+
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      insetPadding: EdgeInsets.fromLTRB(20, 24, 20, 24 + alturaTeclado),
+      // Centralizado é bonito com a tela livre, mas com o teclado aberto o
+      // espaço restante encolhe e o diálogo era empurrado para fora da tela —
+      // no iOS ele sumia para cima. Ancorado no topo isso não acontece: o que
+      // não couber vira rolagem dentro do corpo.
+      alignment: comTeclado ? Alignment.topCenter : Alignment.center,
+      insetPadding: EdgeInsets.fromLTRB(
+        16,
+        comTeclado ? 12 : 24,
+        16,
+        (comTeclado ? 8 : 24) + alturaTeclado,
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Container(
@@ -395,6 +407,11 @@ class _AuthDialogState extends State<AuthDialog> {
         final semLista = disponiveis.isEmpty;
         final digitando = _modoManual || semLista;
 
+        // Depois de escolher, a lista inteira só ocupa espaço — e espaço é
+        // exatamente o que falta com o teclado aberto. Vira uma linha compacta
+        // com quem foi escolhido e um atalho para trocar.
+        final confirmandoPin = !digitando && _selecionado != null && _mostrarCampoPin;
+
         return Column(
           key: ValueKey('corpo-${digitando ? 'manual' : 'lista'}-${_selecionado?.id ?? ''}'),
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,6 +419,8 @@ class _AuthDialogState extends State<AuthDialog> {
           children: [
             if (digitando)
               ..._blocoDigitacao(isDark, podeVoltar: !semLista)
+            else if (confirmandoPin)
+              _resumoSelecionado(isDark)
             else
               ..._blocoLista(isDark, disponiveis),
             if (_mostrarCampoPin) ...[
@@ -452,6 +471,63 @@ class _AuthDialogState extends State<AuthDialog> {
         _mensagemErro(_erroNome!),
       ],
     ];
+  }
+
+  /// Linha compacta do operador já escolhido, exibida no lugar da lista
+  Widget _resumoSelecionado(bool isDark) {
+    final op = _selecionado!;
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: isDark ? 0.14 : 0.08),
+        borderRadius: BorderRadius.circular(AppColors.radiusMd),
+        border: Border.all(color: AppColors.accentLight.withValues(alpha: 0.55)),
+      ),
+      child: Row(
+        children: [
+          _avatarIniciais(op.nomeExibicao, true, isDark),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  op.nomeExibicao,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    color: textPri,
+                  ),
+                ),
+                Text(
+                  'Assumindo o caixa',
+                  style: TextStyle(fontSize: 11, color: textSec),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: _voltarParaLista,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.accentLight,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              minimumSize: const Size(0, 34),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text(
+              'Trocar',
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _campoBusca(bool isDark) {
@@ -717,43 +793,55 @@ class _AuthDialogState extends State<AuthDialog> {
       children: [
         _rotulo('PIN DE ACESSO', isDark),
         const SizedBox(height: 10),
-        // Um único campo invisível guarda o valor; as quatro casas abaixo são
-        // só a representação dele. Evita a dança de foco entre quatro campos,
-        // que quebra colar, apagar e o preenchimento automático do teclado.
-        Stack(
-          children: [
-            Opacity(
-              opacity: 0,
-              child: SizedBox(
-                height: 54,
-                child: TextField(
-                  controller: _controllerPin,
-                  focusNode: _focusPin,
-                  keyboardType: TextInputType.number,
-                  maxLength: 4,
-                  obscureText: true,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(counterText: ''),
-                  onChanged: _onPinChanged,
-                  onSubmitted: (_) => _confirmar(),
+        // Um único campo guarda o valor; as quatro casas são só a representação
+        // dele. Evita a dança de foco entre quatro campos, que quebra colar e
+        // apagar.
+        //
+        // O campo fica no fluxo normal, ocupando exatamente a área das casas,
+        // apenas com texto e cursor transparentes. Escondê-lo dentro de um
+        // Opacity(0) tirava o input do lugar onde o navegador acha que ele
+        // está, e no iOS o Safari rolava a página atrás dele — foi o que fazia
+        // o diálogo sumir ao tocar no PIN.
+        SizedBox(
+          height: 54,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Row(
+                    children: List.generate(4, (i) => Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(right: i == 3 ? 0 : 8),
+                            child: _casaPin(i, isDark),
+                          ),
+                        )),
+                  ),
                 ),
               ),
-            ),
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _focusPin.requestFocus(),
-                child: Row(
-                  children: List.generate(4, (i) => Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(right: i == 3 ? 0 : 8),
-                          child: _casaPin(i, isDark),
-                        ),
-                      )),
+              TextField(
+                controller: _controllerPin,
+                focusNode: _focusPin,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                obscureText: true,
+                showCursor: false,
+                enableInteractiveSelection: false,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.transparent, fontSize: 1),
+                cursorColor: Colors.transparent,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  counterText: '',
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
                 ),
+                onChanged: _onPinChanged,
+                onSubmitted: (_) => _confirmar(),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         if (_erroPin != null) ...[
           const SizedBox(height: 10),
