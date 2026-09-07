@@ -5,12 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'dialogs/auth_dialog.dart';
 import 'dialogs/quick_launch_modal.dart';
 import 'dialogs/turnos_anteriores_dialog.dart';
 import 'models/totais_turno.dart';
 import 'models/turno.dart';
 import 'screens/history_screen.dart';
+import 'screens/identificacao_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/summary_screen.dart';
@@ -317,16 +317,16 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   void _solicitarIdentificacao({required bool novoTurno}) async {
     final db = DatabaseService.instance;
-    final pin = await db.getConfig('pin_acesso');
 
     if (!mounted) return;
 
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      barrierDismissible: true,
-      builder: (ctx) => AuthDialog(
-        novoTurno: novoTurno,
-        pinConfigurado: pin,
+    // Tela cheia em vez de diálogo: um diálogo tem bordas, e no iOS o teclado
+    // do sistema empurrava essas bordas para fora da tela. O AuthDialog antigo
+    // segue no repositório — voltar é trocar esta chamada de volta.
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (ctx) => IdentificacaoScreen(novoTurno: novoTurno),
       ),
     );
 
