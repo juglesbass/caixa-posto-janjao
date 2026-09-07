@@ -324,9 +324,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       barrierDismissible: true,
-      // Scrim mais escuro: com o padrão a tela de fundo aparecia atrás do
-      // diálogo e os botões repetidos davam impressão de interface quebrada.
-      barrierColor: Colors.black.withValues(alpha: 0.72),
       builder: (ctx) => AuthDialog(
         novoTurno: novoTurno,
         pinConfigurado: pin,
