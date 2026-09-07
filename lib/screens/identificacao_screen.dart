@@ -31,7 +31,32 @@ import '../utils/validator.dart';
 class IdentificacaoScreen extends StatefulWidget {
   final bool novoTurno;
 
-  const IdentificacaoScreen({super.key, required this.novoTurno});
+  /// Quando informado, a tela é usada embutida (é o conteúdo da vez, sem rota
+  /// empurrada) e devolve o resultado por aqui em vez de Navigator.pop.
+  ///
+  /// Sem isso, o app renderizava a tela "Nenhum Turno Aberto" e só no frame
+  /// seguinte empurrava a identificação por cima: dava um flash na abertura e
+  /// a tela antiga ficava por trás.
+  final ValueChanged<Map<String, dynamic>?>? onResultado;
+
+  /// Conteúdo opcional acima do painel — hoje o aviso de PDFs pendentes
+  final Widget? banner;
+
+  /// Alternância de tema, exibida no lugar do X quando a tela está embutida
+  final ValueChanged<bool>? onMudarTema;
+  final bool isDark;
+
+  const IdentificacaoScreen({
+    super.key,
+    required this.novoTurno,
+    this.onResultado,
+    this.banner,
+    this.onMudarTema,
+    this.isDark = true,
+  });
+
+  /// True quando a tela é o próprio conteúdo, e não uma rota sobre outra
+  bool get embutida => onResultado != null;
 
   @override
   State<IdentificacaoScreen> createState() => _IdentificacaoScreenState();
@@ -207,7 +232,28 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
 
   void _concluir(String operador) {
     AppHaptics.medium();
-    Navigator.of(context).pop({'operador': operador, 'fundoCaixa': 0.0});
+    _devolver({'operador': operador, 'fundoCaixa': 0.0});
+  }
+
+  void _devolver(Map<String, dynamic>? resultado) {
+    if (widget.embutida) {
+      widget.onResultado!(resultado);
+      // Embutida, a tela continua montada: limpa para o próximo uso
+      if (mounted) {
+        setState(() {
+          _etapa = _Etapa.escolha;
+          _nomeEmValidacao = '';
+          _pin = '';
+          _controllerNome.clear();
+          _controllerPin.clear();
+          _erroNome = null;
+          _erroPin = null;
+          _processando = false;
+        });
+      }
+      return;
+    }
+    Navigator.of(context).pop(resultado);
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -271,7 +317,13 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
                           padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 460),
-                            child: _painel(isDark),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (widget.banner != null) widget.banner!,
+                                _painel(isDark),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -406,11 +458,23 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
               ],
             ),
           ),
-          IconButton(
-            icon: Icon(Icons.close_rounded, color: textSec),
-            tooltip: 'Fechar',
-            onPressed: _processando ? null : () => Navigator.of(context).pop(),
-          ),
+          if (widget.embutida && widget.onMudarTema != null && _etapa == _Etapa.escolha)
+            IconButton(
+              icon: Icon(
+                widget.isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                color: widget.isDark ? const Color(0xFFFBBF24) : const Color(0xFF2563EB),
+              ),
+              tooltip: widget.isDark ? 'Tema claro' : 'Tema escuro',
+              onPressed: () => widget.onMudarTema!(!widget.isDark),
+            )
+          else if (!widget.embutida)
+            IconButton(
+              icon: Icon(Icons.close_rounded, color: textSec),
+              tooltip: 'Fechar',
+              onPressed: _processando ? null : () => Navigator.of(context).pop(),
+            )
+          else
+            const SizedBox(width: 8),
         ],
       ),
     );
@@ -781,7 +845,7 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
         child: TextButton.icon(
           onPressed: _processando
               ? null
-              : () => Navigator.of(context).pop({'acao': 'historico'}),
+              : () => _devolver({'acao': 'historico'}),
           icon: const Icon(Icons.history_rounded, size: 19),
           label: const Text(
             'Histórico e reabrir turno',

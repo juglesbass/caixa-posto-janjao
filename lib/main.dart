@@ -266,12 +266,12 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       if (!mounted) return;
 
       if (turnoAberto == null) {
+        // Sem rota empurrada: o build já mostra a identificação como conteúdo.
+        // Empurrar por cima causava um flash da tela anterior na abertura, e
+        // ela continuava montada por trás.
         setState(() {
           _turnoAtual = null;
           _carregando = false;
-        });
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _solicitarIdentificacao(novoTurno: true);
         });
       } else {
         final totais = await db.obterTotaisTurno(turnoAberto.id!);
@@ -286,9 +286,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       debugPrint('Aviso ao inicializar app: $e\n$stack');
       if (mounted) {
         setState(() => _carregando = false);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _solicitarIdentificacao(novoTurno: true);
-        });
       }
     }
   }
@@ -315,20 +312,25 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     });
   }
 
+  /// Abre a identificação por cima da tela atual. Usado quando já existe turno
+  /// aberto (ex.: trocar de operador pelo Menu). Sem turno, a identificação é a
+  /// própria tela — ver o build.
   void _solicitarIdentificacao({required bool novoTurno}) async {
-    final db = DatabaseService.instance;
-
     if (!mounted) return;
 
-    // Tela cheia em vez de diálogo: um diálogo tem bordas, e no iOS o teclado
-    // do sistema empurrava essas bordas para fora da tela. O AuthDialog antigo
-    // segue no repositório — voltar é trocar esta chamada de volta.
     final result = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(
         fullscreenDialog: true,
         builder: (ctx) => IdentificacaoScreen(novoTurno: novoTurno),
       ),
     );
+
+    if (!mounted) return;
+    _processarIdentificacao(result);
+  }
+
+  void _processarIdentificacao(Map<String, dynamic>? result) async {
+    final db = DatabaseService.instance;
 
     if (result != null) {
       if (result['acao'] == 'historico') {
@@ -423,119 +425,16 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       );
     }
 
+    // Sem turno aberto, a identificação É a tela — não uma rota por cima.
+    // A antiga "Nenhum Turno Aberto" só repetia os dois botões que esta tela
+    // já oferece, e ficava montada por trás depois do push.
     if (_turnoAtual == null) {
-      return Scaffold(
-        body: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'POSTO JANJÃO',
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5),
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        widget.isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                        color: widget.isDark ? const Color(0xFFFBBF24) : const Color(0xFF2563EB),
-                      ),
-                      tooltip: widget.isDark ? 'Ativar Tema Claro' : 'Ativar Tema Escuro',
-                      onPressed: () => widget.onMudarTema(!widget.isDark),
-                    ),
-                  ],
-                ),
-              ),
-              PendingSyncBanner(onSincronizado: _inicializarApp),
-              Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: AppColors.accent.withValues(alpha: 0.14),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.local_gas_station_rounded, size: 54, color: AppColors.accentLight),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Nenhum Turno Aberto',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Abra um novo turno ou reabra um turno anterior para continuar.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: 280,
-                          child: ElevatedButton.icon(
-                            onPressed: () => _solicitarIdentificacao(novoTurno: true),
-                            icon: const Icon(Icons.play_arrow_rounded, color: Colors.white),
-                            label: const Text(
-                              'Abrir Turno Agora',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.accent,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          width: 280,
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (ctx) => TurnosAnterioresDialog(
-                                  onReabrirTurno: (turnoReaberto) async {
-                                    final db = DatabaseService.instance;
-                                    await db.reabrirTurno(turnoReaberto.id!);
-                                    await _inicializarApp();
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('🔓 Turno #${turnoReaberto.numero} (${turnoReaberto.operador}) reaberto com sucesso!'),
-                                          backgroundColor: AppColors.green,
-                                        ),
-                                      );
-                                    }
-                                  },
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.history_rounded, size: 18, color: Colors.white),
-                            label: const Text(
-                              'Histórico e Reabrir Turno',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0284C7),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      return IdentificacaoScreen(
+        novoTurno: true,
+        isDark: widget.isDark,
+        onMudarTema: widget.onMudarTema,
+        banner: PendingSyncBanner(onSincronizado: _inicializarApp),
+        onResultado: _processarIdentificacao,
       );
     }
 
