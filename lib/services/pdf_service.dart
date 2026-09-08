@@ -72,7 +72,8 @@ class PdfService {
     }
 
     final sufixoVersao = (turno.versao > 1) ? '_v${turno.versao}' : '';
-    return '$operadorLimpo $dataFormatada T${turno.numero}$sufixoVersao.pdf';
+    final baseNome = operadorLimpo.isNotEmpty ? '$operadorLimpo $dataFormatada' : dataFormatada;
+    return '$baseNome$sufixoVersao.pdf';
   }
 
   /// Salva os bytes do PDF em arquivo local antes do compartilhamento
