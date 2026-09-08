@@ -32,12 +32,18 @@ class PdfService {
     }
   }
 
-  /// Gera o nome do arquivo no formato: "${operador} ${data_dd-MM-yyyy} T${numero}.pdf"
+  /// Gera o nome do arquivo no formato: "${operador} ${data_dd-MM-yyyy}.pdf",
+  /// com sufixo "_v2", "_v3"... quando o turno já foi reaberto e fechado antes.
   ///
-  /// O número do turno faz parte do nome de propósito. Sem ele, dois turnos do
-  /// mesmo operador no mesmo dia (ou um turno reaberto e fechado de novo) geram
-  /// arquivos de nome idêntico e um fechamento pode substituir o outro dentro da
-  /// pasta do gerente no Google Drive.
+  /// A data vem de [Turno.data], o momento da ABERTURA — não o do fechamento.
+  /// É isso que mantém o nome único sem o número do turno: os turnos são de 12
+  /// horas, então o da noite abre num dia e fecha no outro, mas continua
+  /// nomeado com o dia em que começou. Assim ele nunca colide com o turno que
+  /// abre na manhã seguinte.
+  ///
+  /// Nome repetido também não destrói nada: o webhook do Drive é estritamente
+  /// aditivo e, se o nome já existir na pasta, cria o próximo "_vN" em vez de
+  /// sobrescrever ou mandar o anterior para a lixeira.
   static String gerarNomeArquivo({required Turno turno}) {
     // Normalizar nome do operador (ex: "João Victor")
     final operadorLimpo = turno.operador.trim().replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
