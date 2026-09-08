@@ -6,16 +6,25 @@ O app manda o PDF de fechamento para um **Google Apps Script**, que grava o arqu
 
 Em relatório financeiro e fiscal, **apagar ou enviar arquivos para a lixeira é permanentemente proibido**.
 
-O `Codigo.gs` opera exclusivamente no modo de **criação** (`drive.files.create`):
+O `Codigo.gs` opera exclusivamente no modo de **criação** (`createFile`):
 - **Nenhum arquivo é apagado ou enviado para a lixeira** sob nenhuma circunstância.
 - **Nenhum arquivo anterior é renomeado ou alterado**.
-- Se um arquivo com o mesmo nome já existir na pasta de destino (por exemplo, em caso de reabertura de turno, reenvio pela fila offline ou reprocessamento), o novo PDF é salvo com um sufixo sequencial de versão: `..._v2.pdf`, `..._v3.pdf`, etc.
+- **Nenhuma verificação do script pode impedir a gravação do PDF.** As conferências só escolhem o *nome*; se qualquer uma delas falhar, o erro é ignorado e o arquivo é criado assim mesmo. Gravar um arquivo a mais é aceitável — deixar de gravar, não.
 
-| Situação | O que acontece na pasta do Google Drive |
-|---|---|
-| Envio inicial do turno | Arquivo novo criado com o nome original (ex: `Agildo 08-09-2026 T1.pdf`) |
-| Turno reaberto e reenviado | Arquivo novo criado com versão sequencial (ex: `Agildo 08-09-2026 T1_v2.pdf`). O original permanece 100% intacto. |
-| Reenvio posterior | Cria a próxima versão disponível (`_v3.pdf`), mantendo todo o histórico acessível para auditoria. |
+### O nome do arquivo diz o que aconteceu
+
+O app gera um `auth_hash` por **fechamento**, a partir de `operador|turno|total|horário do fechamento`. Isso separa duas situações que antes se confundiam na pasta:
+
+| Situação | `auth_hash` | Nome na pasta do Drive |
+|---|---|---|
+| Envio inicial do turno | novo | `Agildo 08-09-2026.pdf` |
+| **Turno reaberto e corrigido** | **muda** (horário novo) | `Agildo 08-09-2026_v2.pdf` — houve correção. O gerente usa o `_v2` e descarta o anterior. O original permanece 100% intacto. |
+| **Mesmo fechamento reenviado** pela fila offline após timeout | **igual** | `Agildo 08-09-2026 (reenvio).pdf` — nada foi corrigido, o PDF só chegou duas vezes. Depois: `(reenvio 2)`, `(reenvio 3)`… |
+| Reenvio de um fechamento já corrigido | igual ao do `_v2` | `Agildo 08-09-2026_v2 (reenvio).pdf` — diz as duas coisas |
+
+Assim o `_vN` volta a significar **uma coisa só**: alguém reabriu o turno e corrigiu. O gerente sabe de bater o olho, sem precisar abrir os dois arquivos para comparar.
+
+Se o gerente mandar o original para a lixeira por conta própria, um reenvio posterior volta com o nome limpo — quem apagou foi ele, não o script.
 
 ## Passo 1 — Achar o script
 
@@ -77,8 +86,10 @@ Tem que ser "Qualquer pessoa", **não** "Qualquer pessoa com conta Google". Com 
 Teste rápido, sem app: abra a URL `/exec` no navegador. Deve aparecer
 
 ```json
-{"status":"ok","servico":"Caixa Posto Janjao"}
+{"status":"ok","servico":"Caixa Posto Janjao","modo":"append_only","reenvio_rotulado":true}
 ```
+
+O campo `reenvio_rotulado` confirma que a versão publicada é a que separa reenvio de correção. Se ele não aparecer, o script antigo ainda está no ar — refaça o passo 4.
 
 Se aparecer tela de login, volte ao passo 5.
 
@@ -86,8 +97,10 @@ Teste de verdade, com o app:
  
  1. No app, ligue o **Modo Teste** (Menu → Gerência) — assim tudo vai para a pasta de Testes.
  2. Feche um turno e confirme que o PDF chegou.
- 3. **Reabra o mesmo turno pelo histórico e feche de novo.** Agora a pasta deve ter **dois** arquivos: o inicial (ex: `Agildo 08-09-2026 T1.pdf`) e o novo versionado (`Agildo 08-09-2026 T1_v2.pdf`). Todos os arquivos anteriores permanecem intactos.
+ 3. **Reabra o mesmo turno pelo histórico e feche de novo.** Agora a pasta deve ter **dois** arquivos: o inicial (`Agildo 08-09-2026.pdf`) e o corrigido (`Agildo 08-09-2026_v2.pdf`). Todos os arquivos anteriores permanecem intactos.
  4. Desligue o Modo Teste.
+
+O caso do **reenvio** não dá para provocar à mão: ele acontece sozinho quando o servidor demora, o PDF cai na fila e é reenviado depois. Quando acontecer, o arquivo extra virá com `(reenvio)` no nome — é o sinal de que ninguém corrigiu nada e os dois PDFs têm o mesmo conteúdo.
 
 ## Como rotacionar o webhook
 

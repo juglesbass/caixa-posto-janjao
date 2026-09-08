@@ -214,10 +214,11 @@ class DriveService {
       final payload = {
         'nome_arquivo': nomeEnvio,
         'turno_id': turnoId,
-        // Identifica o FECHAMENTO, não só o turno. Hoje o webhook apenas
-        // registra esse valor na descrição do arquivo e no ScriptProperties,
-        // para auditoria: ele não decide nada com base nisso, porque nunca
-        // substitui nem apaga arquivo nenhum.
+        // Identifica o FECHAMENTO, não só o turno. O webhook usa isso apenas
+        // para escolher o NOME: se este mesmo fechamento já chegou antes, o
+        // arquivo vira "... (reenvio).pdf" em vez de "_v2", que fica
+        // reservado para turno reaberto e corrigido. Nada é substituído nem
+        // apagado em nenhum dos casos.
         'auth_hash': authHash ?? '',
         'operador': operador,
         'arquivo_base64': base64Encode(pdfBytes),
@@ -396,8 +397,9 @@ class DriveService {
             'nome_arquivo': nomeArquivo,
             'turno_id': turnoId,
             // Mesmo fechamento da tentativa original: o hash vem gravado no
-            // turno. Atenção: o webhook é aditivo e não confere esse hash, então
-            // reenviar um PDF que já tinha chegado cria mais um "_vN" na pasta.
+            // turno, então o webhook reconhece o reenvio e nomeia o arquivo
+            // como "... (reenvio).pdf". O PDF nunca deixa de ser gravado: na
+            // dúvida o script cria uma cópia a mais, nunca uma a menos.
             'auth_hash': turno.authHash ?? '',
             'operador': operador,
             'arquivo_base64': base64Encode(pdfBytes),
