@@ -54,6 +54,9 @@ class OperadoresSyncService {
   static Timer? _pollingTimer;
   static int _activeListenersCount = 0;
   static bool _pollingEmExecucao = false;
+  /// Sincronização de background em andamento, compartilhada entre os
+  /// chamadores simultâneos. Nulo quando não há nenhuma em voo.
+  static Future<void>? _syncEmVoo;
   static bool _migracaoExecutada = false;
 
   /// Intervalo base do polling. O timer dispara nesse ritmo, mas cada ciclo
@@ -269,7 +272,33 @@ class OperadoresSyncService {
     return operadoresLocais;
   }
 
-  static Future<void> _sincronizarEmBackground() async {
+  /// Sincronização de background compartilhada.
+  ///
+  /// Vários pontos do app chamam [obterOperadores] logo na abertura (a carga
+  /// inicial em main.dart e a tela de identificação, por exemplo). Sem esta
+  /// trava, cada chamada disparava por conta própria uma varredura completa
+  /// da coleção, uma descarga da fila offline e uma gravação do mesmo
+  /// resultado no cache — tudo em paralelo e idêntico. Enquanto uma
+  /// sincronização está em voo, as demais aguardam o mesmo Future.
+  ///
+  /// A trava para aqui de propósito. Cada sincronização mantém a própria
+  /// leitura do Firestore, feita depois da própria descarga da fila: como
+  /// [_aplicarListaDaNuvem] substitui o cache inteiro, aplicar uma leitura
+  /// iniciada antes dessa descarga apagaria do aparelho um operador
+  /// recém-enviado. Pelo mesmo motivo a migração de cadastros antigos
+  /// continua com leitura própria — ela só pula quem já existe na nuvem, e
+  /// essa proteção depende de o retrato ser fresco.
+  static Future<void> _sincronizarEmBackground() {
+    final emVoo = _syncEmVoo;
+    if (emVoo != null) return emVoo;
+
+    final nova = _executarSincronizacaoEmBackground()
+        .whenComplete(() => _syncEmVoo = null);
+    _syncEmVoo = nova;
+    return nova;
+  }
+
+  static Future<void> _executarSincronizacaoEmBackground() async {
     try {
       // Esvazia fila offline
       await sincronizarFilaOffline();
