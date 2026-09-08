@@ -2,25 +2,20 @@
 
 O app manda o PDF de fechamento para um **Google Apps Script**, que grava o arquivo na pasta do gerente. O código de referência está em [`Codigo.gs`](Codigo.gs).
 
-## Por que mexer nisso
+## Política de Imutabilidade Financeira (Modo Estritamente Aditivo)
 
-O app não consegue distinguir "o envio não chegou" de "o envio chegou e a resposta se perdeu". Quando o servidor demora e o cliente desiste por timeout, o PDF vai para a fila e é reenviado depois — e o gerente fica com **dois arquivos do mesmo turno**.
+Em relatório financeiro e fiscal, **apagar ou enviar arquivos para a lixeira é permanentemente proibido**.
 
-Isso não tem conserto do lado do app. O `Codigo.gs` resolve tornando o `doPost` **idempotente**: receber o mesmo fechamento duas vezes substitui o arquivo em vez de criar outro.
+O `Codigo.gs` opera exclusivamente no modo de **criação** (`drive.files.create`):
+- **Nenhum arquivo é apagado ou enviado para a lixeira** sob nenhuma circunstância.
+- **Nenhum arquivo anterior é renomeado ou alterado**.
+- Se um arquivo com o mesmo nome já existir na pasta de destino (por exemplo, em caso de reabertura de turno, reenvio pela fila offline ou reprocessamento), o novo PDF é salvo com um sufixo sequencial de versão: `..._v2.pdf`, `..._v3.pdf`, etc.
 
-### A chave é o fechamento, não o turno
-
-Deduplicar por `turno_id` seria perigoso. Se o operador reabrisse um turno já entregue só para mexer no app — talvez apagando um lançamento sem querer — e fechasse de novo, o relatório ruim sobrescreveria o bom e o gerente perderia o original sem aviso nenhum.
-
-Por isso a chave é o **`auth_hash`**, que o app gera a cada fechamento a partir de `operador|turno|total|horário`:
-
-| Situação | `auth_hash` | O que acontece na pasta |
-|---|---|---|
-| Reenvio do mesmo fechamento (timeout, fila offline) | igual | Substitui. Continua **um** arquivo |
-| Turno reaberto e fechado de novo | diferente | Cria o novo e **preserva** o anterior, renomeado para `... (fechamento anterior dd-MM-yyyy HH:mm).pdf` |
-| Turno diferente | diferente | Arquivo novo, nada é tocado |
-
-Em relatório financeiro, guardar demais é melhor que apagar de menos: nada é descartado por um reabrir sem querer.
+| Situação | O que acontece na pasta do Google Drive |
+|---|---|
+| Envio inicial do turno | Arquivo novo criado com o nome original (ex: `Agildo 08-09-2026 T1.pdf`) |
+| Turno reaberto e reenviado | Arquivo novo criado com versão sequencial (ex: `Agildo 08-09-2026 T1_v2.pdf`). O original permanece 100% intacto. |
+| Reenvio posterior | Cria a próxima versão disponível (`_v3.pdf`), mantendo todo o histórico acessível para auditoria. |
 
 ## Passo 1 — Achar o script
 
@@ -43,10 +38,7 @@ Se não achar na lista, o script pode estar **vinculado a uma planilha**. Nesse 
 Abra o `Codigo.gs` que já está lá e veja o que ele faz.
 
 - Se ele **só** recebe o PDF e salva no Drive: pode substituir pelo conteúdo de [`Codigo.gs`](Codigo.gs).
-- Se ele faz **mais coisas** (registra numa planilha, manda e-mail, renomeia, etc.): **não cole por cima.** Aproveite só as partes que dão a idempotência:
-  - as duas chaves em `PropertiesService`: `chaveEnvio` (por `auth_hash`, identifica o fechamento) e `chaveTurno` (aponta para o último arquivo do turno)
-  - as funções `abrirArquivo()`, `localizarPeloNome()` e `nomeDeArquivado()`
-  - o bloco que cria o novo arquivo **antes** de mexer no antigo, e então decide entre mandar para a lixeira (reenvio) ou renomear (fechamento novo)
+- Se ele faz **mais coisas** (registra numa planilha, manda e-mail, etc.): **não cole por cima.** Aproveite a lógica de versionamento aditivo de [`Codigo.gs`](Codigo.gs) (`obterNomeDisponivel`) garantindo que NENHUMA linha execute `setTrashed` ou exclusão.
 
 ## Passo 3 — Conferir os IDs das pastas
 
@@ -91,13 +83,11 @@ Teste rápido, sem app: abra a URL `/exec` no navegador. Deve aparecer
 Se aparecer tela de login, volte ao passo 5.
 
 Teste de verdade, com o app:
-
-1. No app, ligue o **Modo Teste** (Menu → Gerência) — assim tudo vai para a pasta de Testes.
-2. Feche um turno e confirme que o PDF chegou.
-3. **Reabra o mesmo turno pelo histórico e feche de novo.** Agora a pasta deve ter **dois** arquivos: o novo com o nome limpo e o anterior renomeado para `… (fechamento anterior dd-MM-yyyy HH:mm).pdf`. É o comportamento correto — um fechamento novo nunca apaga o anterior.
-4. Desligue o Modo Teste.
-
-Para ver a substituição de verdade (um arquivo só) seria preciso simular um reenvio do **mesmo** fechamento — o que acontece sozinho quando o envio cai na fila offline e é reenviado depois.
+ 
+ 1. No app, ligue o **Modo Teste** (Menu → Gerência) — assim tudo vai para a pasta de Testes.
+ 2. Feche um turno e confirme que o PDF chegou.
+ 3. **Reabra o mesmo turno pelo histórico e feche de novo.** Agora a pasta deve ter **dois** arquivos: o inicial (ex: `Agildo 08-09-2026 T1.pdf`) e o novo versionado (`Agildo 08-09-2026 T1_v2.pdf`). Todos os arquivos anteriores permanecem intactos.
+ 4. Desligue o Modo Teste.
 
 ## Como rotacionar o webhook
 

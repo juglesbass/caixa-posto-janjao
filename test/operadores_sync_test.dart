@@ -201,11 +201,9 @@ void main() {
   });
 
   group('Chave de autenticacao - identidade do FECHAMENTO', () {
-    // O webhook do Drive usa esta chave para decidir entre substituir (reenvio
-    // do mesmo fechamento) e preservar o anterior (fechamento novo do mesmo
-    // turno). Se ela deixar de ser única por fechamento, um operador que
-    // reabrisse um turno já entregue e fechasse de novo sobrescreveria o
-    // relatório bom do gerente.
+    // A chave de autenticacao identifica de forma unica cada fechamento.
+    // O backend do Drive e o app usam essa unicidade para rastreabilidade,
+    // garantindo que cada evento de fechamento tenha identidade e hash proprios.
 
     test('Reenvio do mesmo fechamento produz a mesma chave', () {
       final a = AuthService.gerarChaveAutenticacao(
@@ -246,7 +244,7 @@ void main() {
       );
 
       expect(refeito, isNot(equals(original)),
-          reason: 'Chaves iguais fariam o segundo fechamento sobrescrever o primeiro no Drive');
+          reason: 'Cada fechamento deve possuir autenticação e identidade únicas');
     });
 
     test('Mudar o total tambem muda a chave', () {

@@ -14,6 +14,7 @@ class Turno {
   final Map<String, int> canhotos;
   final double fundoCaixa;
   final String? authHash;
+  final int versao;
 
   Turno({
     this.id,
@@ -29,6 +30,7 @@ class Turno {
     Map<String, int>? canhotos,
     this.fundoCaixa = 0.0,
     this.authHash,
+    this.versao = 1,
   })  : vendasSistema = vendaSistema ?? vendasSistema ?? 0.0,
         canhotos = canhotos != null ? Map<String, int>.from(canhotos) : const {};
 
@@ -55,6 +57,7 @@ class Turno {
       'canhotos': jsonEncode(canhotos),
       'fundo_caixa': fundoCaixa,
       'auth_hash': authHash,
+      'versao': versao,
     };
   }
 
@@ -90,6 +93,7 @@ class Turno {
       canhotos: canhotosMap,
       fundoCaixa: (map['fundo_caixa'] as num?)?.toDouble() ?? 0.0,
       authHash: map['auth_hash'] as String?,
+      versao: (map['versao'] as num?)?.toInt() ?? 1,
     );
   }
 
@@ -107,6 +111,7 @@ class Turno {
     Map<String, int>? canhotos,
     double? fundoCaixa,
     String? authHash,
+    int? versao,
   }) {
     return Turno(
       id: id ?? this.id,
@@ -121,6 +126,7 @@ class Turno {
       canhotos: canhotos != null ? Map<String, int>.from(canhotos) : this.canhotos,
       fundoCaixa: fundoCaixa ?? this.fundoCaixa,
       authHash: authHash ?? this.authHash,
+      versao: versao ?? this.versao,
     );
   }
 }

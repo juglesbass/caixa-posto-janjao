@@ -156,6 +156,23 @@ void main() {
       expect(PdfService.gerarNomeArquivo(turno: segundo), equals('João Victor 25-08-2026 T2.pdf'));
     });
 
+    test('gerarNomeArquivo adiciona sufixo _v2, _v3 quando turno e reaberto', () {
+      final turnoV1 = Turno(
+        id: 1,
+        numero: 1,
+        data: '08/09/2026 10:00',
+        operador: 'Agildo',
+        aberto: false,
+        versao: 1,
+      );
+      final turnoV2 = turnoV1.copyWith(versao: 2);
+      final turnoV3 = turnoV1.copyWith(versao: 3);
+
+      expect(PdfService.gerarNomeArquivo(turno: turnoV1), equals('Agildo 08-09-2026 T1.pdf'));
+      expect(PdfService.gerarNomeArquivo(turno: turnoV2), equals('Agildo 08-09-2026 T1_v2.pdf'));
+      expect(PdfService.gerarNomeArquivo(turno: turnoV3), equals('Agildo 08-09-2026 T1_v3.pdf'));
+    });
+
     test('PaymentTypes.ordenarCartoes - Ordenação isolada Cielo', () {
       final entrada = {
         'Cielo Visa Débito': 100.0,

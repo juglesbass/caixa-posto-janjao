@@ -108,6 +108,9 @@ class DatabaseService {
     try {
       await db.execute('ALTER TABLE turnos ADD COLUMN canhotos TEXT');
     } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE turnos ADD COLUMN versao INTEGER NOT NULL DEFAULT 1');
+    } catch (_) {}
 
     // Tabela de cache local de Operadores sincronizados via Firestore
     await db.execute('''
@@ -198,7 +201,8 @@ class DatabaseService {
         justificativa TEXT DEFAULT '',
         canhotos TEXT DEFAULT '{}',
         fundo_caixa REAL DEFAULT 0.0,
-        auth_hash TEXT
+        auth_hash TEXT,
+        versao INTEGER NOT NULL DEFAULT 1
       )
     ''');
 
@@ -392,10 +396,16 @@ class DatabaseService {
     final db = await database;
     // Fecha qualquer outro que esteja aberto
     await db.update('turnos', {'aberto': 0}, where: 'aberto = 1');
-    // Reabre o selecionado
+    // Reabre o selecionado e incrementa a versão para versionamento sequencial de relatórios
+    final turnoAtual = await obterTurnoPorId(turnoId);
+    final proximaVersao = (turnoAtual?.versao ?? 1) + 1;
     await db.update(
       'turnos',
-      {'aberto': 1, 'fechado_em': null},
+      {
+        'aberto': 1,
+        'fechado_em': null,
+        'versao': proximaVersao,
+      },
       where: 'id = ?',
       whereArgs: [turnoId],
     );

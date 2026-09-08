@@ -52,6 +52,12 @@ void main() {
       expect(DriveService.isRespostaSucesso(http.Response('{"status":"success","id":"xyz"}', 200)), isTrue);
       expect(DriveService.isRespostaSucesso(http.Response('{"result":"success"}', 200)), isTrue);
       expect(DriveService.isRespostaSucesso(http.Response('{"status":"ok"}', 200)), isTrue);
+      expect(
+        DriveService.isRespostaSucesso(
+          http.Response('{"status":"success","nome_arquivo":"Agildo 08-09-2026 T1_v2.pdf","versao_aplicada":true}', 200),
+        ),
+        isTrue,
+      );
 
       // JSON de erro explícito do Apps Script
       expect(DriveService.isRespostaSucesso(http.Response('{"status":"error","message":"Falha"}', 200)), isFalse);

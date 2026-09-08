@@ -2,44 +2,28 @@
  * Webhook do Caixa Posto Janjão — recebe o PDF de fechamento e grava no Drive.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * POR QUE ESTE ARQUIVO EXISTE
+ * POLÍTICA DE SEGURANÇA E IMUTABILIDADE FINANCEIRA
  *
- * O app não tem como saber a diferença entre "o envio não chegou" e "o envio
- * chegou, foi processado, mas a resposta se perdeu no caminho". Quando o
- * servidor demora e o cliente desiste por timeout, o app enfileira o PDF e
- * reenvia depois — e o gerente acaba com dois arquivos do mesmo turno.
+ * 1. MODO ESTRITAMENTE ADITIVO (APENAS CRIAÇÃO):
+ *    O script opera única e exclusivamente no modo de criação (`drive.files.create` / `createFile`).
+ *    É expressamente PROIBIDA qualquer chamada de exclusão (`delete`, `setTrashed`, `trash`).
+ *    Nenhum arquivo existente no Google Drive é apagado, sobrescrito ou enviado à lixeira.
  *
- * A solução não está no app: está aqui. Este doPost é IDEMPOTENTE — receber o
- * mesmo fechamento duas vezes substitui o arquivo em vez de criar outro. Com
- * isso o reenvio vira inofensivo e o problema todo desaparece.
- *
- * A CHAVE É O FECHAMENTO, NÃO O TURNO
- *
- * Usar turno_id como chave seria perigoso: se o operador reabrir um turno já
- * entregue só para mexer no app e fechar de novo — talvez com um lançamento
- * apagado sem querer — o relatório ruim sobrescreveria o bom, e o gerente
- * perderia o original sem nenhum aviso.
- *
- * Por isso a chave é o `auth_hash`, que o app gera a cada fechamento a partir de
- * operador|turno|total|horário. Reenvio do mesmo fechamento tem o mesmo hash e
- * substitui. Um fechamento NOVO do mesmo turno tem hash diferente: vira um
- * arquivo novo, e o anterior é PRESERVADO, apenas renomeado com a marca
- * "(fechamento anterior ...)". Em relatório financeiro, guardar demais é sempre
- * melhor que apagar de menos.
+ * 2. VERSIONAMENTO CUMULATIVO E PRESERVAÇÃO TOTAL:
+ *    Se um arquivo com o mesmo nome já existir na pasta de destino (por exemplo,
+ *    em caso de turno reaberto, reenvio ou reprocessamento), o novo arquivo recebe
+ *    automaticamente um sufixo de versão sequencial (_v2, _v3, etc.).
+ *    Todos os fechamentos anteriores permanecem 100% intactos na pasta para
+ *    garantia de auditoria fiscal e financeira do posto.
  * ─────────────────────────────────────────────────────────────────────────────
- *
- * ATENÇÃO: se o seu script atual já faz outras coisas (registrar em planilha,
- * mandar e-mail, etc.), NÃO cole este arquivo por cima. Aproveite só as partes
- * de idempotência: a chave em PropertiesService e o bloco que localiza e
- * substitui o arquivo anterior.
  *
  * Payload enviado pelo app (Content-Type: text/plain, corpo em JSON):
  *   nome_arquivo    "Agildo 05-09-2026 T1.pdf"
  *   turno_id        1
- *   auth_hash       "AUTH-1A2B-3C4D-5E6F"  <- chave de idempotência (por fechamento)
+ *   auth_hash       "AUTH-1A2B-3C4D-5E6F"
  *   operador        "Agildo"
  *   arquivo_base64  "JVBERi0xLjQK..."
- *   folderId        id da pasta de destino (também vem como folder_id/pasta_id/pastaId)
+ *   folderId        id da pasta de destino (também aceito como folder_id/pasta_id/pastaId)
  *   modo_teste      true/false
  */
 
@@ -56,10 +40,10 @@ function doPost(e) {
     var dados = JSON.parse(e.postData.contents);
 
     var turnoId = String(dados.turno_id || '').trim();
-    var nome    = String(dados.nome_arquivo || '').trim();
+    var nomeOriginal = String(dados.nome_arquivo || '').trim();
     var base64  = dados.arquivo_base64;
 
-    if (!turnoId || !nome || !base64) {
+    if (!turnoId || !nomeOriginal || !base64) {
       return responder({ status: 'error', message: 'Payload incompleto' });
     }
 
@@ -70,77 +54,49 @@ function doPost(e) {
     }
 
     var pasta = DriveApp.getFolderById(pastaId);
-    var blob  = Utilities.newBlob(Utilities.base64Decode(base64), MimeType.PDF, nome);
 
-    // ── Idempotência ────────────────────────────────────────────────────────
-    var props = PropertiesService.getScriptProperties();
+    // ── Auditoria de Listagem e Versionamento Automático ─────────────────────
+    // NUNCA exclui nem move arquivos anteriores para a lixeira.
+    // Se o nome já existir, calcula o próximo sufixo (_v2, _v3, ...)
+    var nomeFinal = obterNomeDisponivel(pasta, nomeOriginal);
 
-    // Chave do FECHAMENTO. Sem auth_hash (app antigo) cai para o turno, que é o
-    // comportamento anterior: melhor deduplicar por turno do que não deduplicar.
-    var authHash = String(dados.auth_hash || '').trim();
-    var chaveEnvio = 'envio_' + pastaId + '_' + (authHash || ('turno' + turnoId));
+    var bytes = Utilities.base64Decode(base64);
+    var blob  = Utilities.newBlob(bytes, MimeType.PDF, nomeFinal);
 
-    // Ponteiro para o último arquivo entregue deste turno, seja qual for o
-    // fechamento. Serve para marcar o anterior quando chega um fechamento novo.
-    var chaveTurno = 'turno_' + pastaId + '_' + turnoId;
-
-    // 1. Este MESMO fechamento já foi entregue? Então é reenvio: substitui.
-    var mesmoFechamento = abrirArquivo(props.getProperty(chaveEnvio));
-
-    // 2. Senão, é um fechamento novo: o arquivo anterior do turno será mantido.
-    var fechamentoAnterior = null;
-    if (!mesmoFechamento) {
-      fechamentoAnterior = abrirArquivo(props.getProperty(chaveTurno));
-      if (!fechamentoAnterior) {
-        // Registro perdido (script republicado do zero): tenta pelo nome, que
-        // já inclui o número do turno e não colide entre turnos diferentes.
-        fechamentoAnterior = localizarPeloNome(pasta, nome);
-      }
-    }
-
+    // Criação do novo arquivo no Drive (drive.files.create)
     var arquivo = pasta.createFile(blob);
-    arquivo.setDescription(
-      'Turno ' + turnoId +
+
+    var authHash = String(dados.auth_hash || '').trim();
+    var descricao = 'Turno ' + turnoId +
       ' | Operador: ' + (dados.operador || '-') +
-      (authHash ? ' | Autenticacao: ' + authHash : '')
-    );
+      (authHash ? ' | Autenticacao: ' + authHash : '') +
+      ' | Recebido em: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
+    arquivo.setDescription(descricao);
 
-    // Só mexe no antigo DEPOIS que o novo existe: se algo falhar no meio, o
-    // gerente fica com uma cópia a mais, nunca com nenhuma.
-    var substituido = false;
-    var preservado = null;
+    // Registra auditoria histórica no ScriptProperties sem nenhuma exclusão
+    try {
+      var props = PropertiesService.getScriptProperties();
+      props.setProperty('ultimo_envio_' + pastaId + '_' + turnoId, arquivo.getId());
+      if (authHash) {
+        props.setProperty('auth_' + pastaId + '_' + authHash, arquivo.getId());
+      }
+    } catch (eProps) {}
 
-    if (mesmoFechamento) {
-      // Reenvio do mesmo fechamento: o antigo é redundante, pode ir embora
-      try {
-        mesmoFechamento.setTrashed(true);
-        substituido = true;
-      } catch (err) {}
-    } else if (fechamentoAnterior) {
-      // Fechamento NOVO do mesmo turno: preserva o anterior renomeado, para que
-      // ninguém perca o relatório bom por causa de um reabrir sem querer.
-      try {
-        fechamentoAnterior.setName(nomeDeArquivado(fechamentoAnterior));
-        preservado = fechamentoAnterior.getId();
-      } catch (err) {}
-    }
-
-    props.setProperty(chaveEnvio, arquivo.getId());
-    props.setProperty(chaveTurno, arquivo.getId());
+    var versaoAplicada = (nomeFinal !== nomeOriginal);
 
     return responder({
       status: 'success',
-      message: substituido
-        ? 'Reenvio do mesmo fechamento: arquivo substituido'
-        : (preservado
-            ? 'Novo fechamento do turno: anterior preservado e renomeado'
-            : 'Arquivo criado'),
+      message: versaoAplicada
+        ? 'Arquivo criado com versionamento (' + nomeFinal + ') preservando anteriores'
+        : 'Arquivo criado com sucesso no Google Drive',
       turno_id: turnoId,
       auth_hash: authHash,
       file_id: arquivo.getId(),
       file_url: arquivo.getUrl(),
-      substituido: substituido,
-      preservado_id: preservado
+      nome_arquivo: nomeFinal,
+      versao_aplicada: versaoAplicada,
+      substituido: false,
+      preservado: true
     });
 
   } catch (err) {
@@ -149,50 +105,37 @@ function doPost(e) {
 }
 
 /**
- * Abre um arquivo pelo id guardado, ou null se ele nao existe mais.
+ * Inspeciona a pasta e determina o nome disponível para o arquivo.
+ * Se "Nome.pdf" já existir, procura "Nome_v2.pdf", "Nome_v3.pdf", etc.
+ * NUNCA apaga, NUNCA renomeia e NUNCA manda arquivos existentes para a lixeira.
  */
-function abrirArquivo(id) {
-  if (!id) return null;
-  try {
-    var f = DriveApp.getFileById(id);
-    return f.isTrashed() ? null : f;
-  } catch (err) {
-    return null; // apagado de vez
+function obterNomeDisponivel(pasta, nomeOriginal) {
+  var ext = '';
+  var base = nomeOriginal;
+  var idxExt = nomeOriginal.lastIndexOf('.');
+  if (idxExt !== -1) {
+    base = nomeOriginal.substring(0, idxExt);
+    ext = nomeOriginal.substring(idxExt);
   }
-}
 
-/**
- * Procura na pasta um arquivo com exatamente este nome. Rede de seguranca para
- * quando o registro em PropertiesService se perde.
- */
-function localizarPeloNome(pasta, nome) {
-  try {
-    var iter = pasta.getFilesByName(nome);
-    if (iter.hasNext()) {
-      return iter.next();
+  // Se o arquivo original exato não existe na pasta, usa o próprio nome
+  var arquivos = pasta.getFilesByName(nomeOriginal);
+  if (!arquivos.hasNext()) {
+    return nomeOriginal;
+  }
+
+  // Remove qualquer sufixo de versão pré-existente no nome para encontrar a base pura
+  var baseSemVersao = base.replace(/_v\d+$/i, '');
+
+  var versao = 2;
+  while (true) {
+    var candidato = baseSemVersao + '_v' + versao + ext;
+    var teste = pasta.getFilesByName(candidato);
+    if (!teste.hasNext()) {
+      return candidato;
     }
-  } catch (err) {}
-  return null;
-}
-
-/**
- * Nome do arquivo superado por um fechamento mais novo. Mantem o original
- * reconhecivel e deixa claro que ele nao e mais o relatorio valido.
- */
-function nomeDeArquivado(arquivo) {
-  var nome = arquivo.getName();
-  // Se ja foi arquivado antes, nao empilha marcas
-  if (nome.indexOf('(fechamento anterior') !== -1) {
-    return nome;
+    versao++;
   }
-  var quando = Utilities.formatDate(
-    arquivo.getDateCreated(),
-    Session.getScriptTimeZone(),
-    'dd-MM-yyyy HH:mm'
-  );
-  var marca = ' (fechamento anterior ' + quando + ')';
-  var i = nome.lastIndexOf('.pdf');
-  return i === -1 ? nome + marca : nome.substring(0, i) + marca + '.pdf';
 }
 
 function responder(obj) {
@@ -203,9 +146,7 @@ function responder(obj) {
 
 /**
  * Health check: abrir a URL /exec no navegador deve mostrar este JSON.
- * Se aparecer uma tela de login do Google, a implantação está com acesso
- * errado — veja o passo 5 do guia (apps-script/README.md).
  */
 function doGet() {
-  return responder({ status: 'ok', servico: 'Caixa Posto Janjao' });
+  return responder({ status: 'ok', servico: 'Caixa Posto Janjao', modo: 'append_only' });
 }

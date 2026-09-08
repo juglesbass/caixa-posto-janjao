@@ -71,7 +71,8 @@ class PdfService {
       dataFormatada = DateFormat('dd-MM-yyyy').format(DateTime.now());
     }
 
-    return '$operadorLimpo $dataFormatada T${turno.numero}.pdf';
+    final sufixoVersao = (turno.versao > 1) ? '_v${turno.versao}' : '';
+    return '$operadorLimpo $dataFormatada T${turno.numero}$sufixoVersao.pdf';
   }
 
   /// Salva os bytes do PDF em arquivo local antes do compartilhamento
