@@ -23,6 +23,7 @@ import 'firebase_options.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_haptics.dart';
+import 'utils/app_pronto.dart';
 import 'utils/payment_types.dart';
 import 'widgets/bottom_nav_bar.dart';
 import 'widgets/pending_sync_banner.dart';
@@ -452,12 +453,21 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     if (_carregando) {
+      // No PWA o carregador do index.html continua na tela até [sinalizarAppPronto]
+      // abaixo, então uma rodinha aqui seria a segunda, desenhada por baixo da
+      // primeira. No celular não há carregador de HTML, e aí ela é necessária.
+      if (kIsWeb) return const Scaffold(body: SizedBox.expand());
       return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(color: AppColors.accentLight),
         ),
       );
     }
+
+    // Daqui para baixo já existe tela de verdade. Fica no build, e não no fim de
+    // _inicializarApp, para valer também no caminho de erro: qualquer coisa que
+    // resulte em conteúdo desenhado esconde o carregador.
+    sinalizarAppPronto();
 
     // Sem turno aberto, a identificação É a tela — não uma rota por cima.
     // A antiga "Nenhum Turno Aberto" só repetia os dois botões que esta tela

@@ -5,6 +5,7 @@ import '../models/turno.dart';
 import '../services/database_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/app_haptics.dart';
+import '../utils/app_pronto.dart';
 import '../utils/currency_formatter.dart';
 
 /// Tela pública de conferência e validação de autenticidade do fechamento de turno
@@ -115,6 +116,11 @@ class _ValidarScreenState extends State<ValidarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Esta rota não passa pelo MainShell, que é quem normalmente avisa. Sem isto
+    // o link público de validação ficaria preso no carregador do index.html até
+    // a rede de segurança de 8 segundos.
+    sinalizarAppPronto();
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(

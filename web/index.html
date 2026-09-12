@@ -108,8 +108,21 @@
         }, 150);
       }
     }
-    // O primeiro frame do Flutter é o sinal correto para esconder o loader.
-    window.addEventListener('flutter-first-frame', removeLoader);
+    // Quem esconde o loader é o app, quando já tem tela para mostrar.
+    //
+    // Antes era o evento 'flutter-first-frame'. O problema: nesse instante o app
+    // ainda está abrindo o banco e desenha uma rodinha própria. Davam duas
+    // rodinhas seguidas — e com a abertura rápida elas aparecem quase juntas,
+    // o que parece defeito.
+    window.__appPronto = removeLoader;
+
+    // Rede de segurança: se o app nunca avisar (erro de inicialização), o
+    // primeiro frame ainda serve de gatilho, só que com folga para o app
+    // terminar de abrir antes. Sem isto, uma falha lá dentro deixaria o usuário
+    // preso no loader até o limite de 45s lá embaixo.
+    window.addEventListener('flutter-first-frame', function () {
+      setTimeout(removeLoader, 8000);
+    });
 
     // Uma entrada extra no histórico dá ao PWA do iOS algo para onde "voltar",
     // evitando que o primeiro swipe-back descarregue a página.
