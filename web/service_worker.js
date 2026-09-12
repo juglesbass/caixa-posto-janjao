@@ -30,6 +30,11 @@ const CACHE = 'caixa-janjao-' + VERSAO;
 // sai de sincronia e publica um app quebrado.
 const NUCLEO = ['./', 'index.html', 'flutter_bootstrap.js', 'manifest.json'];
 
+// Toda navegação é guardada e lida sob esta chave. O endereço de abertura do
+// PWA nem sempre é idêntico ao da aba do navegador, e usar a própria requisição
+// como chave fazia uma não encontrar o que a outra tinha guardado.
+const CHAVE_PAGINA = 'index.html';
+
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     try {
@@ -84,21 +89,48 @@ self.addEventListener('fetch', (event) => {
   // servidos de cache: resposta velha de sincronização é pior que erro de rede.
   if (url.origin !== self.location.origin) return;
 
-  // Navegação vai na rede primeiro. Esta é a trava de segurança do arquivo
-  // inteiro: com internet, um deploy novo sempre chega, e um cache ruim nunca
-  // consegue prender o app numa versão velha.
+  // Navegação: responde do cache na hora e busca a versão nova por trás.
+  //
+  // Antes ia na rede primeiro. O efeito era que toda abertura do app esperava
+  // uma ida à rede antes de desenhar qualquer coisa — e num iPhone que acabou de
+  // acordar isso inclui DNS e handshake, com o app parado. Ficava lento mesmo
+  // com tudo em cache. Confirmado no teste: em modo avião, que pula a rede
+  // inteira, o app abre na hora.
+  //
+  // A troca custa uma coisa: um deploy novo passa a aparecer na abertura
+  // SEGUINTE, não na primeira. Isso é aceitável porque o app é aberto muitas
+  // vezes por dia e publicado de vez em quando — e porque a atualização não
+  // depende disto para chegar. Quem manda é o próprio arquivo do worker: o
+  // navegador o reverifica a cada navegação, e como o SHA do commit está dentro
+  // dele, versão nova instala, o activate apaga o cache antigo e a abertura
+  // seguinte pega tudo novo.
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
-      try {
-        const resp = await fetch(req);
-        await guardar(req, resp);
-        return resp;
-      } catch (e) {
-        const cache = await caches.open(CACHE);
-        const guardado = (await cache.match(req)) || (await cache.match('index.html'));
-        if (guardado) return guardado;
-        throw e;
+      const cache = await caches.open(CACHE);
+      const guardado = await cache.match(CHAVE_PAGINA);
+
+      // A busca de atualização roda em paralelo e nunca segura a resposta.
+      const rede = fetch(req)
+        .then(async (resp) => {
+          if (resp && resp.status === 200 && resp.type === 'basic') {
+            try {
+              await cache.put(CHAVE_PAGINA, resp.clone());
+            } catch (e) {
+              console.warn('[SW] não atualizou a página:', e);
+            }
+          }
+          return resp;
+        })
+        .catch(() => null);
+
+      if (guardado) {
+        // waitUntil mantém o worker vivo até a atualização terminar.
+        event.waitUntil(rede);
+        return guardado;
       }
+
+      const resp = await rede;
+      return resp || Response.error();
     })());
     return;
   }
