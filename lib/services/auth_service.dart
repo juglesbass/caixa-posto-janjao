@@ -270,6 +270,52 @@ class AuthService {
   // do navegador, que roda em código nativo, e devolvem exatamente o mesmo hash.
   // ──────────────────────────────────────────────────────────────────────────
 
+  /// Resultado da autoverificação do caminho nativo. Nulo até a primeira vez.
+  static bool? _nativoConfiavel;
+
+  /// Confere, uma única vez por sessão, se o PBKDF2 do navegador concorda com a
+  /// implementação em Dart — byte a byte.
+  ///
+  /// Existe porque a consequência de um hash divergente não é lentidão, é
+  /// operador trancado fora do próprio caixa: [validarPin] tenta o hash da nuvem,
+  /// o hash local e o PIN Mestre, todos pelo mesmo caminho, e nega os três. O
+  /// `catch` do lado nativo cobre o caso de a API falhar; o que ele não cobre é
+  /// ela devolver um valor errado sem reclamar — uma conversão de bytes torta
+  /// entre Dart e JavaScript, por exemplo. Isso aqui cobre.
+  ///
+  /// São 64 iterações: barato nos dois lados (submilissegundo) e já exercita o
+  /// laço e o XOR entre blocos, que é onde um erro de conversão apareceria.
+  /// Divergindo, o caminho nativo é abandonado e tudo segue pela implementação em
+  /// Dart — mais lenta, e correta.
+  static Future<bool> _nativoConfere() async {
+    final jaSabe = _nativoConfiavel;
+    if (jaSabe != null) return jaSabe;
+
+    bool confere = false;
+    try {
+      final senha = utf8.encode('1234');
+      const sal = <int>[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+      final nativo = await derivarPbkdf2Sha256(
+        senha: senha,
+        sal: sal,
+        iteracoes: 64,
+        tamanho: 32,
+      );
+      if (nativo != null) {
+        confere = _paraHex(nativo) == _paraHex(_pbkdf2(senha, sal, 64, 32));
+        if (!confere) {
+          debugPrint('[Auth] PBKDF2 do navegador divergiu do de Dart. '
+              'Caminho nativo desligado nesta sessão.');
+        }
+      }
+    } catch (e) {
+      debugPrint('[Auth] PBKDF2 do navegador indisponível: $e');
+    }
+
+    _nativoConfiavel = confere;
+    return confere;
+  }
+
   /// PBKDF2 preferindo o motor do navegador, com a implementação em Dart como
   /// reserva. A checagem de tamanho é proposital: resultado nativo com tamanho
   /// inesperado é descartado em vez de virar um hash silenciosamente errado.
@@ -279,13 +325,15 @@ class AuthService {
     int iteracoes,
     int tamanho,
   ) async {
-    final nativo = await derivarPbkdf2Sha256(
-      senha: senha,
-      sal: sal,
-      iteracoes: iteracoes,
-      tamanho: tamanho,
-    );
-    if (nativo != null && nativo.length == tamanho) return nativo;
+    if (await _nativoConfere()) {
+      final nativo = await derivarPbkdf2Sha256(
+        senha: senha,
+        sal: sal,
+        iteracoes: iteracoes,
+        tamanho: tamanho,
+      );
+      if (nativo != null && nativo.length == tamanho) return nativo;
+    }
     return _pbkdf2(senha, sal, iteracoes, tamanho);
   }
 
