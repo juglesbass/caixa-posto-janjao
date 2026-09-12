@@ -52,13 +52,19 @@ jobs:
           done
 
       - name: Build Web PWA
-      # `--pwa-strategy=offline-first` reativa o service worker de precache.
-      # Sem ele (o padrão virou `none`) o PWA publicado não guardava nada: o que
-      # o navegador descartasse era rebaixado de novo da rede na abertura
-      # seguinte — 1,4 MB de `main.dart.js` mais 2,3 MB de CanvasKit. Num iPhone
-      # mais fraco, em rede de celular, era isso a demora do primeiro
-      # carregamento, e ela voltava toda vez que o Safari limpava o cache. Pior:
-      # um caixa que é offline-first por dentro não abria sem internet.
+      # `--pwa-strategy=offline-first` NÃO entrega mais cache: no Flutter 3.47 o
+      # template do service worker virou um worker que se desregistra sozinho
+      # (784 bytes), e a flag entrega justamente esse. A flag fica porque é ela
+      # que faz o `flutter_bootstrap.js` registrar o caminho
+      # `flutter_service_worker.js` — o passo "Install offline service worker"
+      # mais abaixo troca o conteúdo desse arquivo pelo worker de verdade.
+      #
+      # Isso importa porque sem cache o PWA publicado não guardava nada: o que o
+      # navegador descartasse era rebaixado de novo da rede na abertura seguinte —
+      # 1,4 MB de `main.dart.js` mais 2,3 MB de CanvasKit. Num iPhone mais fraco,
+      # em rede de celular, era isso a demora do carregamento, e ela voltava toda
+      # vez que o Safari limpava o cache. Pior: um caixa que é offline-first por
+      # dentro não abria sem internet.
       #
       # `--no-web-resources-cdn` faz o CanvasKit ser servido do próprio site em
       # vez do gstatic. Não é preferência: o service worker do Flutter só guarda
@@ -66,29 +72,63 @@ jobs:
       # nunca entra no cache offline. O GitHub Pages serve `.wasm` com gzip
       # (confirmado nos cabeçalhos), então o tamanho continua equivalente.
       #
-      # Atenção ao atualizar o Flutter: o service worker dele está marcado como
-      # descontinuado e `--pwa-strategy` deve desaparecer em alguma versão
-      # futura. Quando o build quebrar por flag desconhecida, o caminho é um
-      # service worker próprio em `web/`, não simplesmente remover a flag.
+      # As duas flags andam juntas: sem service worker, servir o CanvasKit daqui
+      # é PIOR que do gstatic, porque o Pages manda `max-age=600` contra o
+      # `max-age=31536000` de lá. Removendo o worker, remova esta flag também.
+      #
+      # Atenção ao atualizar o Flutter: se `--pwa-strategy` desaparecer de vez, o
+      # `flutter_bootstrap.js` para de registrar o worker e o passo de
+      # substituição deixa de ter efeito — sem quebrar o build. A verificação
+      # abaixo não pega isso; confira o registro no `flutter_bootstrap.js`.
         run: >
           flutter build web --release
           --base-href "/caixa-posto-janjao/"
           --pwa-strategy=offline-first
           --no-web-resources-cdn
 
+      # Troca o worker vazio do Flutter pelo de `web/service_worker.js`, com o
+      # SHA do commit no lugar do placeholder — é o SHA que invalida o cache a
+      # cada deploy, porque `main.dart.js` não tem hash no nome e sem isso o
+      # pacote velho ficaria servido para sempre.
+      #
+      # PARA DESATIVAR: remova este passo, a verificação do worker abaixo e a
+      # flag `--no-web-resources-cdn`. O Flutter volta a gerar o worker que se
+      # desregistra, e todo aparelho instalado se limpa sozinho na abertura
+      # seguinte — não é preciso tocar em celular nenhum.
+      - name: Install offline service worker
+        run: |
+          set -euo pipefail
+          origem=web/service_worker.js
+          destino=build/web/flutter_service_worker.js
+          if ! grep -q "__VERSAO_BUILD__" "$origem"; then
+            echo "::error::$origem sem o marcador __VERSAO_BUILD__ — o cache nunca seria invalidado num deploy."
+            exit 1
+          fi
+          sed "s/__VERSAO_BUILD__/${GITHUB_SHA}/g" "$origem" > "$destino"
+          # A cópia que o Flutter fez de web/ para build/web/ não é usada
+          rm -f build/web/service_worker.js
+          echo "worker instalado: $(stat -c%s "$destino") bytes, versão ${GITHUB_SHA}"
+
       - name: Verify build output
         run: |
           set -euo pipefail
-          # O service worker precisa sair com a lista de recursos do build. O
-          # que o Flutter gera com `--pwa-strategy=none` é um arquivo de ~800
-          # bytes que se desregistra sozinho: publicar aquele de novo devolveria
-          # o PWA sem cache nenhum, sem quebrar nada visível.
+          # Três checagens no worker, porque cada uma já falhou de um jeito
+          # diferente: não ser o nosso, ter ficado com o placeholder (cache
+          # eterno), ou a substituição não ter acontecido.
           sw=build/web/flutter_service_worker.js
-          if [ ! -s "$sw" ] || ! grep -q "RESOURCES" "$sw"; then
-            echo "::error::$sw saiu sem a lista de recursos — o PWA ficaria sem cache offline."
+          if [ ! -s "$sw" ] || ! grep -q "caixa-janjao-" "$sw"; then
+            echo "::error::$sw não é o worker de cache — o PWA iria ao ar sem cache offline."
             exit 1
           fi
-          echo "OK: service worker de precache ($(stat -c%s "$sw") bytes)"
+          if grep -q "__VERSAO_BUILD__" "$sw"; then
+            echo "::error::$sw ficou com o placeholder de versão — o cache nunca seria invalidado."
+            exit 1
+          fi
+          if grep -q "registration.unregister" "$sw"; then
+            echo "::error::$sw é o worker que se desregistra — a substituição não aconteceu."
+            exit 1
+          fi
+          echo "OK: service worker de cache offline ($(stat -c%s "$sw") bytes)"
           if [ ! -s build/web/canvaskit/canvaskit.wasm ]; then
             echo "::error::canvaskit local ausente — o CanvasKit viria do CDN e ficaria fora do cache offline."
             exit 1
