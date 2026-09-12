@@ -48,7 +48,7 @@ class _TrocarPinDialogState extends State<TrocarPinDialog> {
     if (!mounted) return;
     if (!atualValido) {
       AppHaptics.heavy();
-      setState(() => _erroAtual = 'PIN atual incorreto (ou PIN do Gerente)');
+      setState(() => _erroAtual = 'PIN atual incorreto (ou PIN do Desenvolvedor)');
       return;
     }
 
@@ -149,7 +149,7 @@ class _TrocarPinDialogState extends State<TrocarPinDialog> {
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 style: TextStyle(fontSize: 20, letterSpacing: 8, fontWeight: FontWeight.bold, color: textPri),
                 decoration: InputDecoration(
-                  labelText: 'PIN Atual (ou PIN do Gerente)',
+                  labelText: 'PIN Atual (ou PIN do Desenvolvedor)',
                   counterText: '',
                   prefixIcon: const Icon(Icons.lock_outline_rounded),
                   errorText: _erroAtual,

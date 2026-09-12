@@ -238,7 +238,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Área Restrita da Gerência',
+                          'Área Restrita do Desenvolvedor',
                           style: TextStyle(
                             fontSize: 15.5,
                             fontWeight: FontWeight.w900,
@@ -426,7 +426,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Defina um novo PIN Mestre de 4 dígitos para a gerência (armazenado como hash PBKDF2 com sal):', style: TextStyle(fontSize: 12.5, color: textSec)),
+                  Text('Defina um novo PIN Mestre de 4 dígitos para o desenvolvedor (armazenado como hash PBKDF2 com sal):', style: TextStyle(fontSize: 12.5, color: textSec)),
                   const SizedBox(height: 16),
                   TextField(
                     controller: controllerNovoPin,
@@ -507,7 +507,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (alterou == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('✅ PIN Mestre da Gerência atualizado com sucesso!'),
+          content: Text('✅ PIN Mestre do Desenvolvedor atualizado com sucesso!'),
           backgroundColor: AppColors.green,
         ),
       );
@@ -580,7 +580,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Row(
                         children: [
                           Text(
-                            'Área da Gerência',
+                            'Área do Desenvolvedor',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w900,
@@ -1026,7 +1026,7 @@ class _PainelGerenciaPageState extends State<_PainelGerenciaPage> {
                   const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFFF59E0B), size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    'Painel da Gerência',
+                    'Painel do Desenvolvedor',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
@@ -1077,7 +1077,7 @@ class _PainelGerenciaPageState extends State<_PainelGerenciaPage> {
                             ),
                           ),
                           Text(
-                            'O PIN mestre abre qualquer turno e libera qualquer operação. Troque agora para um valor que só a gerência conheça.',
+                            'O PIN mestre abre qualquer turno e libera qualquer operação. Troque agora para um valor que só o desenvolvedor conheça.',
                             style: TextStyle(
                               color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFB91C1C),
                               fontSize: 10.5,
@@ -1097,7 +1097,7 @@ class _PainelGerenciaPageState extends State<_PainelGerenciaPage> {
               icon: Icons.key_rounded,
               iconColor: const Color(0xFFF59E0B),
               iconBg: const Color(0xFF78350F).withValues(alpha: 0.4),
-              titulo: 'Alterar PIN Mestre da Gerência',
+              titulo: 'Alterar PIN Mestre do Desenvolvedor',
               subtitulo: 'Modificar a senha administrativa mestre (PBKDF2 com sal)',
               onTap: () async {
                 widget.onAlterarPinMestre();

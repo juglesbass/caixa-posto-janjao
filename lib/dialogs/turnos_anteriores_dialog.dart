@@ -69,7 +69,7 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Digite o PIN de ${t.operador} ou da gerência para autorizar a reabertura:',
+                'Digite o PIN de ${t.operador} ou do desenvolvedor para autorizar a reabertura:',
                 style: TextStyle(
                   fontSize: 12,
                   color: isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec,

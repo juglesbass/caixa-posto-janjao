@@ -149,7 +149,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Autorização da Gerência',
+                      'Autorização do Desenvolvedor',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -164,7 +164,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Para liberar o fechamento ou redefinir a senha de "${widget.turno.operador}", digite o PIN Mestre da Gerência:',
+                    'Para liberar o fechamento ou redefinir a senha de "${widget.turno.operador}", digite o PIN Mestre do Desenvolvedor:',
                     style: TextStyle(fontSize: 12.5, color: textSec),
                   ),
                   const SizedBox(height: 16),
@@ -226,7 +226,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                           }
                           Navigator.of(ctx).pop(true);
                         },
-                  child: const Text('Confirmar Gerência', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text('Confirmar Desenvolvedor', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ],
             );
@@ -277,7 +277,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Gerência Autenticada',
+                            'Desenvolvedor Autenticado',
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textPri),
                           ),
                           Text(
@@ -424,7 +424,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
     Navigator.of(context).pop();
     widget.onConfirmarFechamento((
       vendasSistema: _vendasSistema,
-      observacao: '${_controllerObs.text.trim()} [Liberado via Override Gerência]'.trim(),
+      observacao: '${_controllerObs.text.trim()} [Liberado via Override Desenvolvedor]'.trim(),
       authHash: authHash,
       fechadoEm: fechadoEm,
     ));
@@ -933,7 +933,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           child: const Text(
-                            'Esqueceu o PIN? Solicitar Gerência',
+                            'Esqueceu o PIN? Solicitar Desenvolvedor',
                             style: TextStyle(
                               fontSize: 10,
                               color: Color(0xFF38BDF8),
