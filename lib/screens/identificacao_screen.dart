@@ -140,7 +140,27 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
     });
 
     await Future<void>.delayed(const Duration(milliseconds: 16));
-    final temPin = await AuthService.operadorTemPin(formatado);
+
+    // Qualquer falha aqui tem de desligar o "processando" antes de sair. É essa
+    // bandeira que desabilita os cartões de nome, a seta de voltar e o campo de
+    // PIN — deixá-la ligada trancava a tela inteira, e o sintoma no iPhone era
+    // um app aparentemente morto: o toque no campo não chamava mais o teclado e
+    // a seta de voltar não respondia. A falha é real no PWA de aparelho mais
+    // fraco, onde o Safari derruba o acesso ao armazenamento sob pressão de
+    // memória.
+    var temPin = false;
+    try {
+      temPin = await AuthService.operadorTemPin(formatado);
+    } catch (e) {
+      debugPrint('[Identificação] Falha ao consultar o PIN de $formatado: $e');
+      if (!mounted) return;
+      AppHaptics.heavy();
+      setState(() {
+        _processando = false;
+        _erroNome = 'Não foi possível consultar o cadastro agora. Tente de novo.';
+      });
+      return;
+    }
     if (!mounted) return;
 
     if (!temPin) {
@@ -213,12 +233,31 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
     if (_processando) return;
     setState(() => _processando = true);
 
-    // Dois frames antes de começar: a derivação do PIN é pesada e roda na
-    // thread da interface. Sem esta pausa, o setState acima nunca chega a ser
-    // desenhado — a tela congela sem nenhum sinal de que algo está em curso.
+    // Dois frames antes de começar, para o spinner ligado no setState acima
+    // chegar a ser desenhado. No PWA a derivação do PIN já não ocupa a thread da
+    // interface (passou para o `crypto.subtle` do navegador), mas no celular ela
+    // continua sendo trabalho local — e a espera do banco e das preferências
+    // também cabe aqui.
     await Future<void>.delayed(const Duration(milliseconds: 32));
 
-    final valido = await AuthService.validarPin(_nomeEmValidacao, _pin);
+    // Mesmo motivo do passo anterior: sair daqui com "processando" ligado
+    // desabilita o campo de PIN e a seta de voltar, e a tela não responde mais
+    // — nem para chamar o teclado.
+    var valido = false;
+    try {
+      valido = await AuthService.validarPin(_nomeEmValidacao, _pin);
+    } catch (e) {
+      debugPrint('[Identificação] Falha ao validar o PIN: $e');
+      if (!mounted) return;
+      AppHaptics.heavy();
+      setState(() {
+        _processando = false;
+        _pin = '';
+        _controllerPin.clear();
+        _erroPin = 'Não foi possível validar agora. Tente de novo.';
+      });
+      return;
+    }
     if (!mounted) return;
 
     if (!valido) {
@@ -811,7 +850,16 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
             obscureText: true,
             obscuringCharacter: '\u25CF',
             textAlign: TextAlign.center,
-            enabled: !_processando,
+            // Só de leitura enquanto confere, em vez de desabilitado.
+            //
+            // Desabilitar tira o campo da árvore de foco e, no Web, desfaz o
+            // elemento de entrada que o navegador usa para o teclado. No iPhone
+            // o teclado descia e não voltava: reabri-lo exige um gesto novo do
+            // usuário, e o `requestFocus` que roda depois de um PIN errado é
+            // programático — o Safari ignora. Só de leitura, foco e teclado
+            // continuam de pé; o campo apenas não aceita dígitos durante a
+            // conferência.
+            readOnly: _processando,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             style: TextStyle(
               fontSize: 30,

@@ -36,28 +36,8 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Inicializa notificações, fila de sincronização e preferências táteis
+  // Preferência tátil: leitura barata, e é consultada já no primeiro toque.
   await AppHaptics.inicializar();
-  await NotificationService.inicializar();
-  await DriveService.inicializarModoTeste();
-
-  // Diagnóstico e inicialização de sincronização do Firebase Firestore
-  try {
-    debugPrint('════════════════════════════════════════════════════════════════');
-    debugPrint('[Firebase Diagnostic] Plataforma ativa: ${kIsWeb ? "Web (PWA)" : defaultTargetPlatform.name}');
-    debugPrint('[Firebase Diagnostic] Projeto Firestore: ${DefaultFirebaseOptions.defaultProjectId}');
-    // Executa verificação inicial de conectividade em segundo plano sem bloquear a inicialização
-    OperadoresSyncService.obterOperadores(sincronizarNuvem: true).then((ops) {
-      debugPrint('[Firebase Diagnostic] Inicialização concluída. ${ops.length} operadores carregados.');
-      // Migra automaticamente operadores já cadastrados anteriormente para o Firestore
-      OperadoresSyncService.migrarOperadoresLocaisParaFirestore();
-    }).catchError((e) {
-      debugPrint('[Firebase Diagnostic] Conexão em segundo plano: $e');
-    });
-    debugPrint('════════════════════════════════════════════════════════════════');
-  } catch (e) {
-    debugPrint('[Firebase Diagnostic] Erro durante diagnóstico de inicialização: $e');
-  }
 
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
@@ -69,6 +49,53 @@ void main() async {
   };
 
   runApp(const CaixaPostoJanjaoApp());
+
+  // O que não é pré-requisito para desenhar a primeira tela sobe depois dela.
+  //
+  // `NotificationService.inicializar()` era aguardado antes do `runApp`, e é ele
+  // quem abre o banco: no PWA isso significa baixar e compilar o `sqlite3.wasm`,
+  // criar tabelas e rodar migrações — tudo antes de o Flutter pintar um único
+  // frame, com o usuário parado no spinner do HTML. Em iPhone mais fraco essa
+  // era boa parte da demora da abertura. Agora a identificação aparece primeiro
+  // e o banco abre em seguida.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(_aquecerServicos());
+  });
+}
+
+/// Sobe os serviços que a primeira tela não precisa esperar.
+///
+/// Cada etapa é isolada: notificação indisponível (permissão negada, navegador
+/// sem suporte) não pode impedir o Firestore de sincronizar, e vice-versa.
+Future<void> _aquecerServicos() async {
+  try {
+    await NotificationService.inicializar();
+  } catch (e) {
+    debugPrint('[Init] Notificações indisponíveis: $e');
+  }
+
+  try {
+    await DriveService.inicializarModoTeste();
+  } catch (e) {
+    debugPrint('[Init] Modo Teste indisponível: $e');
+  }
+
+  // Puxa o pedaço diferido do PDF para a memória agora, com o operador ainda na
+  // identificação. Sem isto, o primeiro fechamento de turno é que pagaria a
+  // busca desse pedaço — e fechamento é justamente o que precisa funcionar sem
+  // sinal.
+  await DriveService.aquecerPdf();
+
+  debugPrint('[Firebase Diagnostic] Plataforma ativa: ${kIsWeb ? "Web (PWA)" : defaultTargetPlatform.name}');
+  debugPrint('[Firebase Diagnostic] Projeto Firestore: ${DefaultFirebaseOptions.defaultProjectId}');
+  try {
+    final ops = await OperadoresSyncService.obterOperadores(sincronizarNuvem: true);
+    debugPrint('[Firebase Diagnostic] Inicialização concluída. ${ops.length} operadores carregados.');
+    // Migra automaticamente operadores já cadastrados anteriormente para o Firestore
+    await OperadoresSyncService.migrarOperadoresLocaisParaFirestore();
+  } catch (e) {
+    debugPrint('[Firebase Diagnostic] Conexão em segundo plano: $e');
+  }
 }
 
 class CaixaPostoJanjaoApp extends StatefulWidget {
@@ -249,9 +276,16 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     if (mounted) await _recarregarDados();
   }
 
+  /// Reenvio automático da fila do Drive na abertura.
+  ///
+  /// A espera é longa de propósito: dois segundos caíam exatamente sobre a tela
+  /// de identificação, e no PWA a varredura da fila roda no mesmo thread que
+  /// desenha e que recebe os toques — era o operador digitando o PIN justamente
+  /// enquanto isso acontecia. Para um PDF preso na fila desde o turno anterior,
+  /// alguns segundos a mais não mudam nada.
   void _tentarSincronizarFilaInicial() async {
     try {
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 8));
       await DriveService.sincronizarTodasPendencias(respeitarBackoff: true);
     } catch (_) {}
   }

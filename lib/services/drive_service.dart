@@ -6,10 +6,31 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/motivo_pendencia.dart';
 import 'database_service.dart';
 import 'notification_service.dart';
-import 'pdf_service.dart';
+// Diferido de propósito: o `pdf_service` arrasta os pacotes `pdf` e `printing`,
+// que são o trecho mais pesado do pacote JavaScript do PWA, e nada disso é
+// necessário para desenhar a tela de identificação. Ver [DriveService.aquecerPdf].
+import 'pdf_service.dart' deferred as pdf_service;
 
 class DriveService {
   static final http.Client _client = http.Client();
+
+  /// Carrega antecipadamente o pedaço de código do PDF.
+  ///
+  /// `pdf_service` é importado com `deferred` para ficar fora do pacote inicial,
+  /// o que encurta o primeiro carregamento no celular fraco. O preço seria o
+  /// primeiro uso ter de buscar esse pedaço na rede — e fechamento de turno é
+  /// exatamente o que não pode depender de sinal. Chamar isto na abertura paga a
+  /// conta antes: o pedaço fica em memória muito antes de alguém fechar turno, e
+  /// o service worker de precache também o deixa em disco para o modo offline.
+  ///
+  /// Falhar aqui não é erro: o carregamento apenas volta a ser sob demanda.
+  static Future<void> aquecerPdf() async {
+    try {
+      await pdf_service.loadLibrary();
+    } catch (e) {
+      debugPrint('[DriveService] PDF será carregado sob demanda: $e');
+    }
+  }
 
   /// URL do webhook do Apps Script.
   ///
@@ -383,11 +404,12 @@ class DriveService {
 
           final isTeste = await isModoTeste();
           final folderId = isTeste ? pastaTestesId : pastaOficialId;
-          final nomeBase = PdfService.gerarNomeArquivo(turno: turno);
+          await pdf_service.loadLibrary();
+          final nomeBase = pdf_service.PdfService.gerarNomeArquivo(turno: turno);
           nomeArquivo = isTeste
               ? (nomeBase.startsWith('[TESTE]') ? nomeBase : '[TESTE] $nomeBase')
               : nomeBase.replaceFirst(RegExp(r'^\[TESTE\]\s*'), '');
-          final pdfBytes = await PdfService.gerarPdfFechamento(
+          final pdfBytes = await pdf_service.PdfService.gerarPdfFechamento(
             turno: turno,
             totais: totais,
             lancamentos: lancamentos,

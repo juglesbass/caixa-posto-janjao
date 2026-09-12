@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
@@ -26,6 +27,12 @@ class DatabaseService {
 
   /// Detalhe técnico da falha de armazenamento, quando houver
   static String? erroArmazenamento;
+
+  /// Versão do esquema garantido por [_garantirTabelas]. Suba este número ao
+  /// acrescentar lá uma tabela, coluna ou índice: é o que faz os aparelhos já
+  /// instalados rodarem a migração mais uma vez.
+  static const int _versaoEsquema = 1;
+  static const String _keyEsquemaGarantido = 'db_esquema_garantido_versao';
 
   DatabaseService._();
 
@@ -51,13 +58,23 @@ class DatabaseService {
 
   Future<Database> _initDatabase() async {
     Database db;
+
+    // Ligado por [_onCreate]: banco novo — ou recriado porque o navegador
+    // descartou o armazenamento — precisa do esquema completo, sem depender de
+    // marcador nenhum.
+    var bancoRecemCriado = false;
+    Future<void> criar(Database d, int versao) async {
+      bancoRecemCriado = true;
+      await _onCreate(d, versao);
+    }
+
     if (kIsWeb) {
       databaseFactory = databaseFactoryFfiWebNoWebWorker;
       try {
         db = await openDatabase(
           'caixa_posto_janjao_web.db',
           version: 1,
-          onCreate: _onCreate,
+          onCreate: criar,
         );
         armazenamentoPersistente = true;
       } catch (e) {
@@ -70,7 +87,7 @@ class DatabaseService {
         db = await openDatabase(
           inMemoryDatabasePath,
           version: 1,
-          onCreate: _onCreate,
+          onCreate: criar,
         );
       }
     } else {
@@ -79,15 +96,55 @@ class DatabaseService {
       db = await openDatabase(
         path,
         version: 1,
-        onCreate: _onCreate,
+        onCreate: criar,
       );
       armazenamentoPersistente = true;
     }
-    await _garantirTabelas(db);
+    await _garantirEsquema(db, recemCriado: bancoRecemCriado);
     return db;
   }
 
-  Future<void> _garantirTabelas(Database db) async {
+  /// Roda [_garantirTabelas] só quando faz falta.
+  ///
+  /// São 24 instruções, e onze delas são `ALTER TABLE` que falham de propósito
+  /// porque a coluna já existe. No celular isso é barato; no PWA não é: cada
+  /// instrução é uma transação contra o SQLite em WebAssembly persistido em
+  /// IndexedDB, no mesmo thread que desenha a tela e recebe os toques — no
+  /// Safari de iPhone mais fraco era uma fatia visível da demora da abertura, e
+  /// o preço era pago em toda abertura para nada.
+  ///
+  /// O marcador fica nas preferências, e não no `user_version` do banco, porque
+  /// esse pragma pertence ao sqflite: é por ele que ele decide chamar
+  /// [_onCreate]. Sem marcador, ou com marcador de outra versão, o esquema é
+  /// garantido como antes. E ele só é gravado com o banco persistente, senão uma
+  /// abertura que caiu para o banco em memória faria o banco de verdade pular a
+  /// migração na próxima vez.
+  Future<void> _garantirEsquema(Database db, {required bool recemCriado}) async {
+    if (!recemCriado) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.getInt(_keyEsquemaGarantido) == _versaoEsquema) return;
+      } catch (_) {
+        // Preferências inacessíveis: segue pelo caminho antigo, garantindo tudo.
+      }
+    }
+
+    final completo = await _garantirTabelas(db);
+
+    // Esquema incompleto não é marcado: a próxima abertura precisa tentar de
+    // novo, como acontecia antes.
+    if (!completo || !armazenamentoPersistente) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_keyEsquemaGarantido, _versaoEsquema);
+    } catch (_) {}
+  }
+
+  /// Garante tabelas, colunas e índices acrescentados depois de [_onCreate].
+  ///
+  /// Devolve `false` quando algum passo não pôde ser aplicado — hoje só o índice
+  /// único da fila do Drive, que é justamente o que não pode ficar de fora.
+  Future<bool> _garantirTabelas(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS encerrantes (
         turno_id INTEGER NOT NULL,
@@ -182,8 +239,12 @@ class DatabaseService {
       await db.execute(
         'CREATE UNIQUE INDEX IF NOT EXISTS idx_drive_pendencias_turno_unico ON drive_pendencias (turno_id)',
       );
+      return true;
     } catch (e) {
       debugPrint('[DB] Não foi possível aplicar índice único da fila do Drive: $e');
+      // Este índice é a única proteção contra o mesmo PDF ser enviado duas vezes
+      // ao Drive. Falhando ele, o esquema não é marcado como pronto.
+      return false;
     }
   }
 

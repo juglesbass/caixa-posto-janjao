@@ -3,7 +3,11 @@ import 'dart:ui' show FontFeature;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:printing/printing.dart';
+// `printing` e `pdf_service` (mais abaixo) são diferidos: juntos eles trazem os
+// pacotes `pdf` e `printing`, o trecho mais pesado do pacote JavaScript, e só
+// fazem falta quando alguém pede o PDF. Carregados na abertura por
+// [DriveService.aquecerPdf], ficam prontos antes do primeiro uso.
+import 'package:printing/printing.dart' deferred as printing;
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,7 +20,7 @@ import '../services/csv_service.dart';
 import '../services/database_service.dart';
 import '../services/drive_service.dart';
 import '../services/notification_service.dart';
-import '../services/pdf_service.dart';
+import '../services/pdf_service.dart' deferred as pdf_service;
 import '../theme/app_colors.dart';
 import '../utils/app_haptics.dart';
 import '../utils/currency_formatter.dart';
@@ -375,14 +379,16 @@ class _SummaryScreenState extends State<SummaryScreen> {
         canhotos: _canhotosManual,
       );
 
-      final nomeArquivo = PdfService.gerarNomeArquivo(turno: turnoAtualizado);
-      final pdfBytes = await PdfService.gerarPdfFechamento(
+      await pdf_service.loadLibrary();
+      final nomeArquivo =
+          pdf_service.PdfService.gerarNomeArquivo(turno: turnoAtualizado);
+      final pdfBytes = await pdf_service.PdfService.gerarPdfFechamento(
         turno: turnoAtualizado,
         totais: _totaisAtualizados,
         lancamentos: lancamentos,
       );
 
-      final caminhoLocal = await PdfService.salvarArquivoLocal(
+      final caminhoLocal = await pdf_service.PdfService.salvarArquivoLocal(
         pdfBytes: pdfBytes,
         nomeArquivo: nomeArquivo,
       );
@@ -396,7 +402,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
           ),
         );
       } else {
-        await Printing.sharePdf(
+        await printing.loadLibrary();
+        await printing.Printing.sharePdf(
           bytes: pdfBytes,
           filename: nomeArquivo,
           bounds: origin,
@@ -452,6 +459,14 @@ class _SummaryScreenState extends State<SummaryScreen> {
       );
       return;
     }
+
+    // Carregado uma vez aqui, e não junto de cada uso: mais abaixo o nome do
+    // arquivo é calculado dentro de um `try` que engole falhas, e é ele que grava
+    // a pendência do Drive. Garantir o pedaço agora impede que uma falha de
+    // carregamento faça o fechamento perder a pendência em silêncio. Fica depois
+    // da guarda de turno já encerrado para que ela siga respondendo na hora, sem
+    // passar por um `await`.
+    await pdf_service.loadLibrary();
 
     // Persistir obrigatoriamente a venda do sistema digitada e justificativa antes do fechamento
     final valorDigitado = CurrencyFormatter.parse(_vendasSistemaController.text);
@@ -643,8 +658,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
         authHash: dadosFechamento!.authHash,
       );
 
-      final nomeArquivo = PdfService.gerarNomeArquivo(turno: turnoFechado);
-      final pdfBytes = await PdfService.gerarPdfFechamento(
+      final nomeArquivo =
+          pdf_service.PdfService.gerarNomeArquivo(turno: turnoFechado);
+      final pdfBytes = await pdf_service.PdfService.gerarPdfFechamento(
         turno: turnoFechado,
         totais: _totaisAtualizados.copyWith(
           vendasSistema: dadosFechamento!.vendasSistema,
@@ -741,7 +757,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
           if (turnoNoBanco != null && !turnoNoBanco.aberto) {
             await DatabaseService.instance.salvarPendenciaDrive(
               widget.turno.id!,
-              PdfService.gerarNomeArquivo(turno: turnoNoBanco),
+              pdf_service.PdfService.gerarNomeArquivo(turno: turnoNoBanco),
               widget.turno.operador,
             );
             await NotificationService.atualizarPendencias();

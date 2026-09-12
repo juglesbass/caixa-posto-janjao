@@ -453,7 +453,7 @@ class OperadoresSyncService {
       return false;
     }
 
-    final pinHash = AuthService.gerarHashPin(pinLimpo);
+    final pinHash = await AuthService.gerarHashPinAsync(pinLimpo);
     final docId = operadorId ?? 'op_${AuthService.normalizarOperador(nomeLimpo)}';
 
     final db = DatabaseService.instance;
@@ -582,7 +582,7 @@ class OperadoresSyncService {
     if (index == -1) return false;
 
     final operadorExistente = operadores[index];
-    final novoHash = AuthService.gerarHashPin(pinLimpo);
+    final novoHash = await AuthService.gerarHashPinAsync(pinLimpo);
     final atualizado = operadorExistente.copyWith(
       pinHash: novoHash,
       atualizadoEm: DateTime.now(),
@@ -904,7 +904,7 @@ class OperadoresSyncService {
         final pinPlano = prefs.getString('pin_operador_$chave');
 
         if ((hash == null || hash.isEmpty) && pinPlano != null && pinPlano.trim().length == 4) {
-          hash = AuthService.gerarHashPin(pinPlano.trim());
+          hash = await AuthService.gerarHashPinAsync(pinPlano.trim());
           await prefs.setString('pin_operador_${chave}_hash', hash);
           await prefs.remove('pin_operador_$chave');
         }
@@ -1022,7 +1022,7 @@ class OperadoresSyncService {
         return false;
       }
       // Aceita tanto o hash PBKDF2 com sal quanto o SHA-256 legado da nuvem
-      if (AuthService.verificarPin(pinLimpo, op.pinHash)) {
+      if (await AuthService.verificarPinAsync(pinLimpo, op.pinHash)) {
         return true;
       }
     }

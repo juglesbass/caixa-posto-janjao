@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/operador_model.dart';
+import '../utils/pbkdf2_nativo.dart';
 import 'database_service.dart';
 import 'operadores_sync_service.dart';
 
@@ -29,7 +30,8 @@ class AuthService {
 
   /// Migra um PIN legado em texto plano para hash e apaga o texto plano
   static Future<void> _migrarPinLegado(SharedPreferences prefs, String operador, String pinPlano) async {
-    await prefs.setString(_chaveHashOperador(operador), gerarHashPin(pinPlano));
+    await prefs.setString(
+        _chaveHashOperador(operador), await gerarHashPinAsync(pinPlano));
     await prefs.remove(_chavePinOperador(operador));
   }
 
@@ -86,7 +88,7 @@ class AuthService {
     if (limpo.length != 4 || int.tryParse(limpo) == null) {
       return false;
     }
-    final hash = gerarHashPin(limpo);
+    final hash = await gerarHashPinAsync(limpo);
     await salvarHashLocal(operador, hash);
 
     // Sincroniza em tempo real com o Cloud Firestore e adiciona à fila offline
@@ -159,8 +161,16 @@ class AuthService {
   static const String _prefixoPbkdf2 = 'pbkdf2_sha256';
 
   // PIN de operador: validado na abertura e no fechamento de turno, às vezes
-  // várias vezes seguidas. O custo aqui é pago na thread de UI (no PWA não há
-  // isolate), então o teto é o que roda em ~100ms num celular simples.
+  // várias vezes seguidas.
+  //
+  // Estes tetos foram escolhidos quando a derivação rodava sempre em Dart, na
+  // thread da interface — no PWA não há isolate, e o limite era o que cabia em
+  // ~100ms num celular simples. Hoje o Web usa `crypto.subtle`
+  // (ver `verificarPinAsync`), que faz a mesma conta em código nativo e aguenta
+  // muito mais. Os números seguem baixos por compatibilidade: subir o alvo marca
+  // todo hash existente como legado (ver [hashEhLegado]) e dispara uma onda de
+  // regravação no aparelho e no Firestore. É uma melhoria possível, não um
+  // efeito colateral para acontecer sozinho.
   static const int _iteracoesPbkdf2Web = 4000;
   static const int _iteracoesPbkdf2Nativo = 12000;
   static int get _iteracoesPbkdf2 => kIsWeb ? _iteracoesPbkdf2Web : _iteracoesPbkdf2Nativo;
@@ -242,6 +252,87 @@ class AuthService {
     }
 
     // Mantém o cache limitado a 300 itens para não acumular memória
+    if (_cacheVerificacao.length > 300) {
+      _cacheVerificacao.clear();
+    }
+    _cacheVerificacao[cacheKey] = resultado;
+    return resultado;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // VERSÕES ASSÍNCRONAS — use estas em qualquer lugar que possa esperar
+  //
+  // As versões síncronas acima continuam existindo e corretas; elas são o
+  // caminho de reserva e o que roda fora do Web. A diferença está só em quem faz
+  // a conta: no PWA a derivação em Dart ocupa a thread que desenha a tela e
+  // recebe os toques, e é ela que congelava o login por mais de um segundo em
+  // iPhone mais fraco. As versões assíncronas entregam a conta ao `crypto.subtle`
+  // do navegador, que roda em código nativo, e devolvem exatamente o mesmo hash.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /// PBKDF2 preferindo o motor do navegador, com a implementação em Dart como
+  /// reserva. A checagem de tamanho é proposital: resultado nativo com tamanho
+  /// inesperado é descartado em vez de virar um hash silenciosamente errado.
+  static Future<List<int>> _pbkdf2Async(
+    List<int> senha,
+    List<int> sal,
+    int iteracoes,
+    int tamanho,
+  ) async {
+    final nativo = await derivarPbkdf2Sha256(
+      senha: senha,
+      sal: sal,
+      iteracoes: iteracoes,
+      tamanho: tamanho,
+    );
+    if (nativo != null && nativo.length == tamanho) return nativo;
+    return _pbkdf2(senha, sal, iteracoes, tamanho);
+  }
+
+  /// Igual a [gerarHashPin], sem ocupar a thread da interface no Web.
+  static Future<String> gerarHashPinAsync(String pin, {int? iteracoes}) async {
+    final sal = List<int>.generate(16, (_) => _random.nextInt(256));
+    final iteracoesUsadas = iteracoes ?? _iteracoesPbkdf2;
+    final derivado =
+        await _pbkdf2Async(utf8.encode(pin.trim()), sal, iteracoesUsadas, 32);
+    final hashGerado = [
+      _prefixoPbkdf2,
+      '$iteracoesUsadas',
+      _paraHex(sal),
+      _paraHex(derivado),
+    ].join(':');
+
+    _cacheVerificacao['${pin.trim()}|$hashGerado'] = true;
+    return hashGerado;
+  }
+
+  /// Igual a [verificarPin], sem ocupar a thread da interface no Web.
+  /// Compartilha o mesmo cache em memória, então um acerto responde na hora.
+  static Future<bool> verificarPinAsync(String pin, String? hashArmazenado) async {
+    if (hashArmazenado == null || hashArmazenado.trim().isEmpty) return false;
+    final limpo = pin.trim();
+    final armazenado = hashArmazenado.trim();
+
+    final cacheKey = '$limpo|$armazenado';
+    final emCache = _cacheVerificacao[cacheKey];
+    if (emCache != null) return emCache;
+
+    bool resultado = false;
+    if (armazenado.startsWith('$_prefixoPbkdf2:')) {
+      final partes = armazenado.split(':');
+      if (partes.length == 4) {
+        final iteracoes = int.tryParse(partes[1]);
+        final sal = _deHex(partes[2]);
+        if (iteracoes != null && iteracoes > 0 && sal.isNotEmpty) {
+          final derivado =
+              await _pbkdf2Async(utf8.encode(limpo), sal, iteracoes, 32);
+          resultado = _comparacaoSegura(_paraHex(derivado), partes[3]);
+        }
+      }
+    } else {
+      resultado = _comparacaoSegura(hashPin(limpo), armazenado);
+    }
+
     if (_cacheVerificacao.length > 300) {
       _cacheVerificacao.clear();
     }
@@ -344,11 +435,10 @@ class AuthService {
       return digitado == _pinGerentePadrao;
     }
 
-    // Daqui para baixo vem a derivação cara (20.000 iterações no Web), e ela
-    // roda na thread da interface. Sem esta pausa, o indicador de carregamento
-    // que a tela acabou de ligar nunca chega a ser desenhado: a thread já está
-    // ocupada quando o frame seria pintado, e o usuário vê travamento em vez de
-    // espera. Dois frames bastam para o spinner aparecer.
+    // Daqui para baixo vem a derivação cara (20.000 iterações no Web). A pausa
+    // garante que o indicador de carregamento que a tela acabou de ligar chegue a
+    // ser desenhado antes: no celular a conta ainda é local, e mesmo no Web o
+    // `await` só devolve a thread se houver um frame para pintar.
     //
     // Fica aqui, e não em cada tela, porque o PIN Mestre é pedido em vários
     // lugares — gerência, override de fechamento, reabertura de turno.
@@ -365,7 +455,8 @@ class AuthService {
       if (pinLegado != null && pinLegado.length == 4) {
         // Texto plano de uma versão antiga: converte em hash e apaga o rastro.
         final ehPadrao = pinLegado == _pinGerentePadrao;
-        hashSalvo = gerarHashPin(pinLegado, iteracoes: _iteracoesPbkdf2Mestre);
+        hashSalvo =
+            await gerarHashPinAsync(pinLegado, iteracoes: _iteracoesPbkdf2Mestre);
         await prefs.setString(keyPinGerenteHash, hashSalvo);
         await prefs.setBool(keyPinGerentePersonalizado, !ehPadrao);
         await prefs.remove('pin_gerente');
@@ -381,7 +472,7 @@ class AuthService {
       }
 
       // Existe hash mas não se sabe se é o de fábrica: descobre uma vez só.
-      final ehPadrao = verificarPin(_pinGerentePadrao, hashSalvo);
+      final ehPadrao = await verificarPinAsync(_pinGerentePadrao, hashSalvo);
       await prefs.setBool(keyPinGerentePersonalizado, !ehPadrao);
       _cachePinGerenteEhPadrao = ehPadrao;
       if (ehPadrao) {
@@ -402,13 +493,13 @@ class AuthService {
       return false;
     }
 
-    if (!verificarPin(digitado, hashSalvo)) return false;
+    if (!await verificarPinAsync(digitado, hashSalvo)) return false;
 
     // Acertou: reforça hashes derivados por versões antigas, com poucas iterações
     if (_hashMestreEhFraco(hashSalvo)) {
       await prefs.setString(
         keyPinGerenteHash,
-        gerarHashPin(digitado, iteracoes: _iteracoesPbkdf2Mestre),
+        await gerarHashPinAsync(digitado, iteracoes: _iteracoesPbkdf2Mestre),
       );
     }
     return true;
@@ -451,7 +542,7 @@ class AuthService {
       }
 
       // Aparelho legado sem a flag: calcula uma vez e persiste o resultado.
-      final ehPadrao = verificarPin(_pinGerentePadrao, hashSalvo);
+      final ehPadrao = await verificarPinAsync(_pinGerentePadrao, hashSalvo);
       await prefs.setBool(keyPinGerentePersonalizado, !ehPadrao);
       _cachePinGerenteEhPadrao = ehPadrao;
       return ehPadrao;
@@ -465,7 +556,8 @@ class AuthService {
     final limpo = novoPin.trim();
     if (limpo.length != 4 || int.tryParse(limpo) == null) return false;
     final prefs = await SharedPreferences.getInstance();
-    final novoHash = gerarHashPin(limpo, iteracoes: _iteracoesPbkdf2Mestre);
+    final novoHash =
+        await gerarHashPinAsync(limpo, iteracoes: _iteracoesPbkdf2Mestre);
     final personalizado = limpo != _pinGerentePadrao;
 
     await prefs.setString(keyPinGerenteHash, novoHash);
@@ -543,7 +635,7 @@ class AuthService {
 
     if (cadastro != null &&
         cadastro.pinHash.isNotEmpty &&
-        verificarPin(digitado, cadastro.pinHash)) {
+        await verificarPinAsync(digitado, cadastro.pinHash)) {
       // Reforça o hash da nuvem se ele veio de uma versão mais fraca
       if (hashEhLegado(cadastro.pinHash)) {
         unawaited(OperadoresSyncService.redefinirPin(
@@ -567,9 +659,10 @@ class AuthService {
     //    Operador excluído ou desativado nunca alcança este ponto: o passo 1
     //    encerra antes.
     final hashSalvo = prefs.getString(_chaveHashOperador(operador));
-    if (verificarPin(digitado, hashSalvo)) {
+    if (await verificarPinAsync(digitado, hashSalvo)) {
       if (hashEhLegado(hashSalvo)) {
-        await prefs.setString(_chaveHashOperador(operador), gerarHashPin(digitado));
+        await prefs.setString(
+            _chaveHashOperador(operador), await gerarHashPinAsync(digitado));
       }
       // Sincroniza em segundo plano com o Cloud Firestore para garantir presença
       // na nuvem. O perfil vem do cadastro existente: fixar 'operador' aqui

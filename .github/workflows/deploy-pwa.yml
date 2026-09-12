@@ -52,11 +52,48 @@ jobs:
           done
 
       - name: Build Web PWA
-        run: flutter build web --release --base-href "/caixa-posto-janjao/"
+      # `--pwa-strategy=offline-first` reativa o service worker de precache.
+      # Sem ele (o padrão virou `none`) o PWA publicado não guardava nada: o que
+      # o navegador descartasse era rebaixado de novo da rede na abertura
+      # seguinte — 1,4 MB de `main.dart.js` mais 2,3 MB de CanvasKit. Num iPhone
+      # mais fraco, em rede de celular, era isso a demora do primeiro
+      # carregamento, e ela voltava toda vez que o Safari limpava o cache. Pior:
+      # um caixa que é offline-first por dentro não abria sem internet.
+      #
+      # `--no-web-resources-cdn` faz o CanvasKit ser servido do próprio site em
+      # vez do gstatic. Não é preferência: o service worker do Flutter só guarda
+      # arquivos do build, então enquanto o CanvasKit vier de outro domínio ele
+      # nunca entra no cache offline. O GitHub Pages serve `.wasm` com gzip
+      # (confirmado nos cabeçalhos), então o tamanho continua equivalente.
+      #
+      # Atenção ao atualizar o Flutter: o service worker dele está marcado como
+      # descontinuado e `--pwa-strategy` deve desaparecer em alguma versão
+      # futura. Quando o build quebrar por flag desconhecida, o caminho é um
+      # service worker próprio em `web/`, não simplesmente remover a flag.
+        run: >
+          flutter build web --release
+          --base-href "/caixa-posto-janjao/"
+          --pwa-strategy=offline-first
+          --no-web-resources-cdn
 
       - name: Verify build output
         run: |
           set -euo pipefail
+          # O service worker precisa sair com a lista de recursos do build. O
+          # que o Flutter gera com `--pwa-strategy=none` é um arquivo de ~800
+          # bytes que se desregistra sozinho: publicar aquele de novo devolveria
+          # o PWA sem cache nenhum, sem quebrar nada visível.
+          sw=build/web/flutter_service_worker.js
+          if [ ! -s "$sw" ] || ! grep -q "RESOURCES" "$sw"; then
+            echo "::error::$sw saiu sem a lista de recursos — o PWA ficaria sem cache offline."
+            exit 1
+          fi
+          echo "OK: service worker de precache ($(stat -c%s "$sw") bytes)"
+          if [ ! -s build/web/canvaskit/canvaskit.wasm ]; then
+            echo "::error::canvaskit local ausente — o CanvasKit viria do CDN e ficaria fora do cache offline."
+            exit 1
+          fi
+          echo "OK: canvaskit local ($(stat -c%s build/web/canvaskit/canvaskit.wasm) bytes)"
           for f in build/web/sqlite3.wasm build/web/index.html build/web/manifest.json; do
             if [ ! -s "build/web/$(basename "$f")" ] && [ ! -s "$f" ]; then
               echo "::error::$f não foi gerado — o PWA seria publicado quebrado."

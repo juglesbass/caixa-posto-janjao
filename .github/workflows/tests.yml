@@ -39,5 +39,10 @@ jobs:
       # quebra em silêncio: erro de compilação em código Web (`dart:js_interop`,
       # imports condicionais) não aparece em `flutter test`, que roda na VM.
       # Este passo só compila — não publica nada.
+      # Compila com as mesmas flags do deploy: é aqui que uma flag removida por
+      # uma atualização do Flutter aparece, antes de ir para o ar.
       - name: Build Web PWA (verificação, sem deploy)
-        run: flutter build web --release
+        run: >
+          flutter build web --release
+          --pwa-strategy=offline-first
+          --no-web-resources-cdn
