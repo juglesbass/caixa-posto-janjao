@@ -15,6 +15,7 @@ import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/summary_screen.dart';
 import 'screens/validar_screen.dart';
+import 'services/auth_service.dart';
 import 'services/database_service.dart';
 import 'services/drive_service.dart';
 import 'services/notification_service.dart';
@@ -398,6 +399,33 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       final operador = result['operador'] as String;
       final fundo = (result['fundoCaixa'] as num?)?.toDouble() ?? 0.0;
 
+      // Já existe turno aberto: quem chegou aqui veio do "Trocar / Sair do
+      // Operador", que manda para a tela de login sem fechar nada.
+      //
+      // Antes, este caminho caía direto no abrirNovoTurno abaixo — e ele fecha
+      // qualquer turno aberto. O operador saía, entrava de novo com o próprio
+      // nome, e encontrava o caixa zerado: o turno dele tinha sido fechado sem
+      // relatório e substituído por um vazio. O botão até promete o contrário,
+      // no subtítulo: "Manter turno aberto e desconectar usuário".
+      final turnoAberto = _turnoAtual;
+      if (turnoAberto != null) {
+        final mesmoOperador =
+            AuthService.normalizarOperador(turnoAberto.operador) ==
+                AuthService.normalizarOperador(operador);
+
+        // Voltou quem já estava: nada muda, o turno continua o mesmo.
+        if (mesmoOperador) {
+          if (!mounted) return;
+          setState(() => _indiceAba = 0);
+          return;
+        }
+
+        // Outra pessoa assumindo. Aí o turno de quem estava é mesmo fechado —
+        // mas isso precisa ser escolha declarada, não efeito colateral.
+        final confirmou = await _confirmarTrocaDeOperador(turnoAberto, operador);
+        if (!confirmou || !mounted) return;
+      }
+
       // Novo turno sempre inicia com a máquina Rede por padrão
       try {
         final prefs = await SharedPreferences.getInstance();
@@ -419,6 +447,43 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         _indiceAba = 0;
       });
     }
+  }
+
+  /// Confirma a passagem do caixa para outro operador.
+  ///
+  /// Trocar de operador fecha o turno de quem estava, e esse fechamento não gera
+  /// relatório nem envia nada ao Drive — é um fechamento sem prestação de
+  /// contas. Por isso o aviso diz o número do turno, o nome de quem está nele e
+  /// aponta o caminho certo para encerrar de verdade.
+  Future<bool> _confirmarTrocaDeOperador(
+    Turno turnoAberto,
+    String novoOperador,
+  ) async {
+    final confirmou = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Fechar o turno atual?'),
+        content: Text(
+          'O turno #${turnoAberto.numero} está aberto no nome de '
+          '${turnoAberto.operador}.\n\n'
+          'Entrar como $novoOperador fecha esse turno e abre um novo, vazio. '
+          'Esse fechamento não gera relatório nem envia nada ao Google Drive.\n\n'
+          'Para encerrar com relatório, use "Fechar Caixa & Resumo".',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.red),
+            child: const Text('Fechar e trocar'),
+          ),
+        ],
+      ),
+    );
+    return confirmou == true;
   }
 
   void _abrirLancamentoRapido() async {

@@ -867,7 +867,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     iconColor: const Color(0xFFD97706),
                     iconBg: const Color(0xFF78350F).withValues(alpha: 0.4),
                     titulo: 'Trocar / Sair do Operador',
-                    subtitulo: 'Manter turno aberto e desconectar usuário',
+                    subtitulo: 'Voltar ao login sem fechar o turno',
                     onTap: widget.onAbrirNovoTurno,
                   ),
                   const SizedBox(height: 20),
