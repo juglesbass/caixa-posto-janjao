@@ -238,7 +238,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Área Restrita do Desenvolvedor',
+                          'Desenvolvedor',
                           style: TextStyle(
                             fontSize: 15.5,
                             fontWeight: FontWeight.w900,
@@ -580,7 +580,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Row(
                         children: [
                           Text(
-                            'Área do Desenvolvedor',
+                            'Desenvolvedor',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w900,
@@ -1026,7 +1026,7 @@ class _PainelGerenciaPageState extends State<_PainelGerenciaPage> {
                   const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFFF59E0B), size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    'Painel do Desenvolvedor',
+                    'Desenvolvedor',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
