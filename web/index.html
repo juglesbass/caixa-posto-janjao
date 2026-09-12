@@ -124,6 +124,28 @@
       setTimeout(removeLoader, 8000);
     });
 
+    // Rede de segurança contra o toque chegar deslocado no iPhone.
+    //
+    // Ao focar um campo, o Safari rola o documento para revelá-lo. A página aqui
+    // não rola (body tem overflow hidden), então o que acontece é o viewport
+    // visual sair de alinhamento com o de layout — e o Flutter passa a receber o
+    // toque numa coordenada que não é a que o dedo encostou: tocava num operador
+    // e outro era selecionado, a seta de voltar não respondia, o campo de PIN
+    // nunca recebia o toque e o teclado não abria.
+    //
+    // A causa principal era o autofoco do campo de PIN, já retirado no app. Isto
+    // aqui cobre o resto: qualquer rolagem do documento é desfeita na hora.
+    function corrigirDeslocamento() {
+      if (window.scrollX !== 0 || window.scrollY !== 0) {
+        window.scrollTo(0, 0);
+      }
+    }
+    window.addEventListener('scroll', corrigirDeslocamento, { passive: true });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', corrigirDeslocamento);
+      window.visualViewport.addEventListener('scroll', corrigirDeslocamento);
+    }
+
     // Uma entrada extra no histórico dá ao PWA do iOS algo para onde "voltar",
     // evitando que o primeiro swipe-back descarregue a página.
     //

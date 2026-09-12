@@ -190,7 +190,10 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
       _etapa = _Etapa.digitarNome;
       _erroNome = null;
     });
-    // Só pede foco depois do primeiro frame da nova etapa
+    // Só pede foco depois do primeiro frame da nova etapa — e só fora do Web,
+    // pelo mesmo motivo do campo de PIN: no Safari o foco programático não abre
+    // teclado e ainda desloca o viewport.
+    if (kIsWeb) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNome.requestFocus();
     });
@@ -268,7 +271,10 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
         _controllerPin.clear();
         _erroPin = 'PIN incorreto. Tente novamente.';
       });
-      _focusPin.requestFocus();
+      // No Web isto seria foco programático de novo — mesmo problema do
+      // autofoco acima. O campo continua focado desde o toque do usuário, e o
+      // teclado nunca chegou a descer.
+      if (!kIsWeb) _focusPin.requestFocus();
       return;
     }
 
@@ -844,7 +850,21 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
           child: TextField(
             controller: _controllerPin,
             focusNode: _focusPin,
-            autofocus: true,
+            // Sem autofoco no Web, e a razão é o iPhone.
+            //
+            // Foco programático não abre o teclado no Safari — só gesto do
+            // usuário abre. O campo ficava focado e mudo: tocar nele não
+            // adiantava, porque para o Flutter ele JÁ tinha o foco, e não havia
+            // como recuperar. Pior, ao focar um campo o Safari rola o documento
+            // para revelá-lo; como a página não rola, isso desloca o viewport
+            // visual e o Flutter passa a receber os toques em coordenada errada
+            // — tocava num operador e outro era selecionado, a seta de voltar
+            // não respondia.
+            //
+            // Sem autofoco, o primeiro toque no campo é um gesto de verdade: o
+            // Safari abre o teclado e nada se desloca. No celular o autofoco
+            // funciona bem e continua.
+            autofocus: !kIsWeb,
             keyboardType: TextInputType.number,
             maxLength: 4,
             obscureText: true,
