@@ -81,12 +81,6 @@ Future<void> _aquecerServicos() async {
     debugPrint('[Init] Modo Teste indisponível: $e');
   }
 
-  // Puxa o pedaço diferido do PDF para a memória agora, com o operador ainda na
-  // identificação. Sem isto, o primeiro fechamento de turno é que pagaria a
-  // busca desse pedaço — e fechamento é justamente o que precisa funcionar sem
-  // sinal.
-  await DriveService.aquecerPdf();
-
   debugPrint('[Firebase Diagnostic] Plataforma ativa: ${kIsWeb ? "Web (PWA)" : defaultTargetPlatform.name}');
   debugPrint('[Firebase Diagnostic] Projeto Firestore: ${DefaultFirebaseOptions.defaultProjectId}');
   try {
@@ -97,6 +91,17 @@ Future<void> _aquecerServicos() async {
   } catch (e) {
     debugPrint('[Firebase Diagnostic] Conexão em segundo plano: $e');
   }
+
+  // Pré-carregamento do PDF por último, e com folga.
+  //
+  // Ele precisa acontecer antes do primeiro fechamento de turno, para que isso
+  // não dependa de sinal. Mas com cache vazio é baixar e COMPILAR algumas
+  // centenas de KB de JavaScript, e compilar é trabalho na mesma thread que
+  // recebe os toques. Rodando junto da abertura, isso pegava o operador no meio
+  // dos primeiros toques nos menus e parecia app travado. Para um fechamento que
+  // vem minutos ou horas depois, esta espera não custa nada.
+  await Future<void>.delayed(const Duration(seconds: 12));
+  await DriveService.aquecerPdf();
 }
 
 class CaixaPostoJanjaoApp extends StatefulWidget {
