@@ -25,6 +25,11 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Versão fixa de propósito. No 3.47 uma atualização do Flutter
+          # esvaziou o service worker do PWA sem avisar (c7b7036), e o deploy
+          # usa o que vier do canal. Atualize trocando o número aqui, e confira
+          # o PWA depois. 3.47.4 é a versão que gerou o site em 12/09.
+          flutter-version: 3.47.4
           cache: true
 
       - name: Select Xcode
@@ -99,6 +104,11 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Versão fixa de propósito. No 3.47 uma atualização do Flutter
+          # esvaziou o service worker do PWA sem avisar (c7b7036), e o deploy
+          # usa o que vier do canal. Atualize trocando o número aqui, e confira
+          # o PWA depois. 3.47.4 é a versão que gerou o site em 12/09.
+          flutter-version: 3.47.4
           cache: true
 
       - name: Configure Flutter Android Platform

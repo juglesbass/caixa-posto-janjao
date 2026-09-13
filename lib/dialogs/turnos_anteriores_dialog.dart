@@ -38,6 +38,40 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
   }
 
   void _solicitarReabertura(Turno t) async {
+    // Reabrir fecha o turno que estiver aberto, e esse fechamento não gera
+    // relatório nem envia nada ao Drive. Desde 25/08 isso acontecia em silêncio
+    // — pelo menu Configurações dava para, no meio do turno, reabrir um antigo e
+    // perder o relatório do atual sem saber. Mesma correção do "Trocar
+    // operador" (6428276): continua possível, mas como escolha declarada.
+    final aberto = await DatabaseService.instance.obterTurnoAberto();
+    if (!mounted) return;
+    if (aberto != null && aberto.id != t.id) {
+      final confirmou = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Fechar o turno atual?'),
+          content: Text(
+            'O turno #${aberto.numero} está aberto no nome de ${aberto.operador}.\n\n'
+            'Reabrir o turno #${t.numero} fecha esse turno. Esse fechamento não '
+            'gera relatório nem envia nada ao Google Drive.\n\n'
+            'Para encerrar com relatório, use "Fechar Caixa & Resumo" antes de reabrir.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: TextButton.styleFrom(foregroundColor: AppColors.red),
+              child: const Text('Fechar e reabrir'),
+            ),
+          ],
+        ),
+      );
+      if (confirmou != true || !mounted) return;
+    }
+
     final controller = TextEditingController();
     String? erro;
     final isDark = Theme.of(context).brightness == Brightness.dark;

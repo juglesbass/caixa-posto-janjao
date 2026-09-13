@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../models/motivo_pendencia.dart';
 import '../utils/local_notification.dart';
 import '../utils/web_notification.dart';
 import 'database_service.dart';
@@ -43,7 +44,12 @@ class NotificationService {
   static Future<int> atualizarPendencias() async {
     try {
       final db = DatabaseService.instance;
-      final lista = await db.obterPendenciasDrive();
+      // Envio em andamento não é pendência para o operador: a linha já existe
+      // no banco (nasce com o fechamento), mas só vira aviso se o envio falhar
+      // ou não terminar. Ver [DatabaseService.enviosDriveEmCurso].
+      final lista = (await db.obterPendenciasDrive())
+          .where((p) => !DatabaseService.enviosDriveEmCurso.contains(p['turno_id']))
+          .toList();
       pendenciasCount.value = lista.length;
       // A lista vem ordenada por id ASC: a última é a pendência mais recente
       motivoPendencia.value =
@@ -55,13 +61,18 @@ class NotificationService {
   }
 
   /// Notifica o usuário de que o PDF de fechamento ficou na fila pendente
+  ///
+  /// O texto vem do [motivo] real. Antes era fixo em "aguardando conexão com a
+  /// internet" para qualquer falha — inclusive quando havia sinal e o PDF
+  /// provavelmente já estava no Drive.
   static void notificarPendenciaDrive({
     required int turnoNumero,
     required String operador,
+    String? motivo,
   }) {
     const titulo = 'Posto Janjão ⛽ - Envio Pendente';
     final corpo =
-        '⚠️ O PDF do Turno #$turnoNumero ($operador) está salvo na fila aguardando conexão com a internet para envio ao Google Drive.';
+        '⚠️ PDF do Turno #$turnoNumero ($operador) na fila. ${MotivoPendencia.descricao(motivo)}';
 
     showSystemNotification(titulo, corpo);
     mostrarNotificacaoLocal(id: _idPendencia, titulo: titulo, corpo: corpo);

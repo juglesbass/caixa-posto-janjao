@@ -241,6 +241,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   Turno? _turnoAtual;
   TotaisTurno _totais = TotaisTurno();
   bool _carregando = true;
+  Timer? _timerFila;
 
   @override
   void initState() {
@@ -248,12 +249,14 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _inicializarApp();
     _tentarSincronizarFilaInicial();
+    _iniciarTimerFila();
     DatabaseService.lancamentosNotifier.addListener(_recarregarDados);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _timerFila?.cancel();
     DatabaseService.lancamentosNotifier.removeListener(_recarregarDados);
     super.dispose();
   }
@@ -268,9 +271,31 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final emPrimeiroPlano = state == AppLifecycleState.resumed;
     OperadoresSyncService.definirAppEmPrimeiroPlano(emPrimeiroPlano);
 
-    if (!emPrimeiroPlano) return;
+    if (!emPrimeiroPlano) {
+      _timerFila?.cancel();
+      _timerFila = null;
+      return;
+    }
 
+    _iniciarTimerFila();
     unawaited(_sincronizarAoRetomar());
+  }
+
+  /// Confere a fila do Drive de tempos em tempos enquanto o app está aberto.
+  ///
+  /// Antes a fila só tentava de novo ao abrir o app ou ao voltar do segundo
+  /// plano: com o caixa aberto na tela o dia inteiro, um PDF pendente esperava
+  /// alguém sair e voltar. Sem pendência, cada tique só lê um número em memória
+  /// — não toca no banco nem na rede —, então não pesa no celular mais fraco.
+  /// Com pendência, a própria fila respeita o backoff.
+  void _iniciarTimerFila() {
+    _timerFila?.cancel();
+    _timerFila = Timer.periodic(const Duration(minutes: 3), (_) async {
+      if (NotificationService.pendenciasCount.value <= 0) return;
+      try {
+        await DriveService.sincronizarTodasPendencias(respeitarBackoff: true);
+      } catch (_) {}
+    });
   }
 
   Future<void> _sincronizarAoRetomar() async {

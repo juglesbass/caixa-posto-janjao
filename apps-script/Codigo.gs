@@ -230,13 +230,54 @@ function responder(obj) {
 }
 
 /**
- * Health check: abrir a URL /exec no navegador deve mostrar este JSON.
+ * Health check e consulta de entrega. Só LEITURA: nada aqui cria, altera ou
+ * apaga arquivo.
+ *
+ *   /exec                              health check
+ *   /exec?verificar=AUTH-XXXX-XXXX     "este fechamento já chegou?"
+ *
+ * A consulta existe porque o app não consegue distinguir "o PDF não chegou" de
+ * "chegou e a resposta se perdeu" (espera esgotada, sinal que cai no meio, o
+ * iPhone suspendendo o app). Sem ela o app chutava "sem internet" e o operador
+ * reenviava um fechamento que já estava na pasta.
+ *
+ * Responde só sim ou não — nunca nome, link ou id do arquivo.
  */
-function doGet() {
+function doGet(e) {
+  var parametros = (e && e.parameter) || {};
+  var verificar = String(parametros.verificar || '').trim();
+
+  if (verificar) {
+    return responder(consultarEntrega(verificar, parametros.pasta));
+  }
+
   return responder({
     status: 'ok',
     servico: 'Caixa Posto Janjao',
     modo: 'append_only',
-    reenvio_rotulado: true
+    reenvio_rotulado: true,
+    verificacao_entrega: true
   });
+}
+
+/**
+ * Procura o registro que o doPost grava na PRIMEIRA entrega de cada
+ * fechamento. Sem pasta informada, confere as duas: um fechamento que já
+ * chegou em qualquer uma delas não deve ser reenviado.
+ *
+ * Qualquer dúvida responde "não encontrado" (ver jaRecebeuEsteFechamento). O
+ * efeito de um "não" errado é o app reenviar e o arquivo chegar como
+ * "(reenvio)" — uma cópia a mais, nunca uma a menos.
+ */
+function consultarEntrega(authHash, pastaInformada) {
+  var pastas = pastaInformada
+    ? [String(pastaInformada)]
+    : [PASTA_OFICIAL, PASTA_TESTES];
+
+  for (var i = 0; i < pastas.length; i++) {
+    if (jaRecebeuEsteFechamento(pastas[i], authHash)) {
+      return { status: 'ok', verificacao: true, encontrado: true };
+    }
+  }
+  return { status: 'ok', verificacao: true, encontrado: false };
 }
