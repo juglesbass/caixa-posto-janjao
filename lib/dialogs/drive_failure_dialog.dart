@@ -132,7 +132,7 @@ class _DriveFailureDialogState extends State<DriveFailureDialog> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'O turno foi encerrado e o PDF foi salvo com segurança neste dispositivo.',
+                          'O turno foi encerrado e está guardado com segurança neste dispositivo.',
                           style: TextStyle(
                             fontSize: 12,
                             color: boxTextSec,
@@ -150,8 +150,11 @@ class _DriveFailureDialogState extends State<DriveFailureDialog> {
                       const Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 18),
                       const SizedBox(width: 8),
                       Expanded(
+                        // Motivo real do envio. Este texto era fixo em "falta de
+                        // conexão com a internet" desde 25/08 e aparecia até
+                        // quando havia sinal e o PDF já estava no Drive.
                         child: Text(
-                          'Porém, devido à falta de conexão com a internet, o relatório ainda não foi entregue no Google Drive do Gerente e está guardado na fila.',
+                          widget.mensagemErro,
                           style: TextStyle(
                             fontSize: 12,
                             color: boxText,

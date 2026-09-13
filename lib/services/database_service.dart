@@ -12,6 +12,7 @@ import '../models/operador_model.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
 import '../utils/payment_types.dart';
+import '../models/motivo_pendencia.dart';
 
 class DatabaseService {
   static DatabaseService? _instance;
@@ -430,6 +431,8 @@ class DatabaseService {
     Map<String, int>? canhotos,
     String? authHash,
     String? dataFechamento,
+    String? pendenciaNomeArquivo,
+    String? pendenciaOperador,
   }) async {
     final db = await database;
     final fechadoEm = dataFechamento ?? DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now());
@@ -437,26 +440,59 @@ class DatabaseService {
     final obs = observacao;
     final just = justificativa ?? obs;
 
-    await db.update(
-      'turnos',
-      {
-        'aberto': 0,
-        'fechado_em': fechadoEm,
-        'vendas_sistema': valorVendas,
-        'observacao': obs,
-        'justificativa': just,
-        if (canhotos != null) 'canhotos': jsonEncode(canhotos),
-        if (authHash != null) 'auth_hash': authHash,
-      },
-      where: 'id = ?',
-      whereArgs: [turnoId],
-    );
+    // Com [pendenciaNomeArquivo], o turno fecha e a pendência do Drive nasce
+    // na MESMA transação. Antes a pendência só era gravada se o envio voltasse
+    // com erro: um app fechado no meio do envio deixava o turno fechado, a fila
+    // vazia e o PDF sem chegar a lugar nenhum, sem aviso. Agora não existe
+    // turno fechado por este caminho sem pendência — ela só sai quando o envio
+    // é confirmado.
+    await db.transaction((txn) async {
+      await txn.update(
+        'turnos',
+        {
+          'aberto': 0,
+          'fechado_em': fechadoEm,
+          'vendas_sistema': valorVendas,
+          'observacao': obs,
+          'justificativa': just,
+          if (canhotos != null) 'canhotos': jsonEncode(canhotos),
+          if (authHash != null) 'auth_hash': authHash,
+        },
+        where: 'id = ?',
+        whereArgs: [turnoId],
+      );
+
+      if (pendenciaNomeArquivo != null) {
+        final agora = DateTime.now().toIso8601String();
+        await txn.delete('drive_pendencias', where: 'turno_id = ?', whereArgs: [turnoId]);
+        await txn.insert(
+          'drive_pendencias',
+          {
+            'turno_id': turnoId,
+            'caminho_pdf': pendenciaNomeArquivo,
+            'operador': pendenciaOperador ?? '',
+            'criado_em': agora,
+            'tentativas': 0,
+            'proxima_tentativa': agora,
+            'motivo': MotivoPendencia.envioInterrompido,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
   }
 
   Future<void> reabrirTurno(int turnoId) async {
     final db = await database;
-    // Fecha qualquer outro que esteja aberto
-    await db.update('turnos', {'aberto': 0}, where: 'aberto = 1');
+    // Fecha qualquer outro que esteja aberto. A tela pede confirmação antes de
+    // chegar aqui (TurnosAnterioresDialog). O horário entra para o turno
+    // fechado assim não aparecer no histórico como se nunca tivesse fechado;
+    // COALESCE preserva um horário que já exista.
+    await db.rawUpdate(
+      'UPDATE turnos SET aberto = 0, fechado_em = COALESCE(fechado_em, ?) '
+      'WHERE aberto = 1 AND id != ?',
+      [DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now()), turnoId],
+    );
     // Reabre o selecionado e incrementa a versão para versionamento sequencial de relatórios
     final turnoAtual = await obterTurnoPorId(turnoId);
     final proximaVersao = (turnoAtual?.versao ?? 1) + 1;
@@ -736,6 +772,19 @@ class DatabaseService {
   // FILA OFFLINE DO GOOGLE DRIVE
   // ──────────────────────────────────────────────────────────────────────────
 
+  /// Turnos cujo PDF está sendo enviado AGORA, por este processo.
+  ///
+  /// A pendência é gravada junto com o fechamento do turno, antes de o envio
+  /// começar (ver [fecharTurno]): assim um app fechado no meio do envio não
+  /// perde o fechamento. Mas mostrar "1 PDF pendente" durante todo envio que dá
+  /// certo foi o que levou a retirar o registro preventivo em 25/08 (ae11d08).
+  /// Este conjunto separa as duas coisas: enquanto o turno está aqui, a
+  /// pendência existe no banco mas o banner não a mostra e a fila não mexe nela.
+  ///
+  /// Vive só em memória, de propósito. Se o app morrer no meio do envio ele
+  /// volta vazio, e a pendência aparece e é conferida na abertura seguinte.
+  static final Set<int> enviosDriveEmCurso = <int>{};
+
   /// Espera antes da próxima tentativa automática, por número de falhas.
   /// Cresce até 30 minutos: o fechamento não é urgente ao ponto de justificar
   /// martelar um webhook fora do ar de segundo em segundo no 4G do frentista.
@@ -779,20 +828,25 @@ class DatabaseService {
     tentativas += 1;
     final proxima = DateTime.now().add(backoffDaFila(tentativas));
 
-    await db.delete('drive_pendencias', where: 'turno_id = ?', whereArgs: [turnoId]);
-    await db.insert(
-      'drive_pendencias',
-      {
-        'turno_id': turnoId,
-        'caminho_pdf': caminhoPdf,
-        'operador': operador,
-        'criado_em': DateTime.now().toIso8601String(),
-        'tentativas': tentativas,
-        'proxima_tentativa': proxima.toIso8601String(),
-        'motivo': motivo,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    // Apagar e inserir na mesma transação: separados, uma falha entre os dois
+    // passos deixava o turno sem pendência nenhuma — e sem pendência a fila
+    // nunca mais tenta enviar o PDF.
+    await db.transaction((txn) async {
+      await txn.delete('drive_pendencias', where: 'turno_id = ?', whereArgs: [turnoId]);
+      await txn.insert(
+        'drive_pendencias',
+        {
+          'turno_id': turnoId,
+          'caminho_pdf': caminhoPdf,
+          'operador': operador,
+          'criado_em': DateTime.now().toIso8601String(),
+          'tentativas': tentativas,
+          'proxima_tentativa': proxima.toIso8601String(),
+          'motivo': motivo,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
   }
 
   /// Atualiza só a causa de uma pendência já enfileirada, sem mexer no backoff

@@ -427,7 +427,6 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
             final opAtual = OperadoresSyncService.operadoresNotifier.value
                 .firstWhere((o) => o.id == operador.id, orElse: () => operador);
 
-            final dataAtualizada = DateFormat('dd/MM/yyyy HH:mm').format(opAtual.atualizadoEm.toLocal());
             final dataCriada = DateFormat('dd/MM/yyyy HH:mm').format(opAtual.criadoEm.toLocal());
 
             return Container(
@@ -1036,11 +1035,6 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
     final textPri = isDark ? Colors.white : AppColors.lightTextPri;
     final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
     final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
-
-    final operadoresFiltrados = _operadores.where((op) {
-      if (_filtro.isEmpty) return true;
-      return op.nome.toLowerCase().contains(_filtro.toLowerCase());
-    }).toList();
 
     return PopScope(
       canPop: true,

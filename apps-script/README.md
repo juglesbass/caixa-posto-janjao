@@ -26,6 +26,27 @@ Assim o `_vN` volta a significar **uma coisa só**: alguém reabriu o turno e co
 
 Se o gerente mandar o original para a lixeira por conta própria, um reenvio posterior volta com o nome limpo — quem apagou foi ele, não o script.
 
+### Consulta de entrega
+
+O app nem sempre sabe se um PDF chegou: a espera pode esgotar com o Google ainda gravando, o sinal pode cair no meio, o iPhone pode suspender o PWA. Antes, nesses casos, a tela dizia "falta de conexão com a internet" e o operador reenviava um fechamento que já estava na pasta.
+
+Agora, na dúvida, o app pergunta:
+
+```
+/exec?verificar=AUTH-1A2B-3C4D-5E6F
+```
+
+```json
+{"status":"ok","verificacao":true,"encontrado":true}
+```
+
+- É **só leitura**: não cria, não altera e não apaga nada.
+- Responde apenas sim ou não — nunca nome, link ou id do arquivo.
+- Usa o registro que o `doPost` grava na **primeira** entrega de cada fechamento. Arquivo na lixeira conta como não entregue.
+- Qualquer dúvida responde "não encontrado". O pior efeito disso é o app reenviar e o arquivo chegar como `(reenvio)`: uma cópia a mais, nunca uma a menos.
+
+A fila automática também pergunta antes de reenviar, então um envio cuja resposta se perdeu não vira mais cópia `(reenvio)`.
+
 ## Passo 1 — Achar o script
 
 A URL do webhook é:
@@ -86,10 +107,10 @@ Tem que ser "Qualquer pessoa", **não** "Qualquer pessoa com conta Google". Com 
 Teste rápido, sem app: abra a URL `/exec` no navegador. Deve aparecer
 
 ```json
-{"status":"ok","servico":"Caixa Posto Janjao","modo":"append_only","reenvio_rotulado":true}
+{"status":"ok","servico":"Caixa Posto Janjao","modo":"append_only","reenvio_rotulado":true,"verificacao_entrega":true}
 ```
 
-O campo `reenvio_rotulado` confirma que a versão publicada é a que separa reenvio de correção. Se ele não aparecer, o script antigo ainda está no ar — refaça o passo 4.
+O campo `verificacao_entrega` confirma que a versão publicada responde à consulta de entrega (ver abaixo). Se ele não aparecer, o script antigo ainda está no ar — refaça o passo 4. O app continua funcionando com o script antigo; só não consegue confirmar entregas.
 
 Se aparecer tela de login, volte ao passo 5.
 

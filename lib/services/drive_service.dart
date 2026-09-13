@@ -11,6 +11,22 @@ import 'notification_service.dart';
 // necessário para desenhar a tela de identificação. Ver [DriveService.aquecerPdf].
 import 'pdf_service.dart' deferred as pdf_service;
 
+/// Resposta da consulta "este fechamento chegou?" ao Apps Script.
+enum EstadoEntrega {
+  /// O Google confirmou: o fechamento está na pasta
+  entregue,
+
+  /// O Google respondeu, e o fechamento não está na pasta
+  naoEncontrado,
+
+  /// O Google respondeu, mas sem dizer se o PDF está lá: script publicado
+  /// ainda sem a consulta, tela de login, página de erro. Havia internet.
+  semSuporte,
+
+  /// Nenhuma resposta: sem rede ou tempo esgotado
+  semResposta,
+}
+
 class DriveService {
   static final http.Client _client = http.Client();
 
@@ -150,9 +166,10 @@ class DriveService {
     }
 
     // 2. Respostas HTTP 3xx (Redirecionamentos típicos do Google Apps Script)
-    // O Apps Script executa a função doPost() e salva o arquivo no Google Drive ANTES
-    // de retornar o redirecionamento 302 com o cabeçalho 'Location'. Portanto, se o
-    // servidor respondeu 302/303/307, o arquivo já foi entregue com sucesso no Drive.
+    // O Apps Script executa o doPost() ANTES de devolver o 302. O 302 prova que o
+    // script rodou; o que ele respondeu fica no destino do redirect, que
+    // _executarPostWebhook segue. Se esse passo se perde, quem decide é a
+    // consulta de entrega (ver confirmacaoPerdida).
     if (status >= 300 && status < 400) {
       return true;
     }
@@ -168,9 +185,125 @@ class DriveService {
     return false;
   }
 
-  /// Executa o envio HTTP POST com suporte resiliente a redes móveis (timeout de 35s)
-  /// e acompanhamento automático de redirecionamento 302/303/307 do Apps Script via GET.
-  static Future<http.Response> _executarPostWebhook(String url, String bodyJson) async {
+  // ──────────────────────────────────────────────────────────────────────────
+  // CONFIRMAÇÃO DE ENTREGA
+  //
+  // O app não consegue distinguir "o PDF não chegou" de "chegou e a resposta
+  // se perdeu": espera esgotada, sinal que cai no meio, o iPhone suspendendo o
+  // PWA. Antes, nesses casos, a tela dizia "falta de conexão com a internet" e
+  // o operador reenviava um fechamento que já estava na pasta. Agora, na
+  // dúvida, o app pergunta ao Apps Script. Nada é apagado nem substituído: a
+  // consulta é só leitura.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /// Endereço da consulta "este fechamento chegou?" no mesmo Apps Script.
+  static Uri montarUrlVerificacao(String webhookUrl, String authHash) {
+    final base = Uri.parse(webhookUrl);
+    return base.replace(queryParameters: {
+      ...base.queryParameters,
+      'verificar': authHash,
+    });
+  }
+
+  /// Lê a resposta da consulta de entrega.
+  ///
+  /// Só vale a consulta de verdade (`verificacao: true`). O health check do
+  /// script antigo, a tela de login e as páginas de erro também chegam como
+  /// 200 — viram [EstadoEntrega.semSuporte]: houve resposta, mas sem dizer se o
+  /// PDF está lá.
+  static EstadoEntrega interpretarVerificacao(http.Response response) {
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      return EstadoEntrega.semSuporte;
+    }
+    try {
+      final decoded = jsonDecode(response.body.trim());
+      if (decoded is Map && decoded['verificacao'] == true) {
+        if (decoded['encontrado'] == true) return EstadoEntrega.entregue;
+        if (decoded['encontrado'] == false) return EstadoEntrega.naoEncontrado;
+      }
+    } catch (_) {}
+    return EstadoEntrega.semSuporte;
+  }
+
+  /// Pergunta UMA vez ao Apps Script se o fechamento [authHash] já está na pasta.
+  static Future<EstadoEntrega> verificarEntrega(String webhookUrl, String authHash) async {
+    if (authHash.trim().isEmpty) return EstadoEntrega.semResposta;
+    try {
+      final response = await _client
+          .get(montarUrlVerificacao(webhookUrl, authHash))
+          .timeout(const Duration(seconds: 15));
+      return interpretarVerificacao(response);
+    } catch (_) {
+      return EstadoEntrega.semResposta;
+    }
+  }
+
+  /// Esperas entre as consultas depois de um envio sem confirmação no
+  /// fechamento do turno. Quando o app desiste de esperar, o Google às vezes
+  /// ainda está gravando; perguntar só uma vez daria "não encontrado" cedo
+  /// demais. Somam 24s, e param na hora em que a resposta chega.
+  static const List<Duration> esperasConfirmacao = [
+    Duration.zero,
+    Duration(seconds: 4),
+    Duration(seconds: 8),
+    Duration(seconds: 12),
+  ];
+
+  /// Consulta repetida, com [esperas], até o fechamento aparecer.
+  ///
+  /// Para cedo quando esperar não muda nada: script sem a consulta, ou a
+  /// primeira pergunta sem resposta nenhuma (sem rede, prender o operador
+  /// olhando a tela não ajuda).
+  static Future<EstadoEntrega> confirmarEntrega(
+    String webhookUrl,
+    String authHash, {
+    List<Duration> esperas = esperasConfirmacao,
+  }) async {
+    var resultado = EstadoEntrega.semResposta;
+    for (var i = 0; i < esperas.length; i++) {
+      if (esperas[i] > Duration.zero) {
+        await Future<void>.delayed(esperas[i]);
+      }
+      final estado = await verificarEntrega(webhookUrl, authHash);
+      if (estado == EstadoEntrega.entregue) return estado;
+      if (estado == EstadoEntrega.semSuporte) return estado;
+      if (estado == EstadoEntrega.semResposta && i == 0) return estado;
+      if (estado == EstadoEntrega.naoEncontrado) resultado = estado;
+    }
+    return resultado;
+  }
+
+  /// Motivo da pendência quando o envio não pôde ser confirmado.
+  ///
+  /// A regra que importa: se a consulta chegou ao Google, havia internet — e o
+  /// motivo nunca é [MotivoPendencia.semConexao].
+  static String motivoAposFalha({
+    required bool foiTimeout,
+    required EstadoEntrega consulta,
+  }) {
+    return switch (consulta) {
+      EstadoEntrega.entregue || EstadoEntrega.naoEncontrado =>
+        MotivoPendencia.naoConfirmado,
+      EstadoEntrega.semSuporte =>
+        foiTimeout ? MotivoPendencia.servidorDemorou : MotivoPendencia.naoConfirmado,
+      EstadoEntrega.semResposta =>
+        foiTimeout ? MotivoPendencia.servidorDemorou : MotivoPendencia.semConexao,
+    };
+  }
+
+  /// Executa o envio HTTP POST (timeout de 35s) e segue o redirecionamento do
+  /// Apps Script via GET para ler a resposta final do script.
+  ///
+  /// [confirmacaoPerdida]: no celular (Android/iOS) o `dart:io` só segue
+  /// redirect sozinho em GET, então o 302 do POST é seguido à mão. O 302 prova
+  /// que o doPost rodou, não que gravou. Se esse GET falhar, antes o envio era
+  /// dado como entregue sem saber; agora quem decide é a consulta de entrega.
+  /// No PWA é o navegador que segue o redirect, e uma falha ali chega como
+  /// exceção.
+  static Future<({http.Response response, bool confirmacaoPerdida})> _executarPostWebhook(
+    String url,
+    String bodyJson,
+  ) async {
     http.Response response = await _client
         .post(
           Uri.parse(url),
@@ -179,29 +312,30 @@ class DriveService {
         )
         .timeout(const Duration(seconds: 35));
 
-    // Se o Apps Script respondeu com redirecionamento, segue via GET para validar a resposta final
+    var confirmacaoPerdida = false;
     if (response.statusCode >= 300 && response.statusCode < 400) {
       final location = response.headers['location'];
       if (location != null && location.trim().isNotEmpty) {
         try {
-          final redirectResponse = await _client
+          response = await _client
               .get(Uri.parse(location))
               .timeout(const Duration(seconds: 20));
-          response = redirectResponse;
         } catch (e) {
-          // Mesmo se o GET de confirmação do redirect der timeout em rede móvel lenta,
-          // o POST original já foi recebido e o PDF já foi gravado no Google Drive.
+          confirmacaoPerdida = true;
           if (kDebugMode) {
-            print('[DriveService] Aviso ao seguir redirect do Apps Script: $e (upload já concluído)');
+            print('[DriveService] Resposta final do Apps Script perdida: $e');
           }
         }
       }
     }
 
-    return response;
+    return (response: response, confirmacaoPerdida: confirmacaoPerdida);
   }
 
   /// Envia o arquivo PDF (em bytes) para o Google Drive do Gerente via Webhook
+  ///
+  /// [aoConfirmarEntrega] é chamado se o envio terminar sem confirmação e o app
+  /// passar a consultar o Google — para a tela avisar o que está acontecendo.
   static Future<({bool sucesso, String mensagem})> enviarPdfDrive({
     required Uint8List pdfBytes,
     required String nomeArquivo,
@@ -209,14 +343,23 @@ class DriveService {
     required String operador,
     int? turnoNumero,
     String? authHash,
+    VoidCallback? aoConfirmarEntrega,
   }) async {
     final db = DatabaseService.instance;
     final numeroTurnoExibicao = turnoNumero ?? turnoId;
     final isTeste = await isModoTeste();
     final folderId = isTeste ? pastaTestesId : pastaOficialId;
 
+    // No modo teste, prefixa o nome do arquivo com [TESTE]
+    final nomeEnvio = isTeste
+        ? (nomeArquivo.startsWith('[TESTE]') ? nomeArquivo : '[TESTE] $nomeArquivo')
+        : nomeArquivo.replaceFirst(RegExp(r'^\[TESTE\]\s*'), '');
+
+    var webhookUrl = defaultWebhookUrl;
+    var foiTimeout = false;
+
     try {
-      final webhookUrl = await db.getConfig('google_drive_webhook_url', padrao: defaultWebhookUrl);
+      webhookUrl = await db.getConfig('google_drive_webhook_url', padrao: defaultWebhookUrl);
 
       if (webhookUrl.isEmpty) {
         await db.removerPendenciaDrive(turnoId);
@@ -227,19 +370,12 @@ class DriveService {
         );
       }
 
-      // No modo teste, prefixa o nome do arquivo com [TESTE]
-      final nomeEnvio = isTeste
-          ? (nomeArquivo.startsWith('[TESTE]') ? nomeArquivo : '[TESTE] $nomeArquivo')
-          : nomeArquivo.replaceFirst(RegExp(r'^\[TESTE\]\s*'), '');
-
       final payload = {
         'nome_arquivo': nomeEnvio,
         'turno_id': turnoId,
-        // Identifica o FECHAMENTO, não só o turno. O webhook usa isso apenas
-        // para escolher o NOME: se este mesmo fechamento já chegou antes, o
-        // arquivo vira "... (reenvio).pdf" em vez de "_v2", que fica
-        // reservado para turno reaberto e corrigido. Nada é substituído nem
-        // apagado em nenhum dos casos.
+        // Identifica o FECHAMENTO, não só o turno. O webhook usa isso para
+        // escolher o NOME ("(reenvio)" em vez de "_v2") e para responder à
+        // consulta de entrega. Nada é substituído nem apagado.
         'auth_hash': authHash ?? '',
         'operador': operador,
         'arquivo_base64': base64Encode(pdfBytes),
@@ -250,38 +386,35 @@ class DriveService {
         'modo_teste': isTeste,
       };
 
-      final bodyJson = jsonEncode(payload);
+      final envio = await _executarPostWebhook(webhookUrl, jsonEncode(payload));
+      final response = envio.response;
 
-      // Executa o envio HTTP POST direto com timeout ampliado e suporte a redirects
-      final response = await _executarPostWebhook(webhookUrl, bodyJson);
-
-      final bool ok = isRespostaSucesso(response);
-
-      if (ok) {
-        // Envio confirmado com sucesso absoluto: remove pendência e limpa banners
-        await db.removerPendenciaDrive(turnoId);
-        await NotificationService.atualizarPendencias();
-        return (
-          sucesso: true,
-          mensagem: isTeste
-              ? '✅ PDF de teste enviado para a pasta de Testes!'
-              : '✅ Fechamento enviado com sucesso!'
-        );
+      if (isRespostaSucesso(response)) {
+        if (!envio.confirmacaoPerdida) {
+          // Envio confirmado: remove pendência e limpa banners
+          await db.removerPendenciaDrive(turnoId);
+          await NotificationService.atualizarPendencias();
+          return (
+            sucesso: true,
+            mensagem: isTeste
+                ? '✅ PDF de teste enviado para a pasta de Testes!'
+                : '✅ Fechamento enviado com sucesso!'
+          );
+        }
+        // Script rodou (302), mas a resposta que diria se gravou se perdeu:
+        // cai na confirmação abaixo, fora do try.
       } else {
         // Falha real no servidor (4xx ou 5xx): salva na fila offline e notifica
         final pareceLogin = _pareceTelaDeLogin(response.body);
-        await db.salvarPendenciaDrive(
-          turnoId,
-          nomeEnvio,
-          operador,
-          motivo: pareceLogin
-              ? MotivoPendencia.precisaLogin
-              : MotivoPendencia.erroServidor,
-        );
+        final motivo = pareceLogin
+            ? MotivoPendencia.precisaLogin
+            : MotivoPendencia.erroServidor;
+        await db.salvarPendenciaDrive(turnoId, nomeEnvio, operador, motivo: motivo);
         await NotificationService.atualizarPendencias();
         NotificationService.notificarPendenciaDrive(
           turnoNumero: numeroTurnoExibicao,
           operador: operador,
+          motivo: motivo,
         );
         return (
           sucesso: false,
@@ -295,37 +428,65 @@ class DriveService {
       if (kDebugMode) {
         print('[DriveService] Erro no envio: $e');
       }
-
       // Timeout não é o mesmo que estar sem rede: o pedido pode ter chegado e
-      // sido processado, e só a resposta ter se perdido. Dizer "sem internet"
-      // com o aparelho em 5G faz o operador desconfiar do app — e, pior, esconde
-      // que o PDF provavelmente já está no Drive.
-      final bool foiTimeout = e is TimeoutException;
+      // sido processado, e só a resposta ter se perdido.
+      foiTimeout = e is TimeoutException;
+    }
 
-      final nomeEnvio = isTeste && !nomeArquivo.startsWith('[TESTE]')
-          ? '[TESTE] $nomeArquivo'
-          : nomeArquivo;
-      await db.salvarPendenciaDrive(
-        turnoId,
-        nomeEnvio,
-        operador,
-        motivo: foiTimeout
-            ? MotivoPendencia.servidorDemorou
-            : MotivoPendencia.semConexao,
-      );
+    // Chegar aqui é não saber se o PDF chegou. Em vez de chutar, pergunta.
+    return _resolverEnvioSemConfirmacao(
+      webhookUrl: webhookUrl,
+      authHash: authHash,
+      foiTimeout: foiTimeout,
+      turnoId: turnoId,
+      nomeEnvio: nomeEnvio,
+      operador: operador,
+      numeroTurnoExibicao: numeroTurnoExibicao,
+      isTeste: isTeste,
+      aoConfirmarEntrega: aoConfirmarEntrega,
+    );
+  }
+
+  static Future<({bool sucesso, String mensagem})> _resolverEnvioSemConfirmacao({
+    required String webhookUrl,
+    required String? authHash,
+    required bool foiTimeout,
+    required int turnoId,
+    required String nomeEnvio,
+    required String operador,
+    required int numeroTurnoExibicao,
+    required bool isTeste,
+    VoidCallback? aoConfirmarEntrega,
+  }) async {
+    final db = DatabaseService.instance;
+
+    var consulta = EstadoEntrega.semResposta;
+    final hash = authHash ?? '';
+    if (webhookUrl.isNotEmpty && hash.isNotEmpty) {
+      aoConfirmarEntrega?.call();
+      consulta = await confirmarEntrega(webhookUrl, hash);
+    }
+
+    if (consulta == EstadoEntrega.entregue) {
+      await db.removerPendenciaDrive(turnoId);
       await NotificationService.atualizarPendencias();
-      NotificationService.notificarPendenciaDrive(
-        turnoNumero: numeroTurnoExibicao,
-        operador: operador,
-      );
       return (
-        sucesso: false,
-        mensagem: foiTimeout
-            ? 'O servidor demorou para responder. O PDF pode já ter sido entregue — '
-                'ele ficou na fila e o reenvio confirma a entrega.'
-            : 'Sem conexão com a internet. O PDF foi salvo na fila para envio automático.'
+        sucesso: true,
+        mensagem: isTeste
+            ? '✅ PDF de teste confirmado na pasta de Testes!'
+            : '✅ Fechamento confirmado no Google Drive!'
       );
     }
+
+    final motivo = motivoAposFalha(foiTimeout: foiTimeout, consulta: consulta);
+    await db.salvarPendenciaDrive(turnoId, nomeEnvio, operador, motivo: motivo);
+    await NotificationService.atualizarPendencias();
+    NotificationService.notificarPendenciaDrive(
+      turnoNumero: numeroTurnoExibicao,
+      operador: operador,
+      motivo: motivo,
+    );
+    return (sucesso: false, mensagem: MotivoPendencia.descricao(motivo));
   }
 
   static bool _sincronizando = false;
@@ -336,6 +497,9 @@ class DriveService {
   /// espera já venceu — é o modo das tentativas automáticas, para não martelar
   /// um webhook fora do ar. O botão "Reenviar" da tela chama sem backoff:
   /// quando o operador pede, a tentativa é imediata.
+  ///
+  /// Antes de reenviar, cada pendência pergunta ao Google se já chegou: é o que
+  /// evita a cópia "(reenvio)" quando só a resposta do envio original se perdeu.
   static Future<({int enviados, int total, bool todosOk, String mensagem})> sincronizarTodasPendencias({
     bool respeitarBackoff = false,
   }) async {
@@ -350,7 +514,13 @@ class DriveService {
     _sincronizando = true;
     try {
       final db = DatabaseService.instance;
-      final naFila = await db.obterPendenciasDrive();
+
+      // O fechamento que está sendo enviado agora não é assunto da fila: mexer
+      // nele criaria um segundo envio do mesmo PDF em paralelo.
+      bool foraDoEnvioEmCurso(Map<String, dynamic> p) =>
+          !DatabaseService.enviosDriveEmCurso.contains(p['turno_id']);
+
+      final naFila = (await db.obterPendenciasDrive()).where(foraDoEnvioEmCurso).toList();
 
       if (naFila.isEmpty) {
         await NotificationService.atualizarPendencias();
@@ -362,8 +532,9 @@ class DriveService {
         );
       }
 
-      final pendencias =
-          respeitarBackoff ? await db.obterPendenciasDriveVencidas() : naFila;
+      final pendencias = respeitarBackoff
+          ? (await db.obterPendenciasDriveVencidas()).where(foraDoEnvioEmCurso).toList()
+          : naFila;
 
       if (pendencias.isEmpty) {
         return (
@@ -385,6 +556,7 @@ class DriveService {
       }
 
       int sucessos = 0;
+      int aguardandoFechamento = 0;
       for (final p in pendencias) {
         final turnoId = p['turno_id'] as int;
         final operador = (p['operador'] as String?) ?? 'Operador';
@@ -399,21 +571,57 @@ class DriveService {
             continue;
           }
 
-          final totais = await db.obterTotaisTurno(turnoId);
-          final lancamentos = await db.obterLancamentos(turnoId);
+          // Turno reaberto: o PDF sairia com o turno no meio da edição e com a
+          // chave do fechamento anterior — chegaria como "(reenvio)" de algo
+          // que mudou. Ele é enviado quando o turno for fechado de novo, e esse
+          // fechamento substitui esta pendência.
+          if (turno.aberto) {
+            aguardandoFechamento++;
+            continue;
+          }
+
+          final authHash = turno.authHash ?? '';
+
+          // Já chegou? Então só limpa a fila — sem reenviar e sem montar o PDF à
+          // toa, o que também poupa o celular.
+          if (authHash.isNotEmpty &&
+              await verificarEntrega(webhookUrl, authHash) == EstadoEntrega.entregue) {
+            await db.removerPendenciaDrive(turnoId);
+            sucessos++;
+            continue;
+          }
 
           final isTeste = await isModoTeste();
           final folderId = isTeste ? pastaTestesId : pastaOficialId;
-          await pdf_service.loadLibrary();
-          final nomeBase = pdf_service.PdfService.gerarNomeArquivo(turno: turno);
-          nomeArquivo = isTeste
-              ? (nomeBase.startsWith('[TESTE]') ? nomeBase : '[TESTE] $nomeBase')
-              : nomeBase.replaceFirst(RegExp(r'^\[TESTE\]\s*'), '');
-          final pdfBytes = await pdf_service.PdfService.gerarPdfFechamento(
-            turno: turno,
-            totais: totais,
-            lancamentos: lancamentos,
-          );
+
+          // Montagem do PDF separada do envio: se falhar aqui nada foi à rede,
+          // e o motivo não pode ser "sem internet".
+          late final List<int> pdfBytes;
+          try {
+            final totais = await db.obterTotaisTurno(turnoId);
+            final lancamentos = await db.obterLancamentos(turnoId);
+            await pdf_service.loadLibrary();
+            final nomeBase = pdf_service.PdfService.gerarNomeArquivo(turno: turno);
+            nomeArquivo = isTeste
+                ? (nomeBase.startsWith('[TESTE]') ? nomeBase : '[TESTE] $nomeBase')
+                : nomeBase.replaceFirst(RegExp(r'^\[TESTE\]\s*'), '');
+            pdfBytes = await pdf_service.PdfService.gerarPdfFechamento(
+              turno: turno,
+              totais: totais,
+              lancamentos: lancamentos,
+            );
+          } catch (e) {
+            if (kDebugMode) {
+              print('[DriveService] PDF do turno $turnoId não montou: $e');
+            }
+            await db.salvarPendenciaDrive(
+              turnoId,
+              nomeArquivo,
+              operador,
+              motivo: MotivoPendencia.erroApp,
+            );
+            continue;
+          }
 
           final payload = {
             'nome_arquivo': nomeArquivo,
@@ -422,7 +630,7 @@ class DriveService {
             // turno, então o webhook reconhece o reenvio e nomeia o arquivo
             // como "... (reenvio).pdf". O PDF nunca deixa de ser gravado: na
             // dúvida o script cria uma cópia a mais, nunca uma a menos.
-            'auth_hash': turno.authHash ?? '',
+            'auth_hash': authHash,
             'operador': operador,
             'arquivo_base64': base64Encode(pdfBytes),
             'folderId': folderId,
@@ -432,38 +640,67 @@ class DriveService {
             'modo_teste': isTeste,
           };
 
-          final response = await _executarPostWebhook(
-            webhookUrl,
-            jsonEncode(payload),
-          );
+          var semConfirmacao = false;
+          var foiTimeout = false;
+          try {
+            final envio = await _executarPostWebhook(webhookUrl, jsonEncode(payload));
+            if (isRespostaSucesso(envio.response)) {
+              if (!envio.confirmacaoPerdida) {
+                await db.removerPendenciaDrive(turnoId);
+                sucessos++;
+                continue;
+              }
+              semConfirmacao = true;
+            } else {
+              // Regrava a pendência para incrementar o contador de tentativas e
+              // empurrar a próxima tentativa automática para mais longe.
+              await db.salvarPendenciaDrive(
+                turnoId,
+                nomeArquivo,
+                operador,
+                motivo: _pareceTelaDeLogin(envio.response.body)
+                    ? MotivoPendencia.precisaLogin
+                    : MotivoPendencia.erroServidor,
+              );
+              continue;
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('[DriveService] Erro ao sincronizar turno $turnoId: $e');
+            }
+            semConfirmacao = true;
+            foiTimeout = e is TimeoutException;
+          }
 
-          if (isRespostaSucesso(response)) {
-            await db.removerPendenciaDrive(turnoId);
-            sucessos++;
-          } else {
-            // Regrava a pendência para incrementar o contador de tentativas e
-            // empurrar a próxima tentativa automática para mais longe.
-            await db.salvarPendenciaDrive(
-              turnoId,
-              nomeArquivo,
-              operador,
-              motivo: _pareceTelaDeLogin(response.body)
-                  ? MotivoPendencia.precisaLogin
-                  : MotivoPendencia.erroServidor,
-            );
+          if (semConfirmacao) {
+            // Uma consulta só, sem esperar: a fila roda de novo sozinha, e a
+            // próxima rodada pergunta outra vez antes de reenviar.
+            final consulta = authHash.isNotEmpty
+                ? await verificarEntrega(webhookUrl, authHash)
+                : EstadoEntrega.semResposta;
+            if (consulta == EstadoEntrega.entregue) {
+              await db.removerPendenciaDrive(turnoId);
+              sucessos++;
+            } else {
+              await db.salvarPendenciaDrive(
+                turnoId,
+                nomeArquivo,
+                operador,
+                motivo: motivoAposFalha(foiTimeout: foiTimeout, consulta: consulta),
+              );
+            }
           }
         } catch (e) {
+          // Falha fora da rede e fora da montagem do PDF: o banco local
           if (kDebugMode) {
-            print('[DriveService] Erro ao sincronizar turno $turnoId: $e');
+            print('[DriveService] Pendência do turno $turnoId não processada: $e');
           }
           try {
             await db.salvarPendenciaDrive(
               turnoId,
               nomeArquivo,
               operador,
-              motivo: e is TimeoutException
-                  ? MotivoPendencia.servidorDemorou
-                  : MotivoPendencia.semConexao,
+              motivo: MotivoPendencia.erroApp,
             );
           } catch (_) {}
         }
@@ -483,12 +720,15 @@ class DriveService {
           : (sucessos > 0
               ? '$sucessos de $total relatórios enviados. Restam ${total - sucessos} pendentes.'
               : 'Nenhum relatório pôde ser entregue agora. O envio automático continua tentando.');
+      final avisoReaberto = aguardandoFechamento > 0
+          ? ' O PDF de turno reaberto é enviado quando o turno for fechado de novo.'
+          : '';
 
       return (
         enviados: sucessos,
         total: total,
         todosOk: todosOk,
-        mensagem: msg,
+        mensagem: '$msg$avisoReaberto',
       );
     } finally {
       _sincronizando = false;

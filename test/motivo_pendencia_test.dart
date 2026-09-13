@@ -38,6 +38,26 @@ void main() {
       );
     });
 
+    test('Motivos novos não culpam a internet', () {
+      for (final codigo in [
+        MotivoPendencia.naoConfirmado,
+        MotivoPendencia.erroApp,
+        MotivoPendencia.envioInterrompido,
+      ]) {
+        final texto = MotivoPendencia.descricao(codigo).toLowerCase();
+        expect(texto, isNot(contains('sem internet')), reason: codigo);
+        expect(texto, isNot(contains('sem conexão')), reason: codigo);
+        expect(texto, isNot(contains('aguardando envio')),
+            reason: '$codigo caiu no texto genérico');
+      }
+    });
+
+    test('Servidor demorou não manda mais o operador reenviar por conta própria', () {
+      final texto = MotivoPendencia.descricao(MotivoPendencia.servidorDemorou).toLowerCase();
+      expect(texto, isNot(contains('reenvie')));
+      expect(texto, contains('confere'));
+    });
+
     test('Pendência antiga (sem motivo gravado) não inventa uma causa', () {
       // Pendências enfileiradas antes da migração têm motivo nulo: o texto
       // precisa ser neutro em vez de chutar "sem internet".
@@ -54,6 +74,9 @@ void main() {
         MotivoPendencia.servidorDemorou,
         MotivoPendencia.precisaLogin,
         MotivoPendencia.erroServidor,
+        MotivoPendencia.naoConfirmado,
+        MotivoPendencia.erroApp,
+        MotivoPendencia.envioInterrompido,
       ];
       final textos = codigos.map(MotivoPendencia.descricao).toSet();
 

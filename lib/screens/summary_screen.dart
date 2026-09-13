@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../dialogs/close_shift_dialog.dart';
 import '../dialogs/drive_failure_dialog.dart';
 import '../models/lancamento.dart';
+import '../models/motivo_pendencia.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
 import '../services/csv_service.dart';
@@ -466,7 +467,25 @@ class _SummaryScreenState extends State<SummaryScreen> {
     // carregamento faça o fechamento perder a pendência em silêncio. Fica depois
     // da guarda de turno já encerrado para que ela siga respondendo na hora, sem
     // passar por um `await`.
-    await pdf_service.loadLibrary();
+    //
+    // Se o carregamento falhar, o turno NÃO é fechado (seguro), mas antes nada
+    // aparecia: o operador tocava em "Encerrar Turno" e não acontecia nada.
+    try {
+      await pdf_service.loadLibrary();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não foi possível preparar o PDF do fechamento. Feche e abra o app '
+            'e tente de novo — o turno continua aberto.',
+          ),
+          backgroundColor: AppColors.red,
+          duration: Duration(seconds: 6),
+        ),
+      );
+      return;
+    }
 
     // Persistir obrigatoriamente a venda do sistema digitada e justificativa antes do fechamento
     final valorDigitado = CurrencyFormatter.parse(_vendasSistemaController.text);
@@ -622,6 +641,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
     bool envioDriveOk = false;
 
+    // Enquanto este fechamento envia, a pendência dele fica fora do banner e da
+    // fila (ver DatabaseService.enviosDriveEmCurso).
+    final turnoIdEnvio = widget.turno.id;
+    if (turnoIdEnvio != null) {
+      DatabaseService.enviosDriveEmCurso.add(turnoIdEnvio);
+    }
+
     try {
       final db = DatabaseService.instance;
       
@@ -638,6 +664,11 @@ class _SummaryScreenState extends State<SummaryScreen> {
         canhotos: _canhotosManual,
         authHash: dadosFechamento!.authHash,
         dataFechamento: dadosFechamento!.fechadoEm,
+        // A pendência nasce na mesma transação do fechamento: se o app for
+        // fechado no meio do envio, o PDF continua na fila em vez de sumir.
+        pendenciaNomeArquivo:
+            pdf_service.PdfService.gerarNomeArquivo(turno: widget.turno),
+        pendenciaOperador: widget.turno.operador,
       );
       final lancamentos = await db.obterLancamentos(widget.turno.id!);
 
@@ -683,6 +714,15 @@ class _SummaryScreenState extends State<SummaryScreen> {
         operador: widget.turno.operador,
         turnoNumero: widget.turno.numero,
         authHash: dadosFechamento!.authHash,
+        aoConfirmarEntrega: () {
+          progressoNotifier.value = (
+            titulo: 'CONFIRMANDO ENTREGA',
+            subtitulo: 'O Google demorou a responder. Conferindo se o PDF chegou à pasta...',
+            icone: Icons.fact_check_rounded,
+            corTema: const Color(0xFF60A5FA),
+            carregando: true,
+          );
+        },
       );
 
       envioDriveOk = resultadoDrive.sucesso;
@@ -755,10 +795,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
         if (!envioDriveOk && widget.turno.id != null) {
           final turnoNoBanco = await DatabaseService.instance.obterTurnoPorId(widget.turno.id!);
           if (turnoNoBanco != null && !turnoNoBanco.aberto) {
+            // Chegar a este catch é erro do próprio app (montar o PDF, ler o
+            // banco): o envio ao Drive não lança exceção.
             await DatabaseService.instance.salvarPendenciaDrive(
               widget.turno.id!,
               pdf_service.PdfService.gerarNomeArquivo(turno: turnoNoBanco),
               widget.turno.operador,
+              motivo: MotivoPendencia.erroApp,
             );
             await NotificationService.atualizarPendencias();
           }
@@ -784,6 +827,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
       try {
         progressoNotifier.dispose();
       } catch (_) {}
+    } finally {
+      if (turnoIdEnvio != null) {
+        DatabaseService.enviosDriveEmCurso.remove(turnoIdEnvio);
+      }
+      // Agora o banner pode mostrar a pendência, se o envio não se confirmou
+      unawaited(NotificationService.atualizarPendencias());
     }
   }
 
