@@ -45,4 +45,87 @@ void main() {
       expect(() => AppHaptics.heavy(), returnsNormally);
     });
   });
+
+  group('Validator - Nomes parecidos (cadastro duplicado)', () {
+    void parecidos(String a, String b) {
+      expect(Validator.nomesParecidos(a, b), isTrue, reason: '"$a" x "$b"');
+      expect(Validator.nomesParecidos(b, a), isTrue, reason: '"$b" x "$a"');
+    }
+
+    void diferentes(String a, String b) {
+      expect(Validator.nomesParecidos(a, b), isFalse, reason: '"$a" x "$b"');
+      expect(Validator.nomesParecidos(b, a), isFalse, reason: '"$b" x "$a"');
+    }
+
+    test('Mesmo nome com maiúscula, acento ou conectivo diferente', () {
+      parecidos('MARCOS', 'Marcos');
+      parecidos('joão victor almeida', 'Joao Victor Almeida');
+      parecidos('Bruno Costa Neves', 'Bruno Costa das Neves');
+      // Acento que chega separado da letra (a + ~), como alguns teclados mandam
+      parecidos('Joa${String.fromCharCode(0x0303)}o', 'João');
+    });
+
+    test('Só parte do nome de quem já tem cadastro', () {
+      parecidos('Joao', 'João Victor Almeida');
+      parecidos('Renan Pereira', 'Renan');
+      parecidos('Thiago', 'Tiago Souza');
+    });
+
+    test('Uma letra de diferença ou nome abreviado', () {
+      parecidos('Joao Vitor Almeida', 'João Victor Almeida');
+      parecidos('Luis Carlos', 'Luiz Carlos Pereira');
+      parecidos('Robsom', 'Robson');
+      parecidos('Wellingtom', 'Wellington');
+      parecidos('J Silva', 'Joao Silva');
+      parecidos('Pedro Henrique', 'Pedro H Rocha');
+    });
+
+    test('Pessoas diferentes não são barradas', () {
+      diferentes('Joao Pedro', 'Joao Victor Almeida');
+      diferentes('Luiz Fernando', 'Luiz Carlos Pereira');
+      diferentes('Renan', 'Renato');
+      diferentes('Josivan', 'Josenilson');
+      diferentes('Franklin', 'Frankson');
+      diferentes('Alexandre', 'Alessandro');
+      diferentes('Joana', 'Joao');
+      diferentes('Ana', 'Ane');
+    });
+
+    test('Masculino e feminino não contam como erro de digitação', () {
+      diferentes('Paula', 'Paulo');
+      diferentes('Daniela', 'Daniel');
+      diferentes('Maria', 'Mario');
+      diferentes('Carla', 'Carlos');
+    });
+
+    test('Só iniciais em comum não bastam', () {
+      diferentes('Jorge', 'J Silva');
+    });
+
+    test('Nome vazio ou só com conectivos não esbarra em ninguém', () {
+      diferentes('', 'Joao');
+      diferentes('Da Silva', 'Joao');
+    });
+
+    test('Uma equipe sem duplicados não esbarra em si mesma', () {
+      const equipe = [
+        'Ana Paula',
+        'Bruno Costa das Neves',
+        'Carlos Eduardo',
+        'Franklin',
+        'Frankson',
+        'Joao Victor Almeida',
+        'Josenilson',
+        'Josivan',
+        'Luiz Carlos Pereira',
+        'Marcos',
+        'Pedro Henrique Rocha',
+      ];
+      for (var i = 0; i < equipe.length; i++) {
+        for (var j = i + 1; j < equipe.length; j++) {
+          diferentes(equipe[i], equipe[j]);
+        }
+      }
+    });
+  });
 }

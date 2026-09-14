@@ -86,6 +86,11 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
   /// Nomes que abriram turno neste aparelho, do mais recente para o mais antigo
   List<String> _recentes = [];
 
+  /// Operadores já cadastrados com o nome digitado (ou parecido com ele). Com a
+  /// lista preenchida, o nome novo não é cadastrado: a tela oferece o cadastro
+  /// existente para o operador entrar.
+  List<String> _nomesExistentes = const [];
+
   @override
   void initState() {
     super.initState();
@@ -209,6 +214,7 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
       _pin = '';
       _erroNome = null;
       _erroPin = null;
+      _nomesExistentes = const [];
       _controllerNome.clear();
       _controllerPin.clear();
     });
@@ -221,8 +227,43 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
       setState(() => _erroNome = erro);
       return;
     }
+
+    // Quem já tem cadastro não ganha um segundo. Era por aqui que o mesmo
+    // operador aparecia duas vezes na lista, com o nome escrito de outro jeito.
+    final existentes = _operadoresComNomeParecido(_controllerNome.text);
+    if (existentes.isNotEmpty) {
+      AppHaptics.heavy();
+      FocusManager.instance.primaryFocus?.unfocus();
+      setState(() {
+        _erroNome = null;
+        _nomesExistentes = existentes;
+      });
+      return;
+    }
+
     FocusManager.instance.primaryFocus?.unfocus();
     _selecionarNome(_controllerNome.text);
+  }
+
+  /// Operadores ativos que parecem ser a pessoa do nome digitado.
+  ///
+  /// O nome exatamente igual fica de fora de propósito: esse caso o fluxo normal
+  /// já resolve, levando ao PIN do cadastro existente. O que passava direto eram
+  /// as variações — "Joao" e "João Victor Santos", "Vitor" e "Victor" — que o
+  /// cadastro tratava como outra pessoa.
+  List<String> _operadoresComNomeParecido(String digitado) {
+    final ativos = OperadoresSyncService.operadoresNotifier.value
+        .where((o) => o.ativo && !o.removido)
+        .toList();
+
+    final chave =
+        AuthService.normalizarOperador(Validator.formatarNomeOperador(digitado));
+    if (ativos.any((o) => o.nomeNormalizado == chave)) return const [];
+
+    return [
+      for (final o in ativos)
+        if (Validator.nomesParecidos(digitado, o.nomeExibicao)) o.nomeExibicao,
+    ]..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
   }
 
   void _onPinChanged(String valor) {
@@ -300,6 +341,7 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
           _controllerPin.clear();
           _erroNome = null;
           _erroPin = null;
+          _nomesExistentes = const [];
           _processando = false;
         });
       }
@@ -769,7 +811,12 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
             ),
           ),
           onChanged: (_) {
-            if (_erroNome != null) setState(() => _erroNome = null);
+            if (_erroNome != null || _nomesExistentes.isNotEmpty) {
+              setState(() {
+                _erroNome = null;
+                _nomesExistentes = const [];
+              });
+            }
           },
           onSubmitted: (_) => _confirmarNomeDigitado(),
         ),
@@ -802,6 +849,10 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
                   ),
           ),
         ),
+        if (_nomesExistentes.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _avisoNomeExistente(isDark),
+        ],
         if (semVoltar) ...[
           const SizedBox(height: 14),
           Text(
@@ -815,6 +866,61 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  /// Aviso de nome já cadastrado. O próprio cadastro vem como atalho: tocar nele
+  /// é o mesmo que tocar no nome da lista, e leva ao PIN.
+  Widget _avisoNomeExistente(bool isDark) {
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      decoration: BoxDecoration(
+        color: AppColors.amber.withValues(alpha: isDark ? 0.10 : 0.08),
+        borderRadius: BorderRadius.circular(AppColors.radiusMd),
+        border: Border.all(color: AppColors.amber.withValues(alpha: 0.45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.info_outline_rounded, size: 17, color: AppColors.amber),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  'Esse nome já existe',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: textPri,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _nomesExistentes.length == 1
+                ? 'Se for você, toque no seu nome para fazer login:'
+                : 'Se um destes for você, toque no seu nome para fazer login:',
+            style: TextStyle(fontSize: 12.5, height: 1.35, color: textSec),
+          ),
+          const SizedBox(height: 10),
+          for (final nome in _nomesExistentes) ...[
+            _cartaoNome(nome, isDark, destaque: true),
+            const SizedBox(height: 6),
+          ],
+          const SizedBox(height: 2),
+          Text(
+            'Não é você? Entre em contato com o desenvolvedor para cadastrar seu nome.',
+            style: TextStyle(fontSize: 11.5, height: 1.35, color: textSec),
+          ),
+        ],
+      ),
     );
   }
 
