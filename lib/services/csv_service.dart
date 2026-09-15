@@ -27,6 +27,7 @@ class CsvService {
     buffer.writeln('POSTO JANJÃO - RELATÓRIO DE FECHAMENTO DE TURNO');
     buffer.writeln('Turno;${turno.numero}');
     buffer.writeln('Operador;${turno.operador}');
+    buffer.writeln('Caixa do Dia;${turno.dataCaixa}');
     buffer.writeln('Aberto Em;${turno.data}');
     buffer.writeln('Fechado Em;${turno.fechadoEm ?? "Aberto"}');
     buffer.writeln('Data de Exportação;${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())}');

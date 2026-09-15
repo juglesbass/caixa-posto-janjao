@@ -171,6 +171,62 @@ void main() {
       expect(PdfService.gerarNomeArquivo(turno: turnoV3), equals('Agildo 08-09-2026_v3.pdf'));
     });
 
+    test('Turno antigo, sem data do caixa gravada, usa o dia da abertura', () {
+      final antigo = Turno.fromMap({
+        'id': 1,
+        'numero': 1,
+        'data': '14/09/2026 18:05',
+        'operador': 'Agildo',
+        'aberto': 0,
+      });
+      expect(antigo.dataCaixa, equals('14/09/2026'));
+      expect(antigo.dataCaixaDefinida, isNull);
+    });
+
+    test('Data do caixa sobrevive a toMap/fromMap e copyWith', () {
+      final turno = Turno(
+        id: 3,
+        numero: 2,
+        data: '15/09/2026 00:40',
+        dataCaixa: '14/09/2026',
+        operador: 'Agildo',
+      );
+      final reconstruido = Turno.fromMap(turno.toMap());
+      expect(reconstruido.dataCaixa, equals('14/09/2026'));
+      // A hora real de abertura não é alterada
+      expect(reconstruido.data, equals('15/09/2026 00:40'));
+      expect(turno.copyWith(aberto: false).dataCaixa, equals('14/09/2026'));
+      expect(turno.copyWith(dataCaixa: '15/09/2026').dataCaixa, equals('15/09/2026'));
+    });
+
+    test('Os dois caixas da noite, abertos depois da meia-noite, têm nomes diferentes', () {
+      // Entrou dia 14 às 18h, mas só abriu o app às 00:40 do dia 15
+      final ateMeiaNoite = Turno(
+        id: 1,
+        numero: 1,
+        data: '15/09/2026 00:40',
+        dataCaixa: '14/09/2026',
+        operador: 'Agildo',
+        aberto: false,
+      );
+      final madrugada = Turno(
+        id: 2,
+        numero: 1,
+        data: '15/09/2026 00:55',
+        dataCaixa: '15/09/2026',
+        operador: 'Agildo',
+        aberto: false,
+      );
+
+      expect(PdfService.gerarNomeArquivo(turno: ateMeiaNoite), equals('Agildo 14-09-2026.pdf'));
+      expect(PdfService.gerarNomeArquivo(turno: madrugada), equals('Agildo 15-09-2026.pdf'));
+      // Com o mesmo nome o segundo chegava ao Drive como "_v2", lido como correção
+      expect(
+        PdfService.gerarNomeArquivo(turno: ateMeiaNoite),
+        isNot(equals(PdfService.gerarNomeArquivo(turno: madrugada))),
+      );
+    });
+
     test('PaymentTypes.ordenarCartoes - Ordenação isolada Cielo', () {
       final entrada = {
         'Cielo Visa Débito': 100.0,

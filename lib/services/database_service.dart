@@ -32,7 +32,9 @@ class DatabaseService {
   /// Versão do esquema garantido por [_garantirTabelas]. Suba este número ao
   /// acrescentar lá uma tabela, coluna ou índice: é o que faz os aparelhos já
   /// instalados rodarem a migração mais uma vez.
-  static const int _versaoEsquema = 1;
+  // 2: coluna turnos.data_caixa. Subir este número é o que faz os aparelhos
+  // já instalados passarem de novo por _garantirTabelas e ganharem a coluna.
+  static const int _versaoEsquema = 2;
   static const String _keyEsquemaGarantido = 'db_esquema_garantido_versao';
 
   DatabaseService._();
@@ -169,6 +171,9 @@ class DatabaseService {
     try {
       await db.execute('ALTER TABLE turnos ADD COLUMN versao INTEGER NOT NULL DEFAULT 1');
     } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE turnos ADD COLUMN data_caixa TEXT');
+    } catch (_) {}
 
     // Tabela de cache local de Operadores sincronizados via Firestore
     await db.execute('''
@@ -255,6 +260,7 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         numero INTEGER NOT NULL,
         data TEXT NOT NULL,
+        data_caixa TEXT,
         operador TEXT NOT NULL,
         aberto INTEGER NOT NULL DEFAULT 1,
         fechado_em TEXT,
@@ -336,11 +342,23 @@ class DatabaseService {
   // TURNOS
   // ──────────────────────────────────────────────────────────────────────────
 
-  Future<Turno> abrirNovoTurno(String operador, {double fundoCaixa = 0.0}) async {
+  /// Abre um turno novo.
+  ///
+  /// [dataCaixa] é o dia a que o caixa pertence (dd/MM/yyyy), escolhido na
+  /// abertura quando ela acontece de madrugada — ver `DataCaixa`. Sem ele, o
+  /// caixa é do dia da abertura, como sempre foi.
+  Future<Turno> abrirNovoTurno(
+    String operador, {
+    double fundoCaixa = 0.0,
+    String? dataCaixa,
+  }) async {
     final db = await database;
     final now = DateTime.now();
     final dataHojeStr = DateFormat('dd/MM/yyyy').format(now);
     final dataCompletaStr = DateFormat('dd/MM/yyyy HH:mm').format(now);
+    final dataCaixaStr = (dataCaixa != null && dataCaixa.trim().isNotEmpty)
+        ? dataCaixa.trim()
+        : dataHojeStr;
 
     int numeroTurno = 0;
     int id = 0;
@@ -349,10 +367,13 @@ class DatabaseService {
       // Fechar turnos abertos anteriormente por segurança
       await txn.update('turnos', {'aberto': 0, 'fechado_em': dataCompletaStr}, where: 'aberto = 1');
 
-      // Obter número do turno no dia
+      // Número do turno dentro do dia do CAIXA, não do dia em que o app foi
+      // aberto. Turnos antigos, sem data_caixa gravada, contam pelo dia da
+      // abertura.
       final result = await txn.rawQuery(
-        "SELECT COUNT(*) as count FROM turnos WHERE substr(data, 1, 10) = ?",
-        [dataHojeStr],
+        "SELECT COUNT(*) as count FROM turnos "
+        "WHERE COALESCE(NULLIF(data_caixa, ''), substr(data, 1, 10)) = ?",
+        [dataCaixaStr],
       );
       final countDia = (result.first['count'] as num?)?.toInt() ?? 0;
       numeroTurno = countDia + 1;
@@ -360,6 +381,7 @@ class DatabaseService {
       id = await txn.insert('turnos', {
         'numero': numeroTurno,
         'data': dataCompletaStr,
+        'data_caixa': dataCaixaStr,
         'operador': operador,
         'aberto': 1,
         'vendas_sistema': 0.0,
@@ -372,10 +394,50 @@ class DatabaseService {
       id: id,
       numero: numeroTurno,
       data: dataCompletaStr,
+      dataCaixa: dataCaixaStr,
       operador: operador,
       aberto: true,
       fundoCaixa: fundoCaixa,
     );
+  }
+
+  /// Troca o dia a que um caixa ABERTO pertence e renumera o turno dentro do
+  /// novo dia.
+  ///
+  /// Devolve false se o turno não estiver aberto. Depois de fechado a data só
+  /// muda reabrindo o turno — senão o banco divergiria do PDF já entregue.
+  Future<bool> alterarDataCaixa(int turnoId, String dataCaixa) async {
+    final nova = dataCaixa.trim();
+    if (nova.isEmpty) return false;
+
+    final db = await database;
+    var alterou = false;
+    await db.transaction((txn) async {
+      final atual = await txn.query(
+        'turnos',
+        columns: ['aberto'],
+        where: 'id = ?',
+        whereArgs: [turnoId],
+        limit: 1,
+      );
+      if (atual.isEmpty || (atual.first['aberto'] as num?)?.toInt() != 1) return;
+
+      final result = await txn.rawQuery(
+        "SELECT COUNT(*) as count FROM turnos WHERE id != ? "
+        "AND COALESCE(NULLIF(data_caixa, ''), substr(data, 1, 10)) = ?",
+        [turnoId, nova],
+      );
+      final numero = ((result.first['count'] as num?)?.toInt() ?? 0) + 1;
+
+      final linhas = await txn.update(
+        'turnos',
+        {'data_caixa': nova, 'numero': numero},
+        where: 'id = ? AND aberto = 1',
+        whereArgs: [turnoId],
+      );
+      alterou = linhas > 0;
+    });
+    return alterou;
   }
 
   Future<Turno?> obterTurnoAberto() async {
