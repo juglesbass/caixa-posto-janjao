@@ -11,6 +11,23 @@ import 'package:intl/intl.dart';
 ///
 /// A hora real de abertura continua em `Turno.data`, para auditoria. A data do
 /// caixa é separada, e é ela que vai no nome do PDF e no cabeçalho.
+/// O que fazer com um caixa que continua aberto de um dia anterior.
+enum AcaoCaixaAntigo {
+  /// Nada: caixa de hoje, madrugada, ou data escolhida pelo próprio operador
+  nenhuma,
+
+  /// Caixa sem nenhum movimento: passa a ser de hoje, aberto agora
+  recomecar,
+
+  /// Movimento só de hoje: o caixa começou de verdade hoje, a data vira hoje
+  mudarParaHoje,
+
+  /// Movimento de um dia anterior (ou encerrante, que não tem data): pode ser o
+  /// caixa daquele dia esquecido aberto. Trocar a data mandaria as vendas dele
+  /// para hoje — então não troca, só avisa.
+  avisarCaixaAntigo,
+}
+
 class DataCaixa {
   DataCaixa._();
 
@@ -69,6 +86,56 @@ class DataCaixa {
     } catch (_) {
       return false;
     }
+  }
+
+  /// Decide sozinho o que fazer com o caixa que continua aberto.
+  ///
+  /// A data só é trocada quando dá para ter certeza, e quem dá a certeza são os
+  /// lançamentos, que guardam data e hora:
+  ///
+  /// - sem nenhum movimento: o caixa foi aberto e não usado — o funcionário
+  ///   fechou o caixa, abriu o app de novo no mesmo dia e só voltou dias depois.
+  ///   Recomeça hoje.
+  /// - lançamentos só de hoje: o caixa começou de verdade hoje. A data vira hoje.
+  /// - algum lançamento de dia anterior: pode ser o caixa daquele dia, com as
+  ///   vendas daquele dia, esquecido aberto. Trocar a data mandaria essas vendas
+  ///   para o PDF de hoje. Não troca; avisa.
+  ///
+  /// Data escolhida pelo operador — o "Ontem" da madrugada ou o "trocar" do
+  /// Resumo — nunca é desfeita. De madrugada não faz nada.
+  static AcaoCaixaAntigo decidirCaixaAberto({
+    required String dataAbertura,
+    required String dataCaixa,
+    required Iterable<String> datasHoraLancamentos,
+    required bool temEncerrantes,
+    required DateTime agora,
+  }) {
+    if (!caixaDeDiaAnterior(dataCaixa, agora)) return AcaoCaixaAntigo.nenhuma;
+
+    final hoje = DateTime(agora.year, agora.month, agora.day);
+    final temMovimentoAnterior = datasHoraLancamentos.any((dataHora) {
+      final bruto = dataHora.trim();
+      final dia = DateTime.tryParse(bruto.length >= 10 ? bruto.substring(0, 10) : '');
+      // Data ilegível conta como anterior: na dúvida, não mexe
+      return dia == null || dia.isBefore(hoje);
+    });
+
+    final escolhidaPeloOperador =
+        dataCaixa.trim() != dataAbertura.trim().split(' ').first;
+    if (escolhidaPeloOperador) {
+      return temMovimentoAnterior
+          ? AcaoCaixaAntigo.avisarCaixaAntigo
+          : AcaoCaixaAntigo.nenhuma;
+    }
+
+    if (temMovimentoAnterior) return AcaoCaixaAntigo.avisarCaixaAntigo;
+    if (datasHoraLancamentos.isEmpty) {
+      // Encerrante não tem data: não dá para saber de que dia são as leituras
+      return temEncerrantes
+          ? AcaoCaixaAntigo.avisarCaixaAntigo
+          : AcaoCaixaAntigo.recomecar;
+    }
+    return AcaoCaixaAntigo.mudarParaHoje;
   }
 
   /// Datas oferecidas no "trocar" do Resumo, sem repetir e nesta ordem: o dia
