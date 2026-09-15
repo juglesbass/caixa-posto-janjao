@@ -25,6 +25,7 @@ import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_haptics.dart';
 import 'utils/app_pronto.dart';
+import 'utils/data_caixa.dart';
 import 'utils/payment_types.dart';
 import 'widgets/bottom_nav_bar.dart';
 import 'widgets/pending_sync_banner.dart';
@@ -457,7 +458,15 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         await prefs.setString('maquina_ativa', PaymentTypes.maquinaRede);
       } catch (_) {}
 
-      final novoTurnoObj = await db.abrirNovoTurno(operador, fundoCaixa: fundo);
+      // Caixa aberto de madrugada pode ser do dia anterior: pergunta.
+      final dataCaixa = await _escolherDataCaixa();
+      if (!mounted) return;
+
+      final novoTurnoObj = await db.abrirNovoTurno(
+        operador,
+        fundoCaixa: fundo,
+        dataCaixa: dataCaixa,
+      );
       final totais = await db.obterTotaisTurno(novoTurnoObj.id!);
 
       // Momento certo de pedir notificação: o operador acabou de agir e vai
@@ -472,6 +481,73 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         _indiceAba = 0;
       });
     }
+  }
+
+  /// De qual dia é o caixa que está sendo aberto.
+  ///
+  /// Fora da madrugada é o dia de hoje, sem perguntar nada. Entre 00h e 06h o
+  /// app pergunta: o funcionário da noite fecha um caixa até a meia-noite (dia
+  /// anterior) e outro até as 6h (dia novo), e só ele sabe qual está abrindo.
+  ///
+  /// Sem botão de cancelar, de propósito: a escolha é obrigatória, e fechar o
+  /// diálogo sem resposta deixaria a abertura pela metade.
+  Future<String> _escolherDataCaixa() async {
+    final agora = DateTime.now();
+    final hoje = DataCaixa.formatar(agora);
+    if (!DataCaixa.aberturaDeMadrugada(agora)) return hoje;
+
+    final ontem = DataCaixa.formatar(DataCaixa.diaAnterior(agora));
+    final hora =
+        '${agora.hour.toString().padLeft(2, '0')}:${agora.minute.toString().padLeft(2, '0')}';
+
+    ButtonStyle estilo() => ElevatedButton.styleFrom(
+          backgroundColor: AppColors.accent,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        );
+
+    final escolha = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Text('De qual dia é este caixa?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Você está abrindo o caixa às $hora.\n\n'
+                'Se é o caixa que vai até a meia-noite, escolha ontem. '
+                'Se é o caixa da madrugada, escolha hoje.\n\n'
+                'Essa data vai no nome do PDF enviado ao gerente.',
+              ),
+              const SizedBox(height: 18),
+              ElevatedButton(
+                style: estilo(),
+                onPressed: () => Navigator.of(ctx).pop(ontem),
+                child: Text(
+                  'Ontem — ${DataCaixa.curta(ontem)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                style: estilo(),
+                onPressed: () => Navigator.of(ctx).pop(hoje),
+                child: Text(
+                  'Hoje — ${DataCaixa.curta(hoje)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return escolha ?? hoje;
   }
 
   /// Confirma a passagem do caixa para outro operador.
@@ -603,6 +679,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
             totais: _totais,
             onTurnoAlterado: _inicializarApp,
             onFechar: () => setState(() => _indiceAba = 0),
+            onDadosAlterados: _recarregarDados,
           ),
 
           // Aba 3: Menu / Ações do Caixa

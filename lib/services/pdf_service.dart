@@ -35,14 +35,15 @@ class PdfService {
   /// Gera o nome do arquivo no formato: "${operador} ${data_dd-MM-yyyy}.pdf",
   /// com sufixo "_v2", "_v3"... quando o turno já foi reaberto e fechado antes.
   ///
-  /// A data vem de [Turno.data], o momento da ABERTURA — não o do fechamento.
-  /// É isso que mantém o nome único sem o número do turno: os turnos são de 12
-  /// horas, então o da noite abre num dia e fecha no outro, mas continua
-  /// nomeado com o dia em que começou. Assim ele nunca colide com o turno que
-  /// abre na manhã seguinte.
+  /// A data é a do CAIXA ([Turno.dataCaixa]), não a hora em que o app foi
+  /// aberto. O funcionário da noite fecha dois caixas — até a meia-noite e até
+  /// as 6h — e, abrindo o app só depois da meia-noite, os dois saíam com a
+  /// mesma data e o mesmo nome. O segundo chegava ao Drive como "_v2", que o
+  /// gerente lê como correção do primeiro. Com a data do caixa, cada um tem o
+  /// seu dia e o seu nome.
   ///
-  /// Nome repetido também não destrói nada: o webhook do Drive é estritamente
-  /// aditivo e, se o nome já existir na pasta, cria o próximo "_vN" em vez de
+  /// Nome repetido não destrói nada: o webhook do Drive é estritamente aditivo
+  /// e, se o nome já existir na pasta, cria o próximo "_vN" em vez de
   /// sobrescrever ou mandar o anterior para a lixeira.
   static String gerarNomeArquivo({required Turno turno}) {
     // Normalizar nome do operador (ex: "João Victor")
@@ -50,16 +51,17 @@ class PdfService {
     
     // Extrair data no formato dd-MM-yyyy
     String dataFormatada;
+    final dataBase = turno.dataCaixa;
     try {
-      if (turno.data.contains('/')) {
-        final partes = turno.data.split(' ')[0].split('/');
+      if (dataBase.contains('/')) {
+        final partes = dataBase.split(' ')[0].split('/');
         if (partes.length >= 3) {
           dataFormatada = '${partes[0].padLeft(2, '0')}-${partes[1].padLeft(2, '0')}-${partes[2]}';
         } else {
           dataFormatada = DateFormat('dd-MM-yyyy').format(DateTime.now());
         }
-      } else if (turno.data.contains('-')) {
-        final partes = turno.data.split(' ')[0].split('-');
+      } else if (dataBase.contains('-')) {
+        final partes = dataBase.split(' ')[0].split('-');
         if (partes.length >= 3) {
           if (partes[0].length == 4) {
             // ISO yyyy-MM-dd
@@ -276,14 +278,15 @@ class PdfService {
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      // Nº TURNO
+                      // CAIXA DO DIA e nº do turno. É por esta data que a gerência
+                      // confere — a hora real de abertura segue na coluna ABERTURA.
                       pw.Expanded(
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text('Nº TURNO', style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corCinzaTexto)),
+                            pw.Text('CAIXA DO DIA', style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corCinzaTexto)),
                             pw.SizedBox(height: 2),
-                            pw.Text('Turno #${turno.numero}', style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: corTextoEscuro)),
+                            pw.Text('${turno.dataCaixa} - #${turno.numero}', style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: corTextoEscuro)),
                           ],
                         ),
                       ),

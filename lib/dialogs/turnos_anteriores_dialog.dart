@@ -287,6 +287,19 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
                                           'Abertura: ${t.data}',
                                           style: TextStyle(color: textSec, fontSize: 11),
                                         ),
+                                        // Só quando difere do dia da abertura: é o caso que
+                                        // antes confundia a conferência
+                                        if (t.dataCaixa != t.data.trim().split(' ').first) ...[
+                                          const SizedBox(height: 1),
+                                          Text(
+                                            'Caixa do dia ${t.dataCaixa}',
+                                            style: const TextStyle(
+                                              color: Color(0xFF38BDF8),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
                                         if (t.fechadoEm != null) ...[
                                           const SizedBox(height: 1),
                                           Text(

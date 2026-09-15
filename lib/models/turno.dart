@@ -16,6 +16,10 @@ class Turno {
   final String? authHash;
   final int versao;
 
+  /// Dia do caixa gravado no banco (dd/MM/yyyy), ou null em turnos anteriores a
+  /// este campo. Use [dataCaixa], que já resolve o caso antigo.
+  final String? dataCaixaDefinida;
+
   Turno({
     this.id,
     required this.numero,
@@ -31,10 +35,18 @@ class Turno {
     this.fundoCaixa = 0.0,
     this.authHash,
     this.versao = 1,
-  })  : vendasSistema = vendaSistema ?? vendasSistema ?? 0.0,
+    String? dataCaixa,
+  })  : dataCaixaDefinida =
+            (dataCaixa != null && dataCaixa.trim().isNotEmpty) ? dataCaixa.trim() : null,
+        vendasSistema = vendaSistema ?? vendasSistema ?? 0.0,
         canhotos = canhotos != null ? Map<String, int>.from(canhotos) : const {};
 
   bool get isFechado => !aberto;
+
+  /// Dia a que o caixa pertence (dd/MM/yyyy) — nem sempre o dia da abertura.
+  /// Ver `DataCaixa`. Turnos antigos, sem o campo gravado, usam o dia da
+  /// abertura, que era a regra de antes.
+  String get dataCaixa => dataCaixaDefinida ?? data.trim().split(' ').first;
 
   /// Alias de conveniência para consistência com solicitações de "vendaSistema"
   double get vendaSistema => vendasSistema;
@@ -58,6 +70,7 @@ class Turno {
       'fundo_caixa': fundoCaixa,
       'auth_hash': authHash,
       'versao': versao,
+      'data_caixa': dataCaixaDefinida,
     };
   }
 
@@ -94,6 +107,7 @@ class Turno {
       fundoCaixa: (map['fundo_caixa'] as num?)?.toDouble() ?? 0.0,
       authHash: map['auth_hash'] as String?,
       versao: (map['versao'] as num?)?.toInt() ?? 1,
+      dataCaixa: map['data_caixa'] as String?,
     );
   }
 
@@ -112,6 +126,7 @@ class Turno {
     double? fundoCaixa,
     String? authHash,
     int? versao,
+    String? dataCaixa,
   }) {
     return Turno(
       id: id ?? this.id,
@@ -127,6 +142,7 @@ class Turno {
       fundoCaixa: fundoCaixa ?? this.fundoCaixa,
       authHash: authHash ?? this.authHash,
       versao: versao ?? this.versao,
+      dataCaixa: dataCaixa ?? dataCaixaDefinida,
     );
   }
 }

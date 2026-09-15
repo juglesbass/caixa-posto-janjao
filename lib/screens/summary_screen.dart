@@ -25,6 +25,7 @@ import '../services/pdf_service.dart' deferred as pdf_service;
 import '../theme/app_colors.dart';
 import '../utils/app_haptics.dart';
 import '../utils/currency_formatter.dart';
+import '../utils/data_caixa.dart';
 import '../utils/payment_types.dart';
 import '../widgets/pending_sync_banner.dart';
 
@@ -34,12 +35,17 @@ class SummaryScreen extends StatefulWidget {
   final VoidCallback onTurnoAlterado;
   final VoidCallback? onFechar;
 
+  /// Recarrega o turno sem a tela de carregamento inteira — usado ao trocar a
+  /// data do caixa. Sem ele, cai em [onTurnoAlterado].
+  final VoidCallback? onDadosAlterados;
+
   const SummaryScreen({
     super.key,
     required this.turno,
     required this.totais,
     required this.onTurnoAlterado,
     this.onFechar,
+    this.onDadosAlterados,
   });
 
   @override
@@ -273,6 +279,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
     buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━');
     buffer.writeln('👤 *Operador:* ${widget.turno.operador}');
     buffer.writeln('📋 *Turno:* #${widget.turno.numero}');
+    buffer.writeln('🗓️ *Caixa do dia:* ${widget.turno.dataCaixa}');
     buffer.writeln('📅 *Aberto em:* ${widget.turno.data}');
     if (widget.turno.fechadoEm != null && widget.turno.fechadoEm!.isNotEmpty) {
       buffer.writeln('⏱️ *Fechado em:* ${widget.turno.fechadoEm}');
@@ -447,6 +454,129 @@ class _SummaryScreenState extends State<SummaryScreen> {
     } finally {
       if (mounted) setState(() => _processando = false);
     }
+  }
+
+  /// Dia a que o caixa pertence, com a opção de trocar antes de fechar.
+  ///
+  /// É por essa data que a gerência confere, e ela vai no nome do PDF. Fica
+  /// visível aqui para o operador notar antes de fechar se escolheu errado na
+  /// abertura — depois de fechado, só reabrindo o turno.
+  Widget _linhaDataCaixa(Color textSec) {
+    final podeTrocar = widget.turno.aberto && widget.turno.id != null;
+    return InkWell(
+      onTap: podeTrocar ? _trocarDataCaixa : null,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.event_rounded, size: 13, color: textSec),
+            const SizedBox(width: 4),
+            Text(
+              'Caixa do dia ${widget.turno.dataCaixa}',
+              style: TextStyle(fontSize: 11, color: textSec, fontWeight: FontWeight.w600),
+            ),
+            if (podeTrocar) ...[
+              const SizedBox(width: 8),
+              const Text(
+                'trocar',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF38BDF8),
+                  fontWeight: FontWeight.w700,
+                  decoration: TextDecoration.underline,
+                  decorationColor: Color(0xFF38BDF8),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _trocarDataCaixa() async {
+    final turnoId = widget.turno.id;
+    final opcoes = DataCaixa.opcoes(widget.turno.data);
+    if (turnoId == null || opcoes == null) return;
+    final atual = widget.turno.dataCaixa;
+
+    Widget botao(BuildContext ctx, String rotulo, String data) {
+      final selecionada = data == atual;
+      return ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: selecionada ? AppColors.accent : null,
+          foregroundColor: selecionada ? Colors.white : null,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+        onPressed: () => Navigator.of(ctx).pop(data),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (selecionada) ...[
+              const Icon(Icons.check_rounded, size: 18),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              '$rotulo — ${DataCaixa.curta(data)}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final escolha = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('De qual dia é este caixa?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Aberto em ${widget.turno.data}.\n\n'
+              'Essa data vai no nome do PDF e no cabeçalho do fechamento.',
+            ),
+            const SizedBox(height: 18),
+            botao(ctx, 'Dia anterior', opcoes.anterior),
+            const SizedBox(height: 10),
+            botao(ctx, 'Dia da abertura', opcoes.doDia),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancelar'),
+          ),
+        ],
+      ),
+    );
+
+    if (escolha == null || escolha == atual || !mounted) return;
+
+    final alterou = await DatabaseService.instance.alterarDataCaixa(turnoId, escolha);
+    if (!mounted) return;
+
+    if (!alterou) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível trocar a data: o turno não está mais aberto.'),
+          backgroundColor: AppColors.red,
+        ),
+      );
+      return;
+    }
+
+    (widget.onDadosAlterados ?? widget.onTurnoAlterado)();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Caixa agora é do dia $escolha.'),
+        backgroundColor: AppColors.green,
+      ),
+    );
   }
 
   // 5. Encerrar Turno com Autenticação de PIN e Assinatura Digital SHA-256
@@ -915,6 +1045,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                             ),
                           ],
                         ),
+                        _linhaDataCaixa(textSec),
                       ],
                     ),
                   ),
