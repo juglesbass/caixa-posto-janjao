@@ -243,6 +243,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   TotaisTurno _totais = TotaisTurno();
   bool _carregando = true;
   Timer? _timerFila;
+  bool _conferindoCaixaAntigo = false;
+  final Set<int> _caixasAntigosMantidos = <int>{};
+  static const String _keyCaixasAntigosMantidos = 'caixas_de_dia_anterior_mantidos';
 
   @override
   void initState() {
@@ -292,6 +295,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   void _iniciarTimerFila() {
     _timerFila?.cancel();
     _timerFila = Timer.periodic(const Duration(minutes: 3), (_) async {
+      // Só compara a data do caixa em memória; nada de banco ou rede enquanto o
+      // caixa for de hoje.
+      unawaited(_conferirCaixaDeDiaAnterior());
       if (NotificationService.pendenciasCount.value <= 0) return;
       try {
         await DriveService.sincronizarTodasPendencias(respeitarBackoff: true);
@@ -300,6 +306,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   Future<void> _sincronizarAoRetomar() async {
+    // Primeiro, antes da fila: quem volta ao app dias depois precisa ver a
+    // pergunta na hora, e não depois de uma rodada de envios.
+    unawaited(_conferirCaixaDeDiaAnterior());
     try {
       await DriveService.sincronizarTodasPendencias(respeitarBackoff: true);
     } catch (_) {}
@@ -347,6 +356,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           _turnoAtual = turnoAberto;
           _totais = totais;
           _carregando = false;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          unawaited(_conferirCaixaDeDiaAnterior());
         });
       }
     } catch (e, stack) {
@@ -480,6 +492,139 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         _totais = totais;
         _indiceAba = 0;
       });
+    }
+  }
+
+  /// Caixa ainda aberto de um dia anterior, depois das 6h: pergunta se é o de
+  /// hoje.
+  ///
+  /// O caso: o funcionário do dia trabalha um dia sim, um não. Fecha o caixa no
+  /// dia 15, abre o app de novo no mesmo dia — e se identificar já abre um
+  /// turno — e deixa o app assim até o dia 17. O caixa que ele usa no dia 17
+  /// ficava datado do dia 15, e o PDF chegava ao gerente com a data errada.
+  ///
+  /// Com "Sim": se o caixa está vazio, a abertura passa a ser agora e o caixa
+  /// passa a ser de hoje; com movimento já registrado, só a data do caixa muda
+  /// e a hora real de abertura é mantida. Com "Não", não pergunta mais para esse
+  /// caixa. Sem movimento em tela, a conferência só compara uma data em memória.
+  Future<void> _conferirCaixaDeDiaAnterior() async {
+    final turno = _turnoAtual;
+    final turnoId = turno?.id;
+    if (turno == null || turnoId == null || _conferindoCaixaAntigo || !mounted) return;
+    if (!DataCaixa.caixaDeDiaAnterior(turno.dataCaixa, DateTime.now())) return;
+    if (_caixasAntigosMantidos.contains(turnoId)) return;
+
+    // Não empilha em cima de outra janela aberta (fechamento em andamento,
+    // identificação, outro aviso). A próxima conferência pega.
+    final rota = ModalRoute.of(context);
+    if (rota != null && !rota.isCurrent) return;
+
+    _conferindoCaixaAntigo = true;
+    try {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final mantidos = prefs.getStringList(_keyCaixasAntigosMantidos) ?? const [];
+        if (mantidos.contains('$turnoId')) {
+          _caixasAntigosMantidos.add(turnoId);
+          return;
+        }
+      } catch (_) {}
+      if (!mounted) return;
+
+      final agora = DateTime.now();
+      final hoje = DataCaixa.formatar(agora);
+      final ehDeHoje = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => PopScope(
+          canPop: false,
+          child: AlertDialog(
+            title: const Text('Este caixa é de hoje?'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Este caixa foi aberto em ${turno.data} e continua aberto.\n\n'
+                  'Se você está começando o trabalho de hoje com ele, toque em '
+                  '"Sim": a data do caixa passa para ${DataCaixa.curta(hoje)}, '
+                  'que é a que vai no PDF do gerente.\n\n'
+                  'Se é o caixa do dia ${DataCaixa.curta(turno.dataCaixa)} que '
+                  'ficou sem fechar, toque em "Não" e feche pelo Resumo.',
+                ),
+                const SizedBox(height: 18),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: Text(
+                    'Sim, é de hoje — ${DataCaixa.curta(hoje)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text(
+                    'Não, é do dia ${DataCaixa.curta(turno.dataCaixa)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (ehDeHoje == null || !mounted) return;
+
+      if (!ehDeHoje) {
+        _caixasAntigosMantidos.add(turnoId);
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final mantidos = prefs.getStringList(_keyCaixasAntigosMantidos) ?? <String>[];
+          await prefs.setStringList(
+            _keyCaixasAntigosMantidos,
+            {...mantidos, '$turnoId'}.toList(),
+          );
+        } catch (_) {}
+        return;
+      }
+
+      final db = DatabaseService.instance;
+      var recomecou = false;
+      var alterou = false;
+      try {
+        recomecou = await db.recomecarCaixaVazio(turnoId);
+        alterou = recomecou || await db.alterarDataCaixa(turnoId, hoje);
+      } catch (e) {
+        debugPrint('[Caixa] Não atualizou a data do caixa $turnoId: $e');
+      }
+      if (!mounted) return;
+      await _recarregarDados();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            !alterou
+                ? 'Não foi possível trocar a data. Use "trocar" no Resumo.'
+                : (recomecou
+                    ? 'Caixa atualizado: dia $hoje, aberto agora.'
+                    : 'Caixa agora é do dia $hoje.'),
+          ),
+          backgroundColor: alterou ? AppColors.green : AppColors.red,
+        ),
+      );
+    } finally {
+      _conferindoCaixaAntigo = false;
     }
   }
 

@@ -498,8 +498,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
   Future<void> _trocarDataCaixa() async {
     final turnoId = widget.turno.id;
-    final opcoes = DataCaixa.opcoes(widget.turno.data);
-    if (turnoId == null || opcoes == null) return;
+    final opcoes = DataCaixa.opcoesParaTroca(widget.turno.data, DateTime.now());
+    if (turnoId == null || opcoes.isEmpty) return;
     final atual = widget.turno.dataCaixa;
 
     Widget botao(BuildContext ctx, String rotulo, String data) {
@@ -540,10 +540,11 @@ class _SummaryScreenState extends State<SummaryScreen> {
               'Aberto em ${widget.turno.data}.\n\n'
               'Essa data vai no nome do PDF e no cabeçalho do fechamento.',
             ),
-            const SizedBox(height: 18),
-            botao(ctx, 'Dia anterior', opcoes.anterior),
-            const SizedBox(height: 10),
-            botao(ctx, 'Dia da abertura', opcoes.doDia),
+            const SizedBox(height: 8),
+            for (final opcao in opcoes) ...[
+              const SizedBox(height: 10),
+              botao(ctx, opcao.rotulo, opcao.data),
+            ],
           ],
         ),
         actions: [

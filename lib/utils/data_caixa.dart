@@ -50,4 +50,44 @@ class DataCaixa {
     final partes = data.split('/');
     return partes.length >= 2 ? '${partes[0]}/${partes[1]}' : data;
   }
+
+  /// O caixa ainda aberto é de um dia anterior, e a madrugada já acabou?
+  ///
+  /// Depois das 6h nenhum caixa deveria continuar com data de um dia anterior:
+  /// os dois caixas da noite fecham até as 6h. Acontece quando alguém fecha o
+  /// caixa, abre o app de novo no mesmo dia — e se identificar já abre um
+  /// turno — e só volta a trabalhar dias depois, com o caixa ainda datado do
+  /// dia em que foi aberto.
+  ///
+  /// De madrugada é sempre false: ali, o caixa da meia-noite com data de ontem
+  /// é o comportamento certo.
+  static bool caixaDeDiaAnterior(String dataCaixa, DateTime agora) {
+    if (aberturaDeMadrugada(agora)) return false;
+    try {
+      final dia = _formato.parseStrict(dataCaixa.trim().split(' ').first);
+      return dia.isBefore(DateTime(agora.year, agora.month, agora.day));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Datas oferecidas no "trocar" do Resumo, sem repetir e nesta ordem: o dia
+  /// anterior à abertura, o dia da abertura e hoje. "Hoje" existe para o caixa
+  /// aberto num dia e usado só dias depois.
+  static List<({String rotulo, String data})> opcoesParaTroca(
+    String dataAbertura,
+    DateTime agora,
+  ) {
+    final base = opcoes(dataAbertura);
+    final hoje = formatar(agora);
+    final lista = <({String rotulo, String data})>[];
+    if (base != null) {
+      lista.add((rotulo: 'Dia anterior', data: base.anterior));
+      lista.add((rotulo: 'Dia da abertura', data: base.doDia));
+    }
+    if (!lista.any((o) => o.data == hoje)) {
+      lista.add((rotulo: 'Hoje', data: hoje));
+    }
+    return lista;
+  }
 }
