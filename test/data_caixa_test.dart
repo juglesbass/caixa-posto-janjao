@@ -64,6 +64,106 @@ void main() {
       expect(opcoes.map((o) => o.data).toList(), ['14/09/2026', '15/09/2026']);
     });
 
+    group('Troca automática do caixa aberto de dia anterior', () {
+      AcaoCaixaAntigo decidir({
+        String abertura = '15/09/2026 14:10',
+        String caixa = '15/09/2026',
+        List<String> lancamentos = const [],
+        bool encerrantes = false,
+        required DateTime agora,
+      }) =>
+          DataCaixa.decidirCaixaAberto(
+            dataAbertura: abertura,
+            dataCaixa: caixa,
+            datasHoraLancamentos: lancamentos,
+            temEncerrantes: encerrantes,
+            agora: agora,
+          );
+
+      test('Aberto sem querer no dia 15 e sem uso: recomeça no dia 17', () {
+        expect(decidir(agora: DateTime(2026, 9, 17, 6, 30)), AcaoCaixaAntigo.recomecar);
+      });
+
+      test('Já com lançamentos só de hoje: a data vira hoje', () {
+        expect(
+          decidir(lancamentos: ['2026-09-17 06:35:10'], agora: DateTime(2026, 9, 17, 7, 0)),
+          AcaoCaixaAntigo.mudarParaHoje,
+        );
+      });
+
+      test('Caixa do dia 15 esquecido aberto com vendas: NÃO troca, só avisa', () {
+        // Trocar mandaria as vendas do dia 15 para o PDF do dia 16
+        expect(
+          decidir(
+            abertura: '15/09/2026 06:02',
+            lancamentos: ['2026-09-15 08:00:00', '2026-09-15 17:40:00'],
+            agora: DateTime(2026, 9, 16, 6, 10),
+          ),
+          AcaoCaixaAntigo.avisarCaixaAntigo,
+        );
+      });
+
+      test('Vendas de dias diferentes no mesmo caixa: avisa', () {
+        expect(
+          decidir(
+            lancamentos: ['2026-09-15 20:00:00', '2026-09-17 07:00:00'],
+            agora: DateTime(2026, 9, 17, 7, 30),
+          ),
+          AcaoCaixaAntigo.avisarCaixaAntigo,
+        );
+      });
+
+      test('Só encerrante salvo, que não tem data: avisa', () {
+        expect(
+          decidir(encerrantes: true, agora: DateTime(2026, 9, 17, 6, 30)),
+          AcaoCaixaAntigo.avisarCaixaAntigo,
+        );
+      });
+
+      test('Lançamento com data ilegível: na dúvida não troca', () {
+        expect(
+          decidir(lancamentos: ['???'], agora: DateTime(2026, 9, 17, 6, 30)),
+          AcaoCaixaAntigo.avisarCaixaAntigo,
+        );
+      });
+
+      test('Turno da noite: "Ontem" escolhido na madrugada é respeitado', () {
+        // Aberto 00:40 do dia 15 como caixa do dia 14, lançado depois da meia-noite
+        expect(
+          decidir(
+            abertura: '15/09/2026 00:40',
+            caixa: '14/09/2026',
+            lancamentos: ['2026-09-15 00:45:00'],
+            agora: DateTime(2026, 9, 15, 7, 0),
+          ),
+          AcaoCaixaAntigo.nenhuma,
+        );
+      });
+
+      test('Caixa da meia-noite esquecido até o outro dia: avisa, sem trocar', () {
+        expect(
+          decidir(
+            abertura: '15/09/2026 00:40',
+            caixa: '14/09/2026',
+            lancamentos: ['2026-09-15 00:45:00'],
+            agora: DateTime(2026, 9, 16, 7, 0),
+          ),
+          AcaoCaixaAntigo.avisarCaixaAntigo,
+        );
+      });
+
+      test('De madrugada nunca troca nada', () {
+        expect(decidir(agora: DateTime(2026, 9, 17, 5, 59)), AcaoCaixaAntigo.nenhuma);
+      });
+
+      test('Caixa de hoje não é mexido', () {
+        expect(
+          decidir(abertura: '17/09/2026 06:05', caixa: '17/09/2026', agora: DateTime(2026, 9, 17, 15, 0)),
+          AcaoCaixaAntigo.nenhuma,
+        );
+      });
+    });
+
     test('Formato curto dos botões', () {
       expect(DataCaixa.curta('14/09/2026'), '14/09');
     });

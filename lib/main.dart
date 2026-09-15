@@ -244,8 +244,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   bool _carregando = true;
   Timer? _timerFila;
   bool _conferindoCaixaAntigo = false;
-  final Set<int> _caixasAntigosMantidos = <int>{};
-  static const String _keyCaixasAntigosMantidos = 'caixas_de_dia_anterior_mantidos';
+  final Set<int> _avisosCaixaAntigoMostrados = <int>{};
 
   @override
   void initState() {
@@ -306,8 +305,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   Future<void> _sincronizarAoRetomar() async {
-    // Primeiro, antes da fila: quem volta ao app dias depois precisa ver a
-    // pergunta na hora, e não depois de uma rodada de envios.
+    // Primeiro, antes da fila: quem volta ao app dias depois precisa da data
+    // certa na hora, e não depois de uma rodada de envios.
     unawaited(_conferirCaixaDeDiaAnterior());
     try {
       await DriveService.sincronizarTodasPendencias(respeitarBackoff: true);
@@ -495,134 +494,110 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     }
   }
 
-  /// Caixa ainda aberto de um dia anterior, depois das 6h: pergunta se é o de
-  /// hoje.
+  /// Caixa ainda aberto de um dia anterior, depois das 6h: corrige a data
+  /// sozinho quando dá para ter certeza, e só avisa quando não dá.
   ///
   /// O caso: o funcionário do dia trabalha um dia sim, um não. Fecha o caixa no
   /// dia 15, abre o app de novo no mesmo dia — e se identificar já abre um
-  /// turno — e deixa o app assim até o dia 17. O caixa que ele usa no dia 17
-  /// ficava datado do dia 15, e o PDF chegava ao gerente com a data errada.
+  /// turno — e deixa assim até o dia 17. O caixa usado no dia 17 ficava datado
+  /// do dia 15, e o PDF chegava ao gerente com a data errada.
   ///
-  /// Com "Sim": se o caixa está vazio, a abertura passa a ser agora e o caixa
-  /// passa a ser de hoje; com movimento já registrado, só a data do caixa muda
-  /// e a hora real de abertura é mantida. Com "Não", não pergunta mais para esse
-  /// caixa. Sem movimento em tela, a conferência só compara uma data em memória.
+  /// Quem decide é o movimento registrado (ver DataCaixa.decidirCaixaAberto):
+  /// sem movimento, o caixa recomeça hoje; com lançamentos só de hoje, a data
+  /// vira hoje; com lançamentos de um dia anterior pode ser o caixa daquele dia
+  /// esquecido aberto, e trocar a data mandaria as vendas dele para hoje — então
+  /// só avisa. De madrugada não faz nada: vale a regra das 00h às 06h.
+  ///
+  /// Enquanto o caixa for de hoje, só compara uma data em memória.
   Future<void> _conferirCaixaDeDiaAnterior() async {
     final turno = _turnoAtual;
     final turnoId = turno?.id;
     if (turno == null || turnoId == null || _conferindoCaixaAntigo || !mounted) return;
     if (!DataCaixa.caixaDeDiaAnterior(turno.dataCaixa, DateTime.now())) return;
-    if (_caixasAntigosMantidos.contains(turnoId)) return;
 
-    // Não empilha em cima de outra janela aberta (fechamento em andamento,
-    // identificação, outro aviso). A próxima conferência pega.
+    // Nunca no meio de outra janela (fechamento de caixa, identificação) nem de
+    // um envio ao Drive: trocar a data ali deixaria o PDF com um dia e o banco
+    // com outro. A próxima conferência pega.
     final rota = ModalRoute.of(context);
     if (rota != null && !rota.isCurrent) return;
+    if (DatabaseService.enviosDriveEmCurso.isNotEmpty) return;
 
     _conferindoCaixaAntigo = true;
     try {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        final mantidos = prefs.getStringList(_keyCaixasAntigosMantidos) ?? const [];
-        if (mantidos.contains('$turnoId')) {
-          _caixasAntigosMantidos.add(turnoId);
-          return;
-        }
-      } catch (_) {}
-      if (!mounted) return;
-
+      final db = DatabaseService.instance;
+      final lancamentos = await db.obterLancamentos(turnoId);
+      final encerrantes = await db.obterEncerrantes(turnoId);
       final agora = DateTime.now();
       final hoje = DataCaixa.formatar(agora);
-      final ehDeHoje = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => PopScope(
-          canPop: false,
-          child: AlertDialog(
-            title: const Text('Este caixa é de hoje?'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Este caixa foi aberto em ${turno.data} e continua aberto.\n\n'
-                  'Se você está começando o trabalho de hoje com ele, toque em '
-                  '"Sim": a data do caixa passa para ${DataCaixa.curta(hoje)}, '
-                  'que é a que vai no PDF do gerente.\n\n'
-                  'Se é o caixa do dia ${DataCaixa.curta(turno.dataCaixa)} que '
-                  'ficou sem fechar, toque em "Não" e feche pelo Resumo.',
+
+      final acao = DataCaixa.decidirCaixaAberto(
+        dataAbertura: turno.data,
+        dataCaixa: turno.dataCaixa,
+        datasHoraLancamentos: lancamentos.map((l) => l.dataHora),
+        temEncerrantes: encerrantes.isNotEmpty,
+        agora: agora,
+      );
+
+      switch (acao) {
+        case AcaoCaixaAntigo.nenhuma:
+          return;
+
+        case AcaoCaixaAntigo.recomecar:
+        case AcaoCaixaAntigo.mudarParaHoje:
+          // recomecarCaixaVazio confere de novo, na transação, que o caixa
+          // continua vazio: se entrou um lançamento no meio, não recomeça e a
+          // próxima conferência só troca a data.
+          final alterou = acao == AcaoCaixaAntigo.recomecar
+              ? await db.recomecarCaixaVazio(turnoId)
+              : await db.alterarDataCaixa(turnoId, hoje);
+          if (!alterou || !mounted) return;
+          await _recarregarDados();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Data do caixa atualizada para hoje, ${DataCaixa.curta(hoje)}.'),
+              backgroundColor: AppColors.green,
+            ),
+          );
+
+        case AcaoCaixaAntigo.avisarCaixaAntigo:
+          // Uma vez por turno enquanto o app estiver aberto: lembrar a cada 3
+          // minutos atrapalharia o trabalho.
+          if (_avisosCaixaAntigoMostrados.contains(turnoId)) return;
+          _avisosCaixaAntigoMostrados.add(turnoId);
+          final irParaResumo = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Caixa de outro dia ainda aberto'),
+              content: Text(
+                'Este caixa é do dia ${turno.dataCaixa} e continua aberto, com '
+                'movimento registrado.\n\n'
+                'A data não foi trocada sozinha porque as vendas podem ser daquele '
+                'dia. Se este caixa já terminou, feche pelo Resumo. Se ele é mesmo '
+                'o de hoje, use "trocar" no Resumo.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Agora não'),
                 ),
-                const SizedBox(height: 18),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accent,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: () => Navigator.of(ctx).pop(true),
-                  child: Text(
-                    'Sim, é de hoje — ${DataCaixa.curta(hoje)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: Text(
-                    'Não, é do dia ${DataCaixa.curta(turno.dataCaixa)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
+                  child: const Text('Ir para o Resumo'),
                 ),
               ],
             ),
-          ),
-        ),
-      );
-      if (ehDeHoje == null || !mounted) return;
-
-      if (!ehDeHoje) {
-        _caixasAntigosMantidos.add(turnoId);
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          final mantidos = prefs.getStringList(_keyCaixasAntigosMantidos) ?? <String>[];
-          await prefs.setStringList(
-            _keyCaixasAntigosMantidos,
-            {...mantidos, '$turnoId'}.toList(),
           );
-        } catch (_) {}
-        return;
+          if (irParaResumo == true && mounted) {
+            setState(() => _indiceAba = 2);
+          }
       }
-
-      final db = DatabaseService.instance;
-      var recomecou = false;
-      var alterou = false;
-      try {
-        recomecou = await db.recomecarCaixaVazio(turnoId);
-        alterou = recomecou || await db.alterarDataCaixa(turnoId, hoje);
-      } catch (e) {
-        debugPrint('[Caixa] Não atualizou a data do caixa $turnoId: $e');
-      }
-      if (!mounted) return;
-      await _recarregarDados();
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            !alterou
-                ? 'Não foi possível trocar a data. Use "trocar" no Resumo.'
-                : (recomecou
-                    ? 'Caixa atualizado: dia $hoje, aberto agora.'
-                    : 'Caixa agora é do dia $hoje.'),
-          ),
-          backgroundColor: alterou ? AppColors.green : AppColors.red,
-        ),
-      );
+    } catch (e) {
+      debugPrint('[Caixa] Conferência do caixa $turnoId falhou: $e');
     } finally {
       _conferindoCaixaAntigo = false;
     }
