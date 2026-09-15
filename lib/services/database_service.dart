@@ -440,6 +440,63 @@ class DatabaseService {
     return alterou;
   }
 
+  /// Caixa aberto e nunca usado que só começou de verdade agora.
+  ///
+  /// O funcionário fecha o caixa, abre o app de novo no mesmo dia — e se
+  /// identificar já abre um turno — e só volta a trabalhar dias depois. Se esse
+  /// caixa não tem nenhum lançamento nem encerrante, a abertura passa a ser
+  /// agora e o caixa passa a ser de hoje, renumerado no dia. É o que torna o
+  /// PDF verdadeiro: o caixa começou hoje, não no dia em que o app foi aberto.
+  ///
+  /// Com qualquer movimento registrado, nada muda e devolve false: quem chama
+  /// troca só a data do caixa, mantendo a hora real de abertura.
+  Future<bool> recomecarCaixaVazio(int turnoId) async {
+    final db = await database;
+    final agora = DateTime.now();
+    final aberturaAgora = DateFormat('dd/MM/yyyy HH:mm').format(agora);
+    final hoje = DateFormat('dd/MM/yyyy').format(agora);
+
+    var recomecou = false;
+    await db.transaction((txn) async {
+      final atual = await txn.query(
+        'turnos',
+        columns: ['aberto'],
+        where: 'id = ?',
+        whereArgs: [turnoId],
+        limit: 1,
+      );
+      if (atual.isEmpty || (atual.first['aberto'] as num?)?.toInt() != 1) return;
+
+      final lancamentos = await txn.rawQuery(
+        'SELECT COUNT(*) AS c FROM lancamentos WHERE turno_id = ?',
+        [turnoId],
+      );
+      if (((lancamentos.first['c'] as num?)?.toInt() ?? 0) > 0) return;
+
+      final encerrantes = await txn.rawQuery(
+        'SELECT COUNT(*) AS c FROM encerrantes WHERE turno_id = ?',
+        [turnoId],
+      );
+      if (((encerrantes.first['c'] as num?)?.toInt() ?? 0) > 0) return;
+
+      final result = await txn.rawQuery(
+        "SELECT COUNT(*) as count FROM turnos WHERE id != ? "
+        "AND COALESCE(NULLIF(data_caixa, ''), substr(data, 1, 10)) = ?",
+        [turnoId, hoje],
+      );
+      final numero = ((result.first['count'] as num?)?.toInt() ?? 0) + 1;
+
+      final linhas = await txn.update(
+        'turnos',
+        {'data': aberturaAgora, 'data_caixa': hoje, 'numero': numero},
+        where: 'id = ? AND aberto = 1',
+        whereArgs: [turnoId],
+      );
+      recomecou = linhas > 0;
+    });
+    return recomecou;
+  }
+
   Future<Turno?> obterTurnoAberto() async {
     final db = await database;
     final maps = await db.query(
