@@ -127,16 +127,52 @@ void main() {
         );
       });
 
-      test('Turno da noite: "Ontem" escolhido na madrugada é respeitado', () {
+      test('Turno da noite: "Ontem" escolhido na madrugada nunca é trocado', () {
         // Aberto 00:40 do dia 15 como caixa do dia 14, lançado depois da meia-noite
+        final antesDas6 = decidir(
+          abertura: '15/09/2026 00:40',
+          caixa: '14/09/2026',
+          lancamentos: ['2026-09-15 00:45:00'],
+          agora: DateTime(2026, 9, 15, 5, 30),
+        );
+        expect(antesDas6, AcaoCaixaAntigo.nenhuma);
+
+        // Ainda aberto às 7h: é o caixa da meia-noite esquecido (o da madrugada
+        // nem foi aberto). A data escolhida continua intocada — só avisa.
+        final as7 = decidir(
+          abertura: '15/09/2026 00:40',
+          caixa: '14/09/2026',
+          lancamentos: ['2026-09-15 00:45:00'],
+          agora: DateTime(2026, 9, 15, 7, 0),
+        );
+        expect(as7, isNot(AcaoCaixaAntigo.mudarParaHoje));
+        expect(as7, isNot(AcaoCaixaAntigo.recomecar));
+        expect(as7, AcaoCaixaAntigo.avisarCaixaAntigo);
+      });
+
+      test('Caixa da noite aberto antes da meia-noite e lançado só de madrugada: não vira do dia', () {
+        // Abriu 23:50 do dia 14 (sem pergunta), lançou tudo depois da meia-noite
+        // e não fechou até as 6h30. Os lançamentos têm data do dia 15, mas o
+        // caixa é o da meia-noite, do dia 14.
         expect(
           decidir(
-            abertura: '15/09/2026 00:40',
+            abertura: '14/09/2026 23:50',
             caixa: '14/09/2026',
-            lancamentos: ['2026-09-15 00:45:00'],
-            agora: DateTime(2026, 9, 15, 7, 0),
+            lancamentos: ['2026-09-15 00:10:00', '2026-09-15 03:00:00'],
+            agora: DateTime(2026, 9, 15, 6, 30),
           ),
-          AcaoCaixaAntigo.nenhuma,
+          AcaoCaixaAntigo.avisarCaixaAntigo,
+        );
+      });
+
+      test('Lançamento de hoje às 06:00 em ponto já conta como do dia', () {
+        expect(
+          decidir(lancamentos: ['2026-09-17 06:00:00'], agora: DateTime(2026, 9, 17, 6, 30)),
+          AcaoCaixaAntigo.mudarParaHoje,
+        );
+        expect(
+          decidir(lancamentos: ['2026-09-17 05:59:59'], agora: DateTime(2026, 9, 17, 6, 30)),
+          AcaoCaixaAntigo.avisarCaixaAntigo,
         );
       });
 

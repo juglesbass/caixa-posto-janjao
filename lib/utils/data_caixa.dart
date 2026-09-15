@@ -96,10 +96,12 @@ class DataCaixa {
   /// - sem nenhum movimento: o caixa foi aberto e não usado — o funcionário
   ///   fechou o caixa, abriu o app de novo no mesmo dia e só voltou dias depois.
   ///   Recomeça hoje.
-  /// - lançamentos só de hoje: o caixa começou de verdade hoje. A data vira hoje.
-  /// - algum lançamento de dia anterior: pode ser o caixa daquele dia, com as
-  ///   vendas daquele dia, esquecido aberto. Trocar a data mandaria essas vendas
-  ///   para o PDF de hoje. Não troca; avisa.
+  /// - lançamentos só de hoje, depois das 6h: o caixa começou de verdade hoje.
+  ///   A data vira hoje.
+  /// - algum lançamento de antes das 6h de hoje: pode ser o caixa de um dia
+  ///   anterior esquecido aberto, com as vendas daquele dia — ou o caixa da
+  ///   noite, aberto antes da meia-noite e lançado de madrugada. Trocar a data
+  ///   mandaria essas vendas para o PDF de hoje. Não troca; avisa.
   ///
   /// Data escolhida pelo operador — o "Ontem" da madrugada ou o "trocar" do
   /// Resumo — nunca é desfeita. De madrugada não faz nada.
@@ -112,12 +114,15 @@ class DataCaixa {
   }) {
     if (!caixaDeDiaAnterior(dataCaixa, agora)) return AcaoCaixaAntigo.nenhuma;
 
-    final hoje = DateTime(agora.year, agora.month, agora.day);
+    // Movimento de antes das 6h de hoje não prova que o caixa começou hoje: a
+    // madrugada é do turno da noite. Quem abre o caixa às 23h50 e só lança
+    // depois da meia-noite tem lançamentos com a data de hoje num caixa que é
+    // do dia anterior.
+    final fimDaMadrugada = DateTime(agora.year, agora.month, agora.day, horaFimMadrugada);
     final temMovimentoAnterior = datasHoraLancamentos.any((dataHora) {
-      final bruto = dataHora.trim();
-      final dia = DateTime.tryParse(bruto.length >= 10 ? bruto.substring(0, 10) : '');
+      final momento = DateTime.tryParse(dataHora.trim());
       // Data ilegível conta como anterior: na dúvida, não mexe
-      return dia == null || dia.isBefore(hoje);
+      return momento == null || momento.isBefore(fimDaMadrugada);
     });
 
     final escolhidaPeloOperador =
