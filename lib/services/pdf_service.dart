@@ -721,9 +721,16 @@ class PdfService {
                             pw.Row(
                               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                               children: [
+                                // Campo de data para a gerência preencher junto da rubrica.
+                                // Aqui dizia “Status: Conferência Pendente”, em âmbar: o PDF nasce
+                                // no fechamento do caixa, sempre antes de o gerente olhar, então
+                                // todo relatório saía acusando uma pendência que era só a ordem
+                                // natural das coisas — e que numa auditoria pesaria contra ele.
+                                // O app ainda não registra a conferência; enquanto não registrar,
+                                // o documento não afirma nada sobre ela.
                                 pw.Text(
-                                  'Status: Conferência Pendente',
-                                  style: pw.TextStyle(font: fontBold, fontSize: 6, color: PdfColor.fromHex('#b45309')),
+                                  'Data: ___ / ___ / ______',
+                                  style: pw.TextStyle(font: fontRegular, fontSize: 6, color: corCinzaTexto),
                                 ),
                                 pw.Text(
                                   'Visto Interno',
