@@ -296,10 +296,16 @@ class PdfService {
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      // CAIXA DO DIA em destaque: é por esta data que a gerência
-                      // confere. Os horários de abertura e de fechamento seguem
-                      // gravados no banco, para auditoria, mas fora do relatório.
+                      // Larguras desiguais de propósito. Coladas, um valor que enchia a coluna
+                      // encostava no da coluna seguinte — nome grande de operador batendo no
+                      // dia da semana. Sao 336pt uteis aqui dentro: o nome leva a maior fatia,
+                      // o turno a menor, e os SizedBox garantem o respiro entre elas.
+                      //
+                      // CAIXA DO DIA em destaque: é por esta data que a gerência confere. Os
+                      // horários de abertura e de fechamento seguem gravados no banco, para
+                      // auditoria, mas fora do relatório.
                       pw.Expanded(
+                        flex: 6,
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
@@ -309,8 +315,11 @@ class PdfService {
                           ],
                         ),
                       ),
-                      // OPERADOR CAIXA
+                      pw.SizedBox(width: 8),
+                      // OPERADOR CAIXA — a maior fatia: nome grande quebra em duas linhas,
+                      // como fazia antes, em vez de invadir a coluna vizinha.
                       pw.Expanded(
+                        flex: 9,
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
@@ -320,8 +329,10 @@ class PdfService {
                           ],
                         ),
                       ),
+                      pw.SizedBox(width: 8),
                       // DIA DA SEMANA — contexto da data, sem hora nenhuma
                       pw.Expanded(
+                        flex: 6,
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
@@ -331,12 +342,13 @@ class PdfService {
                           ],
                         ),
                       ),
-                      // TURNO — sempre o 1º, fixo.
-                      // O posto trabalha com o WebPost, que reinicia a contagem a cada
-                      // dia: nunca existe um segundo turno no mesmo dia, então o número
-                      // que o app incrementa não diz nada ao gerente. Esse contador
-                      // continua no banco, identificando cada turno — só não sai aqui.
+                      pw.SizedBox(width: 8),
+                      // TURNO — sempre o 1º, fixo. O posto trabalha com o WebPost, que
+                      // reinicia a contagem a cada dia: nunca existe um segundo turno no mesmo
+                      // dia, então o número que o app incrementa não diz nada ao gerente. Esse
+                      // contador continua no banco, identificando cada turno.
                       pw.Expanded(
+                        flex: 2,
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
