@@ -32,6 +32,28 @@ class PdfService {
     }
   }
 
+  /// Dia da semana de uma data “dd/MM/yyyy”, em caixa alta.
+  ///
+  /// Nomes fixos em vez de DateFormat('EEEE', 'pt_BR'): o app nunca chama
+  /// initializeDateFormatting, e pedir a locale sem isso lança exceção.
+  static String _diaDaSemana(String data) {
+    const nomes = [
+      'SEGUNDA-FEIRA',
+      'TERÇA-FEIRA',
+      'QUARTA-FEIRA',
+      'QUINTA-FEIRA',
+      'SEXTA-FEIRA',
+      'SÁBADO',
+      'DOMINGO',
+    ];
+    try {
+      final dia = DateFormat('dd/MM/yyyy').parseStrict(data.trim().split(' ').first);
+      return nomes[dia.weekday - 1];
+    } catch (_) {
+      return '-';
+    }
+  }
+
   /// Gera o nome do arquivo no formato: "${operador} ${data_dd-MM-yyyy}.pdf",
   /// com sufixo "_v2", "_v3"... quando o turno já foi reaberto e fechado antes.
   ///
@@ -274,26 +296,16 @@ class PdfService {
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      // CAIXA DO DIA e nº do turno. É por esta data que a gerência
-                      // confere, e por isso ela vem em destaque. Os horários de
-                      // abertura e de fechamento seguem gravados no banco, para auditoria.
+                      // CAIXA DO DIA em destaque: é por esta data que a gerência
+                      // confere. Os horários de abertura e de fechamento seguem
+                      // gravados no banco, para auditoria, mas fora do relatório.
                       pw.Expanded(
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
                             pw.Text('CAIXA DO DIA', style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corCinzaTexto)),
-                            pw.SizedBox(height: 2),
-                            pw.Row(
-                              crossAxisAlignment: pw.CrossAxisAlignment.end,
-                              children: [
-                                pw.Text(turno.dataCaixa, style: pw.TextStyle(font: fontBold, fontSize: 14, color: corTextoEscuro)),
-                                pw.SizedBox(width: 5),
-                                pw.Padding(
-                                  padding: const pw.EdgeInsets.only(bottom: 1.5),
-                                  child: pw.Text('- #${turno.numero}', style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: corCinzaTexto)),
-                                ),
-                              ],
-                            ),
+                            pw.SizedBox(height: 1),
+                            pw.Text(turno.dataCaixa, style: pw.TextStyle(font: fontBold, fontSize: 14, color: corTextoEscuro)),
                           ],
                         ),
                       ),
@@ -305,6 +317,32 @@ class PdfService {
                             pw.Text('OPERADOR CAIXA', style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corCinzaTexto)),
                             pw.SizedBox(height: 2),
                             pw.Text(turno.operador, style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: corTextoEscuro)),
+                          ],
+                        ),
+                      ),
+                      // DIA DA SEMANA — contexto da data, sem hora nenhuma
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('DIA DA SEMANA', style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corCinzaTexto)),
+                            pw.SizedBox(height: 2),
+                            pw.Text(_diaDaSemana(turno.dataCaixa), style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: corTextoEscuro)),
+                          ],
+                        ),
+                      ),
+                      // TURNO — sempre o 1º, fixo.
+                      // O posto trabalha com o WebPost, que reinicia a contagem a cada
+                      // dia: nunca existe um segundo turno no mesmo dia, então o número
+                      // que o app incrementa não diz nada ao gerente. Esse contador
+                      // continua no banco, identificando cada turno — só não sai aqui.
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('TURNO', style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corVerde)),
+                            pw.SizedBox(height: 2),
+                            pw.Text('1º', style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: corTextoEscuro)),
                           ],
                         ),
                       ),
