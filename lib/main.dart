@@ -633,16 +633,14 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       builder: (ctx) => PopScope(
         canPop: false,
         child: AlertDialog(
-          title: const Text('De qual dia é este caixa?'),
+          title: const Text('De qual turno é este caixa?'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Você está abrindo o caixa às $hora.\n\n'
-                'Se é o caixa que vai até a meia-noite, escolha ontem. '
-                'Se é o caixa da madrugada, escolha hoje.\n\n'
-                'Essa data vai no nome do PDF enviado ao gerente.',
+                'Você está abrindo o caixa às $hora. '
+                'Selecione o dia correspondente:',
               ),
               const SizedBox(height: 18),
               ElevatedButton(

@@ -121,10 +121,6 @@ class PdfService {
     final corTextoEscuro = PdfColor.fromHex('#0f172a');
 
     final dataEmissao = DateFormat('dd/MM/yyyy à\'s\' HH:mm').format(DateTime.now());
-    final dataHoraAtual = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
-    final fechadoEmTexto = (turno.fechadoEm != null && turno.fechadoEm!.trim().isNotEmpty && turno.fechadoEm != 'Agora')
-        ? turno.fechadoEm!
-        : (turno.aberto ? 'Em Aberto' : dataHoraAtual);
 
     final idDoc = 'Documento #PDF-${turno.numero.toString().padLeft(4, '0')}';
 
@@ -279,14 +275,25 @@ class PdfService {
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
                       // CAIXA DO DIA e nº do turno. É por esta data que a gerência
-                      // confere — a hora real de abertura segue na coluna ABERTURA.
+                      // confere, e por isso ela vem em destaque. Os horários de
+                      // abertura e de fechamento seguem gravados no banco, para auditoria.
                       pw.Expanded(
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
                             pw.Text('CAIXA DO DIA', style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corCinzaTexto)),
                             pw.SizedBox(height: 2),
-                            pw.Text('${turno.dataCaixa} - #${turno.numero}', style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: corTextoEscuro)),
+                            pw.Row(
+                              crossAxisAlignment: pw.CrossAxisAlignment.end,
+                              children: [
+                                pw.Text(turno.dataCaixa, style: pw.TextStyle(font: fontBold, fontSize: 14, color: corTextoEscuro)),
+                                pw.SizedBox(width: 5),
+                                pw.Padding(
+                                  padding: const pw.EdgeInsets.only(bottom: 1.5),
+                                  child: pw.Text('- #${turno.numero}', style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: corCinzaTexto)),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -298,28 +305,6 @@ class PdfService {
                             pw.Text('OPERADOR CAIXA', style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corCinzaTexto)),
                             pw.SizedBox(height: 2),
                             pw.Text(turno.operador, style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: corTextoEscuro)),
-                          ],
-                        ),
-                      ),
-                      // ABERTURA
-                      pw.Expanded(
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Text('ABERTURA', style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corCinzaTexto)),
-                            pw.SizedBox(height: 2),
-                            pw.Text(turno.data, style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: corTextoEscuro)),
-                          ],
-                        ),
-                      ),
-                      // FECHAMENTO
-                      pw.Expanded(
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Text('FECHAMENTO', style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: corVerde)),
-                            pw.SizedBox(height: 2),
-                            pw.Text(fechadoEmTexto, style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: corTextoEscuro)),
                           ],
                         ),
                       ),
