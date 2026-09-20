@@ -527,13 +527,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _cardAreaGerencia(BuildContext context, bool isDark) {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark
-              ? [const Color(0xFF1C1917), const Color(0xFF292524)]
-              : [const Color(0xFFFFFBEB), const Color(0xFFFEF3C7)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        // Superficie chapada em vez de degrade. O aviso de area restrita quem
+        // da e a borda ambar e o selo, nao o fundo variando de tom.
+        color: isDark ? const Color(0xFF1C1917) : const Color(0xFFFFFBEB),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.8 : 0.6),
@@ -915,7 +911,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: iconBg,
+                // Caixa do icone neutra, na mesma lingua da grade de
+                // lancamento: a cor do item continua no glifo, que e o que o
+                // olho usa para achar a linha certa. Doze blocos tingidos numa
+                // lista faziam o Menu parecer outro aplicativo.
+                color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: iconColor, size: 20),
@@ -1260,7 +1260,11 @@ class _PainelGerenciaPageState extends State<_PainelGerenciaPage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: iconBg,
+                // Caixa do icone neutra, na mesma lingua da grade de
+                // lancamento: a cor do item continua no glifo, que e o que o
+                // olho usa para achar a linha certa. Doze blocos tingidos numa
+                // lista faziam o Menu parecer outro aplicativo.
+                color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: iconColor, size: 20),
