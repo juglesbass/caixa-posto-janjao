@@ -98,7 +98,7 @@ class _BotaoMaquina extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppColors.radiusXs),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 11),
         decoration: BoxDecoration(
           color: selecionada
               ? (isDark ? AppColors.darkSurfaceElevated : AppColors.lightSurface)
@@ -124,7 +124,7 @@ class _BotaoMaquina extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 12.5,
+                fontSize: 13.5,
                 fontWeight: FontWeight.bold,
                 color: selecionada
                     ? (isDark ? AppColors.darkTextPri : AppColors.lightTextPri)

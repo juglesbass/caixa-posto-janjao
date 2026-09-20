@@ -33,9 +33,10 @@ class PaymentGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 8,
       mainAxisSpacing: 8,
-      // Linha, nao cartao: a altura caiu de ~76 para ~46 e as seis formas
-      // passam a caber sem empurrar o campo de valor para fora da tela.
-      childAspectRatio: 3.6,
+      // Linha, nao cartao: a altura caiu de ~76 para ~57, o suficiente para as
+      // seis formas caberem sem empurrar o campo de valor para fora da tela e
+      // ainda dar alvo confortavel para o dedo no meio do movimento.
+      childAspectRatio: 2.9,
       children: [
         // 1. Dinheiro
         _CardMetodo(
@@ -182,7 +183,7 @@ class _CardMetodo extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppColors.radiusMd),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: selecionado
               ? corSelecao.withValues(alpha: isDark ? 0.16 : 0.08)
@@ -198,27 +199,33 @@ class _CardMetodo extends StatelessWidget {
             // O ponto no lugar da caixa de icone: mesma identificacao por cor,
             // numa linha que ocupa metade da altura.
             Container(
-              width: 9,
-              height: 9,
+              width: 10,
+              height: 10,
               decoration: BoxDecoration(color: corVibrante, shape: BoxShape.circle),
             ),
-            const SizedBox(width: 9),
+            const SizedBox(width: 10),
             Expanded(
               child: isCartao
-                  ? Row(
+                  // Nome em cima, bandeira embaixo: lado a lado, "Master Déb."
+                  // nao cabia na largura de meia tela e saia cortado.
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           label,
                           style: TextStyle(
-                            fontSize: 12.5,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.bold,
                             color: selecionado
                                 ? (isDark ? Colors.white : AppColors.accentDark)
                                 : textPri,
                           ),
                         ),
-                        const SizedBox(width: 5),
-                        Flexible(
+                        const SizedBox(height: 3),
+                        Align(
+                          alignment: Alignment.centerLeft,
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                             decoration: BoxDecoration(
@@ -240,7 +247,7 @@ class _CardMetodo extends StatelessWidget {
                                   child: Text(
                                     _bandeiraCurta(subtitulo),
                                     style: TextStyle(
-                                      fontSize: 9.5,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.w600,
                                       color: selecionado
                                           ? (isDark ? const Color(0xFFF1F5F9) : AppColors.accentDark)
@@ -266,7 +273,7 @@ class _CardMetodo extends StatelessWidget {
                   : Text(
                       label,
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.bold,
                         color: selecionado
                             ? (isDark ? Colors.white : AppColors.accentDark)
