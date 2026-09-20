@@ -18,57 +18,49 @@ class MachineSelector extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
-    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 6),
-          child: Text(
-            'MÁQUINA ATIVA (POS)',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: textSec,
-              letterSpacing: 0.5,
+    // Segmento em vez de dois cartoes soltos: uma peca so, com a metade ativa
+    // em destaque. Ocupa uma linha de 38px no lugar de dois blocos de 48.
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
+        borderRadius: BorderRadius.circular(AppColors.radiusSm),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _BotaoMaquina(
+              nome: PaymentTypes.maquinaRede,
+              label: 'Rede',
+              cor: AppColors.rede,
+              selecionada: maquinaAtiva == PaymentTypes.maquinaRede,
+              onTap: () {
+                AppHaptics.selection();
+                onSelecionar(PaymentTypes.maquinaRede);
+              },
+              surfaceColor: surfaceColor,
+              borderColor: borderColor,
             ),
           ),
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: _BotaoMaquina(
-                nome: PaymentTypes.maquinaRede,
-                label: 'Máquina REDE',
-                cor: AppColors.rede,
-                selecionada: maquinaAtiva == PaymentTypes.maquinaRede,
-                onTap: () {
-                  AppHaptics.selection();
-                  onSelecionar(PaymentTypes.maquinaRede);
-                },
-                surfaceColor: surfaceColor,
-                borderColor: borderColor,
-              ),
+          const SizedBox(width: 3),
+          Expanded(
+            child: _BotaoMaquina(
+              nome: PaymentTypes.maquinaCielo,
+              label: 'Cielo',
+              cor: AppColors.cielo,
+              selecionada: maquinaAtiva == PaymentTypes.maquinaCielo,
+              onTap: () {
+                AppHaptics.selection();
+                onSelecionar(PaymentTypes.maquinaCielo);
+              },
+              surfaceColor: surfaceColor,
+              borderColor: borderColor,
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _BotaoMaquina(
-                nome: PaymentTypes.maquinaCielo,
-                label: 'Máquina CIELO',
-                cor: AppColors.cielo,
-                selecionada: maquinaAtiva == PaymentTypes.maquinaCielo,
-                onTap: () {
-                  AppHaptics.selection();
-                  onSelecionar(PaymentTypes.maquinaCielo);
-                },
-                surfaceColor: surfaceColor,
-                borderColor: borderColor,
-              ),
-            ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -103,33 +95,36 @@ class _BotaoMaquina extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppColors.radiusMd),
+      borderRadius: BorderRadius.circular(AppColors.radiusXs),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
           color: selecionada
-              ? corSelecao.withValues(alpha: isDark ? 0.16 : 0.08)
-              : surfaceColor,
-          borderRadius: BorderRadius.circular(AppColors.radiusMd),
+              ? (isDark ? AppColors.darkSurfaceElevated : AppColors.lightSurface)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppColors.radiusXs),
           border: Border.all(
-            color: selecionada ? corSelecao : borderColor,
-            width: selecionada ? 1.8 : 1,
+            color: selecionada ? corSelecao : Colors.transparent,
+            width: 1.2,
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.point_of_sale_rounded,
-              color: selecionada ? cor : corApagada,
-              size: 20,
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: selecionada ? cor : corApagada,
+                shape: BoxShape.circle,
+              ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 7),
             Text(
               label,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 12.5,
                 fontWeight: FontWeight.bold,
                 color: selecionada
                     ? (isDark ? AppColors.darkTextPri : AppColors.lightTextPri)

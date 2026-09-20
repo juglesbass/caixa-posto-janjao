@@ -30,20 +30,6 @@ class HudTotais extends StatelessWidget {
           color: surfaceColor,
           borderRadius: BorderRadius.circular(AppColors.radiusLg),
           border: Border.all(color: borderColor),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [AppColors.darkSurfaceElevated, AppColors.darkSurface]
-                : [AppColors.lightSurface, AppColors.lightSurfaceSubtle],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -56,37 +42,38 @@ class HudTotais extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'TOTAL GERAL DO TURNO',
+                      'TOTAL DO TURNO',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.bold,
                         color: textSec,
-                        letterSpacing: 0.5,
+                        letterSpacing: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
                     Text(
                       CurrencyFormatter.formatar(totais.totalGeral),
                       style: TextStyle(
-                        fontSize: 26,
+                        fontSize: 31,
                         fontWeight: FontWeight.w900,
                         color: textPri,
-                        letterSpacing: -0.5,
+                        letterSpacing: -1,
+                        height: 1.05,
                       ),
                     ),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                  ),
-                  child: const Icon(
-                    Icons.account_balance_wallet_rounded,
-                    color: AppColors.accentLight,
-                    size: 24,
-                  ),
+                // O bloco inteiro abre o resumo: melhor dizer isso com palavra
+                // do que com um icone de carteira que nao leva a lugar obvio.
+                const Row(
+                  children: [
+                    Text(
+                      'resumo',
+                      style: TextStyle(fontSize: 11, color: AppColors.accentLight),
+                    ),
+                    Icon(Icons.chevron_right_rounded,
+                        size: 16, color: AppColors.accentLight),
+                  ],
                 ),
               ],
             ),
@@ -95,36 +82,36 @@ class HudTotais extends StatelessWidget {
             const SizedBox(height: 12),
 
             // ── Grid Bento de Totais Rápidos ──
-            Row(
-              children: [
-                Expanded(
-                  child: _MiniCardTotais(
-                    icon: Icons.payments_rounded,
-                    label: 'Dinheiro',
-                    valor: CurrencyFormatter.formatar(totais.dinheiro),
-                    cor: AppColors.green,
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _Total(
+                      label: 'DINHEIRO',
+                      valor: CurrencyFormatter.formatar(totais.dinheiro),
+                      cor: AppColors.green,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _MiniCardTotais(
-                    icon: Icons.pix_rounded,
-                    label: 'Pix',
-                    valor: CurrencyFormatter.formatar(totais.pix),
-                    cor: AppColors.blue,
+                  VerticalDivider(width: 17, thickness: 1, color: borderColor),
+                  Expanded(
+                    child: _Total(
+                      label: 'PIX',
+                      valor: CurrencyFormatter.formatar(totais.pix),
+                      cor: AppColors.blue,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _MiniCardTotais(
-                    icon: Icons.credit_card_rounded,
-                    label: 'Cartões',
-                    valor: CurrencyFormatter.formatar(totais.cartoes),
-                    cor: AppColors.purple,
-                    badge: totais.qtdCartoes > 0 ? '${totais.qtdCartoes} un' : null,
+                  VerticalDivider(width: 17, thickness: 1, color: borderColor),
+                  Expanded(
+                    child: _Total(
+                      label: 'CARTÕES',
+                      valor: CurrencyFormatter.formatar(totais.cartoes),
+                      cor: AppColors.purple,
+                      quantidade: totais.qtdCartoes > 0 ? '${totais.qtdCartoes}un' : null,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -133,92 +120,79 @@ class HudTotais extends StatelessWidget {
   }
 }
 
-class _MiniCardTotais extends StatelessWidget {
-  final IconData icon;
+/// Um total por forma de pagamento: rotulo em cima, valor embaixo, sem caixa.
+///
+/// A cor aparece num ponto de 7px. Antes cada um destes era um bloco tingido,
+/// e tres blocos coloridos lado a lado brigavam com o total geral logo acima —
+/// que e o numero que o frentista precisa enxergar primeiro.
+class _Total extends StatelessWidget {
   final String label;
   final String valor;
   final Color cor;
-  final String? badge;
+  final String? quantidade;
 
-  const _MiniCardTotais({
-    required this.icon,
+  const _Total({
     required this.label,
     required this.valor,
     required this.cor,
-    this.badge,
+    this.quantidade,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
     final corVibrante = isDark && cor == AppColors.purple ? AppColors.purpleLight : cor;
-    final corTextoLabel = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
-    final corBadge = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
 
-    // Superficie neutra com o icone colorido: a cor continua identificando a
-    // forma de pagamento, sem pintar o bloco inteiro. Tres blocos tingidos lado
-    // a lado faziam o olho competir com o total geral, que e o numero que
-    // importa nesta tela.
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
-        borderRadius: BorderRadius.circular(AppColors.radiusSm),
-        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 14, color: corVibrante),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: corTextoLabel,
-                    letterSpacing: 0.2,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(color: corVibrante, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.9,
+                  color: textTer,
                 ),
-              ),
-              if (badge != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkSurfaceElevated : AppColors.lightSurfaceElevated,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    badge!,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      color: corBadge,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              valor,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: textPri,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            if (quantidade != null) ...[
+              const SizedBox(width: 4),
+              Text(
+                quantidade!,
+                style: TextStyle(fontSize: 9, color: textTer),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 3),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            valor,
+            style: TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w800,
+              color: textPri,
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

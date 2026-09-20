@@ -31,9 +31,11 @@ class PaymentGrid extends StatelessWidget {
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      childAspectRatio: 2.2,
+      crossAxisSpacing: 8,
+      mainAxisSpacing: 8,
+      // Linha, nao cartao: a altura caiu de ~76 para ~46 e as seis formas
+      // passam a caber sem empurrar o campo de valor para fora da tela.
+      childAspectRatio: 3.6,
       children: [
         // 1. Dinheiro
         _CardMetodo(
@@ -151,6 +153,17 @@ class _CardMetodo extends StatelessWidget {
     this.isCartao = false,
   });
 
+  /// "Master Débito" nao cabe na pastilha de uma linha de 46px, e cortado no
+  /// meio ("Master Dé...") e pior que abreviado. Crédito e Débito viram Créd. e
+  /// Déb., que e como o pessoal fala e como sai na maquininha.
+  static String _bandeiraCurta(String bandeira) {
+    return bandeira
+        .replaceAll(' \u25BC', '')
+        .replaceAll('Crédito', 'Créd.')
+        .replaceAll('Débito', 'Déb.')
+        .trim();
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -182,115 +195,87 @@ class _CardMetodo extends StatelessWidget {
         ),
         child: Row(
           children: [
+            // O ponto no lugar da caixa de icone: mesma identificacao por cor,
+            // numa linha que ocupa metade da altura.
             Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
-                borderRadius: BorderRadius.circular(AppColors.radiusSm),
-              ),
-              child: Icon(icon, color: corVibrante, size: 22),
+              width: 9,
+              height: 9,
+              decoration: BoxDecoration(color: corVibrante, shape: BoxShape.circle),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 9),
             Expanded(
               child: isCartao
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  ? Row(
                       children: [
                         Text(
                           label,
                           style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w900,
-                            color: selecionado ? (isDark ? Colors.white : AppColors.accentDark) : textPri,
-                            letterSpacing: 0.2,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                          decoration: BoxDecoration(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
                             color: selecionado
-                                ? corSelecao.withValues(alpha: isDark ? 0.22 : 0.12)
-                                : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: selecionado
-                                  ? corSelecao.withValues(alpha: isDark ? 0.6 : 0.4)
-                                  : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
-                              width: 0.8,
-                            ),
+                                ? (isDark ? Colors.white : AppColors.accentDark)
+                                : textPri,
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  subtitulo.replaceAll(' ▼', ''),
-                                  style: TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: selecionado
-                                        ? (isDark ? const Color(0xFFF1F5F9) : AppColors.accentDark)
-                                        : textSec,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 2),
-                              Icon(
-                                Icons.arrow_drop_down_rounded,
-                                size: 14,
+                        ),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: selecionado
+                                  ? corSelecao.withValues(alpha: isDark ? 0.22 : 0.12)
+                                  : (isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
                                 color: selecionado
-                                    ? (isDark ? const Color(0xFFF1F5F9) : AppColors.accentDark)
-                                    : textSec,
+                                    ? corSelecao.withValues(alpha: 0.5)
+                                    : borderColor,
+                                width: 0.8,
                               ),
-                            ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    _bandeiraCurta(subtitulo),
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: selecionado
+                                          ? (isDark ? const Color(0xFFF1F5F9) : AppColors.accentDark)
+                                          : textSec,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.arrow_drop_down_rounded,
+                                  size: 12,
+                                  color: selecionado
+                                      ? (isDark ? const Color(0xFFF1F5F9) : AppColors.accentDark)
+                                      : textSec,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w900,
-                            color: selecionado ? (isDark ? Colors.white : AppColors.accentDark) : textPri,
-                            letterSpacing: 0.2,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          subtitulo,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: selecionado ? (isDark ? const Color(0xFFE2E8F0) : AppColors.accentDark) : textSec,
-                            fontWeight: selecionado ? FontWeight.bold : FontWeight.normal,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                  : Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: selecionado
+                            ? (isDark ? Colors.white : AppColors.accentDark)
+                            : textPri,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
             ),
-            if (selecionado)
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: isDark ? (cor == AppColors.purple ? AppColors.purpleLight : cor) : cor,
-                  shape: BoxShape.circle,
-                ),
-              ),
           ],
         ),
       ),
