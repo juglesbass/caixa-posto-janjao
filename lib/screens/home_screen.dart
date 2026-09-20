@@ -16,6 +16,7 @@ import '../widgets/hud_totais.dart';
 import '../widgets/machine_selector.dart';
 import '../widgets/payment_grid.dart';
 import '../widgets/pending_sync_banner.dart';
+import '../widgets/ultimos_lancamentos.dart';
 import '../widgets/quick_amount_row.dart';
 import '../widgets/troco_calculator.dart';
 import 'consulta_produtos_screen.dart';
@@ -181,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _valorRecebido = 0.0;
       });
 
-      widget.onRecarregar();
+      _recarregarTudo();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -231,8 +232,17 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
 
-      widget.onRecarregar();
+      _recarregarTudo();
     }
+  }
+
+  /// Muda a cada lancamento novo ou corrigido: e o sinal para a lista dos
+  /// ultimos lancamentos reler o banco. Os totais quem recarrega e a tela mae.
+  int _versaoLancamentos = 0;
+
+  void _recarregarTudo() {
+    if (mounted) setState(() => _versaoLancamentos++);
+    widget.onRecarregar();
   }
 
   /// "20/09/2026" vira "20/09". O ano nao cabe no subtitulo e nao ajuda: a
@@ -254,7 +264,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     final ehDinheiro = PaymentTypes.ehDinheiro(_tipoAtivo);
-    final alertaGaveta = widget.totais.dinheiroGaveta >= 800.0;
 
     return Scaffold(
       appBar: AppBar(
@@ -366,40 +375,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
                   PendingSyncBanner(onSincronizado: widget.onRecarregar),
-                  // ── Banner de Alerta de Sangria ──
-                  if (alertaGaveta) ...[
-                    InkWell(
-                      onTap: _abrirSangria,
-                      borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppColors.orange.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                          border: Border.all(color: AppColors.orange),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.warning_amber_rounded, color: AppColors.orange, size: 22),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Gaveta com ${CurrencyFormatter.formatar(widget.totais.dinheiroGaveta)}. Recomenda-se fazer sangria!',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.orange),
-                              ),
-                            ),
-                            const Icon(Icons.chevron_right_rounded, color: AppColors.orange),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
 
                   // ── HUD Bento Grid de Totais ──
                   HudTotais(
                     totais: widget.totais,
                     onTapDetalhes: widget.onAbrirResumo,
+                  ),
+                  const SizedBox(height: 12),
+                  // ── Conferência rápida do que acabou de ser lançado ──
+                  UltimosLancamentos(
+                    turno: widget.turno,
+                    maquinaAtiva: _maquinaAtiva,
+                    versaoDados: _versaoLancamentos,
+                    onAlterado: _recarregarTudo,
                   ),
                   const SizedBox(height: 14),
 
