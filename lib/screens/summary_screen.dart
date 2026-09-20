@@ -1616,27 +1616,36 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
                         return Column(
                           children: [
-                            // Linha 1: WhatsApp | Copiar Texto | Baixar PDF
+                            // Acao principal, sozinha e larga: depois dela o
+                            // PDF sai e o gerente recebe. Nao pode ter o mesmo
+                            // peso de um botao que copia texto.
+                            SizedBox(
+                              width: double.infinity,
+                              child: _botaoAcao(
+                                icon: Icons.lock_rounded,
+                                label: widget.turno.aberto ? 'Encerrar Turno' : 'Turno Fechado',
+                                corFundo: widget.turno.aberto
+                                    ? const Color(0xFF2563EB)
+                                    : (isDark ? const Color(0xFF334155) : const Color(0xFF94A3B8)),
+                                corTexto: Colors.white,
+                                altura: 52,
+                                onPressed: _processando ? null : _encerrarTurno,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            // As quatro saidas do encerrante, com o mesmo peso
+                            // entre si: o pessoal usa todas, e nenhuma delas
+                            // mexe no caixa.
                             Row(
                               children: [
                                 Expanded(
                                   child: _botaoAcao(
                                     icon: Icons.chat_rounded,
                                     label: 'WhatsApp',
-                                    corFundo: const Color(0xFF16A34A),
-                                    corTexto: Colors.white,
-                                    gradient: const LinearGradient(
-                                      colors: [Color(0xFF16A34A), Color(0xFF15803D)],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFF16A34A).withValues(alpha: 0.25),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
+                                    corFundo: neutralBtnBg,
+                                    corTexto: neutralBtnText,
+                                    corIcone: const Color(0xFF16A34A),
                                     onPressed: _processando ? null : () => _compartilharWhatsApp(btnCtx),
                                   ),
                                 ),
@@ -1650,87 +1659,53 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                     onPressed: _copiarTexto,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
                                 Expanded(
                                   child: _botaoAcao(
                                     icon: Icons.picture_as_pdf_rounded,
                                     label: 'Baixar PDF',
                                     corFundo: neutralBtnBg,
                                     corTexto: neutralBtnText,
+                                    corIcone: const Color(0xFFEF4444),
                                     onPressed: _processando ? null : () => _baixarPdf(btnCtx),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _botaoAcao(
+                                    icon: Icons.table_chart_rounded,
+                                    label: 'Excel (CSV)',
+                                    corFundo: neutralBtnBg,
+                                    corTexto: neutralBtnText,
+                                    corIcone: const Color(0xFF0D9488),
+                                    onPressed: _processando ? null : () => _exportarExcel(btnCtx),
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 8),
 
-                            // Linha 2: Excel (CSV) | Encerrar Turno | Fechar
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _botaoAcao(
-                                    icon: Icons.table_chart_rounded,
-                                    label: 'Excel (CSV)',
-                                    corFundo: const Color(0xFF0D9488),
-                                    corTexto: Colors.white,
-                                    gradient: const LinearGradient(
-                                      colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFF0D9488).withValues(alpha: 0.25),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                    onPressed: _processando ? null : () => _exportarExcel(btnCtx),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: _botaoAcao(
-                                    icon: Icons.lock_rounded,
-                                    label: widget.turno.aberto ? 'Encerrar Turno' : 'Turno Fechado',
-                                    corFundo: widget.turno.aberto ? const Color(0xFF2563EB) : (isDark ? const Color(0xFF334155) : const Color(0xFF94A3B8)),
-                                    corTexto: Colors.white,
-                                    gradient: widget.turno.aberto
-                                        ? const LinearGradient(
-                                            colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          )
-                                        : null,
-                                    boxShadow: widget.turno.aberto
-                                        ? [
-                                            BoxShadow(
-                                              color: const Color(0xFF2563EB).withValues(alpha: 0.3),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ]
-                                        : null,
-                                    onPressed: _processando ? null : _encerrarTurno,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: _botaoAcao(
-                                    icon: Icons.close_rounded,
-                                    label: 'Fechar',
-                                    corFundo: neutralBtnBg,
-                                    corTexto: neutralBtnText,
-                                    onPressed: () {
-                                      if (widget.onFechar != null) {
-                                        widget.onFechar!();
-                                      } else {
-                                        Navigator.maybePop(context);
-                                      }
-                                    },
-                                  ),
-                                ),
-                              ],
+                            // Sair da tela nao e acao de caixa: fica discreto e
+                            // por ultimo, longe do Encerrar Turno.
+                            SizedBox(
+                              width: double.infinity,
+                              child: _botaoAcao(
+                                icon: Icons.close_rounded,
+                                label: 'Fechar',
+                                corFundo: Colors.transparent,
+                                corTexto: isDark ? AppColors.darkTextSec : AppColors.lightTextSec,
+                                onPressed: () {
+                                  if (widget.onFechar != null) {
+                                    widget.onFechar!();
+                                  } else {
+                                    Navigator.maybePop(context);
+                                  }
+                                },
+                              ),
                             ),
                           ],
                         );
@@ -1781,9 +1756,14 @@ class _SummaryScreenState extends State<SummaryScreen> {
     required VoidCallback? onPressed,
     Gradient? gradient,
     List<BoxShadow>? boxShadow,
+    // Icone colorido sobre fundo neutro: a cor identifica a saida (WhatsApp,
+    // PDF, Excel) sem pintar o botao inteiro e sem competir com a acao
+    // principal, que e a unica azul da tela.
+    Color? corIcone,
+    double altura = 46,
   }) {
     return SizedBox(
-      height: 46,
+      height: altura,
       child: Container(
         decoration: BoxDecoration(
           color: gradient == null ? corFundo : null,
@@ -1811,7 +1791,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 16, color: corTexto),
+              Icon(icon, size: 16, color: corIcone ?? corTexto),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
