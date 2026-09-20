@@ -94,6 +94,13 @@ class _BotaoMaquina extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // A maquina ativa usa a mesma marca de selecao da grade de pagamento: o
+    // azul do app. A cor da operadora fica no icone e no nome, entao Rede
+    // continua vermelha e Cielo continua azul — sem pintar meia tela.
+    final corSelecao = isDark ? AppColors.accentLight : AppColors.accent;
+    final corApagada = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppColors.radiusMd),
@@ -101,10 +108,12 @@ class _BotaoMaquina extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
         decoration: BoxDecoration(
-          color: selecionada ? cor.withValues(alpha: 0.18) : surfaceColor,
+          color: selecionada
+              ? corSelecao.withValues(alpha: isDark ? 0.16 : 0.08)
+              : surfaceColor,
           borderRadius: BorderRadius.circular(AppColors.radiusMd),
           border: Border.all(
-            color: selecionada ? cor : borderColor,
+            color: selecionada ? corSelecao : borderColor,
             width: selecionada ? 1.8 : 1,
           ),
         ),
@@ -113,7 +122,7 @@ class _BotaoMaquina extends StatelessWidget {
           children: [
             Icon(
               Icons.point_of_sale_rounded,
-              color: selecionada ? cor : Colors.grey,
+              color: selecionada ? cor : corApagada,
               size: 20,
             ),
             const SizedBox(width: 8),
@@ -122,7 +131,9 @@ class _BotaoMaquina extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: selecionada ? cor : Colors.grey,
+                color: selecionada
+                    ? (isDark ? AppColors.darkTextPri : AppColors.lightTextPri)
+                    : corApagada,
               ),
             ),
           ],

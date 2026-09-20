@@ -155,6 +155,11 @@ class _CardMetodo extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final corVibrante = isDark && cor == AppColors.purple ? AppColors.purpleLight : cor;
+    // Selecionado fala sempre a mesma lingua, o azul do app, seja qual for a
+    // forma de pagamento. A cor do tipo continua no icone e no ponto da
+    // direita, entao nada de identificacao se perde — o que sai e a tela
+    // inteira mudando de personalidade a cada toque.
+    final corSelecao = isDark ? AppColors.accentLight : AppColors.accent;
 
     return InkWell(
       onTap: () {
@@ -167,13 +172,11 @@ class _CardMetodo extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: selecionado
-              ? corVibrante.withValues(alpha: isDark ? 0.20 : 0.14)
+              ? corSelecao.withValues(alpha: isDark ? 0.16 : 0.08)
               : surfaceColor,
           borderRadius: BorderRadius.circular(AppColors.radiusMd),
           border: Border.all(
-            color: selecionado
-                ? (isDark ? corVibrante : cor)
-                : borderColor,
+            color: selecionado ? corSelecao : borderColor,
             width: selecionado ? 2.0 : 1.0,
           ),
         ),
@@ -182,7 +185,7 @@ class _CardMetodo extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: corVibrante.withValues(alpha: isDark ? 0.25 : 0.18),
+                color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
                 borderRadius: BorderRadius.circular(AppColors.radiusSm),
               ),
               child: Icon(icon, color: corVibrante, size: 22),
@@ -199,7 +202,7 @@ class _CardMetodo extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w900,
-                            color: selecionado ? (isDark ? Colors.white : cor) : textPri,
+                            color: selecionado ? (isDark ? Colors.white : AppColors.accentDark) : textPri,
                             letterSpacing: 0.2,
                           ),
                           maxLines: 1,
@@ -210,12 +213,12 @@ class _CardMetodo extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                           decoration: BoxDecoration(
                             color: selecionado
-                                ? (isDark ? corVibrante.withValues(alpha: 0.25) : cor.withValues(alpha: 0.12))
+                                ? corSelecao.withValues(alpha: isDark ? 0.22 : 0.12)
                                 : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(
                               color: selecionado
-                                  ? (isDark ? corVibrante.withValues(alpha: 0.6) : cor.withValues(alpha: 0.4))
+                                  ? corSelecao.withValues(alpha: isDark ? 0.6 : 0.4)
                                   : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
                               width: 0.8,
                             ),
@@ -230,7 +233,7 @@ class _CardMetodo extends StatelessWidget {
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.bold,
                                     color: selecionado
-                                        ? (isDark ? const Color(0xFFF1F5F9) : cor)
+                                        ? (isDark ? const Color(0xFFF1F5F9) : AppColors.accentDark)
                                         : textSec,
                                   ),
                                   maxLines: 1,
@@ -242,7 +245,7 @@ class _CardMetodo extends StatelessWidget {
                                 Icons.arrow_drop_down_rounded,
                                 size: 14,
                                 color: selecionado
-                                    ? (isDark ? const Color(0xFFF1F5F9) : cor)
+                                    ? (isDark ? const Color(0xFFF1F5F9) : AppColors.accentDark)
                                     : textSec,
                               ),
                             ],
@@ -259,7 +262,7 @@ class _CardMetodo extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w900,
-                            color: selecionado ? (isDark ? Colors.white : cor) : textPri,
+                            color: selecionado ? (isDark ? Colors.white : AppColors.accentDark) : textPri,
                             letterSpacing: 0.2,
                           ),
                           maxLines: 1,
@@ -270,7 +273,7 @@ class _CardMetodo extends StatelessWidget {
                           subtitulo,
                           style: TextStyle(
                             fontSize: 11,
-                            color: selecionado ? (isDark ? const Color(0xFFE2E8F0) : cor) : textSec,
+                            color: selecionado ? (isDark ? const Color(0xFFE2E8F0) : AppColors.accentDark) : textSec,
                             fontWeight: selecionado ? FontWeight.bold : FontWeight.normal,
                           ),
                           maxLines: 1,

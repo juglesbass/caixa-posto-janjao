@@ -153,19 +153,19 @@ class _MiniCardTotais extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
     final corVibrante = isDark && cor == AppColors.purple ? AppColors.purpleLight : cor;
-    final corTextoLabel = isDark
-        ? (cor == AppColors.purple ? const Color(0xFFE9D5FF) : corVibrante)
-        : cor;
-    final corBadge = isDark
-        ? (cor == AppColors.purple ? const Color(0xFFDDD6FE) : corVibrante.withValues(alpha: 0.9))
-        : cor.withValues(alpha: 0.85);
+    final corTextoLabel = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    final corBadge = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
 
+    // Superficie neutra com o icone colorido: a cor continua identificando a
+    // forma de pagamento, sem pintar o bloco inteiro. Tres blocos tingidos lado
+    // a lado faziam o olho competir com o total geral, que e o numero que
+    // importa nesta tela.
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: corVibrante.withValues(alpha: isDark ? 0.14 : 0.10),
+        color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
         borderRadius: BorderRadius.circular(AppColors.radiusSm),
-        border: Border.all(color: corVibrante.withValues(alpha: isDark ? 0.40 : 0.25)),
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -191,7 +191,7 @@ class _MiniCardTotais extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   decoration: BoxDecoration(
-                    color: corVibrante.withValues(alpha: isDark ? 0.25 : 0.15),
+                    color: isDark ? AppColors.darkSurfaceElevated : AppColors.lightSurfaceElevated,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
