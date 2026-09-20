@@ -27,11 +27,16 @@ class AppColors {
   static const Color cielo = Color(0xFF0284C7); // Azul Cielo
 
   // Raios de Curvatura (Bento Grid)
-  static const double radiusXl = 24.0;
-  static const double radiusLg = 18.0;
-  static const double radiusMd = 14.0;
+  //
+  // Cinco raios diferentes na mesma tela fazem o olho ler cada bloco como um
+  // objeto de outra familia. Os valores foram aproximados para girar em torno
+  // de dois: 16 para cartao e 10 para controle. Os nomes continuam os mesmos,
+  // entao nenhuma chamada precisou mudar.
+  static const double radiusXl = 20.0;
+  static const double radiusLg = 16.0;
+  static const double radiusMd = 12.0;
   static const double radiusSm = 10.0;
-  static const double radiusXs = 6.0;
+  static const double radiusXs = 8.0;
 
   // Tema Escuro (Obsidian)
   static const Color darkBg = Color(0xFF08090F);

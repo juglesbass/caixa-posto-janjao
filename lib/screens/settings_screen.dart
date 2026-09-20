@@ -539,13 +539,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.8 : 0.6),
           width: 1.5,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.12 : 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Material(
         color: Colors.transparent,

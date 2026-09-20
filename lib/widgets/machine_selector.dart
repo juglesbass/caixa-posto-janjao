@@ -107,15 +107,6 @@ class _BotaoMaquina extends StatelessWidget {
             color: selecionada ? cor : borderColor,
             width: selecionada ? 1.8 : 1,
           ),
-          boxShadow: selecionada
-              ? [
-                  BoxShadow(
-                    color: cor.withValues(alpha: 0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,

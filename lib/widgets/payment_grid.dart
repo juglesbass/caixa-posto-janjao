@@ -176,15 +176,6 @@ class _CardMetodo extends StatelessWidget {
                 : borderColor,
             width: selecionado ? 2.0 : 1.0,
           ),
-          boxShadow: selecionado
-              ? [
-                  BoxShadow(
-                    color: corVibrante.withValues(alpha: 0.35),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
         ),
         child: Row(
           children: [
@@ -295,12 +286,6 @@ class _CardMetodo extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isDark ? (cor == AppColors.purple ? AppColors.purpleLight : cor) : cor,
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: corVibrante.withValues(alpha: 0.6),
-                      blurRadius: 4,
-                    ),
-                  ],
                 ),
               ),
           ],
