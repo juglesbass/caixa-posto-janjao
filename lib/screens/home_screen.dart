@@ -235,6 +235,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// "20/09/2026" vira "20/09". O ano nao cabe no subtitulo e nao ajuda: a
+  /// duvida do frentista e sempre "de que dia e este caixa", nunca de que ano.
+  ///
+  /// Esta linha mostra a data do CAIXA, nao a hora em que o app foi aberto — e
+  /// o numero do turno saiu daqui porque o WebPost reinicia a contagem todo
+  /// dia, entao ele nao diz nada a ninguem. O numero continua no banco.
+  String _dataCurta(String dataCaixa) {
+    final texto = dataCaixa.trim();
+    return texto.length >= 5 ? texto.substring(0, 5) : texto;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -273,7 +284,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
                 Text(
-                  'Turno #${widget.turno.numero} • ${widget.turno.operador}',
+                  'Caixa ${_dataCurta(widget.turno.dataCaixa)} • ${widget.turno.operador}',
                   style: TextStyle(fontSize: 11, color: textSec),
                 ),
               ],
