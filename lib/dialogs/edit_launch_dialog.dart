@@ -137,7 +137,7 @@ class _EditLaunchDialogState extends State<EditLaunchDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _tipoSelecionado,
+                initialValue: _tipoSelecionado,
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: 'Forma de Pagamento',
@@ -151,7 +151,7 @@ class _EditLaunchDialogState extends State<EditLaunchDialog> {
                 // sangria antiga continua editavel porque o tipo atual sempre
                 // abre a lista — so nao da para transformar outro lancamento
                 // em sangria.
-                items: [
+                items: {
                   _tipoSelecionado,
                   PaymentTypes.dinheiro,
                   PaymentTypes.pix,
@@ -159,7 +159,7 @@ class _EditLaunchDialogState extends State<EditLaunchDialog> {
                   PaymentTypes.requisicao,
                   PaymentTypes.depositoGlobal,
                   PaymentTypes.despesas,
-                ].toSet().map((tipo) {
+                }.map((tipo) {
                   return DropdownMenuItem(
                     value: tipo,
                     child: Text(tipo, style: const TextStyle(fontSize: 13)),

@@ -1147,7 +1147,7 @@ class _PainelGerenciaPageState extends State<_PainelGerenciaPage> {
                       ),
                       Switch(
                         value: modoTeste,
-                        activeColor: const Color(0xFFF59E0B),
+                        activeThumbColor: AppColors.amber,
                         onChanged: (novoValor) async {
                           await DriveService.setModoTeste(novoValor);
                           if (context.mounted) {

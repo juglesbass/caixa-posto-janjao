@@ -64,11 +64,9 @@ class DriveService {
 
   /// ID da Pasta Oficial (Fechamentos Posto Janjao) no Google Drive
   static const String pastaOficialId = '1lW3RYNyOzPz1R8A-vT9t9QWoLNvkADsC';
-  static const String PASTA_OFICIAL_ID = pastaOficialId;
 
   /// ID da Pasta de Testes / Homologação no Google Drive
   static const String pastaTestesId = '1uvJ6r3ZVzfw5Qv0X471hM11jYMSdbqhM';
-  static const String PASTA_TESTES_ID = pastaTestesId;
   static const String testFolderId = pastaTestesId;
 
   /// Chave de persistência do Modo Teste

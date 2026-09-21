@@ -666,7 +666,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                       ),
                       trailing: Switch(
                         value: opAtual.ativo,
-                        activeColor: AppColors.green,
+                        activeThumbColor: AppColors.green,
                         onChanged: (val) async {
                           await OperadoresSyncService.alternarStatusOperador(
                             operadorId: opAtual.id,

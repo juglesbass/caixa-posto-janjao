@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show FontFeature;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -2337,7 +2336,6 @@ class _ItemResumoCard extends StatefulWidget {
   final bool isDark;
 
   const _ItemResumoCard({
-    Key? key,
     required this.icon,
     required this.iconColor,
     required this.iconBg,
@@ -2348,7 +2346,7 @@ class _ItemResumoCard extends StatefulWidget {
     this.onTapSubtitulo,
     this.isSummaryCard = false,
     required this.isDark,
-  }) : super(key: key);
+  });
 
   @override
   State<_ItemResumoCard> createState() => _ItemResumoCardState();
@@ -2378,9 +2376,8 @@ class _ItemResumoCardState extends State<_ItemResumoCard> {
             : Color.alphaBlend(Colors.black.withValues(alpha: 0.03), baseCardBg))
         : baseCardBg;
 
-    final textoBadge = widget.subtitulo != null
-        ? widget.subtitulo!.replaceAll('(', '').replaceAll(')', '').trim()
-        : null;
+    final textoBadge =
+        widget.subtitulo?.replaceAll('(', '').replaceAll(')', '').trim();
 
     final temAcao = widget.onTap != null || widget.onTapSubtitulo != null;
 

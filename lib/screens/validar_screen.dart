@@ -150,9 +150,9 @@ class _ValidarScreenState extends State<ValidarScreen> {
                           ),
                         ],
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: const [
+                        children: [
                           Icon(Icons.local_gas_station_rounded, color: Colors.white, size: 22),
                           SizedBox(width: 8),
                           Text(
@@ -181,8 +181,8 @@ class _ValidarScreenState extends State<ValidarScreen> {
                           color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
                         ),
                       ),
-                      child: Column(
-                        children: const [
+                      child: const Column(
+                        children: [
                           CircularProgressIndicator(color: Color(0xFF2563EB)),
                           SizedBox(height: 16),
                           Text(
