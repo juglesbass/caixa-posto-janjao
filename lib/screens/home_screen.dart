@@ -13,6 +13,7 @@ import '../utils/app_haptics.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/payment_types.dart';
 import '../widgets/cabecalho_turno.dart';
+import '../widgets/campos_lancamento.dart';
 import '../widgets/hud_totais.dart';
 import '../widgets/machine_selector.dart';
 import '../widgets/payment_grid.dart';
@@ -214,9 +215,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
-    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
-    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     final ehDinheiro = PaymentTypes.ehDinheiro(_tipoAtivo);
 
@@ -352,80 +350,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 14),
 
                   // ── Campo Principal de Valor ──
-                  TextField(
+                  CampoValorVenda(
                     controller: _controllerValor,
                     focusNode: _focusNodeValor,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [CurrencyInputFormatter()],
-                    textInputAction: TextInputAction.done,
-                    style: TextStyle(
-                      fontFamily: AppTexto.numeros,
-                      fontSize: AppTexto.entrada,
-                      fontWeight: FontWeight.w600,
-                      color: textPri,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Valor da Venda',
-                      labelStyle: TextStyle(fontSize: AppTexto.corpo, fontWeight: FontWeight.bold, color: textSec),
-                      hintText: 'R\$ 0,00',
-                      // Icone na mesma linha do primeiro elemento de todo bloco da
-                      // tela. 17 = recuo de 16 + 1 da borda: nos cartoes a borda
-                      // ocupa espaco, no campo ela e desenhada por fora. Sem isso
-                      // o Flutter centraliza o icone numa caixa de 48.
-                      prefixIcon: const Padding(
-                        padding: EdgeInsets.only(left: 17, right: 8),
-                        child: Icon(Icons.attach_money_rounded, color: AppColors.accentLight, size: 26),
-                      ),
-                      prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 48),
-                      suffixIcon: _valorVenda > 0
-                          ? Padding(
-                              padding: const EdgeInsets.only(right: 6, top: 6, bottom: 6),
-                              child: ElevatedButton.icon(
-                                onPressed: _enviando ? null : _lancarVenda,
-                                icon: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
-                                label: const Text(
-                                  'LANÇAR',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: AppTexto.corpo,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.accent,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                                  elevation: 2,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                                  ),
-                                ),
-                              ),
-                            )
-                          : null,
-                      errorText: _erroValor,
-                      filled: true,
-                      fillColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                        borderSide: BorderSide(color: borderColor),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                        borderSide: BorderSide(color: borderColor),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                        borderSide: const BorderSide(color: AppColors.accentLight, width: 2),
-                      ),
-                    ),
+                    podeLancar: _valorVenda > 0,
+                    enviando: _enviando,
+                    erro: _erroValor,
                     onChanged: (val) {
                       setState(() {
                         _valorVenda = CurrencyFormatter.parse(val);
                         if (_erroValor != null) _erroValor = null;
                       });
                     },
-                    onSubmitted: (_) => _lancarVenda(),
+                    onLancar: _lancarVenda,
                   ),
                   const SizedBox(height: 12),
 
@@ -449,30 +386,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
 
                   // ── Campo Opcional de Descrição / Placa ──
-                  TextField(
-                    controller: _controllerDesc,
-                    decoration: InputDecoration(
-                      labelText: 'Descrição / Placa / Observação (Opcional)',
-                      hintText: 'Ex: Troca de óleo, Placa ABC-1234...',
-                      prefixIcon: const Padding(
-                        padding: EdgeInsets.only(left: 17, right: 8),
-                        child: Icon(Icons.edit_note_rounded),
-                      ),
-                      prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 40),
-                      filled: true,
-                      fillColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                      isDense: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                        borderSide: BorderSide(color: borderColor),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                        borderSide: BorderSide(color: borderColor),
-                      ),
-                    ),
-                    onSubmitted: (_) => _lancarVenda(),
-                  ),
+                  CampoDescricao(controller: _controllerDesc, onSubmitted: _lancarVenda),
                   const SizedBox(height: 30),
                 ],
               ),
