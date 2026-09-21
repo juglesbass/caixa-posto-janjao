@@ -27,6 +27,7 @@ class HomeScreen extends StatefulWidget {
   final TotaisTurno totais;
   final VoidCallback onRecarregar;
   final VoidCallback onAbrirResumo;
+  final ValueChanged<bool>? onMudarTema;
 
   const HomeScreen({
     super.key,
@@ -34,6 +35,7 @@ class HomeScreen extends StatefulWidget {
     required this.totais,
     required this.onRecarregar,
     required this.onAbrirResumo,
+    this.onMudarTema,
   });
 
   @override
@@ -234,10 +236,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   )
                 : const SizedBox.shrink(),
           ),
-          // A consulta de produtos fica na barra porque e feita no meio da
-          // venda — no Menu custaria um toque a mais toda vez. Os outros tres
-          // icones que moravam aqui sairam: o tema continua no Menu, o resumo
-          // tem a aba e o placar, e a sangria saiu do app.
+          // Consulta de produtos e tema ficam na barra: os dois sao usados no
+          // meio do turno, e no Menu custariam um toque a mais toda vez. O
+          // resumo saiu (tem a aba e o placar) e a sangria saiu do app.
           IconButton(
             icon: const Icon(Icons.manage_search_rounded, color: AppColors.accentLight),
             tooltip: 'Tabela de Códigos / Produtos',
@@ -248,6 +249,15 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
+          if (widget.onMudarTema != null)
+            IconButton(
+              icon: Icon(
+                isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                color: isDark ? AppColors.amber2 : AppColors.accent,
+              ),
+              tooltip: isDark ? 'Ativar Tema Claro' : 'Ativar Tema Escuro',
+              onPressed: () => widget.onMudarTema!(!isDark),
+            ),
           const SizedBox(width: 4),
         ],
       ),
