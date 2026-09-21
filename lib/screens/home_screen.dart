@@ -235,6 +235,15 @@ class _HomeScreenState extends State<HomeScreen> {
           // Consulta de produtos e tema ficam na barra: os dois sao usados no
           // meio do turno, e no Menu custariam um toque a mais toda vez. O
           // resumo saiu (tem a aba e o placar) e a sangria saiu do app.
+          if (widget.onMudarTema != null)
+            IconButton(
+              icon: Icon(
+                isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                color: isDark ? AppColors.amber2 : AppColors.accent,
+              ),
+              tooltip: isDark ? 'Ativar Tema Claro' : 'Ativar Tema Escuro',
+              onPressed: () => widget.onMudarTema!(!isDark),
+            ),
           IconButton(
             icon: const Icon(Icons.manage_search_rounded, color: AppColors.accentLight),
             tooltip: 'Tabela de Códigos / Produtos',
@@ -245,15 +254,6 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          if (widget.onMudarTema != null)
-            IconButton(
-              icon: Icon(
-                isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                color: isDark ? AppColors.amber2 : AppColors.accent,
-              ),
-              tooltip: isDark ? 'Ativar Tema Claro' : 'Ativar Tema Escuro',
-              onPressed: () => widget.onMudarTema!(!isDark),
-            ),
           const SizedBox(width: 4),
         ],
       ),
