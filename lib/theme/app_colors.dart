@@ -67,13 +67,9 @@ class AppColors {
   static const Color lightSheetBg = Color(0xFFFFFFFF);
 
   /// Retorna a cor associada a um tipo de pagamento
-  /// Ponto de cor apagado: a forma de pagamento existe, mas nao e a escolhida
-  /// agora. So o escolhido acende, na cor dele — assim a cor quer dizer "e aqui
-  /// que o proximo lancamento entra", e nao enfeite.
-  ///
-  /// Cinza neutro, e nao a cor do tipo esmaecida: catorze cores fracas na
-  /// mesma tela continuariam sendo um confete. Um tom so para todo ponto
-  /// apagado do app, senao cada bloco apaga de um jeito.
+  /// Ponto de cor apagado do seletor Rede/Cielo: a maquina escolhida acende
+  /// na cor dela, a outra fica neste cinza neutro. (As formas de pagamento
+  /// usam icone em vez de ponto — ver AppIcones.)
   static Color pontoApagado(bool isDark) => isDark
       ? darkTextTer.withValues(alpha: 0.6)
       : lightTextTer.withValues(alpha: 0.55);

@@ -5,6 +5,7 @@ import '../models/lancamento.dart';
 import '../models/turno.dart';
 import '../services/database_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_icones.dart';
 import '../theme/app_texto.dart';
 import '../utils/currency_formatter.dart';
 
@@ -189,10 +190,8 @@ class _Linha extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Aqui o ponto fica sempre aceso, na cor do tipo: cada linha e um
-    // lancamento que ja aconteceu, e a cor ajuda a reconhecer de relance o
-    // que entrou onde. Nas escolhas (grade, maquina, placar) so acende o
-    // escolhido.
+    // O mesmo icone da grade, na cor do tipo — que aqui distingue a bandeira:
+    // todo cartao usa o mesmo icone, e a cor e o nome dizem qual foi.
     final cor = AppColors.getCorTipo(lancamento.tipo);
     // Sem sinal nem cor de alerta no valor: quem diz o que o lançamento faz com
     // a gaveta é o tipo, e essa conta já é feita no resumo e no PDF. Inventar
@@ -222,11 +221,7 @@ class _Linha extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 9),
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: cor, shape: BoxShape.circle),
-            ),
+            Icon(AppIcones.doTipo(lancamento.tipo), size: 16, color: cor),
             const SizedBox(width: 8),
             Expanded(
               child: Text(

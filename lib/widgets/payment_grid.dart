@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_icones.dart';
 import '../theme/app_texto.dart';
 import '../utils/app_haptics.dart';
 import '../utils/payment_types.dart';
@@ -50,7 +51,7 @@ class PaymentGrid extends StatelessWidget {
         _CardMetodo(
           label: 'Dinheiro',
           subtitulo: 'Espécie',
-          icon: Icons.payments_rounded,
+          icon: AppIcones.dinheiro,
           cor: AppColors.green,
           selecionado: tipoAtivo == PaymentTypes.dinheiro,
           onTap: () => onSelecionarTipo(PaymentTypes.dinheiro),
@@ -64,7 +65,7 @@ class PaymentGrid extends StatelessWidget {
         _CardMetodo(
           label: 'Pag Pix',
           subtitulo: 'Instantâneo',
-          icon: Icons.pix_rounded,
+          icon: AppIcones.pix,
           cor: AppColors.blue,
           selecionado: tipoAtivo == PaymentTypes.pix,
           onTap: () => onSelecionarTipo(PaymentTypes.pix),
@@ -78,7 +79,7 @@ class PaymentGrid extends StatelessWidget {
         _CardMetodo(
           label: 'Cartões',
           subtitulo: '$bandeiraCartaoAtiva ▼',
-          icon: Icons.credit_card_rounded,
+          icon: AppIcones.cartao,
           cor: AppColors.purple,
           selecionado: ehCartaoAtivo,
           onTap: onAbrirSeletorCartoes,
@@ -93,7 +94,7 @@ class PaymentGrid extends StatelessWidget {
         _CardMetodo(
           label: 'Requisição',
           subtitulo: 'Faturado / Prazo',
-          icon: Icons.receipt_long_rounded,
+          icon: AppIcones.requisicao,
           cor: AppColors.amber,
           selecionado: tipoAtivo == PaymentTypes.requisicao,
           onTap: () => onSelecionarTipo(PaymentTypes.requisicao),
@@ -107,7 +108,7 @@ class PaymentGrid extends StatelessWidget {
         _CardMetodo(
           label: 'Depósito',
           subtitulo: 'Bancário / Global',
-          icon: Icons.account_balance_rounded,
+          icon: AppIcones.deposito,
           cor: AppColors.brown,
           selecionado: tipoAtivo == PaymentTypes.depositoGlobal,
           onTap: () => onSelecionarTipo(PaymentTypes.depositoGlobal),
@@ -121,7 +122,7 @@ class PaymentGrid extends StatelessWidget {
         _CardMetodo(
           label: 'Despesas',
           subtitulo: 'Retirada / Gasto',
-          icon: Icons.money_off_rounded,
+          icon: AppIcones.despesas,
           cor: AppColors.red,
           selecionado: tipoAtivo == PaymentTypes.despesas,
           onTap: () => onSelecionarTipo(PaymentTypes.despesas),
@@ -179,8 +180,8 @@ class _CardMetodo extends StatelessWidget {
     final corVibrante = isDark && cor == AppColors.purple ? AppColors.purpleLight : cor;
     // Selecionado fala sempre a mesma lingua, o azul do app, seja qual for a
     // forma de pagamento — a tela nao muda de personalidade a cada toque. A
-    // cor do tipo aparece so no ponto, e so no card escolhido: os outros
-    // ficam com o ponto apagado.
+    // cor do tipo fica no quadradinho do icone, sempre acesa: presa a uma
+    // forma com significado, ela identifica em vez de enfeitar.
     final corSelecao = isDark ? AppColors.accentLight : AppColors.accent;
 
     return InkWell(
@@ -211,14 +212,17 @@ class _CardMetodo extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // O ponto no lugar da caixa de icone. Aceso so no escolhido.
+            // Quadradinho com o icone da forma, na cor dela. O frentista
+            // reconhece pela silhueta, sem ler.
             Container(
-              width: 10,
-              height: 10,
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: selecionado ? corVibrante : AppColors.pontoApagado(isDark),
-                shape: BoxShape.circle,
+                color: corVibrante.withValues(alpha: isDark ? 0.16 : 0.12),
+                borderRadius: BorderRadius.circular(AppColors.radiusXs),
               ),
+              child: Icon(icon, size: 18, color: corVibrante),
             ),
             const SizedBox(width: 10),
             Expanded(
