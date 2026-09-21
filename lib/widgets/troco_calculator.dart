@@ -28,7 +28,7 @@ class TrocoCalculator extends StatelessWidget {
     final temTrocoValido = valorRecebido > 0 && valorVenda > 0 && troco >= 0;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: surfaceColor,
         borderRadius: BorderRadius.circular(AppColors.radiusMd),

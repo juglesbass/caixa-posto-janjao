@@ -127,7 +127,7 @@ class _UltimosLancamentosState extends State<UltimosLancamentos> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 9),
             child: Row(
               children: [
                 Text(
@@ -206,7 +206,7 @@ class _Linha extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: borderColor)),
         ),

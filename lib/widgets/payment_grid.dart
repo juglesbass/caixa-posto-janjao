@@ -43,7 +43,7 @@ class PaymentGrid extends StatelessWidget {
         crossAxisCount: 2,
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
-        mainAxisExtent: 62,
+        mainAxisExtent: 64,
       ),
       children: [
         // 1. Dinheiro
@@ -191,7 +191,14 @@ class _CardMetodo extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppColors.radiusMd),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        // A borda do selecionado tem 2px, e o Container desconta a borda do
+        // espaco interno. Sem compensar, o conteudo pulava 1px ao tocar,
+        // saia da linha dos outros blocos e — no Cartoes, que tem nome e
+        // bandeira — estourava a altura em 1 a 2px.
+        padding: EdgeInsets.symmetric(
+          horizontal: selecionado ? 15 : 16,
+          vertical: selecionado ? 9 : 10,
+        ),
         decoration: BoxDecoration(
           color: selecionado
               ? corSelecao.withValues(alpha: isDark ? 0.16 : 0.08)
@@ -228,12 +235,16 @@ class _CardMetodo extends StatelessWidget {
                           style: TextStyle(
                             fontSize: AppTexto.corpo,
                             fontWeight: FontWeight.bold,
+                            // Altura de linha propria: sem ela o texto herda
+                            // 1,43 do tema e nome + bandeira passavam da
+                            // altura do botao.
+                            height: 1.2,
                             color: selecionado
                                 ? (isDark ? Colors.white : AppColors.accentDark)
                                 : textPri,
                           ),
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 2),
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Container(
@@ -259,6 +270,7 @@ class _CardMetodo extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: AppTexto.rotulo,
                                       fontWeight: FontWeight.w600,
+                                      height: 1.2,
                                       color: selecionado
                                           ? (isDark ? AppColors.darkTextPri : AppColors.accentDark)
                                           : textSec,
@@ -285,6 +297,7 @@ class _CardMetodo extends StatelessWidget {
                       style: TextStyle(
                         fontSize: AppTexto.corpo,
                         fontWeight: FontWeight.bold,
+                        height: 1.2,
                         color: selecionado
                             ? (isDark ? Colors.white : AppColors.accentDark)
                             : textPri,

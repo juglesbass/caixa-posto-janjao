@@ -277,7 +277,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (!modoTeste) return const SizedBox.shrink();
                       return Container(
                         margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
                           color: AppColors.amber.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(AppColors.radiusMd),
@@ -303,7 +303,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     },
                   ),
-                  PendingSyncBanner(onSincronizado: widget.onRecarregar),
+                  PendingSyncBanner(
+                    onSincronizado: widget.onRecarregar,
+                    margem: const EdgeInsets.only(bottom: 12),
+                  ),
 
                   // ── HUD Bento Grid de Totais ──
                   HudTotais(
@@ -366,7 +369,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       labelText: 'Valor da Venda',
                       labelStyle: TextStyle(fontSize: AppTexto.corpo, fontWeight: FontWeight.bold, color: textSec),
                       hintText: 'R\$ 0,00',
-                      prefixIcon: const Icon(Icons.attach_money_rounded, color: AppColors.accentLight, size: 26),
+                      // Icone na mesma linha do primeiro elemento de todo bloco da
+                      // tela. 17 = recuo de 16 + 1 da borda: nos cartoes a borda
+                      // ocupa espaco, no campo ela e desenhada por fora. Sem isso
+                      // o Flutter centraliza o icone numa caixa de 48.
+                      prefixIcon: const Padding(
+                        padding: EdgeInsets.only(left: 17, right: 8),
+                        child: Icon(Icons.attach_money_rounded, color: AppColors.accentLight, size: 26),
+                      ),
+                      prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 48),
                       suffixIcon: _valorVenda > 0
                           ? Padding(
                               padding: const EdgeInsets.only(right: 6, top: 6, bottom: 6),
@@ -444,7 +455,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     decoration: InputDecoration(
                       labelText: 'Descrição / Placa / Observação (Opcional)',
                       hintText: 'Ex: Troca de óleo, Placa ABC-1234...',
-                      prefixIcon: const Icon(Icons.edit_note_rounded),
+                      prefixIcon: const Padding(
+                        padding: EdgeInsets.only(left: 17, right: 8),
+                        child: Icon(Icons.edit_note_rounded),
+                      ),
+                      prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 40),
                       filled: true,
                       fillColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
                       isDense: true,

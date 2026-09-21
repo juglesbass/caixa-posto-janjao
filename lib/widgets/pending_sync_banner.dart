@@ -8,7 +8,16 @@ import '../theme/app_colors.dart';
 class PendingSyncBanner extends StatefulWidget {
   final VoidCallback? onSincronizado;
 
-  const PendingSyncBanner({super.key, this.onSincronizado});
+  /// Espaco em volta do aviso. O padrao deixa folga dos lados para as telas
+  /// em que ele encosta na borda; a tela Inicio ja tem a propria margem e
+  /// passa zero dos lados, senao o aviso ficava mais estreito que os cartoes.
+  final EdgeInsets margem;
+
+  const PendingSyncBanner({
+    super.key,
+    this.onSincronizado,
+    this.margem = const EdgeInsets.fromLTRB(12, 8, 12, 4),
+  });
 
   @override
   State<PendingSyncBanner> createState() => _PendingSyncBannerState();
@@ -62,8 +71,8 @@ class _PendingSyncBannerState extends State<PendingSyncBanner> {
     if (DatabaseService.armazenamentoPersistente) return const SizedBox.shrink();
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      margin: widget.margem,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.45) : const Color(0xFFFEE2E2),
         borderRadius: BorderRadius.circular(8),
@@ -116,8 +125,8 @@ class _PendingSyncBannerState extends State<PendingSyncBanner> {
         if (totalPendencias <= 0) return const SizedBox.shrink();
 
         return Container(
-          margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          margin: widget.margem,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: bannerBg,
             borderRadius: BorderRadius.circular(8),
