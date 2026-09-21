@@ -189,7 +189,10 @@ class _Linha extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cor = AppColors.getCorTipo(lancamento.tipo);
+    // Ponto sempre apagado: aqui nao ha forma escolhida, e o nome do tipo ja
+    // esta escrito ao lado. Cor acesa na tela fica reservada para o que vai
+    // receber o proximo lancamento.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     // Sem sinal nem cor de alerta no valor: quem diz o que o lançamento faz com
     // a gaveta é o tipo, e essa conta já é feita no resumo e no PDF. Inventar
     // um "menos" aqui contradiria o total geral, onde despesa entra somando.
@@ -221,7 +224,7 @@ class _Linha extends StatelessWidget {
             Container(
               width: 8,
               height: 8,
-              decoration: BoxDecoration(color: cor, shape: BoxShape.circle),
+              decoration: BoxDecoration(color: AppColors.pontoApagado(isDark), shape: BoxShape.circle),
             ),
             const SizedBox(width: 8),
             Expanded(

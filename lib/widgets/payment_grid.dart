@@ -178,9 +178,9 @@ class _CardMetodo extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final corVibrante = isDark && cor == AppColors.purple ? AppColors.purpleLight : cor;
     // Selecionado fala sempre a mesma lingua, o azul do app, seja qual for a
-    // forma de pagamento. A cor do tipo continua no icone e no ponto da
-    // direita, entao nada de identificacao se perde — o que sai e a tela
-    // inteira mudando de personalidade a cada toque.
+    // forma de pagamento — a tela nao muda de personalidade a cada toque. A
+    // cor do tipo aparece so no ponto, e so no card escolhido: os outros
+    // ficam com o ponto apagado.
     final corSelecao = isDark ? AppColors.accentLight : AppColors.accent;
 
     return InkWell(
@@ -204,12 +204,14 @@ class _CardMetodo extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // O ponto no lugar da caixa de icone: mesma identificacao por cor,
-            // numa linha que ocupa metade da altura.
+            // O ponto no lugar da caixa de icone. Aceso so no escolhido.
             Container(
               width: 10,
               height: 10,
-              decoration: BoxDecoration(color: corVibrante, shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: selecionado ? corVibrante : AppColors.pontoApagado(isDark),
+                shape: BoxShape.circle,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(

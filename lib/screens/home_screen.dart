@@ -309,6 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   HudTotais(
                     totais: widget.totais,
                     onTapDetalhes: widget.onAbrirResumo,
+                    tipoAtivo: _tipoAtivo,
                   ),
                   const SizedBox(height: 12),
                   // ── Conferência rápida do que acabou de ser lançado ──

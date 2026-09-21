@@ -117,7 +117,7 @@ class _BotaoMaquina extends StatelessWidget {
               width: 8,
               height: 8,
               decoration: BoxDecoration(
-                color: selecionada ? cor : corApagada,
+                color: selecionada ? cor : AppColors.pontoApagado(isDark),
                 shape: BoxShape.circle,
               ),
             ),

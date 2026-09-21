@@ -3,15 +3,22 @@ import '../models/totais_turno.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_texto.dart';
 import '../utils/currency_formatter.dart';
+import '../utils/payment_types.dart';
 
 class HudTotais extends StatelessWidget {
   final TotaisTurno totais;
   final VoidCallback? onTapDetalhes;
 
+  /// Forma de pagamento escolhida na grade. Acende o ponto do subtotal que vai
+  /// receber o proximo lancamento; Requisicao, Deposito e Despesas nao tem
+  /// subtotal aqui, entao com elas nenhum acende.
+  final String? tipoAtivo;
+
   const HudTotais({
     super.key,
     required this.totais,
     this.onTapDetalhes,
+    this.tipoAtivo,
   });
 
   @override
@@ -96,6 +103,7 @@ class HudTotais extends StatelessWidget {
                     label: 'DINHEIRO',
                     valor: CurrencyFormatter.formatar(totais.dinheiro),
                     cor: AppColors.green,
+                    aceso: tipoAtivo != null && PaymentTypes.ehDinheiro(tipoAtivo!),
                   ),
                 ),
                 _Divisoria(cor: borderColor),
@@ -104,6 +112,7 @@ class HudTotais extends StatelessWidget {
                     label: 'PIX',
                     valor: CurrencyFormatter.formatar(totais.pix),
                     cor: AppColors.blue,
+                    aceso: tipoAtivo != null && PaymentTypes.ehPix(tipoAtivo!),
                   ),
                 ),
                 _Divisoria(cor: borderColor),
@@ -112,6 +121,7 @@ class HudTotais extends StatelessWidget {
                     label: 'CARTÕES',
                     valor: CurrencyFormatter.formatar(totais.cartoes),
                     cor: AppColors.purple,
+                    aceso: tipoAtivo != null && PaymentTypes.ehCartao(tipoAtivo!),
                     quantidade: totais.qtdCartoes > 0 ? '${totais.qtdCartoes}×' : null,
                   ),
                 ),
@@ -134,12 +144,14 @@ class _Total extends StatelessWidget {
   final String valor;
   final Color cor;
   final String? quantidade;
+  final bool aceso;
 
   const _Total({
     required this.label,
     required this.valor,
     required this.cor,
     this.quantidade,
+    this.aceso = false,
   });
 
   @override
@@ -167,7 +179,10 @@ class _Total extends StatelessWidget {
               Container(
                 width: 7,
                 height: 7,
-                decoration: BoxDecoration(color: corVibrante, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: aceso ? corVibrante : AppColors.pontoApagado(isDark),
+                  shape: BoxShape.circle,
+                ),
               ),
               const SizedBox(width: 5),
               Text(
