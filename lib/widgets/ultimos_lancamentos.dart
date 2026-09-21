@@ -211,7 +211,11 @@ class _Linha extends StatelessWidget {
           children: [
             Text(
               hora,
-              style: TextStyle(fontSize: AppTexto.rotulo, color: textTer),
+              style: TextStyle(
+                fontFamily: AppTexto.numeros,
+                fontSize: AppTexto.rotulo,
+                color: textTer,
+              ),
             ),
             const SizedBox(width: 9),
             Container(
@@ -231,8 +235,9 @@ class _Linha extends StatelessWidget {
             Text(
               valor,
               style: TextStyle(
+                fontFamily: AppTexto.numeros,
                 fontSize: AppTexto.valor,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
                 color: textPri,
               ),
             ),

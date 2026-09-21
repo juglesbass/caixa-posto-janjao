@@ -55,10 +55,11 @@ class HudTotais extends StatelessWidget {
                     Text(
                       CurrencyFormatter.formatar(totais.totalGeral),
                       style: TextStyle(
+                        fontFamily: AppTexto.numeros,
                         fontSize: AppTexto.total,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w600,
                         color: textPri,
-                        letterSpacing: -1,
+                        letterSpacing: -0.5,
                         height: 1.05,
                       ),
                     ),
@@ -82,37 +83,39 @@ class HudTotais extends StatelessWidget {
             Divider(height: 1, color: borderColor),
             const SizedBox(height: 12),
 
-            // ── Grid Bento de Totais Rápidos ──
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: _Total(
-                      label: 'DINHEIRO',
-                      valor: CurrencyFormatter.formatar(totais.dinheiro),
-                      cor: AppColors.green,
-                    ),
+            // ── Totais por forma de pagamento ──
+            //
+            // Divisórias de altura fixa, e não IntrinsicHeight: a medição
+            // automática contava o valor no tamanho de antes de o FittedBox
+            // encolher, e sobrava um vão vazio embaixo dos números.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _Total(
+                    label: 'DINHEIRO',
+                    valor: CurrencyFormatter.formatar(totais.dinheiro),
+                    cor: AppColors.green,
                   ),
-                  VerticalDivider(width: 17, thickness: 1, color: borderColor),
-                  Expanded(
-                    child: _Total(
-                      label: 'PIX',
-                      valor: CurrencyFormatter.formatar(totais.pix),
-                      cor: AppColors.blue,
-                    ),
+                ),
+                _Divisoria(cor: borderColor),
+                Expanded(
+                  child: _Total(
+                    label: 'PIX',
+                    valor: CurrencyFormatter.formatar(totais.pix),
+                    cor: AppColors.blue,
                   ),
-                  VerticalDivider(width: 17, thickness: 1, color: borderColor),
-                  Expanded(
-                    child: _Total(
-                      label: 'CARTÕES',
-                      valor: CurrencyFormatter.formatar(totais.cartoes),
-                      cor: AppColors.purple,
-                      quantidade: totais.qtdCartoes > 0 ? '${totais.qtdCartoes}×' : null,
-                    ),
+                ),
+                _Divisoria(cor: borderColor),
+                Expanded(
+                  child: _Total(
+                    label: 'CARTÕES',
+                    valor: CurrencyFormatter.formatar(totais.cartoes),
+                    cor: AppColors.purple,
+                    quantidade: totais.qtdCartoes > 0 ? '${totais.qtdCartoes}×' : null,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
@@ -180,7 +183,11 @@ class _Total extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   quantidade!,
-                  style: TextStyle(fontSize: AppTexto.rotulo, color: textTer),
+                  style: TextStyle(
+                    fontFamily: AppTexto.numeros,
+                    fontSize: AppTexto.rotulo,
+                    color: textTer,
+                  ),
                 ),
               ],
             ],
@@ -193,13 +200,34 @@ class _Total extends StatelessWidget {
           child: Text(
             valor,
             style: TextStyle(
-              fontSize: AppTexto.valor,
-              fontWeight: FontWeight.w800,
+              fontFamily: AppTexto.numeros,
+              // 14, e nao o 16 das linhas: com digito de largura fixa,
+              // "R$ 1.234,56" em 16 nao cabe num terco de um celular de 375px,
+              // e cada coluna encolhia num tamanho diferente. Em 14 cabe ate
+              // R$ 9.999,99 sem encolher.
+              fontSize: AppTexto.corpo,
+              fontWeight: FontWeight.w600,
               color: textPri,
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Linha vertical entre os totais, na altura do rótulo mais o valor.
+class _Divisoria extends StatelessWidget {
+  final Color cor;
+  const _Divisoria({required this.cor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 36,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      color: cor,
     );
   }
 }

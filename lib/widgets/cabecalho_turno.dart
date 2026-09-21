@@ -99,7 +99,11 @@ class CabecalhoTurno extends StatelessWidget {
               const SizedBox(height: 1),
               Text(
                 linha,
-                style: TextStyle(fontSize: AppTexto.rotulo, color: textSec),
+                style: TextStyle(
+                  fontFamily: AppTexto.numeros,
+                  fontSize: AppTexto.rotulo,
+                  color: textSec,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

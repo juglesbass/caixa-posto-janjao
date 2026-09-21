@@ -16,6 +16,15 @@
 class AppTexto {
   AppTexto._();
 
+  /// Família dos números: dinheiro, horas, datas curtas.
+  ///
+  /// Largura fixa faz o "1" ocupar o mesmo espaço do "8", e os valores alinham
+  /// pela vírgula como na bobina do encerrante. Vem embutida em
+  /// assets/fonts/ (Regular e SemiBold, licença OFL): carregada da internet,
+  /// o caixa sem sinal voltaria para a fonte comum. Use com peso 400 ou 600,
+  /// os dois que estão no app.
+  static const String numeros = 'IBMPlexMono';
+
   /// Rótulos em caixa alta, horários, selos.
   static const double rotulo = 12;
 

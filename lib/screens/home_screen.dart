@@ -346,10 +346,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     inputFormatters: [CurrencyInputFormatter()],
                     textInputAction: TextInputAction.done,
                     style: TextStyle(
+                      fontFamily: AppTexto.numeros,
                       fontSize: AppTexto.entrada,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w600,
                       color: textPri,
-                      letterSpacing: 0.5,
                     ),
                     decoration: InputDecoration(
                       labelText: 'Valor da Venda',

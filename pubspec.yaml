@@ -52,3 +52,11 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+  # Numeros em largura fixa, como na bobina do encerrante. Vai embutida no app
+  # para funcionar offline; licenca OFL em assets/fonts/OFL.txt.
+  fonts:
+    - family: IBMPlexMono
+      fonts:
+        - asset: assets/fonts/IBMPlexMono-Regular.ttf
+        - asset: assets/fonts/IBMPlexMono-SemiBold.ttf
+          weight: 600
