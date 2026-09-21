@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/totais_turno.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_texto.dart';
 import '../utils/currency_formatter.dart';
 
 class HudTotais extends StatelessWidget {
@@ -44,7 +45,7 @@ class HudTotais extends StatelessWidget {
                     Text(
                       'TOTAL DO TURNO',
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: AppTexto.rotulo,
                         fontWeight: FontWeight.bold,
                         color: textSec,
                         letterSpacing: 1.3,
@@ -54,7 +55,7 @@ class HudTotais extends StatelessWidget {
                     Text(
                       CurrencyFormatter.formatar(totais.totalGeral),
                       style: TextStyle(
-                        fontSize: 31,
+                        fontSize: AppTexto.total,
                         fontWeight: FontWeight.w900,
                         color: textPri,
                         letterSpacing: -1,
@@ -69,7 +70,7 @@ class HudTotais extends StatelessWidget {
                   children: [
                     Text(
                       'resumo',
-                      style: TextStyle(fontSize: 11, color: AppColors.accentLight),
+                      style: TextStyle(fontSize: AppTexto.rotulo, color: AppColors.accentLight),
                     ),
                     Icon(Icons.chevron_right_rounded,
                         size: 16, color: AppColors.accentLight),
@@ -107,7 +108,7 @@ class HudTotais extends StatelessWidget {
                       label: 'CARTÕES',
                       valor: CurrencyFormatter.formatar(totais.cartoes),
                       cor: AppColors.purple,
-                      quantidade: totais.qtdCartoes > 0 ? '${totais.qtdCartoes}un' : null,
+                      quantidade: totais.qtdCartoes > 0 ? '${totais.qtdCartoes}×' : null,
                     ),
                   ),
                 ],
@@ -145,39 +146,45 @@ class _Total extends StatelessWidget {
     final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
     final corVibrante = isDark && cor == AppColors.purple ? AppColors.purpleLight : cor;
 
+    // Alinhado pelo topo: em celular estreito cada coluna encolhe numa
+    // proporcao diferente, e centralizado os tres rotulos saiam desnivelados.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(color: corVibrante, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
+        // Encolhe em vez de cortar: num celular de 375px, "CARTOES 12x" passa
+        // uns pixels do terco da largura, e rotulo cortado ("CARTO...") e pior
+        // que rotulo 2% menor. Com o que cabe, nada muda de tamanho.
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(color: corVibrante, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 5),
+              Text(
                 label,
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: AppTexto.rotulo,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 0.9,
+                  letterSpacing: 0.4,
                   color: textTer,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            if (quantidade != null) ...[
-              const SizedBox(width: 4),
-              Text(
-                quantidade!,
-                style: TextStyle(fontSize: 9, color: textTer),
-              ),
+              if (quantidade != null) ...[
+                const SizedBox(width: 4),
+                Text(
+                  quantidade!,
+                  style: TextStyle(fontSize: AppTexto.rotulo, color: textTer),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
         const SizedBox(height: 3),
         FittedBox(
@@ -186,7 +193,7 @@ class _Total extends StatelessWidget {
           child: Text(
             valor,
             style: TextStyle(
-              fontSize: 14.5,
+              fontSize: AppTexto.valor,
               fontWeight: FontWeight.w800,
               color: textPri,
             ),

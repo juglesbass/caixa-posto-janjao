@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_texto.dart';
 import '../utils/app_haptics.dart';
 import '../utils/payment_types.dart';
 
@@ -27,16 +28,23 @@ class PaymentGrid extends StatelessWidget {
 
     final ehCartaoAtivo = PaymentTypes.ehCartao(tipoAtivo);
 
-    return GridView.count(
-      crossAxisCount: 2,
+    return GridView(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 8,
-      mainAxisSpacing: 8,
-      // Linha, nao cartao: a altura caiu de ~76 para ~57, o suficiente para as
-      // seis formas caberem sem empurrar o campo de valor para fora da tela e
-      // ainda dar alvo confortavel para o dedo no meio do movimento.
-      childAspectRatio: 2.9,
+      // Linha, nao cartao: baixa o bastante para as seis formas caberem sem
+      // empurrar o campo de valor para fora da tela, alta o bastante para dar
+      // alvo confortavel ao dedo no meio do movimento.
+      //
+      // Altura fixa, e nao proporcao da largura: com proporcao, o botao
+      // encolhia junto com o celular, e num aparelho de 375px (iPhone SE,
+      // 12 mini) o de Cartoes — nome em cima, bandeira embaixo — ficava mais
+      // baixo que o proprio conteudo.
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        mainAxisExtent: 62,
+      ),
       children: [
         // 1. Dinheiro
         _CardMetodo(
@@ -216,7 +224,7 @@ class _CardMetodo extends StatelessWidget {
                         Text(
                           label,
                           style: TextStyle(
-                            fontSize: 13.5,
+                            fontSize: AppTexto.corpo,
                             fontWeight: FontWeight.bold,
                             color: selecionado
                                 ? (isDark ? Colors.white : AppColors.accentDark)
@@ -247,10 +255,10 @@ class _CardMetodo extends StatelessWidget {
                                   child: Text(
                                     _bandeiraCurta(subtitulo),
                                     style: TextStyle(
-                                      fontSize: 10,
+                                      fontSize: AppTexto.rotulo,
                                       fontWeight: FontWeight.w600,
                                       color: selecionado
-                                          ? (isDark ? const Color(0xFFF1F5F9) : AppColors.accentDark)
+                                          ? (isDark ? AppColors.darkTextPri : AppColors.accentDark)
                                           : textSec,
                                     ),
                                     maxLines: 1,
@@ -261,7 +269,7 @@ class _CardMetodo extends StatelessWidget {
                                   Icons.arrow_drop_down_rounded,
                                   size: 12,
                                   color: selecionado
-                                      ? (isDark ? const Color(0xFFF1F5F9) : AppColors.accentDark)
+                                      ? (isDark ? AppColors.darkTextPri : AppColors.accentDark)
                                       : textSec,
                                 ),
                               ],
@@ -273,7 +281,7 @@ class _CardMetodo extends StatelessWidget {
                   : Text(
                       label,
                       style: TextStyle(
-                        fontSize: 13.5,
+                        fontSize: AppTexto.corpo,
                         fontWeight: FontWeight.bold,
                         color: selecionado
                             ? (isDark ? Colors.white : AppColors.accentDark)

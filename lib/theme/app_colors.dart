@@ -26,15 +26,19 @@ class AppColors {
   static const Color rede = Color(0xFFEF4444); // Vermelho Rede
   static const Color cielo = Color(0xFF0284C7); // Azul Cielo
 
-  // Raios de Curvatura (Bento Grid)
+  // Raios de Curvatura
   //
   // Cinco raios diferentes na mesma tela fazem o olho ler cada bloco como um
-  // objeto de outra familia. Os valores foram aproximados para girar em torno
-  // de dois: 16 para cartao e 10 para controle. Os nomes continuam os mesmos,
-  // entao nenhuma chamada precisou mudar.
-  static const double radiusXl = 20.0;
+  // objeto de outra familia. Ficam dois: 16 para cartao, 10 para controle. Os
+  // nomes continuam os mesmos, entao nenhuma chamada precisou mudar.
+  //
+  // O Xs e a unica excecao, e so para peca encaixada dentro de um controle —
+  // o segmento Rede/Cielo dentro da sua moldura. Canto de dentro tem que ser
+  // menor que o de fora (10 - 3 de folga ~ 8), senao as curvas nao ficam
+  // paralelas e a peca parece solta.
+  static const double radiusXl = 16.0;
   static const double radiusLg = 16.0;
-  static const double radiusMd = 12.0;
+  static const double radiusMd = 10.0;
   static const double radiusSm = 10.0;
   static const double radiusXs = 8.0;
 

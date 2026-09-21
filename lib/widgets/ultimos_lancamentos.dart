@@ -5,6 +5,7 @@ import '../models/lancamento.dart';
 import '../models/turno.dart';
 import '../services/database_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_texto.dart';
 import '../utils/currency_formatter.dart';
 
 /// Os três últimos lançamentos do turno, com correção a um toque.
@@ -126,22 +127,27 @@ class _UltimosLancamentosState extends State<UltimosLancamentos> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 9, 12, 8),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
             child: Row(
               children: [
                 Text(
                   'ÚLTIMOS LANÇAMENTOS',
                   style: TextStyle(
-                    fontSize: 9.5,
+                    fontSize: AppTexto.rotulo,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 1.1,
+                    letterSpacing: 0.8,
                     color: textTer,
                   ),
                 ),
-                const Spacer(),
-                Text(
-                  'toque para corrigir',
-                  style: TextStyle(fontSize: 9.5, color: textTer),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'toque para corrigir',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(fontSize: AppTexto.rotulo, color: textTer),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -188,19 +194,24 @@ class _Linha extends StatelessWidget {
     // a gaveta é o tipo, e essa conta já é feita no resumo e no PDF. Inventar
     // um "menos" aqui contradiria o total geral, onde despesa entra somando.
     final valor = CurrencyFormatter.formatar(lancamento.valor);
+    // "17:49:02" vira "17:49". Os segundos nao ajudam a reconhecer o
+    // lancamento e roubavam a largura que o valor precisa para crescer.
+    final hora = lancamento.hora.length >= 5
+        ? lancamento.hora.substring(0, 5)
+        : lancamento.hora;
 
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: borderColor)),
         ),
         child: Row(
           children: [
             Text(
-              lancamento.hora,
-              style: TextStyle(fontSize: 10.5, color: textTer),
+              hora,
+              style: TextStyle(fontSize: AppTexto.rotulo, color: textTer),
             ),
             const SizedBox(width: 9),
             Container(
@@ -212,7 +223,7 @@ class _Linha extends StatelessWidget {
             Expanded(
               child: Text(
                 lancamento.tipo,
-                style: TextStyle(fontSize: 12, color: textSec),
+                style: TextStyle(fontSize: AppTexto.corpo, color: textSec),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -220,14 +231,14 @@ class _Linha extends StatelessWidget {
             Text(
               valor,
               style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.bold,
+                fontSize: AppTexto.valor,
+                fontWeight: FontWeight.w800,
                 color: textPri,
               ),
             ),
             if (primeira) ...[
               const SizedBox(width: 8),
-              Icon(Icons.edit_rounded, size: 14, color: textTer),
+              Icon(Icons.edit_rounded, size: 16, color: textTer),
             ],
           ],
         ),

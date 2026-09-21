@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_texto.dart';
 import '../utils/app_haptics.dart';
 
 class QuickAmountRow extends StatelessWidget {
@@ -45,7 +46,7 @@ class QuickAmountRow extends StatelessWidget {
                     },
                     borderRadius: BorderRadius.circular(AppColors.radiusSm),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: surfaceColor,
@@ -54,10 +55,12 @@ class QuickAmountRow extends StatelessWidget {
                       ),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
+                        // O "+" fica porque e ele que diz que o toque soma
+                        // ao valor; o "R$" o campo de venda ja mostra.
                         child: Text(
-                          '+ R\$ ${valor.toInt()}',
+                          '+${valor.toInt()}',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: AppTexto.corpo,
                             fontWeight: FontWeight.bold,
                             color: textPri,
                             letterSpacing: 0.1,

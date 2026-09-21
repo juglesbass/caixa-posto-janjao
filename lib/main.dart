@@ -781,7 +781,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
             totais: _totais,
             onRecarregar: _recarregarDados,
             onAbrirResumo: () => setState(() => _indiceAba = 2),
-            onMudarTema: widget.onMudarTema,
           ),
 
           // Aba 1: Histórico

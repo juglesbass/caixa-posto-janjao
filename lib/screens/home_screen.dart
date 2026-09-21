@@ -3,15 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../dialogs/card_brand_dialog.dart';
-import '../dialogs/sangria_dialog.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
 import '../services/database_service.dart';
 import '../services/drive_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_texto.dart';
 import '../utils/app_haptics.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/payment_types.dart';
+import '../widgets/cabecalho_turno.dart';
 import '../widgets/hud_totais.dart';
 import '../widgets/machine_selector.dart';
 import '../widgets/payment_grid.dart';
@@ -26,7 +27,6 @@ class HomeScreen extends StatefulWidget {
   final TotaisTurno totais;
   final VoidCallback onRecarregar;
   final VoidCallback onAbrirResumo;
-  final ValueChanged<bool>? onMudarTema;
 
   const HomeScreen({
     super.key,
@@ -34,7 +34,6 @@ class HomeScreen extends StatefulWidget {
     required this.totais,
     required this.onRecarregar,
     required this.onAbrirResumo,
-    this.onMudarTema,
   });
 
   @override
@@ -201,41 +200,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _abrirSangria() async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => SangriaDialog(
-        dinheiroNaGaveta: widget.totais.dinheiroGaveta,
-      ),
-    );
-
-    if (result != null) {
-      final valor = result['valor'] as double;
-      final motivo = result['motivo'] as String;
-
-      final db = DatabaseService.instance;
-      await db.inserirLancamento(
-        widget.turno.id!,
-        PaymentTypes.sangria,
-        valor,
-        motivo,
-      );
-
-      AppHaptics.medium();
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Sangria de ${CurrencyFormatter.formatar(valor)} realizada com sucesso!'),
-          backgroundColor: AppColors.orange,
-        ),
-      );
-
-      _recarregarTudo();
-    }
-  }
-
   /// Muda a cada lancamento novo ou corrigido: e o sinal para a lista dos
   /// ultimos lancamentos reler o banco. Os totais quem recarrega e a tela mae.
   int _versaoLancamentos = 0;
@@ -243,17 +207,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void _recarregarTudo() {
     if (mounted) setState(() => _versaoLancamentos++);
     widget.onRecarregar();
-  }
-
-  /// "20/09/2026" vira "20/09". O ano nao cabe no subtitulo e nao ajuda: a
-  /// duvida do frentista e sempre "de que dia e este caixa", nunca de que ano.
-  ///
-  /// Esta linha mostra a data do CAIXA, nao a hora em que o app foi aberto — e
-  /// o numero do turno saiu daqui porque o WebPost reinicia a contagem todo
-  /// dia, entao ele nao diz nada a ninguem. O numero continua no banco.
-  String _dataCurta(String dataCaixa) {
-    final texto = dataCaixa.trim();
-    return texto.length >= 5 ? texto.substring(0, 5) : texto;
   }
 
   @override
@@ -267,42 +220,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: ValueListenableBuilder<bool>(
-          valueListenable: DriveService.modoTesteNotifier,
-          builder: (context, modoTeste, _) {
-            return Column(
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('POSTO JANJÃO', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-                    if (modoTeste) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFD97706),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          '🧪 MODO TESTE',
-                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                Text(
-                  'Caixa ${_dataCurta(widget.turno.dataCaixa)} • ${widget.turno.operador}',
-                  style: TextStyle(fontSize: 11, color: textSec),
-                ),
-              ],
-            );
-          },
-        ),
+        centerTitle: false,
+        titleSpacing: 14,
+        title: CabecalhoTurno(turno: widget.turno),
         actions: [
+          // O modo teste ocupa o lugar do selo de estado: enquanto estiver
+          // ligado, e o aviso que mais importa. A tarja no corpo continua.
+          ValueListenableBuilder<bool>(
+            valueListenable: DriveService.modoTesteNotifier,
+            builder: (context, modoTeste, _) => modoTeste
+                ? const Center(
+                    child: SeloTurno(texto: 'Teste', cor: AppColors.amber),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          // A consulta de produtos fica na barra porque e feita no meio da
+          // venda — no Menu custaria um toque a mais toda vez. Os outros tres
+          // icones que moravam aqui sairam: o tema continua no Menu, o resumo
+          // tem a aba e o placar, e a sangria saiu do app.
           IconButton(
-            icon: const Icon(Icons.manage_search_rounded, color: Color(0xFF38BDF8)),
+            icon: const Icon(Icons.manage_search_rounded, color: AppColors.accentLight),
             tooltip: 'Tabela de Códigos / Produtos',
             onPressed: () {
               Navigator.push(
@@ -311,25 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          if (widget.onMudarTema != null)
-            IconButton(
-              icon: Icon(
-                isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                color: isDark ? const Color(0xFFFBBF24) : const Color(0xFF3B82F6),
-              ),
-              tooltip: isDark ? 'Ativar Tema Claro' : 'Ativar Tema Escuro',
-              onPressed: () => widget.onMudarTema!(!isDark),
-            ),
-          IconButton(
-            icon: const Icon(Icons.call_made_rounded, color: AppColors.orange),
-            tooltip: 'Realizar Sangria',
-            onPressed: _abrirSangria,
-          ),
-          IconButton(
-            icon: const Icon(Icons.bar_chart_rounded, color: AppColors.accentLight),
-            tooltip: 'Resumo do Turno',
-            onPressed: widget.onAbrirResumo,
-          ),
+          const SizedBox(width: 4),
         ],
       ),
       body: SafeArea(
@@ -350,9 +269,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         margin: const EdgeInsets.only(bottom: 10),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF78350F).withValues(alpha: 0.35),
+                          color: AppColors.amber.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                          border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
+                          border: Border.all(color: AppColors.amber.withValues(alpha: 0.4)),
                         ),
                         child: const Row(
                           children: [
@@ -362,8 +281,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Text(
                                 'MODO TESTE ATIVO: Relatórios serão enviados para a pasta de homologação no Drive.',
                                 style: TextStyle(
-                                  color: Color(0xFFFBBF24),
-                                  fontSize: 11.5,
+                                  color: AppColors.amber2,
+                                  fontSize: AppTexto.rotulo,
                                   fontWeight: FontWeight.bold,
                                   height: 1.25,
                                 ),
@@ -427,14 +346,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     inputFormatters: [CurrencyInputFormatter()],
                     textInputAction: TextInputAction.done,
                     style: TextStyle(
-                      fontSize: 22,
+                      fontSize: AppTexto.entrada,
                       fontWeight: FontWeight.w900,
                       color: textPri,
                       letterSpacing: 0.5,
                     ),
                     decoration: InputDecoration(
                       labelText: 'Valor da Venda',
-                      labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textSec),
+                      labelStyle: TextStyle(fontSize: AppTexto.corpo, fontWeight: FontWeight.bold, color: textSec),
                       hintText: 'R\$ 0,00',
                       prefixIcon: const Icon(Icons.attach_money_rounded, color: AppColors.accentLight, size: 26),
                       suffixIcon: _valorVenda > 0
@@ -448,7 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w900,
-                                    fontSize: 13,
+                                    fontSize: AppTexto.corpo,
                                     letterSpacing: 0.5,
                                   ),
                                 ),

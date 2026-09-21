@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_texto.dart';
 import '../utils/app_haptics.dart';
 import '../utils/payment_types.dart';
 
@@ -124,7 +125,7 @@ class _BotaoMaquina extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 13.5,
+                fontSize: AppTexto.corpo,
                 fontWeight: FontWeight.bold,
                 color: selecionada
                     ? (isDark ? AppColors.darkTextPri : AppColors.lightTextPri)
