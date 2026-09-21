@@ -4,7 +4,6 @@ import '../dialogs/analytics_dialog.dart';
 import '../dialogs/bloqueio_dialog.dart';
 import '../dialogs/encerrantes_dialog.dart';
 import '../dialogs/reset_dialog.dart';
-import '../dialogs/sangria_dialog.dart';
 import '../dialogs/trocar_pin_dialog.dart';
 import '../dialogs/turnos_anteriores_dialog.dart';
 import '../models/totais_turno.dart';
@@ -67,33 +66,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (ctx) => EncerrantesDialog(turnoId: widget.turno!.id!),
     );
-  }
-
-  void _abrirSangria(BuildContext context) async {
-    if (widget.turno == null) return;
-    final res = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => SangriaDialog(dinheiroNaGaveta: widget.totais.dinheiroGaveta),
-    );
-
-    if (res != null) {
-      final db = DatabaseService.instance;
-      await db.inserirLancamento(
-        widget.turno!.id!,
-        'Sangria',
-        res['valor'] as double,
-        res['motivo'] as String,
-      );
-      widget.onRecarregar();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Sangria registrada com sucesso!'),
-            backgroundColor: AppColors.orange,
-          ),
-        );
-      }
-    }
   }
 
   void _abrirAnalytics(BuildContext context) {
@@ -712,18 +684,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // 1. Sangria de Caixa
-                  _itemMenuCard(
-                    icon: Icons.north_east_rounded,
-                    iconColor: const Color(0xFFEA580C),
-                    iconBg: const Color(0xFF7C2D12).withValues(alpha: 0.4),
-                    titulo: 'Sangria de Caixa',
-                    subtitulo: 'Registrar retirada de dinheiro para o cofre',
-                    onTap: () => _abrirSangria(context),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // 2. Encerrantes de Bombas
+                  // 1. Encerrantes de Bombas
                   _itemMenuCard(
                     icon: Icons.local_gas_station_rounded,
                     iconColor: const Color(0xFFF59E0B),
@@ -734,7 +695,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // 3. Tabela de Códigos / Produtos
+                  // 2. Tabela de Códigos / Produtos
                   _itemMenuCard(
                     icon: Icons.shopping_bag_rounded,
                     iconColor: const Color(0xFF38BDF8),
@@ -745,7 +706,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // 4. Bloquear Caixa
+                  // 3. Bloquear Caixa
                   _itemMenuCard(
                     icon: Icons.lock_rounded,
                     iconColor: const Color(0xFF2563EB),
@@ -756,7 +717,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // 5. Sincronizar com Google Drive
+                  // 4. Sincronizar com Google Drive
                   _itemMenuCard(
                     icon: Icons.cloud_sync_rounded,
                     iconColor: const Color(0xFF10B981),
@@ -767,7 +728,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // 6. Alterar Meu PIN
+                  // 5. Alterar Meu PIN
                   _itemMenuCard(
                     icon: Icons.password_rounded,
                     iconColor: const Color(0xFF38BDF8),

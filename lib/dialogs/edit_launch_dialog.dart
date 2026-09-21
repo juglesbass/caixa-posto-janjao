@@ -147,6 +147,10 @@ class _EditLaunchDialogState extends State<EditLaunchDialog> {
                     borderRadius: BorderRadius.circular(AppColors.radiusSm),
                   ),
                 ),
+                // Sangria nao e mais destino possivel: o posto nao usa. Uma
+                // sangria antiga continua editavel porque o tipo atual sempre
+                // abre a lista — so nao da para transformar outro lancamento
+                // em sangria.
                 items: [
                   _tipoSelecionado,
                   PaymentTypes.dinheiro,
@@ -155,7 +159,6 @@ class _EditLaunchDialogState extends State<EditLaunchDialog> {
                   PaymentTypes.requisicao,
                   PaymentTypes.depositoGlobal,
                   PaymentTypes.despesas,
-                  PaymentTypes.sangria,
                 ].toSet().map((tipo) {
                   return DropdownMenuItem(
                     value: tipo,
