@@ -9,6 +9,7 @@ import 'package:printing/printing.dart';
 import '../models/lancamento.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
+import '../utils/conciliacao.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/payment_types.dart';
 import 'auth_service.dart';
@@ -193,26 +194,41 @@ class PdfService {
               ? '$dominioApp/#/validar?auth=$hashSeguro&op=${Uri.encodeComponent(turno.operador)}&turno=${turno.numero}&total=${totais.totalGeral.toStringAsFixed(2)}&data=${Uri.encodeComponent(dataHoraAuth)}'
               : 'POSTO JANJÃO\nTurno: #${turno.numero}\nOperador: ${turno.operador}\nTotal: R\$ ${totais.totalGeral.toStringAsFixed(2)}\nChave: $hashSeguro';
 
-          // Configuração dinâmica da faixa de resultado (Pista vs PDV) com precisão absoluta
+          // Faixa de resultado (pista x sistema). Sem a venda do sistema
+          // informada nao ha conferencia: antes, o total inteiro saia aqui como
+          // "sobra na pista" e confundia o gerente. Ver Conciliacao.
           final diferencaValor = totais.totalGeral - turno.vendasSistema;
-          final bool isCaixaZerado = diferencaValor.abs() < 0.01;
-          final bool isSobra = diferencaValor > 0.01;
+          final estado = Conciliacao.estado(
+            totalPista: totais.totalGeral,
+            vendasSistema: turno.vendasSistema,
+          );
 
-          final PdfColor faixaBg = isCaixaZerado
-              ? PdfColors.green800
-              : (isSobra ? PdfColors.orange900 : PdfColors.red800);
+          final PdfColor faixaBg = switch (estado) {
+            EstadoConciliacao.semSistema => PdfColor.fromHex('#475569'),
+            EstadoConciliacao.fechada => PdfColors.green800,
+            EstadoConciliacao.sobra => PdfColors.orange900,
+            EstadoConciliacao.falta => PdfColors.red800,
+          };
 
-          final PdfColor faixaBorder = isCaixaZerado
-              ? PdfColor.fromHex('#14532d')
-              : (isSobra ? PdfColor.fromHex('#7c2d12') : PdfColor.fromHex('#7f1d1d'));
+          final PdfColor faixaBorder = switch (estado) {
+            EstadoConciliacao.semSistema => PdfColor.fromHex('#334155'),
+            EstadoConciliacao.fechada => PdfColor.fromHex('#14532d'),
+            EstadoConciliacao.sobra => PdfColor.fromHex('#7c2d12'),
+            EstadoConciliacao.falta => PdfColor.fromHex('#7f1d1d'),
+          };
 
-          final String faixaLabel = isCaixaZerado
-              ? 'CAIXA EXATO (ZERADO):'
-              : (isSobra ? 'SOBRA NA PISTA:' : 'FALTA NA PISTA:');
+          final String faixaLabel = switch (estado) {
+            EstadoConciliacao.semSistema => 'CONFERÊNCIA PISTA X SISTEMA:',
+            EstadoConciliacao.fechada => 'CAIXA EXATO (ZERADO):',
+            EstadoConciliacao.sobra => 'SOBRA NA PISTA:',
+            EstadoConciliacao.falta => 'FALTA NA PISTA:',
+          };
 
-          final String faixaValorTexto = isCaixaZerado
-              ? 'R\$ 0,00'
-              : CurrencyFormatter.formatar(diferencaValor);
+          final String faixaValorTexto = switch (estado) {
+            EstadoConciliacao.semSistema => 'SISTEMA NÃO INFORMADO',
+            EstadoConciliacao.fechada => 'R\$ 0,00',
+            _ => CurrencyFormatter.formatar(diferencaValor),
+          };
 
           return pw.DefaultTextStyle(
             style: pw.TextStyle(font: fontRegular, fontSize: 8.5, color: corTextoEscuro),
@@ -538,7 +554,10 @@ class PdfService {
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
                       pw.Text('TOTAL DE VENDAS SISTEMA (PDV):', style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: PdfColor.fromHex('#cbd5e1'))),
-                      pw.Text(CurrencyFormatter.formatar(turno.vendasSistema), style: pw.TextStyle(font: fontBold, fontSize: 9.5, color: PdfColor.fromHex('#f8fafc'))),
+                      pw.Text(
+                        turno.vendasSistema > 0 ? CurrencyFormatter.formatar(turno.vendasSistema) : 'NÃO INFORMADO',
+                        style: pw.TextStyle(font: fontBold, fontSize: 9.5, color: PdfColor.fromHex('#f8fafc')),
+                      ),
                     ],
                   ),
                 ),

@@ -6,6 +6,7 @@ import '../models/turno.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/app_haptics.dart';
+import '../utils/conciliacao.dart';
 import '../utils/currency_formatter.dart';
 
 typedef DadosFechamentoTurno = ({
@@ -436,11 +437,14 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
     final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
     final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
 
+    // Mesma regra do Resumo e do PDF (Conciliacao): sem a venda do sistema
+    // nao ha conferencia, e o bloco de sobra/falta nem aparece.
     final diferenca = widget.totais.totalGeral - _vendasSistema;
-    final bool temVendasSistema = _vendasSistema > 0;
-    final bool ehSobra = diferenca > 0.009;
-    final bool ehFalta = diferenca < -0.009;
-    final bool batido = temVendasSistema && !ehSobra && !ehFalta;
+    final estado = Conciliacao.estado(totalPista: widget.totais.totalGeral, vendasSistema: _vendasSistema);
+    final bool temVendasSistema = estado != EstadoConciliacao.semSistema;
+    final bool ehSobra = estado == EstadoConciliacao.sobra;
+    final bool ehFalta = estado == EstadoConciliacao.falta;
+    final bool batido = estado == EstadoConciliacao.fechada;
 
     Color corAuditoria = AppColors.green;
     String tituloAuditoria = 'CAIXA 100% BATIDO';

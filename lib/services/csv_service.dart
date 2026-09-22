@@ -43,8 +43,15 @@ class CsvService {
     buffer.writeln('Depósito Global;-;${totais.depositoGlobal.toStringAsFixed(2)}');
     buffer.writeln('Despesas;-;${totais.despesas.toStringAsFixed(2)}');
     buffer.writeln('TOTAL GERAL (PISTA);-;${totais.totalGeral.toStringAsFixed(2)}');
-    buffer.writeln('Vendas Sistema (PDV);-;${turno.vendasSistema.toStringAsFixed(2)}');
-    buffer.writeln('Diferença;-;${totais.diferenca.toStringAsFixed(2)}');
+    // Sem a venda do sistema nao ha conferencia: nada de "diferenca" igual ao
+    // total inteiro (ver Conciliacao).
+    if (turno.vendasSistema > 0) {
+      buffer.writeln('Vendas Sistema (PDV);-;${turno.vendasSistema.toStringAsFixed(2)}');
+      buffer.writeln('Diferença;-;${totais.diferenca.toStringAsFixed(2)}');
+    } else {
+      buffer.writeln('Vendas Sistema (PDV);-;não informado');
+      buffer.writeln('Diferença;-;não conferida');
+    }
     buffer.writeln('');
 
     // Detalhamento de Cartões
