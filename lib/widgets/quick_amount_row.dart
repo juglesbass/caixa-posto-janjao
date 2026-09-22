@@ -60,9 +60,8 @@ class QuickAmountRow extends StatelessWidget {
                         child: Text(
                           '+${valor.toInt()}',
                           style: TextStyle(
-                            fontFamily: AppTexto.numeros,
                             fontSize: AppTexto.corpo,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                             color: textPri,
                             letterSpacing: 0.1,
                           ),

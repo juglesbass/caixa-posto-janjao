@@ -9,7 +9,7 @@ import '../theme/app_icones.dart';
 import '../theme/app_texto.dart';
 import '../utils/currency_formatter.dart';
 
-/// Os três últimos lançamentos do turno, com correção a um toque.
+/// Os dois últimos lançamentos do turno, com correção a um toque.
 ///
 /// Por que existe: o erro caro do posto é lançar 380 onde era 38, ou lançar no
 /// Pix o que entrou em dinheiro. Hoje isso só aparece quando alguém abre o
@@ -43,7 +43,10 @@ class UltimosLancamentos extends StatefulWidget {
 }
 
 class _UltimosLancamentosState extends State<UltimosLancamentos> {
-  static const int _quantos = 3;
+  /// Dois bastam para pegar o erro do lançamento que acabou de entrar, e a
+  /// terceira linha disputava espaço com a grade de formas de pagamento. O
+  /// resto está a um toque, no Histórico.
+  static const int _quantos = 2;
 
   List<Lancamento> _ultimos = const [];
 

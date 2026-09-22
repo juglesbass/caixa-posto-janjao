@@ -53,9 +53,8 @@ class CampoValorVenda extends StatelessWidget {
       inputFormatters: [CurrencyInputFormatter()],
       textInputAction: TextInputAction.done,
       style: TextStyle(
-        fontFamily: AppTexto.numeros,
         fontSize: AppTexto.entrada,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w800,
         color: textPri,
       ),
       decoration: InputDecoration(

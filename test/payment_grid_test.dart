@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Future<void> montar(WidgetTester tester, String tipoAtivo) async {
+  Future<void> montar(WidgetTester tester, String tipoAtivo, {bool compacto = false}) async {
     // Largura de um iPhone de 440pt, com a mesma margem da tela Início.
     tester.view.physicalSize = const Size(440 * 3, 956 * 3);
     tester.view.devicePixelRatio = 3;
@@ -24,6 +24,7 @@ void main() {
               bandeiraCartaoAtiva: 'Master Débito',
               onSelecionarTipo: (_) {},
               onAbrirSeletorCartoes: () {},
+              compacto: compacto,
             ),
           ),
         ),
@@ -69,6 +70,54 @@ void main() {
         final widget = tester.widget<Icon>(find.byIcon(icone));
         expect(widget.color, cor, reason: 'cor do icone $icone');
       }
+    });
+
+    testWidgets('o escolhido ganha o ✓, e só ele', (tester) async {
+      await montar(tester, PaymentTypes.requisicao);
+      expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+
+      // O ✓ fica no quadrado do icone da forma escolhida.
+      final check = tester.getCenter(find.byIcon(Icons.check_rounded));
+      final icone = tester.getRect(find.byIcon(AppIcones.requisicao));
+      expect((check - icone.center).distance, lessThan(40));
+    });
+
+    // Em testes separados: montadas uma depois da outra no mesmo teste, o card
+    // animaria o recuo de uma versao para a outra — coisa que no app nao
+    // acontece, porque cada tela usa sempre a mesma.
+    testWidgets('mostra a linha de apoio', (tester) async {
+      await montar(tester, PaymentTypes.dinheiro);
+      expect(find.text('Espécie'), findsOneWidget);
+    });
+
+    testWidgets('a versão compacta não tem linha de apoio e cabe', (tester) async {
+      await montar(tester, '${PaymentTypes.maquinaRede} Master Débito', compacto: true);
+      expect(find.text('Espécie'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    // Celular pequeno (375pt) com o card mais cheio escolhido: nada estoura.
+    testWidgets('cabe num celular de 375pt', (tester) async {
+      tester.view.physicalSize = const Size(375 * 3, 812 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme(),
+          home: Scaffold(
+            body: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: PaymentGrid(
+                tipoAtivo: '${PaymentTypes.maquinaRede} Master Crédito',
+                bandeiraCartaoAtiva: 'Master Crédito',
+                onSelecionarTipo: (_) {},
+                onAbrirSeletorCartoes: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
     });
   });
 }

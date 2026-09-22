@@ -169,6 +169,7 @@ class _QuickLaunchModalState extends State<QuickLaunchModal> {
               bandeiraCartaoAtiva: _bandeira,
               onSelecionarTipo: _selecionarTipo,
               onAbrirSeletorCartoes: _abrirSeletorCartoes,
+              compacto: true,
             ),
             const SizedBox(height: 14),
             CampoValorVenda(

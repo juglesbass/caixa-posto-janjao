@@ -55,10 +55,11 @@ class HudTotais extends StatelessWidget {
                     const SizedBox(height: 5),
                     Text(
                       CurrencyFormatter.formatar(totais.totalGeral),
+                      // Fonte comum e bem pesada no numero grande: a
+                      // monoespacada deixava o total com cara de terminal.
                       style: TextStyle(
-                        fontFamily: AppTexto.numeros,
                         fontSize: AppTexto.total,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w800,
                         color: textPri,
                         letterSpacing: -0.5,
                         height: 1.05,
@@ -186,11 +187,7 @@ class _Total extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   quantidade!,
-                  style: TextStyle(
-                    fontFamily: AppTexto.numeros,
-                    fontSize: AppTexto.rotulo,
-                    color: textTer,
-                  ),
+                  style: TextStyle(fontSize: AppTexto.rotulo, color: textTer),
                 ),
               ],
             ],
@@ -203,13 +200,10 @@ class _Total extends StatelessWidget {
           child: Text(
             valor,
             style: TextStyle(
-              fontFamily: AppTexto.numeros,
-              // 14, e nao o 16 das linhas: com digito de largura fixa,
-              // "R$ 1.234,56" em 16 nao cabe num terco de um celular de 375px,
-              // e cada coluna encolhia num tamanho diferente. Em 14 cabe ate
-              // R$ 9.999,99 sem encolher.
-              fontSize: AppTexto.corpo,
-              fontWeight: FontWeight.w600,
+              // Fonte comum, que e mais estreita que a monoespacada: em 16
+              // "R$ 9.999,99" cabe num terco de um celular de 375px.
+              fontSize: AppTexto.valor,
+              fontWeight: FontWeight.w800,
               color: textPri,
             ),
           ),
