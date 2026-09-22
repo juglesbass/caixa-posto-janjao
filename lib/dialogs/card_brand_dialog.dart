@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_texto.dart';
 import '../utils/app_haptics.dart';
 import '../utils/payment_types.dart';
 
+/// Escolha da bandeira do cartão, na máquina ativa.
+///
+/// Cada bandeira na mesma linguagem da grade de formas: quadrado com o ícone
+/// na cor dela, nome, e a escolhida acesa na própria cor com um ✓.
 class CardBrandDialog extends StatelessWidget {
   final String maquinaAtiva;
   final String bandeiraSelecionada;
@@ -18,61 +23,111 @@ class CardBrandDialog extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
     final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final corMaquina = maquinaAtiva == PaymentTypes.maquinaRede ? AppColors.rede : AppColors.cielo;
 
-    return AlertDialog(
-      title: Row(
-        children: [
-          Icon(Icons.credit_card_rounded, color: corMaquina, size: 24),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Cartões - Máquina $maquinaAtiva',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri),
-            ),
-          ),
-        ],
-      ),
-      content: SizedBox(
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: SizedBox(
         width: double.maxFinite,
-        child: ListView.separated(
-          shrinkWrap: true,
-          itemCount: PaymentTypes.bandeirasPadrao.length,
-          separatorBuilder: (_, __) => Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-          itemBuilder: (context, index) {
-            final bandeira = PaymentTypes.bandeirasPadrao[index];
-            final selecionado = bandeira == bandeiraSelecionada;
-            final corBandeira = AppColors.getCorTipo(bandeira);
-            final icone = AppColors.getIconeTipo(bandeira);
-
-            return ListTile(
-              dense: true,
-              leading: Icon(icone, color: corBandeira, size: 22),
-              title: Text(
-                bandeira,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: selecionado ? FontWeight.bold : FontWeight.normal,
-                  color: selecionado ? corBandeira : textPri,
-                ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 8, 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Bandeira do cartão',
+                          style: TextStyle(fontSize: AppTexto.valor, fontWeight: FontWeight.w700, color: textPri),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(color: corMaquina, shape: BoxShape.circle),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Máquina $maquinaAtiva',
+                              style: TextStyle(fontSize: AppTexto.rotulo, color: textSec),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: 'Fechar',
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
               ),
-              trailing: selecionado
-                  ? Icon(Icons.check_circle_rounded, color: corBandeira, size: 20)
-                  : null,
-              onTap: () {
-                AppHaptics.light();
-                Navigator.of(context).pop(bandeira);
-              },
-            );
-          },
+            ),
+            Divider(height: 1, color: borderColor),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                itemCount: PaymentTypes.bandeirasPadrao.length,
+                itemBuilder: (context, index) {
+                  final bandeira = PaymentTypes.bandeirasPadrao[index];
+                  final sel = bandeira == bandeiraSelecionada;
+                  final cor = AppColors.getCorTipo(bandeira);
+                  return InkWell(
+                    onTap: () {
+                      AppHaptics.light();
+                      Navigator.of(context).pop(bandeira);
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: sel ? cor.withValues(alpha: isDark ? 0.18 : 0.10) : null,
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: cor.withValues(alpha: isDark ? 0.16 : 0.12),
+                              borderRadius: BorderRadius.circular(AppColors.radiusXs),
+                            ),
+                            child: Icon(AppColors.getIconeTipo(bandeira), size: 18, color: cor),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              bandeira,
+                              style: TextStyle(
+                                fontSize: AppTexto.corpo,
+                                fontWeight: sel ? FontWeight.w800 : FontWeight.w500,
+                                color: textPri,
+                              ),
+                            ),
+                          ),
+                          if (sel) Icon(Icons.check_circle_rounded, color: cor, size: 20),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text('Fechar', style: TextStyle(color: textSec)),
-        ),
-      ],
     );
   }
 }

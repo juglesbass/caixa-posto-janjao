@@ -26,6 +26,9 @@ class CampoValorVenda extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final VoidCallback onLancar;
 
+  /// Rótulo do campo. Na correção de um lançamento vira só "Valor".
+  final String rotulo;
+
   const CampoValorVenda({
     super.key,
     required this.controller,
@@ -36,6 +39,7 @@ class CampoValorVenda extends StatelessWidget {
     this.erro,
     required this.onChanged,
     required this.onLancar,
+    this.rotulo = 'Valor da Venda',
   });
 
   @override
@@ -58,7 +62,7 @@ class CampoValorVenda extends StatelessWidget {
         color: textPri,
       ),
       decoration: InputDecoration(
-        labelText: 'Valor da Venda',
+        labelText: rotulo,
         labelStyle: TextStyle(fontSize: AppTexto.corpo, fontWeight: FontWeight.bold, color: textSec),
         hintText: 'R\$ 0,00',
         // Icone na mesma linha do primeiro elemento de todo bloco da tela.
