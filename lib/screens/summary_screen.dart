@@ -22,10 +22,14 @@ import '../services/drive_service.dart';
 import '../services/notification_service.dart';
 import '../services/pdf_service.dart' deferred as pdf_service;
 import '../theme/app_colors.dart';
+import '../theme/app_icones.dart';
+import '../theme/app_texto.dart';
 import '../utils/app_haptics.dart';
+import '../utils/conciliacao.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/data_caixa.dart';
 import '../utils/payment_types.dart';
+import '../widgets/cabecalho_turno.dart';
 import '../widgets/pending_sync_banner.dart';
 
 class SummaryScreen extends StatefulWidget {
@@ -320,12 +324,15 @@ class _SummaryScreenState extends State<SummaryScreen> {
     if (_vendasSistema > 0) {
       buffer.writeln('🖥️ *VENDAS SISTEMA (PDV):* ${CurrencyFormatter.formatar(_vendasSistema)}');
       final dif = _diferencaAtual;
-      if (dif.abs() < 0.01) {
-        buffer.writeln('✅ *STATUS:* CAIXA 100% BATIDO (SEM DIFERENÇA)');
-      } else if (dif > 0) {
-        buffer.writeln('🔺 *STATUS:* SOBRA DE ${CurrencyFormatter.formatar(dif)}');
-      } else {
-        buffer.writeln('🔻 *STATUS:* FALTA DE ${CurrencyFormatter.formatar(dif)}');
+      switch (Conciliacao.estado(totalPista: widget.totais.totalGeral, vendasSistema: _vendasSistema)) {
+        case EstadoConciliacao.fechada:
+          buffer.writeln('✅ *STATUS:* CAIXA 100% BATIDO (SEM DIFERENÇA)');
+        case EstadoConciliacao.sobra:
+          buffer.writeln('🔺 *STATUS:* SOBRA DE ${CurrencyFormatter.formatar(dif)}');
+        case EstadoConciliacao.falta:
+          buffer.writeln('🔻 *STATUS:* FALTA DE ${CurrencyFormatter.formatar(dif)}');
+        case EstadoConciliacao.semSistema:
+          break;
       }
     }
 
@@ -470,22 +477,28 @@ class _SummaryScreenState extends State<SummaryScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.event_rounded, size: 13, color: textSec),
+            Icon(Icons.event_rounded, size: 14, color: textSec),
             const SizedBox(width: 4),
-            Text(
-              'Caixa do dia ${widget.turno.dataCaixa}',
-              style: TextStyle(fontSize: 11, color: textSec, fontWeight: FontWeight.w600),
+            // Encolhe com reticencias em vez de estourar: celular estreito ou
+            // letra do sistema aumentada. O "trocar" fica sempre inteiro.
+            Flexible(
+              child: Text(
+                'Caixa do dia ${widget.turno.dataCaixa}',
+                style: TextStyle(fontSize: AppTexto.rotulo, color: textSec, fontWeight: FontWeight.w600),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             if (podeTrocar) ...[
               const SizedBox(width: 8),
               const Text(
                 'trocar',
                 style: TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF38BDF8),
+                  fontSize: AppTexto.rotulo,
+                  color: AppColors.accentLight,
                   fontWeight: FontWeight.w700,
                   decoration: TextDecoration.underline,
-                  decorationColor: Color(0xFF38BDF8),
+                  decorationColor: AppColors.accentLight,
                 ),
               ),
             ],
@@ -970,10 +983,45 @@ class _SummaryScreenState extends State<SummaryScreen> {
   Widget build(BuildContext context) {
     final diferenca = _diferencaAtual;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgScaffold = isDark ? const Color(0xFF0D131F) : AppColors.lightBg;
-    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
-    final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
+    // Mesmo fundo da tela Inicio: ao trocar de aba, a tela nao muda de tom.
+    final bgScaffold = isDark ? AppColors.darkBg : AppColors.lightBg;
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final surface = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+
+    final qtdCartoes = widget.totais.detalheCartoes.entries
+        .fold<int>(0, (acc, e) => acc + (_canhotosManual[e.key] ?? e.value.qtd));
+    final temOutras = widget.totais.dinheiro > 0 ||
+        widget.totais.pix > 0 ||
+        widget.totais.requisicao > 0 ||
+        widget.totais.depositoGlobal > 0 ||
+        widget.totais.despesas > 0;
+
+    InputDecoration campo(String rotulo, IconData icone) => InputDecoration(
+          labelText: rotulo,
+          labelStyle: TextStyle(color: textSec, fontSize: AppTexto.corpo, fontWeight: FontWeight.w600),
+          prefixIcon: Padding(
+            padding: const EdgeInsets.only(left: 17, right: 8),
+            child: Icon(icone, color: AppColors.accentLight, size: 22),
+          ),
+          prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 44),
+          filled: true,
+          fillColor: surface,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppColors.radiusMd),
+            borderSide: BorderSide(color: borderCol),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppColors.radiusMd),
+            borderSide: BorderSide(color: borderCol),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppColors.radiusMd),
+            borderSide: const BorderSide(color: AppColors.accentLight, width: 2),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        );
 
     return Scaffold(
       backgroundColor: bgScaffold,
@@ -981,69 +1029,27 @@ class _SummaryScreenState extends State<SummaryScreen> {
         child: Column(
           children: [
             PendingSyncBanner(onSincronizado: widget.onTurnoAlterado),
-            // ── Barra Superior com Ícone em Gradiente, Chips e Fechar 'X' ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            // ── Cabeçalho: que caixa é este, de quem, e sair ──
+            Container(
+              color: surface,
+              padding: const EdgeInsets.fromLTRB(16, 10, 6, 10),
               child: Row(
                 children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF2563EB), Color(0xFF0284C7)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF0284C7).withValues(alpha: 0.35),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(Icons.bar_chart_rounded, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Resumo do Turno',
-                          style: TextStyle(
-                            fontSize: 16.5,
-                            fontWeight: FontWeight.w800,
-                            color: textPri,
-                            letterSpacing: -0.2,
-                          ),
+                          'Resumo do caixa',
+                          style: TextStyle(fontSize: AppTexto.valor, fontWeight: FontWeight.w700, color: textPri),
                         ),
                         const SizedBox(height: 1),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0284C7).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'Turno #${widget.turno.numero}',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF38BDF8),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '• ${widget.turno.operador}',
-                              style: TextStyle(fontSize: 11, color: textSec, fontWeight: FontWeight.w500),
-                            ),
-                          ],
+                        Text(
+                          widget.turno.operador,
+                          style: TextStyle(fontSize: AppTexto.rotulo, color: textSec, fontWeight: FontWeight.w500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         _linhaDataCaixa(textSec),
                       ],
@@ -1051,39 +1057,22 @@ class _SummaryScreenState extends State<SummaryScreen> {
                   ),
                   ValueListenableBuilder<bool>(
                     valueListenable: DriveService.modoTesteNotifier,
-                    builder: (context, modoTeste, _) {
-                      if (!modoTeste) return const SizedBox.shrink();
-                      return Container(
-                        margin: const EdgeInsets.only(right: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFD97706),
-                          borderRadius: BorderRadius.circular(6),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFD97706).withValues(alpha: 0.3),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('🧪', style: TextStyle(fontSize: 10)),
-                            SizedBox(width: 4),
-                            Text(
-                              'TESTE',
-                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                    builder: (context, modoTeste, _) => modoTeste
+                        ? const Padding(
+                            padding: EdgeInsets.only(right: 4),
+                            child: SeloTurno(texto: 'Teste', cor: AppColors.amber),
+                          )
+                        : const SizedBox.shrink(),
                   ),
+                  if (!widget.turno.aberto)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 4),
+                      child: SeloTurno(texto: 'Fechado', cor: AppColors.amber),
+                    ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 20),
+                    icon: const Icon(Icons.close_rounded),
                     color: textSec,
-                    splashRadius: 18,
+                    tooltip: 'Fechar',
                     onPressed: () {
                       if (widget.onFechar != null) {
                         widget.onFechar!();
@@ -1097,522 +1086,168 @@ class _SummaryScreenState extends State<SummaryScreen> {
             ),
             Divider(height: 1, color: borderCol),
 
-            // ── Conteúdo com Scroll Dinâmico e Botões Integrados ──
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Banner de Modo Teste no Resumo
+                    // Modo teste: o PDF vai para a pasta de homologacao.
                     ValueListenableBuilder<bool>(
                       valueListenable: DriveService.modoTesteNotifier,
                       builder: (context, modoTeste, _) {
                         if (!modoTeste) return const SizedBox.shrink();
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF78350F).withValues(alpha: 0.35),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFF59E0B)),
-                          ),
-                          child: const Row(
-                            children: [
-                              Text('🧪', style: TextStyle(fontSize: 16)),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'MODO TESTE ATIVO: O PDF deste fechamento será enviado para a pasta de homologação do Drive.',
-                                  style: TextStyle(
-                                    color: Color(0xFFFBBF24),
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                        return const _Aviso(
+                          cor: AppColors.amber,
+                          icone: Icons.science_rounded,
+                          titulo: 'Modo teste ligado',
+                          texto: 'O PDF deste fechamento vai para a pasta de homologação do Drive.',
                         );
                       },
                     ),
-                    // Status do Turno (Aberto / Fechado)
-                    if (!widget.turno.aberto) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              const Color(0xFF7F1D1D).withValues(alpha: isDark ? 0.35 : 0.12),
-                              const Color(0xFF991B1B).withValues(alpha: isDark ? 0.25 : 0.08),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.6), width: 1.2),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(5),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEF4444).withValues(alpha: 0.2),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.lock_rounded, color: Color(0xFFF87171), size: 16),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'TURNO HOMOLOGADO E FECHADO',
-                                    style: TextStyle(
-                                      color: Color(0xFFF87171),
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 11,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Encerrado em: ${widget.turno.fechadoEm ?? "Fechado"}',
-                                    style: TextStyle(
-                                      color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFB91C1C),
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                    // Turno ja encerrado
+                    if (!widget.turno.aberto)
+                      _Aviso(
+                        cor: AppColors.red,
+                        icone: Icons.lock_rounded,
+                        titulo: 'Turno fechado',
+                        texto: 'Encerrado em ${widget.turno.fechadoEm ?? "—"}.',
                       ),
-                      const SizedBox(height: 14),
-                    ],
 
-                    // ── 1. SEÇÃO DE CARTÕES E VOUCHERS (Bandeiras com Vendas e Total) ──
-                    if (widget.totais.detalheCartoes.values.any((v) => v.total > 0)) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    // ── 1. Cartões e vouchers ──
+                    if (widget.totais.detalheCartoes.values.any((v) => v.total > 0))
+                      _Bloco(
+                        titulo: 'Cartões e vouchers',
+                        contagem: '$qtdCartoes×',
                         children: [
-                          Text(
-                            'CARTÕES E VOUCHERS',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: isDark ? const Color(0xFF64748B) : const Color(0xFF475569),
-                              letterSpacing: 0.6,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0284C7).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '${widget.totais.detalheCartoes.entries.fold<int>(0, (acc, e) => acc + (_canhotosManual[e.key] ?? e.value.qtd))} un',
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8)),
-                            ),
-                          ),
+                          for (final e in PaymentTypes.ordenarCartoes(widget.totais.detalheCartoes.entries))
+                            if (e.value.total > 0)
+                              _LinhaResumo(
+                                icone: AppColors.getIconeTipo(e.key),
+                                cor: AppColors.getCorTipo(e.key),
+                                titulo: e.key,
+                                quantidade: '${_canhotosManual[e.key] ?? e.value.qtd}×',
+                                valor: e.value.total,
+                                onTap: () => _abrirDetalhesCartao(e.key),
+                              ),
+                          if (widget.totais.cartoes > 0 || widget.totais.qtdCartoes > 0)
+                            _LinhaTotal(titulo: 'Total cartões e vouchers', valor: widget.totais.cartoes),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      for (final e in PaymentTypes.ordenarCartoes(widget.totais.detalheCartoes.entries))
-                        if (e.value.total > 0) ...[
-                          _itemResumoCard(
-                            icon: AppColors.getIconeTipo(e.key),
-                            iconColor: AppColors.getCorTipo(e.key),
-                            iconBg: isDark
-                                ? AppColors.getCorTipo(e.key).withValues(alpha: 0.18)
-                                : AppColors.getCorTipo(e.key).withValues(alpha: 0.12),
-                            titulo: e.key,
-                            subtitulo: '${_canhotosManual[e.key] ?? e.value.qtd} un',
-                            onTapSubtitulo: () => _abrirDetalhesCartao(e.key),
-                            valor: e.value.total,
-                            isDark: isDark,
-                            onTap: () => _abrirDetalhesCartao(e.key),
-                          ),
-                          const SizedBox(height: 8),
+
+                    // ── 2. Outras formas de pagamento ──
+                    if (temOutras)
+                      _Bloco(
+                        titulo: 'Outras formas de pagamento',
+                        children: [
+                          if (widget.totais.dinheiro > 0)
+                            _LinhaResumo(
+                              icone: AppIcones.dinheiro,
+                              cor: AppColors.green,
+                              titulo: 'Sobra de Dinheiro',
+                              valor: widget.totais.dinheiro,
+                            ),
+                          if (widget.totais.pix > 0)
+                            _LinhaResumo(
+                              icone: AppIcones.pix,
+                              cor: AppColors.blue,
+                              titulo: 'Pag Pix',
+                              quantidade: '${widget.totais.qtdPix}×',
+                              valor: widget.totais.pix,
+                              onTap: () => _abrirDetalhesCartao('Pag Pix'),
+                            ),
+                          if (widget.totais.requisicao > 0)
+                            _LinhaResumo(
+                              icone: AppIcones.requisicao,
+                              cor: AppColors.amber,
+                              titulo: 'Requisição',
+                              valor: widget.totais.requisicao,
+                            ),
+                          if (widget.totais.depositoGlobal > 0)
+                            _LinhaResumo(
+                              icone: AppIcones.deposito,
+                              cor: AppColors.brown,
+                              titulo: 'Depósito Global',
+                              valor: widget.totais.depositoGlobal,
+                            ),
+                          if (widget.totais.despesas > 0)
+                            _LinhaResumo(
+                              icone: AppIcones.despesas,
+                              cor: AppColors.red,
+                              titulo: 'Despesas',
+                              valor: widget.totais.despesas,
+                            ),
                         ],
-                      if (widget.totais.cartoes > 0 || widget.totais.qtdCartoes > 0) ...[
-                        _itemResumoCard(
-                          icon: Icons.credit_card_rounded,
-                          iconColor: const Color(0xFF38BDF8),
-                          iconBg: isDark ? const Color(0xFF0284C7).withValues(alpha: 0.25) : const Color(0xFFE0F2FE),
-                          titulo: 'Total Cartões e Vouchers',
-                          subtitulo: '${widget.totais.detalheCartoes.entries.fold<int>(0, (acc, e) => acc + (_canhotosManual[e.key] ?? e.value.qtd))} un',
-                          valor: widget.totais.cartoes,
-                          isDark: isDark,
-                          isSummaryCard: true,
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      const SizedBox(height: 8),
-                    ],
-
-                    // ── 2. SEÇÃO DE OUTRAS FORMAS DE PAGAMENTO ──
-                    if (widget.totais.dinheiro > 0 ||
-                        widget.totais.pix > 0 ||
-                        widget.totais.requisicao > 0 ||
-                        widget.totais.depositoGlobal > 0 ||
-                        widget.totais.despesas > 0) ...[
-                      Text(
-                        'OUTRAS FORMAS DE PAGAMENTO',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? const Color(0xFF64748B) : const Color(0xFF475569),
-                          letterSpacing: 0.5,
-                        ),
                       ),
-                      const SizedBox(height: 8),
 
-                      // Sobra de Dinheiro
-                      if (widget.totais.dinheiro > 0) ...[
-                        _itemResumoCard(
-                          icon: Icons.money_rounded,
-                          iconColor: const Color(0xFF059669),
-                          iconBg: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.5) : const Color(0xFFD1FAE5),
-                          titulo: 'Sobra de Dinheiro',
-                          valor: widget.totais.dinheiro,
-                          isDark: isDark,
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-
-                      // Pag Pix
-                      if (widget.totais.pix > 0) ...[
-                        _itemResumoCard(
-                          icon: Icons.qr_code_2_rounded,
-                          iconColor: const Color(0xFF0284C7),
-                          iconBg: isDark ? const Color(0xFF0C4A6E).withValues(alpha: 0.5) : const Color(0xFFE0F2FE),
-                          titulo: 'Pag Pix',
-                          subtitulo: '${widget.totais.qtdPix} un',
-                          valor: widget.totais.pix,
-                          isDark: isDark,
-                          onTap: () => _abrirDetalhesCartao('Pag Pix'),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-
-                      // Requisição
-                      if (widget.totais.requisicao > 0) ...[
-                        _itemResumoCard(
-                          icon: Icons.receipt_long_rounded,
-                          iconColor: const Color(0xFF7C3AED),
-                          iconBg: isDark ? const Color(0xFF581C87).withValues(alpha: 0.5) : const Color(0xFFF3E8FF),
-                          titulo: 'Requisição',
-                          valor: widget.totais.requisicao,
-                          isDark: isDark,
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-
-                      // Depósito Global
-                      if (widget.totais.depositoGlobal > 0) ...[
-                        _itemResumoCard(
-                          icon: Icons.account_balance_rounded,
-                          iconColor: const Color(0xFFD97706),
-                          iconBg: isDark ? const Color(0xFF78350F).withValues(alpha: 0.5) : const Color(0xFFFEF3C7),
-                          titulo: 'Depósito Global',
-                          valor: widget.totais.depositoGlobal,
-                          isDark: isDark,
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-
-                      // Despesas
-                      if (widget.totais.despesas > 0) ...[
-                        _itemResumoCard(
-                          icon: Icons.money_off_rounded,
-                          iconColor: const Color(0xFFDC2626),
-                          iconBg: isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.5) : const Color(0xFFFEE2E2),
-                          titulo: 'Despesas',
-                          valor: widget.totais.despesas,
-                          isDark: isDark,
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                    ],
-
-                    // ── 3. CASO NADA TENHA SIDO LANÇADO AINDA ──
-                    if (widget.totais.totalGeral == 0) ...[
+                    // ── Nada lançado ainda ──
+                    if (widget.totais.totalGeral == 0)
                       Container(
+                        margin: const EdgeInsets.only(bottom: 14),
                         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF131C2E) : Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+                          color: surface,
+                          borderRadius: BorderRadius.circular(AppColors.radiusLg),
+                          border: Border.all(color: borderCol),
                         ),
                         child: Column(
                           children: [
-                            Icon(Icons.inbox_rounded, color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8), size: 36),
+                            Icon(Icons.inbox_rounded, color: textSec, size: 34),
                             const SizedBox(height: 8),
                             Text(
-                              'Nenhum lançamento registrado no turno',
-                              style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B), fontSize: 13),
+                              'Nenhum lançamento neste turno ainda.',
+                              style: TextStyle(color: textSec, fontSize: AppTexto.corpo),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                    ],
 
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    // ── 3. Conciliação de vendas ──
+                    _Bloco(
+                      titulo: 'Conciliação de vendas',
                       children: [
-                        Text(
-                          'CONCILIAÇÃO DE VENDAS',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: isDark ? const Color(0xFF64748B) : const Color(0xFF475569),
-                            letterSpacing: 0.6,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2563EB).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'Auditoria',
-                            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8)),
+                        _LinhaTotal(titulo: 'Total de vendas pista', valor: widget.totais.totalGeral, grande: true),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              TextFormField(
+                                controller: _vendasSistemaController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                inputFormatters: [CurrencyInputFormatter()],
+                                style: TextStyle(color: textPri, fontWeight: FontWeight.w800, fontSize: AppTexto.valor),
+                                decoration: campo('Vendas do sistema (relatório PDV)', Icons.computer_rounded),
+                                onChanged: _atualizarVendasSistema,
+                              ),
+                              const SizedBox(height: 10),
+                              _FaixaConciliacao(
+                                diferenca: diferenca,
+                                estado: Conciliacao.estado(
+                                  totalPista: widget.totais.totalGeral,
+                                  vendasSistema: _vendasSistema,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
 
-                    // ── Card Hero Total de Vendas Pista ──
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: isDark
-                              ? [const Color(0xFF1E3A8A).withValues(alpha: 0.55), const Color(0xFF0F172A)]
-                              : [const Color(0xFFEFF6FF), const Color(0xFFDBEAFE)],
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDark ? const Color(0xFF38BDF8).withValues(alpha: 0.4) : const Color(0xFF3B82F6),
-                          width: 1.2,
-                        ),
-                        boxShadow: [
-                          if (isDark)
-                            BoxShadow(
-                              color: const Color(0xFF1E3A8A).withValues(alpha: 0.2),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF38BDF8).withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.point_of_sale_rounded, color: Color(0xFF38BDF8), size: 22),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'TOTAL DE VENDAS PISTA',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.6,
-                                    color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E40AF),
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  CurrencyFormatter.formatar(widget.totais.totalGeral),
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w900,
-                                    color: textPri,
-                                    letterSpacing: -0.3,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // ── Input Total de Vendas Sistema (PDV) ──
-                    TextFormField(
-                      controller: _vendasSistemaController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [CurrencyInputFormatter()],
-                      style: TextStyle(
-                        color: textPri,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14.5,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'Vendas Sistema (Relatório PDV)',
-                        labelStyle: TextStyle(
-                          color: textSec,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        prefixIcon: const Icon(
-                          Icons.computer_rounded,
-                          color: Color(0xFF38BDF8),
-                          size: 20,
-                        ),
-                        filled: true,
-                        fillColor: isDark ? const Color(0xFF111827) : Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: borderCol),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: borderCol),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      ),
-                      onChanged: _atualizarVendasSistema,
-                    ),
-                    const SizedBox(height: 10),
-
-                    // ── Card de Status da Diferença ──
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                      decoration: BoxDecoration(
-                        color: diferenca.abs() < 0.01
-                            ? (isDark ? const Color(0xFF064E3B).withValues(alpha: 0.35) : const Color(0xFFD1FAE5))
-                            : (diferenca > 0
-                                ? (isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : const Color(0xFFFEF3C7))
-                                : (isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.35) : const Color(0xFFFEE2E2))),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: diferenca.abs() < 0.01
-                              ? const Color(0xFF10B981)
-                              : (diferenca > 0 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(5),
-                            decoration: BoxDecoration(
-                              color: (diferenca.abs() < 0.01
-                                      ? const Color(0xFF10B981)
-                                      : (diferenca > 0 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)))
-                                  .withValues(alpha: 0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              diferenca.abs() < 0.01
-                                  ? Icons.check_circle_rounded
-                                  : (diferenca > 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded),
-                              color: diferenca.abs() < 0.01
-                                  ? const Color(0xFF10B981)
-                                  : (diferenca > 0 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)),
-                              size: 18,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              diferenca.abs() < 0.01
-                                  ? 'CONCILIAÇÃO 100% BATIDA'
-                                  : (diferenca > 0 ? 'SOBRA NA PISTA' : 'FALTA NA PISTA'),
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.4,
-                                color: diferenca.abs() < 0.01
-                                    ? (isDark ? const Color(0xFF34D399) : const Color(0xFF065F46))
-                                    : (diferenca > 0
-                                        ? (isDark ? const Color(0xFFFBBF24) : const Color(0xFF92400E))
-                                        : (isDark ? const Color(0xFFF87171) : const Color(0xFF991B1B))),
-                              ),
-                            ),
-                          ),
-                          Text(
-                            CurrencyFormatter.formatar(diferenca),
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                              color: diferenca.abs() < 0.01
-                                  ? (isDark ? const Color(0xFF34D399) : const Color(0xFF065F46))
-                                  : (diferenca > 0
-                                      ? (isDark ? const Color(0xFFFBBF24) : const Color(0xFF92400E))
-                                      : (isDark ? const Color(0xFFF87171) : const Color(0xFF991B1B))),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // ── Input Observações / Justificativa ──
+                    // ── Observações ──
                     TextFormField(
                       controller: _observacaoController,
                       maxLines: 2,
-                      style: TextStyle(color: textPri, fontSize: 13),
-                      decoration: InputDecoration(
-                        labelText: 'Observações / Justificativa (Opcional)',
-                        labelStyle: TextStyle(
-                          color: textSec,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        prefixIcon: const Icon(
-                          Icons.edit_note_rounded,
-                          color: Color(0xFF94A3B8),
-                          size: 20,
-                        ),
-                        filled: true,
-                        fillColor: isDark ? const Color(0xFF111827) : Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: borderCol),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: borderCol),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
+                      style: TextStyle(color: textPri, fontSize: AppTexto.corpo),
+                      decoration: campo('Observações / justificativa (opcional)', Icons.edit_note_rounded),
                       onChanged: _atualizarObservacao,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 18),
 
-                    // ── 6 Botões de Ação Executivos Integrados Dinamicamente na Página ──
+                    // ── Ações ──
                     Builder(
                       builder: (btnCtx) {
-                        final neutralBtnBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
-                        final neutralBtnText = isDark ? Colors.white : const Color(0xFF1E293B);
-
                         return Column(
                           children: [
                             // Acao principal, sozinha e larga: depois dela o
@@ -1622,12 +1257,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
                               width: double.infinity,
                               child: _botaoAcao(
                                 icon: Icons.lock_rounded,
-                                label: widget.turno.aberto ? 'Encerrar Turno' : 'Turno Fechado',
+                                label: widget.turno.aberto ? 'Encerrar turno e enviar ao gerente' : 'Turno fechado',
                                 corFundo: widget.turno.aberto
-                                    ? const Color(0xFF2563EB)
-                                    : (isDark ? const Color(0xFF334155) : const Color(0xFF94A3B8)),
-                                corTexto: Colors.white,
+                                    ? AppColors.accent
+                                    : (isDark ? AppColors.darkSurfaceElevated : AppColors.lightSurfaceElevated),
+                                corTexto: widget.turno.aberto ? Colors.white : textSec,
                                 altura: 52,
+                                principal: true,
                                 onPressed: _processando ? null : _encerrarTurno,
                               ),
                             ),
@@ -1642,8 +1278,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                   child: _botaoAcao(
                                     icon: Icons.chat_rounded,
                                     label: 'WhatsApp',
-                                    corFundo: neutralBtnBg,
-                                    corTexto: neutralBtnText,
+                                    corFundo: surface,
+                                    corTexto: textPri,
                                     corIcone: const Color(0xFF16A34A),
                                     onPressed: _processando ? null : () => _compartilharWhatsApp(btnCtx),
                                   ),
@@ -1652,9 +1288,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                 Expanded(
                                   child: _botaoAcao(
                                     icon: Icons.copy_rounded,
-                                    label: 'Copiar Texto',
-                                    corFundo: neutralBtnBg,
-                                    corTexto: neutralBtnText,
+                                    label: 'Copiar texto',
+                                    corFundo: surface,
+                                    corTexto: textPri,
+                                    corIcone: AppColors.accentLight,
                                     onPressed: _copiarTexto,
                                   ),
                                 ),
@@ -1667,9 +1304,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                   child: _botaoAcao(
                                     icon: Icons.picture_as_pdf_rounded,
                                     label: 'Baixar PDF',
-                                    corFundo: neutralBtnBg,
-                                    corTexto: neutralBtnText,
-                                    corIcone: const Color(0xFFEF4444),
+                                    corFundo: surface,
+                                    corTexto: textPri,
+                                    corIcone: AppColors.red,
                                     onPressed: _processando ? null : () => _baixarPdf(btnCtx),
                                   ),
                                 ),
@@ -1678,9 +1315,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                   child: _botaoAcao(
                                     icon: Icons.table_chart_rounded,
                                     label: 'Excel (CSV)',
-                                    corFundo: neutralBtnBg,
-                                    corTexto: neutralBtnText,
-                                    corIcone: const Color(0xFF0D9488),
+                                    corFundo: surface,
+                                    corTexto: textPri,
+                                    corIcone: AppColors.teal,
                                     onPressed: _processando ? null : () => _exportarExcel(btnCtx),
                                   ),
                                 ),
@@ -1689,14 +1326,15 @@ class _SummaryScreenState extends State<SummaryScreen> {
                             const SizedBox(height: 8),
 
                             // Sair da tela nao e acao de caixa: fica discreto e
-                            // por ultimo, longe do Encerrar Turno.
+                            // por ultimo, longe do Encerrar turno.
                             SizedBox(
                               width: double.infinity,
                               child: _botaoAcao(
                                 icon: Icons.close_rounded,
                                 label: 'Fechar',
                                 corFundo: Colors.transparent,
-                                corTexto: isDark ? AppColors.darkTextSec : AppColors.lightTextSec,
+                                corTexto: textSec,
+                                semBorda: true,
                                 onPressed: () {
                                   if (widget.onFechar != null) {
                                     widget.onFechar!();
@@ -1721,92 +1359,61 @@ class _SummaryScreenState extends State<SummaryScreen> {
     );
   }
 
-  Widget _itemResumoCard({
-    required IconData icon,
-    required Color iconColor,
-    required Color iconBg,
-    required String titulo,
-    String? subtitulo,
-    required double valor,
-    VoidCallback? onTap,
-    VoidCallback? onTapSubtitulo,
-    bool isSummaryCard = false,
-    required bool isDark,
-  }) {
-    return _ItemResumoCard(
-      icon: icon,
-      iconColor: iconColor,
-      iconBg: iconBg,
-      titulo: titulo,
-      subtitulo: subtitulo,
-      valor: valor,
-      onTap: onTap,
-      onTapSubtitulo: onTapSubtitulo,
-      isSummaryCard: isSummaryCard,
-      isDark: isDark,
-    );
-  }
-
   Widget _botaoAcao({
     required IconData icon,
     required String label,
     required Color corFundo,
     required Color corTexto,
     required VoidCallback? onPressed,
-    Gradient? gradient,
-    List<BoxShadow>? boxShadow,
     // Icone colorido sobre fundo neutro: a cor identifica a saida (WhatsApp,
     // PDF, Excel) sem pintar o botao inteiro e sem competir com a acao
     // principal, que e a unica azul da tela.
     Color? corIcone,
-    double altura = 46,
+    double altura = 48,
+    bool principal = false,
+    bool semBorda = false,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     return SizedBox(
       height: altura,
-      child: Container(
-        decoration: BoxDecoration(
-          color: gradient == null ? corFundo : null,
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: boxShadow,
+      child: ElevatedButton(
+        onPressed: onPressed == null
+            ? null
+            : () {
+                AppHaptics.light();
+                onPressed();
+              },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: corFundo,
+          disabledBackgroundColor: corFundo.withValues(alpha: corFundo.a * 0.6),
+          foregroundColor: corTexto,
+          shadowColor: Colors.transparent,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppColors.radiusMd),
+            side: principal || semBorda ? BorderSide.none : BorderSide(color: borderCol),
+          ),
         ),
-        child: ElevatedButton(
-          onPressed: onPressed == null
-              ? null
-              : () {
-                  AppHaptics.light();
-                  onPressed();
-                },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            foregroundColor: corTexto,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 16, color: corIcone ?? corTexto),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                    color: corTexto,
-                    letterSpacing: 0.2,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: principal ? 18 : 17, color: corIcone ?? corTexto),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: principal ? AppTexto.corpo + 1 : AppTexto.corpo,
+                  fontWeight: principal ? FontWeight.w800 : FontWeight.w700,
+                  color: corTexto,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1919,22 +1526,30 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Canhotos Físicos (QTD)',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: textPri,
+                            // Ocupa so o que sobra: os botoes - e + nunca podem
+                            // ser empurrados para fora num celular estreito.
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Canhotos Físicos (QTD)',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: textPri,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                                Text(
-                                  'Base de vendas: $qtdBandeira un',
-                                  style: TextStyle(fontSize: 10.5, color: textSec),
-                                ),
-                              ],
+                                  Text(
+                                    'Base de vendas: $qtdBandeira un',
+                                    style: TextStyle(fontSize: 10.5, color: textSec),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
                             Row(
                               children: [
@@ -2323,222 +1938,311 @@ class _SummaryScreenState extends State<SummaryScreen> {
   }
 }
 
-class _ItemResumoCard extends StatefulWidget {
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBg;
+/// Um bloco do Resumo: título em caixa alta, e as linhas num cartão só,
+/// separadas por fio — como no PDF que o gerente recebe, e não um cartão por
+/// linha.
+class _Bloco extends StatelessWidget {
   final String titulo;
-  final String? subtitulo;
-  final double valor;
-  final VoidCallback? onTap;
-  final VoidCallback? onTapSubtitulo;
-  final bool isSummaryCard;
-  final bool isDark;
+  final String? contagem;
+  final List<Widget> children;
 
-  const _ItemResumoCard({
-    required this.icon,
-    required this.iconColor,
-    required this.iconBg,
-    required this.titulo,
-    this.subtitulo,
-    required this.valor,
-    this.onTap,
-    this.onTapSubtitulo,
-    this.isSummaryCard = false,
-    required this.isDark,
-  });
-
-  @override
-  State<_ItemResumoCard> createState() => _ItemResumoCardState();
-}
-
-class _ItemResumoCardState extends State<_ItemResumoCard> {
-  bool _isPressed = false;
+  const _Bloco({required this.titulo, this.contagem, required this.children});
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDark;
-    final isSummaryCard = widget.isSummaryCard;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
 
-    final baseCardBg = isSummaryCard
-        ? (isDark ? const Color(0xFF172554).withValues(alpha: 0.4) : const Color(0xFFEFF6FF))
-        : (isDark ? const Color(0xFF121622) : Colors.white);
-    final cardBorder = isSummaryCard
-        ? (isDark ? const Color(0xFF3B82F6).withValues(alpha: 0.5) : const Color(0xFFBFDBFE))
-        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0));
-    final textTitle = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
-    final textValue = isDark ? Colors.white : const Color(0xFF0F172A);
+    final linhas = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      if (i > 0) linhas.add(Divider(height: 1, thickness: 1, color: borderCol));
+      linhas.add(children[i]);
+    }
 
-    // Efeito de clareamento sutil no toque: rgba(255, 255, 255, 0.05) no modo noturno
-    final cardBg = _isPressed && (widget.onTap != null || widget.onTapSubtitulo != null)
-        ? (isDark
-            ? Color.alphaBlend(Colors.white.withValues(alpha: 0.05), baseCardBg)
-            : Color.alphaBlend(Colors.black.withValues(alpha: 0.03), baseCardBg))
-        : baseCardBg;
-
-    final textoBadge =
-        widget.subtitulo?.replaceAll('(', '').replaceAll(')', '').trim();
-
-    final temAcao = widget.onTap != null || widget.onTapSubtitulo != null;
-
-    return AnimatedScale(
-      scale: _isPressed && temAcao ? 0.985 : 1.0,
-      duration: const Duration(milliseconds: 150),
-      curve: Curves.easeOutCubic,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        curve: Curves.easeOutCubic,
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: cardBorder, width: isSummaryCard ? 1.2 : 1),
-          boxShadow: [
-            if (!isDark || isSummaryCard)
-              BoxShadow(
-                color: isSummaryCard
-                    ? const Color(0xFF3B82F6).withValues(alpha: 0.12)
-                    : Colors.black.withValues(alpha: 0.04),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: temAcao
-                ? () {
-                    AppHaptics.light();
-                    if (widget.onTap != null) {
-                      widget.onTap!();
-                    } else if (widget.onTapSubtitulo != null) {
-                      widget.onTapSubtitulo!();
-                    }
-                  }
-                : null,
-            onHighlightChanged: temAcao
-                ? (highlighted) {
-                    setState(() => _isPressed = highlighted);
-                  }
-                : null,
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // 1. Ícone em Squircle (Caixa Arredondada 34x34)
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: widget.iconBg,
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(widget.icon, color: widget.iconColor, size: 18),
-                  ),
-                  const SizedBox(width: 8),
-
-                  // 2. Nome da Bandeira (Pill com relevo e micro-seta para cartões selecionáveis; texto limpo para totalizador e outros)
-                  if (!isSummaryCard && temAcao)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E2638) : const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(7),
-                        border: Border.all(
-                          color: isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFCBD5E1),
-                          width: 1.0,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            widget.titulo,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            '▾',
-                            style: TextStyle(
-                              fontSize: 9,
-                              height: 1.0,
-                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    Text(
-                      widget.titulo,
-                      style: TextStyle(
-                        fontSize: isSummaryCard ? 13.5 : 13,
-                        color: isSummaryCard
-                            ? (isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E40AF))
-                            : textTitle,
-                        fontWeight: isSummaryCard ? FontWeight.w800 : FontWeight.w600,
-                      ),
-                    ),
-
-                  // 3. Badge de Canhotos (un)
-                  if (textoBadge != null && textoBadge.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF3B82F6).withValues(alpha: isDark ? 0.18 : 0.12),
-                        borderRadius: BorderRadius.circular(5),
-                        border: Border.all(
-                          color: const Color(0xFF3B82F6).withValues(alpha: isDark ? 0.30 : 0.25),
-                          width: 1.0,
-                        ),
-                      ),
-                      child: Text(
-                        textoBadge,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ),
-                  ],
-
-                  // 4. Espaçador elástico (margin-right: auto / margin-left: auto)
-                  const Spacer(),
-                  const SizedBox(width: 6),
-
-                  // 5. Valor Monetário à Direita (ancorado à margem direita, tabular)
-                  Text(
-                    CurrencyFormatter.formatar(widget.valor),
-                    textAlign: TextAlign.right,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    titulo.toUpperCase(),
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: AppTexto.rotulo,
                       fontWeight: FontWeight.w700,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                      color: isSummaryCard && isDark ? const Color(0xFF38BDF8) : textValue,
+                      letterSpacing: 0.8,
+                      color: textTer,
                     ),
                   ),
-                ],
-              ),
+                ),
+                if (contagem != null)
+                  Text(
+                    contagem!,
+                    style: TextStyle(fontSize: AppTexto.rotulo, color: textTer, fontWeight: FontWeight.w600),
+                  ),
+              ],
             ),
           ),
+          Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: surface,
+              borderRadius: BorderRadius.circular(AppColors.radiusLg),
+              border: Border.all(color: borderCol),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: linhas),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Uma forma de pagamento no Resumo: ícone na cor dela, nome, quantidade e o
+/// valor em dígitos alinhados. Quando tem detalhe, a linha inteira abre.
+class _LinhaResumo extends StatelessWidget {
+  final IconData icone;
+  final Color cor;
+  final String titulo;
+  final String? quantidade;
+  final double valor;
+  final VoidCallback? onTap;
+
+  const _LinhaResumo({
+    required this.icone,
+    required this.cor,
+    required this.titulo,
+    this.quantidade,
+    required this.valor,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
+    final corIcone = isDark && cor == AppColors.purple ? AppColors.purpleLight : cor;
+
+    return InkWell(
+      onTap: onTap == null
+          ? null
+          : () {
+              AppHaptics.light();
+              onTap!();
+            },
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 12, onTap == null ? 16 : 8, 12),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: corIcone.withValues(alpha: isDark ? 0.16 : 0.12),
+                borderRadius: BorderRadius.circular(AppColors.radiusXs),
+              ),
+              child: Icon(icone, size: 18, color: corIcone),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: titulo),
+                    if (quantidade != null)
+                      TextSpan(
+                        text: '  $quantidade',
+                        style: TextStyle(color: textSec, fontWeight: FontWeight.w500, fontSize: AppTexto.rotulo),
+                      ),
+                  ],
+                ),
+                style: TextStyle(fontSize: AppTexto.corpo, fontWeight: FontWeight.w600, color: textPri),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              CurrencyFormatter.formatar(valor),
+              style: TextStyle(
+                fontFamily: AppTexto.numeros,
+                fontSize: AppTexto.valor,
+                fontWeight: FontWeight.w600,
+                color: textPri,
+              ),
+            ),
+            if (onTap != null) Icon(Icons.chevron_right_rounded, size: 20, color: textTer),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+/// Linha de total no pé (ou no topo) de um bloco: sem ícone, valor mais forte.
+class _LinhaTotal extends StatelessWidget {
+  final String titulo;
+  final double valor;
+  final bool grande;
+
+  const _LinhaTotal({required this.titulo, required this.valor, this.grande = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final fundo = isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle;
+
+    return Container(
+      color: grande ? null : fundo,
+      padding: EdgeInsets.fromLTRB(16, grande ? 14 : 12, 16, grande ? 10 : 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              titulo,
+              style: TextStyle(fontSize: AppTexto.corpo, fontWeight: FontWeight.w700, color: textPri),
+            ),
+          ),
+          Text(
+            CurrencyFormatter.formatar(valor),
+            style: TextStyle(
+              fontSize: grande ? 22 : AppTexto.valor,
+              fontWeight: FontWeight.w800,
+              color: textPri,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// O fecho da conciliação: pista fechada, sobra ou falta — ou, antes de
+/// digitar as vendas do sistema, o que falta fazer.
+class _FaixaConciliacao extends StatelessWidget {
+  final double diferenca;
+  final EstadoConciliacao estado;
+
+  const _FaixaConciliacao({required this.diferenca, required this.estado});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+
+    // Sem a venda do sistema nao ha conferencia (ver Conciliacao): em vez de
+    // mostrar o total inteiro como "sobra", diz o que falta fazer.
+    if (estado == EstadoConciliacao.semSistema) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppColors.radiusMd),
+          border: Border.all(color: borderCol),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline_rounded, size: 18, color: textSec),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Digite as vendas do sistema para conferir a pista.',
+                style: TextStyle(fontSize: AppTexto.rotulo + 1, color: textSec),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final fechada = estado == EstadoConciliacao.fechada;
+    final sobra = estado == EstadoConciliacao.sobra;
+    final cor = fechada ? AppColors.green : (sobra ? AppColors.amber : AppColors.red);
+    final titulo = fechada ? 'Pista fechada' : (sobra ? 'Sobra na pista' : 'Falta na pista');
+    final detalhe = fechada ? 'sem sobra, sem falta' : (sobra ? 'lançado a mais que o sistema' : 'lançado a menos que o sistema');
+    final icone = fechada
+        ? Icons.check_circle_rounded
+        : (sobra ? Icons.trending_up_rounded : Icons.trending_down_rounded);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: cor.withValues(alpha: isDark ? 0.14 : 0.10),
+        borderRadius: BorderRadius.circular(AppColors.radiusMd),
+        border: Border.all(color: cor.withValues(alpha: 0.55)),
+      ),
+      child: Row(
+        children: [
+          Icon(icone, size: 22, color: cor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo.toUpperCase(),
+                  style: TextStyle(fontSize: AppTexto.rotulo, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: cor),
+                ),
+                Text(detalhe, style: TextStyle(fontSize: AppTexto.rotulo, color: textSec)),
+              ],
+            ),
+          ),
+          Text(
+            CurrencyFormatter.formatar(diferenca),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: cor),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Aviso no topo do Resumo (modo teste, turno fechado).
+class _Aviso extends StatelessWidget {
+  final Color cor;
+  final IconData icone;
+  final String titulo;
+  final String texto;
+
+  const _Aviso({required this.cor, required this.icone, required this.titulo, required this.texto});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: cor.withValues(alpha: isDark ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(AppColors.radiusMd),
+        border: Border.all(color: cor.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        children: [
+          Icon(icone, size: 18, color: cor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text.rich(
+              TextSpan(children: [
+                TextSpan(text: '$titulo. ', style: TextStyle(fontWeight: FontWeight.w800, color: cor)),
+                TextSpan(text: texto),
+              ]),
+              style: TextStyle(fontSize: AppTexto.rotulo + 1, color: textPri, height: 1.3),
+            ),
+          ),
+        ],
       ),
     );
   }
