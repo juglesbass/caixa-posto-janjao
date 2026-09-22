@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../dialogs/edit_launch_dialog.dart';
@@ -50,10 +52,28 @@ class _UltimosLancamentosState extends State<UltimosLancamentos> {
 
   List<Lancamento> _ultimos = const [];
 
+  /// Lançamento que acabou de entrar: a linha dele brilha por um instante. É a
+  /// confirmação do lançamento, no lugar onde o olho já está — no lugar da
+  /// faixa verde que aparecia embaixo, por cima do rodapé.
+  int? _idDestaque;
+  Timer? _timerDestaque;
+  bool _carregouUmaVez = false;
+
   @override
   void initState() {
     super.initState();
+    // O banco avisa toda inclusão, correção e exclusão — venham da tela
+    // Início, do "+" do rodapé ou do Histórico. Antes a lista só relia quando
+    // a tela Início avisava, e um lançamento feito pelo "+" não aparecia aqui.
+    DatabaseService.lancamentosNotifier.addListener(_carregar);
     _carregar();
+  }
+
+  @override
+  void dispose() {
+    DatabaseService.lancamentosNotifier.removeListener(_carregar);
+    _timerDestaque?.cancel();
+    super.dispose();
   }
 
   @override
@@ -72,7 +92,25 @@ class _UltimosLancamentosState extends State<UltimosLancamentos> {
       // A consulta já vem do mais novo para o mais antigo.
       final lista = await DatabaseService.instance.obterLancamentos(id);
       if (!mounted) return;
-      setState(() => _ultimos = lista.take(_quantos).toList());
+      final novos = lista.take(_quantos).toList();
+
+      // Brilha so o que e novo de verdade: nao na abertura da tela, nem quando
+      // uma correcao ou exclusao reordena a lista.
+      final idsAntes = _ultimos.map((l) => l.id).toSet();
+      final topo = novos.isEmpty ? null : novos.first.id;
+      final chegouAgora = _carregouUmaVez && topo != null && !idsAntes.contains(topo);
+      _carregouUmaVez = true;
+
+      setState(() {
+        _ultimos = novos;
+        if (chegouAgora) _idDestaque = topo;
+      });
+      if (chegouAgora) {
+        _timerDestaque?.cancel();
+        _timerDestaque = Timer(const Duration(milliseconds: 1600), () {
+          if (mounted) setState(() => _idDestaque = null);
+        });
+      }
     } catch (_) {
       // Lista de conferência: se a leitura falhar, a tela segue sem ela em vez
       // de travar o lançamento, que é o que o frentista veio fazer.
@@ -160,6 +198,7 @@ class _UltimosLancamentosState extends State<UltimosLancamentos> {
             _Linha(
               lancamento: lancamento,
               primeira: lancamento == _ultimos.first,
+              destacado: lancamento.id != null && lancamento.id == _idDestaque,
               borderColor: borderColor,
               textPri: textPri,
               textSec: textSec,
@@ -175,6 +214,7 @@ class _UltimosLancamentosState extends State<UltimosLancamentos> {
 class _Linha extends StatelessWidget {
   final Lancamento lancamento;
   final bool primeira;
+  final bool destacado;
   final Color borderColor;
   final Color textPri;
   final Color textSec;
@@ -184,6 +224,7 @@ class _Linha extends StatelessWidget {
   const _Linha({
     required this.lancamento,
     required this.primeira,
+    this.destacado = false,
     required this.borderColor,
     required this.textPri,
     required this.textSec,
@@ -208,9 +249,13 @@ class _Linha extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        // Entra acesa e apaga devagar: diz "entrou" sem pedir atencao depois.
+        duration: Duration(milliseconds: destacado ? 150 : 900),
+        curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
+          color: destacado ? cor.withValues(alpha: 0.16) : cor.withValues(alpha: 0),
           border: Border(top: BorderSide(color: borderColor)),
         ),
         child: Row(

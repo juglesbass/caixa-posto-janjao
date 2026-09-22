@@ -165,14 +165,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${CurrencyFormatter.formatar(valor)} lançado em $tipoFinal'),
-          backgroundColor: AppColors.green,
-          duration: const Duration(milliseconds: 1800),
-        ),
-      );
-
+      // Sem faixa de "lancado": a confirmacao e o lancamento entrando, aceso,
+      // no topo dos ultimos lancamentos (UltimosLancamentos). A faixa verde
+      // aparecia embaixo, por cima do rodape, longe de onde o olho estava.
       _controllerValor.clear();
       _controllerDesc.clear();
       _controllerRecebido.clear();
