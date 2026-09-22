@@ -11,6 +11,7 @@ import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/operadores_sync_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_texto.dart';
 import '../utils/app_haptics.dart';
 import '../utils/validator.dart';
 
@@ -357,7 +358,7 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF080B12) : AppColors.lightBg;
+    final bg = isDark ? AppColors.darkBg : AppColors.lightBg;
 
     return Scaffold(
       backgroundColor: bg,
@@ -442,10 +443,10 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
   Widget _painel(bool isDark) {
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0E1524) : Colors.white,
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
         borderRadius: BorderRadius.circular(AppColors.radiusXl),
         border: Border.all(
-          color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder,
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
         ),
         boxShadow: [
           BoxShadow(
@@ -491,16 +492,9 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark
-              ? [const Color(0xFF16223C), const Color(0xFF0E1524)]
-              : [const Color(0xFFEFF6FF), Colors.white],
-        ),
         border: Border(
           bottom: BorderSide(
-            color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder,
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
           ),
         ),
       ),
@@ -511,11 +505,7 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.accent, Color(0xFF0284C7)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: AppColors.accent,
                 borderRadius: BorderRadius.circular(AppColors.radiusMd),
               ),
               child: const Icon(Icons.local_gas_station_rounded,
@@ -560,7 +550,7 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
             IconButton(
               icon: Icon(
                 widget.isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                color: widget.isDark ? const Color(0xFFFBBF24) : const Color(0xFF2563EB),
+                color: widget.isDark ? AppColors.amber2 : AppColors.accent,
               ),
               tooltip: widget.isDark ? 'Tema claro' : 'Tema escuro',
               onPressed: () => widget.onMudarTema!(!widget.isDark),
@@ -669,29 +659,31 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
       onTap: _processando ? null : () => _selecionarNome(nome),
       borderRadius: BorderRadius.circular(AppColors.radiusMd),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        // 44pt de altura: e a tela em que mais se toca com pressa, na troca
+        // de turno. Antes eram uns 33pt.
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
         decoration: BoxDecoration(
           color: destaque
               ? AppColors.accent.withValues(alpha: isDark ? 0.16 : 0.08)
-              : (isDark ? const Color(0xFF121A2B) : const Color(0xFFF8FAFC)),
+              : (isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle),
           borderRadius: BorderRadius.circular(AppColors.radiusMd),
           border: Border.all(
             color: destaque
                 ? AppColors.accentLight.withValues(alpha: 0.6)
-                : (isDark ? const Color(0xFF1E293B) : AppColors.lightBorder),
+                : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
           ),
         ),
         child: Row(
           children: [
             _avatar(nome, destaque, isDark),
-            const SizedBox(width: 7),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 nome,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: AppTexto.corpo,
                   fontWeight: FontWeight.w700,
                   color: destaque ? AppColors.accentLight : textPri,
                 ),
@@ -713,26 +705,21 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
             : '${partes.first.substring(0, 1)}${partes.last.substring(0, 1)}');
 
     return Container(
-      width: 22,
-      height: 22,
+      // Quadrado arredondado, como as iniciais na barra do caixa: o frentista
+      // ve la em cima o mesmo sinal em que tocou para entrar.
+      width: 28,
+      height: 28,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: destaque
-            ? const LinearGradient(
-                colors: [AppColors.accent, Color(0xFF0284C7)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : null,
+        borderRadius: BorderRadius.circular(AppColors.radiusXs),
         color: destaque
-            ? null
-            : (isDark ? const Color(0xFF20273D) : const Color(0xFFE2E8F0)),
+            ? AppColors.accent
+            : (isDark ? AppColors.darkSurfaceElevated : AppColors.lightSurfaceElevated),
       ),
       child: Text(
         iniciais.toUpperCase(),
         style: TextStyle(
-          fontSize: 9.5,
+          fontSize: 11,
           fontWeight: FontWeight.w800,
           color: destaque
               ? Colors.white
@@ -758,7 +745,7 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
         style: OutlinedButton.styleFrom(
           foregroundColor: textSec,
           side: BorderSide(
-            color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder,
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppColors.radiusMd),
@@ -791,18 +778,18 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
             prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
             errorText: _erroNome,
             filled: true,
-            fillColor: isDark ? const Color(0xFF121A2B) : const Color(0xFFF8FAFC),
+            fillColor: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppColors.radiusMd),
               borderSide: BorderSide(
-                color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder,
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppColors.radiusMd),
               borderSide: BorderSide(
-                color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder,
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
               ),
             ),
             focusedBorder: OutlineInputBorder(
@@ -943,14 +930,14 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
         Container(
           constraints: const BoxConstraints(maxWidth: 260),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF121A2B) : const Color(0xFFF8FAFC),
+            color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
             borderRadius: BorderRadius.circular(AppColors.radiusLg),
             border: Border.all(
               color: erro
                   ? AppColors.red
                   : (_focusPin.hasFocus
                       ? AppColors.accentLight
-                      : (isDark ? const Color(0xFF1E293B) : AppColors.lightBorder)),
+                      : (isDark ? AppColors.darkBorder : AppColors.lightBorder)),
               width: erro || _focusPin.hasFocus ? 1.8 : 1,
             ),
           ),
@@ -1042,7 +1029,7 @@ class _IdentificacaoScreenState extends State<IdentificacaoScreen> {
         children: [
           Divider(
             height: 18,
-            color: isDark ? const Color(0xFF1B2233) : AppColors.lightBorder,
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
           ),
           SizedBox(
         width: double.infinity,
