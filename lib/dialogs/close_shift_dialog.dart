@@ -126,11 +126,11 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
             final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
 
             return AlertDialog(
-              backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
+              backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
                 side: BorderSide(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
                 ),
               ),
               title: Row(
@@ -138,12 +138,12 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                      color: AppColors.amber.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
                       Icons.admin_panel_settings_rounded,
-                      color: Color(0xFFF59E0B),
+                      color: AppColors.amber,
                       size: 22,
                     ),
                   ),
@@ -188,7 +188,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                       counterText: '',
                       errorText: erroGerente,
                       filled: true,
-                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      fillColor: isDark ? AppColors.darkBg : AppColors.lightSurfaceSubtle,
                       contentPadding: const EdgeInsets.symmetric(vertical: 12),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     ),
@@ -202,7 +202,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF59E0B),
+                    backgroundColor: AppColors.amber,
                     foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
@@ -250,7 +250,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -267,10 +267,10 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                        color: AppColors.green.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.verified_user_rounded, color: Color(0xFF10B981), size: 24),
+                      child: const Icon(Icons.verified_user_rounded, color: AppColors.green, size: 24),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -295,7 +295,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   icon: const Icon(Icons.lock_reset_rounded, size: 20),
                   label: const Text('Redefinir PIN do Operador (4 dígitos)'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0284C7),
+                    backgroundColor: AppColors.accent,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -310,8 +310,8 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
                   label: const Text('Autorizar e Fechar Turno Imediatamente'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF10B981),
-                    side: const BorderSide(color: Color(0xFF10B981), width: 1.5),
+                    foregroundColor: AppColors.green,
+                    side: const BorderSide(color: AppColors.green, width: 1.5),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -341,7 +341,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return AlertDialog(
-              backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
+              backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               title: Text('Novo PIN para ${widget.turno.operador}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textPri)),
               content: Column(
@@ -363,7 +363,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                       counterText: '',
                       errorText: erro,
                       filled: true,
-                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      fillColor: isDark ? AppColors.darkBg : AppColors.lightSurfaceSubtle,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
@@ -376,7 +376,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0284C7),
+                    backgroundColor: AppColors.accent,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
@@ -461,11 +461,11 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
     }
 
     return AlertDialog(
-      backgroundColor: isDark ? const Color(0xFF0B1120) : Colors.white,
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(
-          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
           width: 1.2,
         ),
       ),
@@ -476,7 +476,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
               width: 1,
             ),
           ),
@@ -487,19 +487,8 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF2563EB), Color(0xFF0284C7)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF0284C7).withValues(alpha: 0.35),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                color: AppColors.accent,
+                borderRadius: BorderRadius.circular(AppColors.radiusSm),
               ),
               child: const Icon(Icons.verified_user_rounded, color: Colors.white, size: 22),
             ),
@@ -518,29 +507,13 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0284C7).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'Turno #${widget.turno.numero}',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF38BDF8),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '• ${widget.turno.operador}',
-                        style: TextStyle(fontSize: 11, color: textSec, fontWeight: FontWeight.w500),
-                      ),
-                    ],
+                  // Sem o numero do turno, como na tela Inicio: o WebPost
+                  // reinicia a contagem todo dia e ele nao diz nada a ninguem.
+                  Text(
+                    widget.turno.operador,
+                    style: TextStyle(fontSize: 12, color: textSec, fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -567,26 +540,9 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: isDark
-                        ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
-                        : [const Color(0xFFF8FAFC), const Color(0xFFF1F5F9)],
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    if (isDark)
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.25),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                  ],
+                  color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
+                  borderRadius: BorderRadius.circular(AppColors.radiusLg),
+                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -596,7 +552,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.analytics_outlined, size: 14, color: Color(0xFF38BDF8)),
+                            const Icon(Icons.analytics_outlined, size: 14, color: AppColors.accentLight),
                             const SizedBox(width: 5),
                             Text(
                               'TOTAL DE VENDAS PISTA',
@@ -640,8 +596,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                     Container(
                       height: 1,
                       color: isDark
-                          ? const Color(0xFF334155).withValues(alpha: 0.6)
-                          : const Color(0xFFE2E8F0),
+                          ? AppColors.darkBorder : AppColors.lightBorder,
                     ),
                     const SizedBox(height: 10),
                     Row(
@@ -656,7 +611,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                                     width: 6,
                                     height: 6,
                                     decoration: const BoxDecoration(
-                                      color: Color(0xFF4ADE80),
+                                      color: AppColors.green,
                                       shape: BoxShape.circle,
                                     ),
                                   ),
@@ -673,7 +628,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFF4ADE80),
+                                  color: AppColors.green,
                                 ),
                               ),
                             ],
@@ -683,8 +638,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                           width: 1,
                           height: 26,
                           color: isDark
-                              ? const Color(0xFF334155).withValues(alpha: 0.5)
-                              : const Color(0xFFCBD5E1),
+                              ? AppColors.darkBorder : AppColors.lightBorder,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -697,7 +651,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                                     width: 6,
                                     height: 6,
                                     decoration: const BoxDecoration(
-                                      color: Color(0xFF38BDF8),
+                                      color: AppColors.accentLight,
                                       shape: BoxShape.circle,
                                     ),
                                   ),
@@ -742,21 +696,21 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   labelText: 'Vendas Sistema (Relatório PDV)',
                   labelStyle: TextStyle(fontSize: 12.5, color: textSec),
                   hintText: 'R\$ 0,00',
-                  prefixIcon: const Icon(Icons.point_of_sale_rounded, color: Color(0xFF38BDF8), size: 19),
+                  prefixIcon: const Icon(Icons.point_of_sale_rounded, color: AppColors.accentLight, size: 19),
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.4) : const Color(0xFFF1F5F9),
+                  fillColor: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(
-                      color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
                       width: 1,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                    borderSide: const BorderSide(color: AppColors.accentLight, width: 1.5),
                   ),
                 ),
                 onChanged: (val) {
@@ -824,12 +778,12 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
               Container(
                 padding: const EdgeInsets.all(11),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF090D16) : const Color(0xFFF8FAFC),
+                  color: isDark ? AppColors.darkBg : AppColors.lightSurfaceSubtle,
                   borderRadius: BorderRadius.circular(11),
                   border: Border.all(
                     color: _erroPin != null
                         ? AppColors.red
-                        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFCBD5E1)),
+                        : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
                     width: _erroPin != null ? 1.5 : 1,
                   ),
                 ),
@@ -841,7 +795,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.shield_rounded, color: Color(0xFF38BDF8), size: 15),
+                            const Icon(Icons.shield_rounded, color: AppColors.accentLight, size: 15),
                             const SizedBox(width: 5),
                             Text(
                               'Assinatura Digital (PIN)',
@@ -858,7 +812,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                           style: const TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF38BDF8),
+                            color: AppColors.accentLight,
                           ),
                         ),
                       ],
@@ -888,18 +842,18 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                         counterText: '',
                         errorText: _erroPin,
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+                        fillColor: isDark ? AppColors.darkBg : AppColors.lightSurface,
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(
-                            color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                          borderSide: const BorderSide(color: AppColors.accentLight, width: 1.5),
                         ),
                         errorBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -916,10 +870,16 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                       onSubmitted: (_) => _validarEEncerrar(),
                     ),
                     const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    // Wrap, e nao Row: num celular de 375pt os dois textos nao
+                    // cabem lado a lado (estourava 20px), e o link do PIN
+                    // desce para a linha de baixo em vez de sair da tela.
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      runSpacing: 2,
                       children: [
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.lock_clock_outlined, size: 10, color: textSec),
                             const SizedBox(width: 4),
@@ -940,7 +900,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                             'Esqueceu o PIN? Solicitar Desenvolvedor',
                             style: TextStyle(
                               fontSize: 10,
-                              color: Color(0xFF38BDF8),
+                              color: AppColors.accentLight,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -963,20 +923,20 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   labelStyle: TextStyle(fontSize: 12, color: textSec),
                   hintText: 'Ex: Troca de turno, divergência...',
                   hintStyle: TextStyle(fontSize: 11.5, color: textSec.withValues(alpha: 0.5)),
-                  prefixIcon: const Icon(Icons.edit_note_rounded, color: Color(0xFF94A3B8), size: 19),
+                  prefixIcon: const Icon(Icons.edit_note_rounded, color: AppColors.darkTextSec, size: 19),
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.3) : const Color(0xFFF1F5F9),
+                  fillColor: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(
-                      color: isDark ? const Color(0xFF334155).withValues(alpha: 0.7) : const Color(0xFFCBD5E1),
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                    borderSide: const BorderSide(color: AppColors.accentLight, width: 1.5),
                   ),
                 ),
               ),
@@ -1011,19 +971,8 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
               flex: 3,
               child: Container(
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF2563EB).withValues(alpha: 0.35),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
+                  color: AppColors.accent,
+                  borderRadius: BorderRadius.circular(AppColors.radiusSm),
                 ),
                 child: ElevatedButton.icon(
                   onPressed: _validando ? null : _validarEEncerrar,
