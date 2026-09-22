@@ -13,7 +13,9 @@ import '../services/csv_service.dart';
 import '../services/database_service.dart';
 import '../services/drive_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_texto.dart';
 import '../utils/app_haptics.dart';
+import '../widgets/cabecalho_turno.dart';
 import 'consulta_produtos_screen.dart';
 import 'gerencia/gestao_operadores_screen.dart';
 
@@ -496,162 +498,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// Entrada da área restrita, no mesmo lugar de sempre (topo do Menu), mas na
+  /// linguagem dos outros itens: antes era um cartão âmbar inteiro, o elemento
+  /// mais chamativo do Menu — justamente o que o frentista não usa.
   Widget _cardAreaGerencia(BuildContext context, bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        // Superficie chapada em vez de degrade. O aviso de area restrita quem
-        // da e a borda ambar e o selo, nao o fundo variando de tom.
-        color: isDark ? const Color(0xFF1C1917) : const Color(0xFFFFFBEB),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.8 : 0.6),
-          width: 1.5,
-        ),
+    return _grupo(null, [
+      _itemMenu(
+        icon: Icons.admin_panel_settings_rounded,
+        iconColor: AppColors.amber,
+        titulo: 'Desenvolvedor',
+        subtitulo: 'Configurações administrativas e segurança',
+        fim: const SeloTurno(texto: 'Restrito', cor: AppColors.amber),
+        onTap: () {
+          AppHaptics.light();
+          _solicitarAcessoGerencia(context);
+        },
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            AppHaptics.light();
-            _solicitarAcessoGerencia(context);
-          },
-          borderRadius: BorderRadius.circular(14),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
-                  ),
-                  child: const Icon(
-                    Icons.admin_panel_settings_rounded,
-                    color: Color(0xFFF59E0B),
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Desenvolvedor',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                              color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
-                                width: 0.8,
-                              ),
-                            ),
-                            child: const Text(
-                              'RESTRITO',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFFF59E0B),
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Configurações administrativas e segurança',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: isDark ? const Color(0xFFD6D3D1) : const Color(0xFF78716C),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.lock_rounded,
-                    color: Color(0xFFF59E0B),
-                    size: 18,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    ]);
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
-    final bgScaffold = isDark ? const Color(0xFF090D16) : AppColors.lightBg;
-    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-    final textSec = isDark ? const Color(0xFF64748B) : AppColors.lightTextSec;
-    final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
+    // Mesmo fundo das outras abas.
+    final bgScaffold = isDark ? AppColors.darkBg : AppColors.lightBg;
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final surface = isDark ? AppColors.darkSurface : AppColors.lightSurface;
 
     return Scaffold(
       backgroundColor: bgScaffold,
       body: SafeArea(
         child: Column(
           children: [
-            // ── Barra Superior com Ícone de Menu e Fechar ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            // ── Cabeçalho ──
+            Container(
+              color: surface,
+              padding: const EdgeInsets.fromLTRB(16, 10, 6, 10),
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E3A8A).withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Icon(Icons.widgets_rounded, color: Color(0xFF38BDF8), size: 18),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Menu de Ações',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: textPri,
-                          letterSpacing: 0.2,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Menu',
+                          style: TextStyle(fontSize: AppTexto.valor, fontWeight: FontWeight.w700, color: textPri),
                         ),
-                      ),
-                      Text(
-                        'Operações do caixa e atalhos rápidos',
-                        style: TextStyle(fontSize: 11, color: textSec),
-                      ),
-                    ],
+                        const SizedBox(height: 1),
+                        Text(
+                          'Operações do caixa e atalhos',
+                          style: TextStyle(fontSize: AppTexto.rotulo, color: textSec),
+                        ),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
                   if (widget.onFechar != null)
                     IconButton(
                       icon: Icon(Icons.close_rounded, color: textSec),
+                      tooltip: 'Fechar',
                       onPressed: widget.onFechar,
                     ),
                 ],
@@ -659,168 +566,96 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             Divider(height: 1, color: borderCol),
 
-            // ── Lista de Opções do Menu ──
+            // ── Opções ──
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
                 children: [
-                  // ── 1. CARD DESTACADO NO TOPO: ÁREA DA GERÊNCIA (PIN MESTRE) ──
                   _cardAreaGerencia(context, isDark),
-                  const SizedBox(height: 16),
 
-                  // ── 2. RECURSOS OPERACIONAIS DA PISTA ──
-                  Row(
-                    children: [
-                      Text(
-                        'OPERAÇÕES DO CAIXA',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: textSec,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
+                  _grupo('Operações do caixa', [
+                    _itemMenu(
+                      icon: Icons.local_gas_station_rounded,
+                      iconColor: AppColors.amber,
+                      titulo: 'Encerrantes de Bombas',
+                      subtitulo: 'Conferência de litros vendidos nos bicos',
+                      onTap: () => _abrirEncerrantes(context),
+                    ),
+                    _itemMenu(
+                      icon: Icons.shopping_bag_rounded,
+                      iconColor: AppColors.accentLight,
+                      titulo: 'Tabela de Códigos / Produtos',
+                      subtitulo: 'Consulta rápida por código ou nome do produto',
+                      onTap: () => _abrirConsultaProdutos(context),
+                    ),
+                    _itemMenu(
+                      icon: Icons.lock_rounded,
+                      iconColor: AppColors.accent,
+                      titulo: 'Bloquear Caixa',
+                      subtitulo: 'Travar tela por ausência do operador',
+                      onTap: () => _bloquearCaixa(context),
+                    ),
+                    _itemMenu(
+                      icon: Icons.cloud_sync_rounded,
+                      iconColor: AppColors.green,
+                      titulo: 'Sincronizar com Google Drive',
+                      subtitulo: 'Forçar reenvio de relatórios pendentes na fila',
+                      onTap: () => _sincronizarDrive(context),
+                    ),
+                    _itemMenu(
+                      icon: Icons.password_rounded,
+                      iconColor: AppColors.accentLight,
+                      titulo: 'Alterar Meu PIN',
+                      subtitulo: 'Atualizar senha individual do operador ${widget.turno?.operador ?? ""}',
+                      onTap: () => _abrirTrocarPin(context),
+                    ),
+                  ]),
 
-                  // 1. Encerrantes de Bombas
-                  _itemMenuCard(
-                    icon: Icons.local_gas_station_rounded,
-                    iconColor: const Color(0xFFF59E0B),
-                    iconBg: const Color(0xFF78350F).withValues(alpha: 0.4),
-                    titulo: 'Encerrantes de Bombas',
-                    subtitulo: 'Conferência de litros vendidos nos bicos',
-                    onTap: () => _abrirEncerrantes(context),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // 2. Tabela de Códigos / Produtos
-                  _itemMenuCard(
-                    icon: Icons.shopping_bag_rounded,
-                    iconColor: const Color(0xFF38BDF8),
-                    iconBg: const Color(0xFF0C4A6E).withValues(alpha: 0.4),
-                    titulo: 'Tabela de Códigos / Produtos',
-                    subtitulo: 'Consulta rápida por código ou nome do produto',
-                    onTap: () => _abrirConsultaProdutos(context),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // 3. Bloquear Caixa
-                  _itemMenuCard(
-                    icon: Icons.lock_rounded,
-                    iconColor: const Color(0xFF2563EB),
-                    iconBg: const Color(0xFF1E3A8A).withValues(alpha: 0.4),
-                    titulo: 'Bloquear Caixa',
-                    subtitulo: 'Travar tela por ausência do operador',
-                    onTap: () => _bloquearCaixa(context),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // 4. Sincronizar com Google Drive
-                  _itemMenuCard(
-                    icon: Icons.cloud_sync_rounded,
-                    iconColor: const Color(0xFF10B981),
-                    iconBg: const Color(0xFF064E3B).withValues(alpha: 0.4),
-                    titulo: 'Sincronizar com Google Drive',
-                    subtitulo: 'Forçar reenvio de relatórios pendentes na fila',
-                    onTap: () => _sincronizarDrive(context),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // 5. Alterar Meu PIN
-                  _itemMenuCard(
-                    icon: Icons.password_rounded,
-                    iconColor: const Color(0xFF38BDF8),
-                    iconBg: const Color(0xFF0369A1).withValues(alpha: 0.4),
-                    titulo: 'Alterar Meu PIN',
-                    subtitulo: 'Atualizar senha individual do operador ${widget.turno?.operador ?? ""}',
-                    onTap: () => _abrirTrocarPin(context),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // ── 3. ATALHOS GERAIS ──
-                  Row(
-                    children: [
-                      Text(
-                        'ATALHOS & APLICATIVO',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: textSec,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Fechar Caixa & Resumo
-                  _itemMenuCard(
-                    icon: Icons.bar_chart_rounded,
-                    iconColor: const Color(0xFF6366F1),
-                    iconBg: const Color(0xFF312E81).withValues(alpha: 0.4),
-                    titulo: 'Fechar Caixa & Resumo',
-                    subtitulo: 'Conferir totais, conciliação e encerrar',
-                    onTap: widget.onAbrirResumo,
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Histórico de Turnos
-                  _itemMenuCard(
-                    icon: Icons.history_rounded,
-                    iconColor: const Color(0xFF06B6D4),
-                    iconBg: const Color(0xFF164E63).withValues(alpha: 0.4),
-                    titulo: 'Histórico de Turnos',
-                    subtitulo: 'Consultar ou reabrir turnos anteriores',
-                    onTap: () => _abrirHistoricoTurnos(context),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Alternar Tema Claro / Escuro
-                  _itemMenuCard(
-                    icon: isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                    iconColor: isDark ? const Color(0xFFFBBF24) : const Color(0xFF2563EB),
-                    iconBg: isDark ? const Color(0xFF78350F).withValues(alpha: 0.4) : const Color(0xFFDBEAFE),
-                    titulo: isDark ? 'Ativar Tema Claro' : 'Ativar Tema Escuro',
-                    subtitulo: isDark ? 'Mudar interface para fundo claro' : 'Mudar interface para modo noturno',
-                    onTap: () => widget.onMudarTema(!isDark),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Alternar Feedback Tátil (Vibração)
-                  _itemMenuCard(
-                    icon: Icons.vibration_rounded,
-                    iconColor: AppHaptics.habilitado
-                        ? const Color(0xFF10B981)
-                        : const Color(0xFF94A3B8),
-                    iconBg: AppHaptics.habilitado
-                        ? (isDark ? const Color(0xFF064E3B).withValues(alpha: 0.4) : const Color(0xFFD1FAE5))
-                        : (isDark ? const Color(0xFF1E293B).withValues(alpha: 0.4) : const Color(0xFFF1F5F9)),
-                    titulo: AppHaptics.habilitado ? 'Vibração: Suave (Ativa)' : 'Vibração: Desativada',
-                    subtitulo: AppHaptics.habilitado
-                        ? 'Feedback tátil calibrado bem suave ao tocar'
-                        : 'Toque para reativar o feedback tátil suave',
-                    onTap: () async {
-                      await AppHaptics.setHabilitado(!AppHaptics.habilitado);
-                      if (AppHaptics.habilitado) {
-                        AppHaptics.light();
-                      }
-                      if (mounted) setState(() {});
-                    },
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Trocar / Sair do Operador
-                  _itemMenuCard(
-                    icon: Icons.person_outline_rounded,
-                    iconColor: const Color(0xFFD97706),
-                    iconBg: const Color(0xFF78350F).withValues(alpha: 0.4),
-                    titulo: 'Trocar / Sair do Operador',
-                    subtitulo: 'Voltar ao login sem fechar o turno',
-                    onTap: widget.onAbrirNovoTurno,
-                  ),
-                  const SizedBox(height: 20),
+                  _grupo('Atalhos e aplicativo', [
+                    _itemMenu(
+                      icon: Icons.bar_chart_rounded,
+                      iconColor: AppColors.indigo,
+                      titulo: 'Fechar Caixa & Resumo',
+                      subtitulo: 'Conferir totais, conciliação e encerrar',
+                      onTap: widget.onAbrirResumo,
+                    ),
+                    _itemMenu(
+                      icon: Icons.history_rounded,
+                      iconColor: AppColors.blue,
+                      titulo: 'Histórico de Turnos',
+                      subtitulo: 'Consultar ou reabrir turnos anteriores',
+                      onTap: () => _abrirHistoricoTurnos(context),
+                    ),
+                    _itemMenu(
+                      icon: isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                      iconColor: isDark ? AppColors.amber2 : AppColors.accent,
+                      titulo: isDark ? 'Ativar Tema Claro' : 'Ativar Tema Escuro',
+                      subtitulo: isDark ? 'Mudar interface para fundo claro' : 'Mudar interface para modo noturno',
+                      onTap: () => widget.onMudarTema(!isDark),
+                    ),
+                    _itemMenu(
+                      icon: Icons.vibration_rounded,
+                      iconColor: AppHaptics.habilitado ? AppColors.green : textSec,
+                      titulo: AppHaptics.habilitado ? 'Vibração: Suave (Ativa)' : 'Vibração: Desativada',
+                      subtitulo: AppHaptics.habilitado
+                          ? 'Feedback tátil calibrado bem suave ao tocar'
+                          : 'Toque para reativar o feedback tátil suave',
+                      onTap: () async {
+                        await AppHaptics.setHabilitado(!AppHaptics.habilitado);
+                        if (AppHaptics.habilitado) {
+                          AppHaptics.light();
+                        }
+                        if (mounted) setState(() {});
+                      },
+                    ),
+                    _itemMenu(
+                      icon: Icons.person_outline_rounded,
+                      iconColor: AppColors.orange,
+                      titulo: 'Trocar / Sair do Operador',
+                      subtitulo: 'Voltar ao login sem fechar o turno',
+                      onTap: widget.onAbrirNovoTurno,
+                    ),
+                  ]),
 
                   if (widget.onFechar != null)
                     Center(
@@ -828,7 +663,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onPressed: widget.onFechar,
                         child: const Text(
                           'Voltar ao Caixa',
-                          style: TextStyle(color: Color(0xFF60A5FA), fontSize: 14, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            color: AppColors.accentLight,
+                            fontSize: AppTexto.corpo,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
@@ -842,42 +681,82 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _itemMenuCard({
+  /// Um grupo do Menu: título em caixa alta e os itens num cartão só,
+  /// separados por fio — a mesma forma dos blocos do Resumo.
+  Widget _grupo(String? titulo, List<Widget> itens) {
+    final surface = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
+
+    final linhas = <Widget>[];
+    for (var i = 0; i < itens.length; i++) {
+      // O fio comeca depois do icone, como nas listas do sistema.
+      if (i > 0) linhas.add(Divider(height: 1, thickness: 1, indent: 64, color: borderCol));
+      linhas.add(itens[i]);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (titulo != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+              child: Text(
+                titulo.toUpperCase(),
+                style: TextStyle(
+                  fontSize: AppTexto.rotulo,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: textTer,
+                ),
+              ),
+            ),
+          Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: surface,
+              borderRadius: BorderRadius.circular(AppColors.radiusLg),
+              border: Border.all(color: borderCol),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: linhas),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Um item do Menu: ícone na cor da função, título, uma linha de apoio e a
+  /// seta (ou outro sinal no fim, como o selo "Restrito").
+  Widget _itemMenu({
     required IconData icon,
     required Color iconColor,
-    required Color iconBg,
     required String titulo,
     required String subtitulo,
     required VoidCallback onTap,
-    Color? corBorda,
-    Color? corTitulo,
+    Widget? fim,
   }) {
-    final cardBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
-    final cardBorder = corBorda ?? (isDark ? const Color(0xFF1E293B) : AppColors.lightBorder);
-    final titleCol = corTitulo ?? (isDark ? Colors.white : AppColors.lightTextPri);
-    final subCol = isDark ? const Color(0xFF64748B) : AppColors.lightTextSec;
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: cardBorder),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                // Caixa do icone neutra, na mesma lingua da grade de
-                // lancamento: a cor do item continua no glifo, que e o que o
-                // olho usa para achar a linha certa. Doze blocos tingidos numa
-                // lista faziam o Menu parecer outro aplicativo.
-                color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
-                borderRadius: BorderRadius.circular(8),
+                color: iconColor.withValues(alpha: isDark ? 0.16 : 0.12),
+                borderRadius: BorderRadius.circular(AppColors.radiusSm),
               ),
               child: Icon(icon, color: iconColor, size: 20),
             ),
@@ -888,23 +767,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Text(
                     titulo,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: titleCol,
-                    ),
+                    style: TextStyle(fontSize: AppTexto.corpo, fontWeight: FontWeight.w700, color: textPri),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitulo,
-                    style: TextStyle(fontSize: 11, color: subCol),
+                    style: TextStyle(fontSize: AppTexto.rotulo, color: textSec),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: subCol, size: 18),
+            const SizedBox(width: 8),
+            fim ?? Icon(Icons.chevron_right_rounded, color: textTer, size: 20),
           ],
         ),
       ),
