@@ -6,7 +6,6 @@ import 'package:caixa_posto_janjao/theme/app_theme.dart';
 import 'package:caixa_posto_janjao/widgets/ultimos_lancamentos.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -17,9 +16,9 @@ void main() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
     SharedPreferences.setMockInitialValues({});
-    // Banco de teste do computador: comeca vazio.
-    final arquivo = p.join(await getDatabasesPath(), 'caixa_posto_janjao.db');
-    if (File(arquivo).existsSync()) File(arquivo).deleteSync();
+    // Banco de teste numa pasta so deste arquivo: os arquivos de teste rodam
+    // em paralelo e nao podem dividir (nem apagar) o mesmo banco.
+    await databaseFactory.setDatabasesPath(Directory.systemTemp.createTempSync('caixa_teste_').path);
   });
 
   /// Cor de fundo da linha que mostra este valor.

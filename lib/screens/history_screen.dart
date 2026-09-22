@@ -4,8 +4,11 @@ import '../models/lancamento.dart';
 import '../models/turno.dart';
 import '../services/database_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_icones.dart';
+import '../theme/app_texto.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/payment_types.dart';
+import '../widgets/cabecalho_turno.dart';
 
 class HistoryScreen extends StatefulWidget {
   final Turno turno;
@@ -127,102 +130,94 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
     final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
     final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
-    final filtros = ['Todos', 'Dinheiro', 'Pix', 'Cartões', 'Sangria', 'Despesas'];
+    // Sangria saiu do app: o filtro so aparece se este turno tiver alguma
+    // sangria antiga para mostrar.
+    final temSangria = _lancamentos.any((l) => PaymentTypes.ehSangria(l.tipo));
+    final filtros = [
+      'Todos', 'Dinheiro', 'Pix', 'Cartões', 'Despesas',
+      if (temSangria || _filtroTipo == 'Sangria') 'Sangria',
+    ];
+    final lista = _lancamentosFiltrados;
 
     return Scaffold(
       appBar: AppBar(
+        centerTitle: false,
+        titleSpacing: 16,
         title: Row(
           children: [
-            Flexible(
-              child: Text(
-                'Histórico (${_lancamentos.length})',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                overflow: TextOverflow.ellipsis,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Histórico',
+                    style: TextStyle(fontSize: AppTexto.valor, fontWeight: FontWeight.w700, color: textPri),
+                  ),
+                  Text(
+                    _lancamentos.length == 1 ? '1 lançamento neste turno' : '${_lancamentos.length} lançamentos neste turno',
+                    style: TextStyle(fontSize: AppTexto.rotulo, color: textSec),
+                  ),
+                ],
               ),
             ),
-            if (widget.turno.isFechado) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.amber.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AppColors.amber, width: 0.8),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.lock_rounded, size: 11, color: AppColors.amber),
-                    SizedBox(width: 3),
-                    Text(
-                      'FECHADO',
-                      style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: AppColors.amber),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            if (widget.turno.isFechado) const SeloTurno(texto: 'Fechado', cor: AppColors.amber),
           ],
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: AppColors.accentLight),
-            tooltip: 'Atualizar Lista',
+            tooltip: 'Atualizar lista',
             onPressed: _carregar,
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: Column(
         children: [
-          // ── Barra de Filtros ──
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: filtros.map((f) {
-                final selecionado = _filtroTipo == f;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(f),
-                    selected: selecionado,
-                    onSelected: (_) {
-                      setState(() {
+          // ── Filtros ──
+          SizedBox(
+            height: 52,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+              children: [
+                for (final f in filtros)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _Filtro(
+                      texto: f,
+                      selecionado: _filtroTipo == f,
+                      onTap: () => setState(() {
                         _filtroTipo = f;
                         _lancamentosFiltradosCache = null;
-                      });
-                    },
-                    selectedColor: AppColors.accent.withValues(alpha: 0.2),
-                    checkmarkColor: AppColors.accentLight,
-                    labelStyle: TextStyle(
-                      fontSize: 12,
-                      fontWeight: selecionado ? FontWeight.bold : FontWeight.normal,
-                      color: selecionado ? AppColors.accentLight : textSec,
+                      }),
                     ),
                   ),
-                );
-              }).toList(),
+              ],
             ),
           ),
-          Divider(height: 1, color: borderColor),
 
-          // ── Lista de Lançamentos com RefreshIndicator ──
+          // ── Lista de lançamentos ──
           Expanded(
             child: _carregando
                 ? const Center(child: CircularProgressIndicator(color: AppColors.accentLight))
-                : _lancamentosFiltrados.isEmpty
+                : lista.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.receipt_long_outlined, size: 48, color: textSec.withValues(alpha: 0.5)),
+                            Icon(Icons.receipt_long_outlined, size: 44, color: textTer),
                             const SizedBox(height: 12),
                             Text(
-                              'Nenhum lançamento encontrado neste turno.',
-                              style: TextStyle(color: textSec, fontSize: 13),
+                              _filtroTipo == 'Todos'
+                                  ? 'Nenhum lançamento neste turno ainda.'
+                                  : 'Nenhum lançamento em $_filtroTipo.',
+                              style: TextStyle(color: textSec, fontSize: AppTexto.corpo),
                             ),
                           ],
                         ),
@@ -231,20 +226,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         onRefresh: _carregar,
                         color: AppColors.accentLight,
                         child: ListView.separated(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: _lancamentosFiltrados.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          padding: const EdgeInsets.fromLTRB(14, 6, 14, 24),
+                          itemCount: lista.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 6),
                           itemBuilder: (context, index) {
-                            final l = _lancamentosFiltrados[index];
-                            final cor = AppColors.getCorTipo(l.tipo);
-                            final icone = AppColors.getIconeTipo(l.tipo);
-
-                            return InkWell(
+                            final l = lista[index];
+                            return _LinhaHistorico(
+                              lancamento: l,
+                              fechado: widget.turno.isFechado,
+                              surfaceColor: surfaceColor,
+                              borderColor: borderColor,
+                              textPri: textPri,
+                              textSec: textSec,
+                              textTer: textTer,
                               onTap: () {
                                 if (widget.turno.isFechado) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('🔒 Turno fechado e homologado! Lançamentos bloqueados contra alteração.'),
+                                      content: Text('Turno fechado: os lançamentos não podem mais ser alterados.'),
                                       backgroundColor: AppColors.amber,
                                       duration: Duration(seconds: 2),
                                     ),
@@ -253,84 +252,161 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 }
                                 _abrirEdicao(l);
                               },
-                              borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: surfaceColor,
-                                  borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                                  border: Border.all(color: borderColor),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: cor.withValues(alpha: 0.14),
-                                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                                      ),
-                                      child: Icon(icone, color: cor, size: 20),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            l.tipo,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
-                                              color: textPri,
-                                            ),
-                                          ),
-                                          if (l.descricao.isNotEmpty) ...[
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              l.descricao,
-                                              style: TextStyle(fontSize: 12, color: textSec),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            l.hora,
-                                            style: TextStyle(fontSize: 11, color: textSec.withValues(alpha: 0.7)),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          CurrencyFormatter.formatar(l.valor),
-                                          style: TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w900,
-                                            color: cor,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        if (widget.turno.isFechado)
-                                          const Tooltip(
-                                            message: 'Turno Fechado - Bloqueado',
-                                            child: Icon(Icons.lock_rounded, size: 14, color: AppColors.amber),
-                                          )
-                                        else
-                                          Icon(Icons.edit_outlined, size: 14, color: textSec.withValues(alpha: 0.5)),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
                             );
                           },
                         ),
                       ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Um filtro da barra do Histórico: pílula com borda; o escolhido acende no
+/// azul do app.
+class _Filtro extends StatelessWidget {
+  final String texto;
+  final bool selecionado;
+  final VoidCallback onTap;
+
+  const _Filtro({required this.texto, required this.selecionado, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final corSel = isDark ? AppColors.accentLight : AppColors.accent;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppColors.radiusSm),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selecionado ? corSel.withValues(alpha: isDark ? 0.16 : 0.10) : surfaceColor,
+          borderRadius: BorderRadius.circular(AppColors.radiusSm),
+          border: Border.all(color: selecionado ? corSel : borderColor, width: selecionado ? 1.5 : 1),
+        ),
+        child: Text(
+          texto,
+          style: TextStyle(
+            fontSize: AppTexto.rotulo + 1,
+            fontWeight: selecionado ? FontWeight.w700 : FontWeight.w500,
+            color: selecionado ? corSel : textSec,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Um lançamento no Histórico, na mesma linguagem dos últimos lançamentos da
+/// tela Início: ícone na cor da forma, valor em cor neutra e com dígitos
+/// alinhados. A cor fica só no ícone — no valor ela fazia quase tudo sair em
+/// vermelho (Master é vermelho), com cara de erro.
+class _LinhaHistorico extends StatelessWidget {
+  final Lancamento lancamento;
+  final bool fechado;
+  final Color surfaceColor;
+  final Color borderColor;
+  final Color textPri;
+  final Color textSec;
+  final Color textTer;
+  final VoidCallback onTap;
+
+  const _LinhaHistorico({
+    required this.lancamento,
+    required this.fechado,
+    required this.surfaceColor,
+    required this.borderColor,
+    required this.textPri,
+    required this.textSec,
+    required this.textTer,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l = lancamento;
+    final cor = AppColors.getCorTipo(l.tipo);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppColors.radiusMd),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: surfaceColor,
+          borderRadius: BorderRadius.circular(AppColors.radiusMd),
+          border: Border.all(color: borderColor),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: cor.withValues(alpha: isDark ? 0.16 : 0.12),
+                borderRadius: BorderRadius.circular(AppColors.radiusXs),
+              ),
+              child: Icon(AppIcones.doTipo(l.tipo), color: cor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.tipo,
+                    style: TextStyle(fontSize: AppTexto.corpo, fontWeight: FontWeight.w700, color: textPri),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: l.hora,
+                          style: TextStyle(fontFamily: AppTexto.numeros, color: textTer),
+                        ),
+                        if (l.descricao.isNotEmpty) TextSpan(text: '  ·  ${l.descricao}'),
+                      ],
+                    ),
+                    style: TextStyle(fontSize: AppTexto.rotulo, color: textSec),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              CurrencyFormatter.formatar(l.valor),
+              style: TextStyle(
+                fontFamily: AppTexto.numeros,
+                fontSize: AppTexto.valor,
+                fontWeight: FontWeight.w600,
+                color: textPri,
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (fechado)
+              const Tooltip(
+                message: 'Turno fechado',
+                child: Icon(Icons.lock_rounded, size: 16, color: AppColors.amber),
+              )
+            else
+              Icon(Icons.edit_rounded, size: 16, color: textTer),
+          ],
+        ),
       ),
     );
   }
