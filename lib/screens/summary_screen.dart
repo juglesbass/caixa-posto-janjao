@@ -1155,6 +1155,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                               quantidade: '${widget.totais.qtdPix}×',
                               valor: widget.totais.pix,
                               onTap: () => _abrirDetalhesCartao('Pag Pix'),
+                              seta: false,
                             ),
                           if (widget.totais.requisicao > 0)
                             _LinhaResumo(
@@ -2014,6 +2015,11 @@ class _LinhaResumo extends StatelessWidget {
   final double valor;
   final VoidCallback? onTap;
 
+  /// Seta de "abre detalhe" no fim. Num bloco em que só uma linha abre, a
+  /// seta empurra aquele valor para a esquerda e desalinha a coluna: ali a
+  /// linha continua abrindo, só sem a seta.
+  final bool seta;
+
   const _LinhaResumo({
     required this.icone,
     required this.cor,
@@ -2021,6 +2027,7 @@ class _LinhaResumo extends StatelessWidget {
     this.quantidade,
     required this.valor,
     this.onTap,
+    this.seta = true,
   });
 
   @override
@@ -2030,6 +2037,7 @@ class _LinhaResumo extends StatelessWidget {
     final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
     final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
     final corIcone = isDark && cor == AppColors.purple ? AppColors.purpleLight : cor;
+    final comSeta = onTap != null && seta;
 
     return InkWell(
       onTap: onTap == null
@@ -2039,7 +2047,7 @@ class _LinhaResumo extends StatelessWidget {
               onTap!();
             },
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 12, onTap == null ? 16 : 8, 12),
+        padding: EdgeInsets.fromLTRB(16, 12, comSeta ? 8 : 16, 12),
         child: Row(
           children: [
             Container(
@@ -2080,7 +2088,7 @@ class _LinhaResumo extends StatelessWidget {
                 color: textPri,
               ),
             ),
-            if (onTap != null) Icon(Icons.chevron_right_rounded, size: 20, color: textTer),
+            if (comSeta) Icon(Icons.chevron_right_rounded, size: 20, color: textTer),
           ],
         ),
       ),

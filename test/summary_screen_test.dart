@@ -5,6 +5,7 @@ import 'package:caixa_posto_janjao/models/turno.dart';
 import 'package:caixa_posto_janjao/screens/summary_screen.dart';
 import 'package:caixa_posto_janjao/services/database_service.dart';
 import 'package:caixa_posto_janjao/theme/app_theme.dart';
+import 'package:caixa_posto_janjao/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,6 +39,7 @@ void main() {
       if ((await db.obterLancamentos(turno.id!)).isEmpty) {
         await db.inserirLancamento(turno.id!, 'Dinheiro', 60, '');
         await db.inserirLancamento(turno.id!, 'Rede Master Crédito', 255.71, '');
+        await db.inserirLancamento(turno.id!, 'Pag Pix', 100, '');
       }
       totais = await db.obterTotaisTurno(turno.id!);
     });
@@ -60,7 +62,7 @@ void main() {
     await abrir(tester);
     final campo = find.widgetWithText(TextFormField, 'Vendas do sistema (relatório PDV)');
 
-    await tester.enterText(campo, '31571'); // R$ 315,71 = total da pista
+    await tester.enterText(campo, '41571'); // R$ 415,71 = total da pista
     await tester.pump();
     expect(find.text('PISTA FECHADA'), findsOneWidget);
 
@@ -68,7 +70,7 @@ void main() {
     await tester.pump();
     expect(find.text('SOBRA NA PISTA'), findsOneWidget);
 
-    await tester.enterText(campo, '40000'); // R$ 400,00
+    await tester.enterText(campo, '50000'); // R$ 500,00
     await tester.pump();
     expect(find.text('FALTA NA PISTA'), findsOneWidget);
 
@@ -92,6 +94,29 @@ void main() {
     await abrir(tester);
     // O nome fica num texto composto com a quantidade ("Rede Master Crédito  1×").
     await tester.tap(find.textContaining('Rede Master Crédito', findRichText: true));
+    await esperar(tester);
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsOneWidget);
+  });
+
+  // Em "Outras formas" só o Pix abre detalhe: sem a seta, o valor dele fica
+  // na mesma coluna dos outros. A linha continua abrindo ao toque.
+  testWidgets('Pix sem seta, alinhado com o dinheiro, e ainda abre o detalhe', (tester) async {
+    await abrir(tester);
+    final valorPix = find.text(CurrencyFormatter.formatar(100));
+    final valorDinheiro = find.text(CurrencyFormatter.formatar(60));
+    expect(tester.getRect(valorPix).right, tester.getRect(valorDinheiro).right);
+
+    final linhaPix = find.ancestor(of: valorPix, matching: find.byType(InkWell)).first;
+    expect(find.descendant(of: linhaPix, matching: find.byIcon(Icons.chevron_right_rounded)), findsNothing);
+    // As bandeiras de cartão seguem com a seta.
+    final linhaCartao = find.ancestor(
+      of: find.textContaining('Rede Master Crédito', findRichText: true),
+      matching: find.byType(InkWell),
+    ).first;
+    expect(find.descendant(of: linhaCartao, matching: find.byIcon(Icons.chevron_right_rounded)), findsOneWidget);
+
+    await tester.tap(valorPix);
     await esperar(tester);
     await tester.pumpAndSettle();
     expect(find.byType(BottomSheet), findsOneWidget);
