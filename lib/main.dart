@@ -28,6 +28,7 @@ import 'utils/app_pronto.dart';
 import 'utils/data_caixa.dart';
 import 'utils/payment_types.dart';
 import 'widgets/bottom_nav_bar.dart';
+import 'widgets/janela.dart';
 import 'widgets/pending_sync_banner.dart';
 
 void main() async {
@@ -568,26 +569,23 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           final irParaResumo = await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('Caixa de outro dia ainda aberto'),
-              content: Text(
+              title: const TituloJanela(
+                'Caixa de outro dia ainda aberto',
+                icone: Icons.event_busy_rounded,
+                cor: AppColors.amber,
+              ),
+              content: TextoJanela(
                 'Este caixa é do dia ${turno.dataCaixa} e continua aberto, com '
                 'movimento registrado.\n\n'
                 'A data não foi trocada sozinha porque as vendas podem ser daquele '
                 'dia. Se este caixa já terminou, feche pelo Resumo. Se ele é mesmo '
                 'o de hoje, use "trocar" no Resumo.',
               ),
+              actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: const Text('Agora não'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () => Navigator.of(ctx).pop(true),
-                  child: const Text('Ir para o Resumo'),
+                BotoesJanela(
+                  secundario: BotaoSecundario(texto: 'Agora não', onPressed: () => Navigator.of(ctx).pop(false)),
+                  principal: BotaoPrincipal(texto: 'Ir para o Resumo', onPressed: () => Navigator.of(ctx).pop(true)),
                 ),
               ],
             ),
@@ -620,45 +618,30 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final hora =
         '${agora.hour.toString().padLeft(2, '0')}:${agora.minute.toString().padLeft(2, '0')}';
 
-    ButtonStyle estilo() => ElevatedButton.styleFrom(
-          backgroundColor: AppColors.accent,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        );
-
     final escolha = await showDialog<String>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => PopScope(
         canPop: false,
         child: AlertDialog(
-          title: const Text('De qual turno é este caixa?'),
+          title: const TituloJanela('De qual turno é este caixa?', icone: Icons.nights_stay_rounded),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
+              TextoJanela(
                 'Você está abrindo o caixa às $hora. '
                 'Selecione o dia correspondente:',
               ),
               const SizedBox(height: 18),
-              ElevatedButton(
-                style: estilo(),
+              BotaoPrincipal(
+                texto: 'Ontem — ${DataCaixa.curta(ontem)}',
                 onPressed: () => Navigator.of(ctx).pop(ontem),
-                child: Text(
-                  'Ontem — ${DataCaixa.curta(ontem)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
               ),
               const SizedBox(height: 10),
-              ElevatedButton(
-                style: estilo(),
+              BotaoPrincipal(
+                texto: 'Hoje — ${DataCaixa.curta(hoje)}',
                 onPressed: () => Navigator.of(ctx).pop(hoje),
-                child: Text(
-                  'Hoje — ${DataCaixa.curta(hoje)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
               ),
             ],
           ),
@@ -681,23 +664,23 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final confirmou = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Fechar o turno atual?'),
-        content: Text(
+        title: const TituloJanela('Fechar o turno atual?', icone: Icons.warning_amber_rounded, cor: AppColors.amber),
+        content: TextoJanela(
           'O turno #${turnoAberto.numero} está aberto no nome de '
           '${turnoAberto.operador}.\n\n'
           'Entrar como $novoOperador fecha esse turno e abre um novo, vazio. '
           'Esse fechamento não gera relatório nem envia nada ao Google Drive.\n\n'
           'Para encerrar com relatório, use "Fechar Caixa & Resumo".',
         ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.red),
-            child: const Text('Fechar e trocar'),
+          BotoesJanela(
+            secundario: BotaoSecundario(texto: 'Cancelar', onPressed: () => Navigator.of(ctx).pop(false)),
+            principal: BotaoPrincipal(
+              texto: 'Fechar e trocar',
+              cor: AppColors.red,
+              onPressed: () => Navigator.of(ctx).pop(true),
+            ),
           ),
         ],
       ),
