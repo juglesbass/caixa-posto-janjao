@@ -76,34 +76,45 @@ class ResetDialog extends StatelessWidget {
     );
   }
 
-  Future<void> _zerar(BuildContext context) async {
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+  /// Dois toques em "Sim, Zerar Tudo" rodavam o reset duas vezes, e cada um
+  /// fechava uma tela: o segundo fechava também o painel por baixo da janela
+  /// e abria a identificação duas vezes.
+  static bool _zerando = false;
 
+  Future<void> _zerar(BuildContext context) async {
+    if (_zerando) return;
+    _zerando = true;
     try {
-      await DatabaseService.instance.resetarTudo();
-    } on StateError catch (e) {
-      // Uma pendência pode ter surgido entre a abertura do diálogo e o toque:
-      // o banco recusa e a mensagem explica o motivo em vez de zerar assim mesmo.
+      final navigator = Navigator.of(context);
+      final messenger = ScaffoldMessenger.of(context);
+
+      try {
+        await DatabaseService.instance.resetarTudo();
+      } on StateError catch (e) {
+        // Uma pendência pode ter surgido entre a abertura do diálogo e o toque:
+        // o banco recusa e a mensagem explica o motivo em vez de zerar assim mesmo.
+        await NotificationService.atualizarPendencias();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: AppColors.red,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+        return;
+      }
+
       await NotificationService.atualizarPendencias();
+      navigator.pop();
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(e.message),
+        const SnackBar(
+          content: Text('🗑️ Todos os dados foram zerados com sucesso!'),
           backgroundColor: AppColors.red,
-          duration: const Duration(seconds: 6),
         ),
       );
-      return;
+      onResetConcluido();
+    } finally {
+      _zerando = false;
     }
-
-    await NotificationService.atualizarPendencias();
-    navigator.pop();
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text('🗑️ Todos os dados foram zerados com sucesso!'),
-        backgroundColor: AppColors.red,
-      ),
-    );
-    onResetConcluido();
   }
 }

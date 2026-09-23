@@ -582,7 +582,23 @@ class _SummaryScreenState extends State<SummaryScreen> {
   }
 
   // 5. Encerrar Turno com Autenticação de PIN e Assinatura Digital SHA-256
+  /// Trava do encerramento. Até a janela de fechamento aparecer o app ainda
+  /// lê e grava no banco, e o botão continuava ativo nesse meio tempo: dois
+  /// toques rápidos abriam duas janelas, uma por baixo da outra, e a de baixo
+  /// reaparecia depois do envio pedindo o fechamento de novo.
+  bool _encerrando = false;
+
   void _encerrarTurno() async {
+    if (_encerrando) return;
+    _encerrando = true;
+    try {
+      await _executarEncerramento();
+    } finally {
+      _encerrando = false;
+    }
+  }
+
+  Future<void> _executarEncerramento() async {
     if (!widget.turno.aberto) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

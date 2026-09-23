@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:caixa_posto_janjao/dialogs/close_shift_dialog.dart';
 import 'package:caixa_posto_janjao/models/totais_turno.dart';
 import 'package:caixa_posto_janjao/models/turno.dart';
 import 'package:caixa_posto_janjao/screens/summary_screen.dart';
@@ -7,15 +8,32 @@ import 'package:caixa_posto_janjao/services/database_service.dart';
 import 'package:caixa_posto_janjao/theme/app_theme.dart';
 import 'package:caixa_posto_janjao/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+/// Fonte de verdade no lugar da fonte de teste (bem mais larga): a janela de
+/// fechamento, aberta por um dos testes, só cabe medida com a fonte real.
+Future<void> _fonteReal() async {
+  final dir = '${Platform.environment['HOME']}/development/flutter/bin/cache/artifacts/material_fonts';
+  if (!File('$dir/Roboto-Regular.ttf').existsSync()) return;
+  for (final familia in ['Roboto', 'FlutterTest']) {
+    final loader = FontLoader(familia);
+    for (final peso in ['Regular', 'Medium', 'Bold', 'Black']) {
+      final bytes = File('$dir/Roboto-$peso.ttf').readAsBytesSync();
+      loader.addFont(Future.value(ByteData.view(bytes.buffer)));
+    }
+    await loader.load();
+  }
+}
 
 void main() {
   late Turno turno;
   late TotaisTurno totais;
 
   setUpAll(() async {
+    await _fonteReal();
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
     SharedPreferences.setMockInitialValues({});
@@ -179,5 +197,33 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Canhotos físicos'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  // Dois toques rápidos em "Encerrar turno" abriam duas janelas de fechamento,
+  // uma por baixo da outra: a de baixo reaparecia depois do envio.
+  testWidgets('dois toques em "Encerrar turno" abrem uma janela só', (tester) async {
+    await abrir(tester);
+    final botao = find.text('Encerrar turno e enviar ao gerente');
+    await tester.ensureVisible(botao);
+    await tester.tap(botao);
+    await tester.tap(botao);
+    for (var i = 0; i < 10; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 80)));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.pumpAndSettle();
+    expect(find.byType(CloseShiftDialog), findsOneWidget);
+
+    // Cancelar libera o botão de novo.
+    await tester.tap(find.text('Cancelar').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(CloseShiftDialog), findsNothing);
+    await tester.tap(botao);
+    for (var i = 0; i < 10; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 80)));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.pumpAndSettle();
+    expect(find.byType(CloseShiftDialog), findsOneWidget);
   });
 }
