@@ -4,7 +4,10 @@ import '../models/turno.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_texto.dart';
 import '../utils/app_haptics.dart';
+import '../widgets/cabecalho_turno.dart';
+import '../widgets/janela.dart';
 
 class TurnosAnterioresDialog extends StatefulWidget {
   final Function(Turno turno) onReabrirTurno;
@@ -49,22 +52,22 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
       final confirmou = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Fechar o turno atual?'),
-          content: Text(
+          title: const TituloJanela('Fechar o turno atual?', icone: Icons.warning_amber_rounded, cor: AppColors.amber),
+          content: TextoJanela(
             'O turno #${aberto.numero} está aberto no nome de ${aberto.operador}.\n\n'
             'Reabrir o turno #${t.numero} fecha esse turno. Esse fechamento não '
             'gera relatório nem envia nada ao Google Drive.\n\n'
             'Para encerrar com relatório, use "Fechar Caixa & Resumo" antes de reabrir.',
           ),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              style: TextButton.styleFrom(foregroundColor: AppColors.red),
-              child: const Text('Fechar e reabrir'),
+            BotoesJanela(
+              secundario: BotaoSecundario(texto: 'Cancelar', onPressed: () => Navigator.of(ctx).pop(false)),
+              principal: BotaoPrincipal(
+                texto: 'Fechar e reabrir',
+                cor: AppColors.red,
+                onPressed: () => Navigator.of(ctx).pop(true),
+              ),
             ),
           ],
         ),
@@ -72,99 +75,10 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
       if (confirmou != true || !mounted) return;
     }
 
-    final controller = TextEditingController();
-    String? erro;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     final autorizado = await showDialog<bool>(
       context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDlgState) => AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.lightSurface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              const Icon(Icons.lock_open_rounded, color: Color(0xFF38BDF8)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Reabrir Turno #${t.numero}',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : AppColors.lightTextPri,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Digite o PIN de ${t.operador} ou do desenvolvedor para autorizar a reabertura:',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                maxLength: 4,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                style: TextStyle(
-                  fontSize: 20,
-                  letterSpacing: 8,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : AppColors.lightTextPri,
-                ),
-                decoration: InputDecoration(
-                  labelText: 'PIN de 4 dígitos',
-                  counterText: '',
-                  prefixIcon: const Icon(Icons.shield_outlined),
-                  errorText: erro,
-                  filled: true,
-                  isDense: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogCtx).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final pin = controller.text.trim();
-                final ok = await AuthService.validarPin(t.operador, pin);
-                if (!dialogCtx.mounted) return;
-                if (ok) {
-                  Navigator.of(dialogCtx).pop(true);
-                } else {
-                  AppHaptics.heavy();
-                  setDlgState(() {
-                    erro = 'PIN incorreto. Acesso negado.';
-                  });
-                  controller.clear();
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB)),
-              child: const Text('Autorizar Reabertura', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => _PinReaberturaDialog(turno: t),
     );
-
-    controller.dispose();
 
     if (autorizado == true && mounted) {
       Navigator.of(context).pop();
@@ -175,188 +89,240 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgDialog = isDark ? const Color(0xFF0F172A) : AppColors.lightSurface;
-    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
-    final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
-    final cardBg = isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF1F5F9);
-    final cardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
+    final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final blocoBg = isDark ? AppColors.darkBg : AppColors.lightBg;
 
     return Dialog(
-      backgroundColor: bgDialog,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: borderCol),
-      ),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
         child: Column(
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF06B6D4).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.history_rounded, color: Color(0xFF06B6D4), size: 22),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Histórico de Turnos',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri),
-                      ),
-                      Text(
-                        'Consultar e reabrir turnos anteriores',
-                        style: TextStyle(fontSize: 11, color: textSec),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.close_rounded, color: textSec),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+            CabecalhoJanela(
+              icone: Icons.history_rounded,
+              cor: AppColors.blue,
+              titulo: 'Histórico de Turnos',
+              subtitulo: 'Consultar e reabrir turnos anteriores',
+              onFechar: () => Navigator.of(context).pop(),
             ),
-            Divider(color: borderCol, height: 20),
+            Divider(color: borderCol, height: 24),
 
             Expanded(
               child: _carregando
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF06B6D4)))
+                  ? const Center(child: CircularProgressIndicator(color: AppColors.blue))
                   : _turnos.isEmpty
                       ? Center(
                           child: Text(
                             'Nenhum turno registrado.',
-                            style: TextStyle(color: textSec),
+                            style: TextStyle(color: textSec, fontSize: AppTexto.corpo),
                           ),
                         )
-                      : ListView.separated(
-                          itemCount: _turnos.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final t = _turnos[index];
-                            final statusAberto = t.aberto;
+                      // Um bloco só, do tamanho da lista, separado por fio.
+                      : Align(
+                          alignment: Alignment.topCenter,
+                          child: Container(
+                            clipBehavior: Clip.antiAlias,
+                            decoration: BoxDecoration(
+                              color: blocoBg,
+                              borderRadius: BorderRadius.circular(AppColors.radiusLg),
+                              border: Border.all(color: borderCol),
+                            ),
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              padding: EdgeInsets.zero,
+                              itemCount: _turnos.length,
+                              separatorBuilder: (_, __) => Divider(height: 1, thickness: 1, color: borderCol),
+                              itemBuilder: (context, index) {
+                                final t = _turnos[index];
+                                final statusAberto = t.aberto;
 
-                            return Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: cardBg,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: statusAberto ? const Color(0xFF10B981) : cardBorder,
-                                  width: statusAberto ? 1.2 : 1,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: statusAberto
-                                          ? const Color(0xFF064E3B).withValues(alpha: 0.6)
-                                          : (isDark ? const Color(0xFF334155).withValues(alpha: 0.6) : const Color(0xFFE2E8F0)),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      '#${t.numero}',
-                                      style: TextStyle(
-                                        color: statusAberto ? const Color(0xFF34D399) : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569)),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
+                                return Padding(
+                                  padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                                  child: Row(
+                                    children: [
+                                      // Largura mínima alinha os nomes; número maior só empurra.
+                                      Container(
+                                        constraints: const BoxConstraints(minWidth: 40),
+                                        padding: const EdgeInsets.only(right: 6),
+                                        child: Text(
+                                          '#${t.numero}',
+                                          style: TextStyle(
+                                            fontFamily: AppTexto.numeros,
+                                            color: statusAberto ? AppColors.green : textTer,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: AppTexto.corpo,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          t.operador,
-                                          style: TextStyle(color: textPri, fontWeight: FontWeight.bold, fontSize: 13),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              t.operador,
+                                              style: TextStyle(
+                                                color: textPri,
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: AppTexto.corpo,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Abertura: ${t.data}',
+                                              style: TextStyle(color: textSec, fontSize: AppTexto.rotulo),
+                                            ),
+                                            // Só quando difere do dia da abertura: é o caso que
+                                            // antes confundia a conferência
+                                            if (t.dataCaixa != t.data.trim().split(' ').first) ...[
+                                              const SizedBox(height: 1),
+                                              Text(
+                                                'Caixa do dia ${t.dataCaixa}',
+                                                style: const TextStyle(
+                                                  color: AppColors.accentLight,
+                                                  fontSize: AppTexto.rotulo,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
+                                            if (t.fechadoEm != null) ...[
+                                              const SizedBox(height: 1),
+                                              Text(
+                                                'Fechado: ${t.fechadoEm}',
+                                                style: TextStyle(color: textTer, fontSize: AppTexto.rotulo),
+                                              ),
+                                            ],
+                                          ],
                                         ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          'Abertura: ${t.data}',
-                                          style: TextStyle(color: textSec, fontSize: 11),
-                                        ),
-                                        // Só quando difere do dia da abertura: é o caso que
-                                        // antes confundia a conferência
-                                        if (t.dataCaixa != t.data.trim().split(' ').first) ...[
-                                          const SizedBox(height: 1),
-                                          Text(
-                                            'Caixa do dia ${t.dataCaixa}',
-                                            style: const TextStyle(
-                                              color: Color(0xFF38BDF8),
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w600,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      if (!statusAberto)
+                                        OutlinedButton.icon(
+                                          onPressed: () => _solicitarReabertura(t),
+                                          icon: const Icon(Icons.lock_open_rounded, size: 16),
+                                          label: const Text(
+                                            'Reabrir',
+                                            style: TextStyle(fontSize: AppTexto.corpo - 1, fontWeight: FontWeight.w700),
+                                          ),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: AppColors.accentLight,
+                                            side: BorderSide(color: AppColors.accentLight.withValues(alpha: 0.5)),
+                                            minimumSize: const Size(0, 40),
+                                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(AppColors.radiusSm),
                                             ),
                                           ),
-                                        ],
-                                        if (t.fechadoEm != null) ...[
-                                          const SizedBox(height: 1),
-                                          Text(
-                                            'Fechado: ${t.fechadoEm}',
-                                            style: TextStyle(color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8), fontSize: 10),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
+                                        )
+                                      else
+                                        const SeloTurno(texto: 'Em andamento', cor: AppColors.green),
+                                    ],
                                   ),
-                                  if (!statusAberto)
-                                    ElevatedButton(
-                                      onPressed: () => _solicitarReabertura(t),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF2563EB),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                      ),
-                                      child: const Text('Reabrir', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                    )
-                                  else
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF10B981).withValues(alpha: 0.2),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: const Text(
-                                        'EM ANDAMENTO',
-                                        style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 10),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            );
-                          },
+                                );
+                              },
+                            ),
+                          ),
                         ),
             ),
             const SizedBox(height: 10),
-
             SizedBox(
               width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: textSec,
-                  side: BorderSide(color: borderCol),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: const Text('Fechar'),
-              ),
+              child: BotaoSecundario(texto: 'Fechar', onPressed: () => Navigator.of(context).pop()),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// PIN que autoriza reabrir um turno: o do operador dele ou o do
+/// desenvolvedor. Com estado próprio, o campo só é descartado quando a janela
+/// sai de vez (o teclado fechando redesenha a janela na saída).
+class _PinReaberturaDialog extends StatefulWidget {
+  final Turno turno;
+
+  const _PinReaberturaDialog({required this.turno});
+
+  @override
+  State<_PinReaberturaDialog> createState() => _PinReaberturaDialogState();
+}
+
+class _PinReaberturaDialogState extends State<_PinReaberturaDialog> {
+  final _controller = TextEditingController();
+  String? _erro;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _autorizar() async {
+    final pin = _controller.text.trim();
+    final ok = await AuthService.validarPin(widget.turno.operador, pin);
+    if (!mounted) return;
+    if (ok) {
+      Navigator.of(context).pop(true);
+    } else {
+      AppHaptics.heavy();
+      setState(() {
+        _erro = 'PIN incorreto. Acesso negado.';
+      });
+      _controller.clear();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final t = widget.turno;
+
+    return AlertDialog(
+      title: TituloJanela('Reabrir Turno #${t.numero}', icone: Icons.lock_open_rounded),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextoJanela('Digite o PIN de ${t.operador} ou do desenvolvedor para autorizar a reabertura:'),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            obscureText: true,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            maxLength: 4,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: TextStyle(
+              fontSize: 20,
+              letterSpacing: 8,
+              fontWeight: FontWeight.w700,
+              color: isDark ? AppColors.darkTextPri : AppColors.lightTextPri,
+            ),
+            decoration: InputDecoration(
+              labelText: 'PIN de 4 dígitos',
+              counterText: '',
+              prefixIcon: const Icon(Icons.shield_outlined),
+              errorText: _erro,
+              filled: true,
+              isDense: true,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
+            ),
+            onSubmitted: (_) => _autorizar(),
+          ),
+        ],
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      actions: [
+        BotoesJanela(
+          secundario: BotaoSecundario(texto: 'Cancelar', onPressed: () => Navigator.of(context).pop(false)),
+          principal: BotaoPrincipal(texto: 'Autorizar Reabertura', onPressed: _autorizar),
+        ),
+      ],
     );
   }
 }

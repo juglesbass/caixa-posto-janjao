@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/database_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_texto.dart';
 import '../utils/currency_formatter.dart';
+import '../widgets/janela.dart';
 
 class EncerrantesDialog extends StatefulWidget {
   final int turnoId;
@@ -169,122 +171,103 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgDialog = isDark ? const Color(0xFF0F172A) : AppColors.lightSurface;
-    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
-    final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
-    final cardBg = isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF8FAFC);
-    final cardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-    final inputBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    // Cada bico num bloco rebaixado; os campos, na cor da janela, saltam dele.
+    final blocoBg = isDark ? AppColors.darkBg : AppColors.lightBg;
+    final inputBg = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+
+    InputDecoration campo(String rotulo, {String? prefixo, String? sufixo, String? dica, Widget? fimIcone}) {
+      return InputDecoration(
+        labelText: rotulo,
+        labelStyle: TextStyle(color: textSec, fontSize: AppTexto.rotulo),
+        prefixText: prefixo,
+        prefixStyle: TextStyle(fontSize: AppTexto.rotulo, color: textSec, fontWeight: FontWeight.w600),
+        suffixText: sufixo,
+        suffixStyle: TextStyle(fontSize: AppTexto.rotulo, color: textSec, fontWeight: FontWeight.w600),
+        hintText: dica,
+        hintStyle: TextStyle(color: textSec.withValues(alpha: 0.5)),
+        suffixIcon: fimIcone,
+        isDense: true,
+        filled: true,
+        fillColor: inputBg,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppColors.radiusSm),
+          borderSide: BorderSide(color: borderCol),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppColors.radiusSm),
+          borderSide: BorderSide(color: borderCol),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      );
+    }
+
+    final estiloNumero = TextStyle(
+      fontFamily: AppTexto.numeros,
+      color: textPri,
+      fontSize: AppTexto.corpo,
+      fontWeight: FontWeight.w600,
+    );
 
     return Dialog(
-      backgroundColor: bgDialog,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: borderCol),
-      ),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         constraints: const BoxConstraints(maxWidth: 520, maxHeight: 680),
         child: Column(
           children: [
-            // ── Cabeçalho do Modal ──
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.local_gas_station_rounded, color: Color(0xFFF59E0B), size: 22),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Encerrantes de Bombas',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri),
-                      ),
-                      Text(
-                        'Informe os litros vendidos e ajuste os preços por bico',
-                        style: TextStyle(fontSize: 11, color: textSec),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.close_rounded, color: textSec),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+            CabecalhoJanela(
+              icone: Icons.local_gas_station_rounded,
+              cor: AppColors.amber,
+              titulo: 'Encerrantes de Bombas',
+              subtitulo: 'Informe os litros vendidos e ajuste os preços por bico',
+              onFechar: () => Navigator.of(context).pop(),
             ),
-            Divider(color: borderCol, height: 20),
+            Divider(color: borderCol, height: 24),
 
             // ── Lista de Bicos ──
             Expanded(
               child: ListView.separated(
                 itemCount: _bicos.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final bico = _bicos[index];
                   return Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                     decoration: BoxDecoration(
-                      color: cardBg,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: cardBorder),
+                      color: blocoBg,
+                      borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                      border: Border.all(color: borderCol),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Topo do Card: Badge do Bico + Botão Excluir (se > 4 bicos)
+                        // Nome do bico + excluir (só quando há mais de 4)
                         Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.local_gas_station_rounded, size: 13, color: Color(0xFF38BDF8)),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    bico.bico,
-                                    style: const TextStyle(
-                                      color: Color(0xFF38BDF8),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            const Icon(Icons.local_gas_station_rounded, size: 16, color: AppColors.amber),
+                            const SizedBox(width: 6),
+                            Text(
+                              bico.bico,
+                              style: TextStyle(color: textPri, fontWeight: FontWeight.w700, fontSize: AppTexto.corpo),
                             ),
                             const Spacer(),
                             if (_bicos.length > 4)
-                              InkWell(
-                                onTap: () => _removerBico(index),
-                                borderRadius: BorderRadius.circular(6),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(4),
-                                  child: Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.red.withValues(alpha: 0.8)),
-                                ),
+                              IconButton(
+                                onPressed: () => _removerBico(index),
+                                tooltip: 'Remover ${bico.bico}',
+                                visualDensity: VisualDensity.compact,
+                                icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.red),
                               ),
                           ],
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
 
                         // Linha 1: Combustível Editável + Preço/L Editável
                         Row(
                           children: [
-                            // Campo Combustível
                             Expanded(
                               flex: 3,
                               child: PopupMenuButton<String>(
@@ -297,52 +280,28 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                                 itemBuilder: (ctx) => _sugestoesCombustivel.map((comb) {
                                   return PopupMenuItem<String>(
                                     value: comb,
-                                    child: Text(comb, style: const TextStyle(fontSize: 13)),
+                                    child: Text(comb, style: const TextStyle(fontSize: AppTexto.corpo)),
                                   );
                                 }).toList(),
                                 child: TextField(
                                   controller: bico.controllerCombustivel,
-                                  style: TextStyle(color: textPri, fontSize: 13, fontWeight: FontWeight.w600),
-                                  decoration: InputDecoration(
-                                    labelText: 'Combustível',
-                                    labelStyle: TextStyle(color: textSec, fontSize: 11),
-                                    isDense: true,
-                                    filled: true,
-                                    fillColor: inputBg,
-                                    suffixIcon: const Icon(Icons.arrow_drop_down_rounded, size: 20, color: Color(0xFF94A3B8)),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                      borderSide: BorderSide(color: borderCol),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                  style: TextStyle(color: textPri, fontSize: AppTexto.corpo, fontWeight: FontWeight.w600),
+                                  decoration: campo(
+                                    'Combustível',
+                                    fimIcone: Icon(Icons.arrow_drop_down_rounded, size: 22, color: textSec),
                                   ),
                                   onChanged: (_) => setState(() {}),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 8),
-
-                            // Campo Preço/L
                             Expanded(
                               flex: 2,
                               child: TextField(
                                 controller: bico.controllerPreco,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: TextStyle(color: textPri, fontSize: 13, fontWeight: FontWeight.bold),
-                                decoration: InputDecoration(
-                                  labelText: 'Preço/L (R\$)',
-                                  labelStyle: TextStyle(color: textSec, fontSize: 11),
-                                  prefixText: 'R\$ ',
-                                  prefixStyle: const TextStyle(fontSize: 12, color: Color(0xFF38BDF8), fontWeight: FontWeight.bold),
-                                  isDense: true,
-                                  filled: true,
-                                  fillColor: inputBg,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(color: borderCol),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                ),
+                                style: estiloNumero,
+                                decoration: campo('Preço/L (R\$)', prefixo: 'R\$ '),
                                 onChanged: (_) => setState(() {}),
                               ),
                             ),
@@ -350,67 +309,48 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                         ),
                         const SizedBox(height: 8),
 
-                        // Linha 2: Quantidade de Litros Vendidos + Total do Bico em Dinheiro
+                        // Linha 2: Litros Vendidos + Total do Bico em Dinheiro
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Campo Litros Vendidos
                             Expanded(
                               flex: 3,
                               child: TextField(
                                 controller: bico.controllerLitros,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: TextStyle(color: textPri, fontSize: 14, fontWeight: FontWeight.w700),
-                                decoration: InputDecoration(
-                                  labelText: 'Litros Vendidos',
-                                  labelStyle: TextStyle(color: textSec, fontSize: 11),
-                                  hintText: '0.00',
-                                  hintStyle: TextStyle(color: textSec.withValues(alpha: 0.5)),
-                                  suffixText: 'L',
-                                  suffixStyle: TextStyle(fontSize: 12, color: textSec, fontWeight: FontWeight.bold),
-                                  isDense: true,
-                                  filled: true,
-                                  fillColor: inputBg,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(color: borderCol),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                ),
+                                style: estiloNumero,
+                                decoration: campo('Litros Vendidos', sufixo: 'L', dica: '0.00'),
                                 onChanged: (_) => setState(() {}),
                               ),
                             ),
                             const SizedBox(width: 8),
-
-                            // Total em Dinheiro do Bico
                             Expanded(
                               flex: 2,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                height: 48,
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                                  color: AppColors.green.withValues(alpha: isDark ? 0.12 : 0.08),
+                                  borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                                  border: Border.all(color: AppColors.green.withValues(alpha: 0.4)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
-                                      'Total Bico',
-                                      style: TextStyle(
-                                        color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF047857),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      'Total bico',
+                                      style: TextStyle(color: textSec, fontSize: AppTexto.rotulo - 1, fontWeight: FontWeight.w600),
                                     ),
                                     FittedBox(
                                       fit: BoxFit.scaleDown,
                                       child: Text(
                                         CurrencyFormatter.formatar(bico.totalReais),
                                         style: const TextStyle(
-                                          color: Color(0xFF10B981),
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 14,
+                                          fontFamily: AppTexto.numeros,
+                                          color: AppColors.green,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: AppTexto.corpo,
                                         ),
                                       ),
                                     ),
@@ -426,18 +366,17 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                 },
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
 
             // Botão Adicionar Bico (se tiver mais bicos na pista)
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
                 onPressed: _adicionarBico,
-                icon: const Icon(Icons.add_circle_outline_rounded, size: 16, color: Color(0xFF38BDF8)),
-                label: const Text('Adicionar Bico', style: TextStyle(fontSize: 12, color: Color(0xFF38BDF8), fontWeight: FontWeight.w600)),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.add_circle_outline_rounded, size: 18, color: AppColors.accentLight),
+                label: const Text(
+                  'Adicionar Bico',
+                  style: TextStyle(fontSize: AppTexto.corpo - 1, color: AppColors.accentLight, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -447,20 +386,45 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E3A8A).withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF2563EB)),
+                color: blocoBg,
+                borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                border: Border.all(color: borderCol),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Total Litros: ${_totalLitrosGeral.toStringAsFixed(2)} L',
-                    style: TextStyle(color: textPri, fontWeight: FontWeight.bold, fontSize: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('TOTAL LITROS', style: _rotuloTotal(textSec)),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${_totalLitrosGeral.toStringAsFixed(2)} L',
+                          style: TextStyle(
+                            fontFamily: AppTexto.numeros,
+                            color: textPri,
+                            fontWeight: FontWeight.w600,
+                            fontSize: AppTexto.valor,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  Text(
-                    'Valor: ${CurrencyFormatter.formatar(_totalReaisGeral)}',
-                    style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.w900, fontSize: 15),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('VALOR', style: _rotuloTotal(textSec)),
+                      const SizedBox(height: 2),
+                      Text(
+                        CurrencyFormatter.formatar(_totalReaisGeral),
+                        style: TextStyle(
+                          fontFamily: AppTexto.numeros,
+                          color: textPri,
+                          fontWeight: FontWeight.w600,
+                          fontSize: AppTexto.valor,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -468,36 +432,20 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
             const SizedBox(height: 12),
 
             // ── Botões de Ação ──
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: textSec,
-                      side: BorderSide(color: borderCol),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text('Voltar'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _salvar,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text('Salvar Encerrantes', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
+            BotoesJanela(
+              secundario: BotaoSecundario(texto: 'Voltar', onPressed: () => Navigator.of(context).pop()),
+              principal: BotaoPrincipal(texto: 'Salvar Encerrantes', icone: Icons.check_circle_rounded, onPressed: _salvar),
             ),
           ],
         ),
       ),
     );
   }
+
+  static TextStyle _rotuloTotal(Color cor) => TextStyle(
+        fontSize: AppTexto.rotulo - 1,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.8,
+        color: cor,
+      );
 }

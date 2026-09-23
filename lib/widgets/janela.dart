@@ -262,6 +262,10 @@ class AvisoJanela extends StatelessWidget {
   /// Algo à direita do texto, como um botão.
   final Widget? fim;
 
+  /// Letra e folga menores, para aviso que fica numa tela de trabalho (o de
+  /// pendência no Início) e não numa janela.
+  final bool compacto;
+
   const AvisoJanela({
     super.key,
     required this.cor,
@@ -269,15 +273,19 @@ class AvisoJanela extends StatelessWidget {
     this.titulo,
     required this.texto,
     this.fim,
+    this.compacto = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    // No fundo claro, âmbar e verde puros quase somem como letra: o título
+    // escurece um pouco, o ícone e a borda ficam na cor do assunto.
+    final corTitulo = isDark ? cor : Color.lerp(cor, Colors.black, 0.35)!;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: compacto ? 12 : 14, vertical: compacto ? 8 : 10),
       decoration: BoxDecoration(
         color: cor.withValues(alpha: isDark ? 0.12 : 0.08),
         borderRadius: BorderRadius.circular(AppColors.radiusMd),
@@ -295,13 +303,17 @@ class AvisoJanela extends StatelessWidget {
                 if (titulo != null) ...[
                   Text(
                     titulo!,
-                    style: TextStyle(fontSize: AppTexto.corpo - 1, fontWeight: FontWeight.w800, color: cor),
+                    style: TextStyle(fontSize: AppTexto.corpo - 1, fontWeight: FontWeight.w800, color: corTitulo),
                   ),
                   const SizedBox(height: 2),
                 ],
                 Text(
                   texto,
-                  style: TextStyle(fontSize: AppTexto.rotulo + 1, color: textPri, height: 1.3),
+                  style: TextStyle(
+                    fontSize: compacto ? AppTexto.rotulo : AppTexto.rotulo + 1,
+                    color: textPri,
+                    height: 1.3,
+                  ),
                 ),
               ],
             ),
