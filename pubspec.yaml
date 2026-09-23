@@ -52,6 +52,11 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+    # Fonte do PDF de fechamento (Roboto, licenca Apache 2.0 em
+    # assets/fonts/Roboto_LICENSE.txt). Vai como arquivo, nao como fonte da
+    # tela: so o PDF usa. Antes vinha do Google Fonts na hora de gerar.
+    - assets/fonts/Roboto-Regular.ttf
+    - assets/fonts/Roboto-Bold.ttf
   # Numeros em largura fixa, como na bobina do encerrante. Vai embutida no app
   # para funcionar offline; licenca OFL em assets/fonts/OFL.txt.
   fonts:

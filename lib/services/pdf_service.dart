@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 import '../models/lancamento.dart';
 import '../models/totais_turno.dart';
@@ -18,19 +18,53 @@ class PdfService {
   static pw.Font? _cachedFontRegular;
   static pw.Font? _cachedFontBold;
 
+  /// A fonte do PDF vem embutida no app (Roboto, em assets/fonts).
+  ///
+  /// Antes era baixada do Google Fonts na hora de gerar o PDF: sem sinal, o
+  /// fechamento esperava até 1,5 s e o PDF saía em Helvetica, com outra cara —
+  /// e a Helvetica ficava valendo até o app ser fechado, mesmo com a internet
+  /// de volta. Embutida, sai sempre igual e sem rede.
+  ///
+  /// No PWA o arquivo só é baixado quando pedido; [aquecerFontes] faz isso
+  /// junto do resto do código do PDF, na abertura, e ele fica no cache offline.
+  static const _arquivoRegular = 'assets/fonts/Roboto-Regular.ttf';
+  static const _arquivoBold = 'assets/fonts/Roboto-Bold.ttf';
+
   static Future<({pw.Font regular, pw.Font bold})> _obterFontes() async {
     if (_cachedFontRegular != null && _cachedFontBold != null) {
       return (regular: _cachedFontRegular!, bold: _cachedFontBold!);
     }
     try {
-      _cachedFontRegular ??= await PdfGoogleFonts.robotoRegular().timeout(const Duration(milliseconds: 1500));
-      _cachedFontBold ??= await PdfGoogleFonts.robotoBold().timeout(const Duration(milliseconds: 1500));
+      final regular = await rootBundle.load(_arquivoRegular);
+      final bold = await rootBundle.load(_arquivoBold);
+      _cachedFontRegular = pw.Font.ttf(regular);
+      _cachedFontBold = pw.Font.ttf(bold);
       return (regular: _cachedFontRegular!, bold: _cachedFontBold!);
-    } catch (_) {
-      _cachedFontRegular ??= pw.Font.helvetica();
-      _cachedFontBold ??= pw.Font.helveticaBold();
-      return (regular: _cachedFontRegular!, bold: _cachedFontBold!);
+    } catch (e) {
+      // Só acontece no PWA, com o arquivo fora do cache e sem rede. O PDF sai
+      // assim mesmo, na fonte padrão do PDF — sem guardar, para o próximo PDF
+      // tentar a embutida de novo.
+      debugPrint('[PDF] Fonte embutida indisponível, usando a padrão: $e');
+      return (regular: pw.Font.helvetica(), bold: pw.Font.helveticaBold());
     }
+  }
+
+  /// Carrega a fonte do PDF antes do primeiro fechamento. Ver [_obterFontes].
+  static Future<void> aquecerFontes() async {
+    await _obterFontes();
+  }
+
+  /// Fontes que o PDF vai usar. Só para testes.
+  @visibleForTesting
+  static Future<({pw.Font regular, pw.Font bold})> fontesParaTeste() => _obterFontes();
+
+  /// Troca a fonte embutida pela padrão do PDF. Só para testes que leem o
+  /// texto do arquivo: a padrão grava as palavras legíveis, a embutida grava
+  /// o número de cada letra na fonte.
+  @visibleForTesting
+  static void usarFontePadraoParaTeste() {
+    _cachedFontRegular = pw.Font.helvetica();
+    _cachedFontBold = pw.Font.helveticaBold();
   }
 
   /// Dia da semana de uma data “dd/MM/yyyy”, em caixa alta.

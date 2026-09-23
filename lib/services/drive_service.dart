@@ -43,6 +43,9 @@ class DriveService {
   static Future<void> aquecerPdf() async {
     try {
       await pdf_service.loadLibrary();
+      // A fonte também: no PWA é mais um arquivo que precisa estar no cache
+      // antes de um fechamento sem sinal.
+      await pdf_service.PdfService.aquecerFontes();
     } catch (e) {
       debugPrint('[DriveService] PDF será carregado sob demanda: $e');
     }

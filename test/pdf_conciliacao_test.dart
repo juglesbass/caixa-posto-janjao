@@ -39,6 +39,9 @@ String _textoDoPdf(Uint8List bytes) {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  // Estes testes leem as palavras do PDF: com a fonte padrão elas ficam
+  // legíveis no arquivo (a embutida grava o número de cada letra).
+  setUpAll(PdfService.usarFontePadraoParaTeste);
 
   Turno turno({required double sistema}) => Turno(
         id: 1,
