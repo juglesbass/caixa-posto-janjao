@@ -48,9 +48,6 @@ void main() {
         body: UltimosLancamentos(
           turno: turno,
           maquinaAtiva: 'Rede',
-          // versaoDados fica igual: quem lanca aqui nao e a tela Inicio.
-          versaoDados: 0,
-          onAlterado: () {},
         ),
       ),
     ));

@@ -176,8 +176,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _valorVenda = 0.0;
         _valorRecebido = 0.0;
       });
-
-      _recarregarTudo();
+      // Totais e últimos lançamentos se atualizam pelo aviso do banco
+      // (lancamentosNotifier), que o inserirLancamento acabou de disparar.
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -194,15 +194,6 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     }
-  }
-
-  /// Muda a cada lancamento novo ou corrigido: e o sinal para a lista dos
-  /// ultimos lancamentos reler o banco. Os totais quem recarrega e a tela mae.
-  int _versaoLancamentos = 0;
-
-  void _recarregarTudo() {
-    if (mounted) setState(() => _versaoLancamentos++);
-    widget.onRecarregar();
   }
 
   @override
@@ -309,8 +300,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   UltimosLancamentos(
                     turno: widget.turno,
                     maquinaAtiva: _maquinaAtiva,
-                    versaoDados: _versaoLancamentos,
-                    onAlterado: _recarregarTudo,
                   ),
                   const SizedBox(height: 14),
 

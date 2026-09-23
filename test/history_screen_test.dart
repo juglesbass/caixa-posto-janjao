@@ -34,7 +34,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MaterialApp(
       theme: AppTheme.lightTheme(),
-      home: HistoryScreen(turno: t, onAtualizado: () {}),
+      home: HistoryScreen(turno: t),
     ));
     await esperar(tester);
   }
@@ -93,5 +93,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(EditLaunchDialog), findsNothing);
     expect(find.textContaining('Turno fechado'), findsOneWidget);
+  });
+
+  // Aba escondida não relê o turno a cada lançamento do Início; ao ser aberta
+  // de novo, mostra o que entrou enquanto estava escondida.
+  testWidgets('escondido não relê; ao voltar, mostra o que entrou', (tester) async {
+    tester.view.physicalSize = const Size(440 * 3, 956 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    Widget tela(bool ativo) => MaterialApp(
+          theme: AppTheme.lightTheme(),
+          home: HistoryScreen(turno: turno, ativo: ativo),
+        );
+    await tester.pumpWidget(tela(false));
+    await esperar(tester);
+    final antes = find.textContaining('lançamentos neste turno').evaluate().length;
+    expect(antes, 1);
+
+    await tester.runAsync(() => DatabaseService.instance.inserirLancamento(turno.id!, 'Requisição', 45, ''));
+    await esperar(tester);
+    expect(find.text('Requisição'), findsNothing);
+
+    await tester.pumpWidget(tela(true));
+    await esperar(tester);
+    expect(find.text('Requisição'), findsOneWidget);
   });
 }

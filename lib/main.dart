@@ -716,7 +716,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
             dados.valor,
             dados.descricao,
           );
-          _recarregarDados();
+          // Os totais se atualizam pelo aviso do banco (lancamentosNotifier).
         },
       ),
     );
@@ -770,7 +770,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           // Aba 1: Histórico
           HistoryScreen(
             turno: _turnoAtual!,
-            onAtualizado: _recarregarDados,
             ativo: _indiceAba == 1,
           ),
 

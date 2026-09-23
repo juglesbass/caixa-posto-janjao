@@ -26,18 +26,10 @@ class UltimosLancamentos extends StatefulWidget {
   final Turno turno;
   final String maquinaAtiva;
 
-  /// Muda a cada lançamento novo ou corrigido. É o sinal de que a lista precisa
-  /// ser relida — sem isso ela ficaria mostrando o estado de antes do toque.
-  final int versaoDados;
-
-  final VoidCallback onAlterado;
-
   const UltimosLancamentos({
     super.key,
     required this.turno,
     required this.maquinaAtiva,
-    required this.versaoDados,
-    required this.onAlterado,
   });
 
   @override
@@ -79,8 +71,7 @@ class _UltimosLancamentosState extends State<UltimosLancamentos> {
   @override
   void didUpdateWidget(covariant UltimosLancamentos anterior) {
     super.didUpdateWidget(anterior);
-    if (anterior.versaoDados != widget.versaoDados ||
-        anterior.turno.id != widget.turno.id) {
+    if (anterior.turno.id != widget.turno.id) {
       _carregar();
     }
   }
@@ -135,13 +126,11 @@ class _UltimosLancamentosState extends State<UltimosLancamentos> {
             dados.valor,
             dados.descricao,
           );
-          await _carregar();
-          widget.onAlterado();
+          // A lista, os totais e o Histórico se atualizam pelo aviso do banco
+          // (lancamentosNotifier): recarregar aqui também relia tudo duas vezes.
         },
         onDeletar: () async {
           await DatabaseService.instance.deletarLancamento(lancamento.id!, turnoId);
-          await _carregar();
-          widget.onAlterado();
         },
       ),
     );

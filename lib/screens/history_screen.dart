@@ -13,13 +13,14 @@ import '../widgets/filtro_pilula.dart';
 
 class HistoryScreen extends StatefulWidget {
   final Turno turno;
-  final VoidCallback onAtualizado;
+
+  /// Aba visível. Escondida, a tela não relê o turno a cada lançamento feito
+  /// no Início — relê ao voltar a ser vista (didUpdateWidget).
   final bool ativo;
 
   const HistoryScreen({
     super.key,
     required this.turno,
-    required this.onAtualizado,
     this.ativo = true,
   });
 
@@ -46,7 +47,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   void _onLancamentosMudaram() {
-    if (mounted && widget.turno.id != null) {
+    if (mounted && widget.ativo && widget.turno.id != null) {
       _carregar(silencioso: _lancamentos.isNotEmpty);
     }
   }
@@ -113,14 +114,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
             dados.valor,
             dados.descricao,
           );
-          _carregar();
-          widget.onAtualizado();
+          // Esta lista e os totais se atualizam pelo aviso do banco
+          // (lancamentosNotifier).
         },
         onDeletar: () async {
           final db = DatabaseService.instance;
           await db.deletarLancamento(lancamento.id!, widget.turno.id!);
-          _carregar();
-          widget.onAtualizado();
         },
       ),
     );
