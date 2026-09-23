@@ -16,6 +16,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_texto.dart';
 import '../utils/app_haptics.dart';
 import '../widgets/cabecalho_turno.dart';
+import '../widgets/janela.dart';
 import 'consulta_produtos_screen.dart';
 import 'gerencia/gestao_operadores_screen.dart';
 
@@ -180,60 +181,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final isDark = widget.isDark;
-            final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-            final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+            final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+            final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+            void entrar() => _validarEEntrarGerencia(
+                  dialogCtx,
+                  setDialogState,
+                  (err) => erroLocal = err,
+                  (v) => validandoLocal = v,
+                );
 
             return AlertDialog(
-              backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(
-                  color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
-                  width: 1.2,
-                ),
-              ),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.admin_panel_settings_rounded,
-                      color: Color(0xFFF59E0B),
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Desenvolvedor',
-                          style: TextStyle(
-                            fontSize: 15.5,
-                            fontWeight: FontWeight.w900,
-                            color: textPri,
-                          ),
-                        ),
-                        Text(
-                          'Informe o PIN Mestre (4 dígitos)',
-                          style: TextStyle(fontSize: 11, color: textSec),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              title: const CabecalhoJanela(
+                icone: Icons.admin_panel_settings_rounded,
+                cor: AppColors.amber,
+                titulo: 'Desenvolvedor',
+                subtitulo: 'Informe o PIN Mestre (4 dígitos)',
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
+                  const TextoJanela(
                     'Digite a senha administrativa para acessar o painel restrito de configurações e segurança:',
-                    style: TextStyle(fontSize: 12.5, color: textSec, height: 1.3),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -247,7 +216,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(
                       fontSize: 24,
                       letterSpacing: 10,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                       color: textPri,
                     ),
                     decoration: InputDecoration(
@@ -255,50 +224,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       counterText: '',
                       errorText: erroLocal,
                       filled: true,
-                      fillColor: isDark ? const Color(0xFF090D16) : const Color(0xFFF8FAFC),
+                      fillColor: isDark ? AppColors.darkBg : AppColors.lightBg,
                       contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                        borderSide: BorderSide(color: borderCol),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                        borderSide: BorderSide(color: borderCol),
+                      ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFFF59E0B), width: 1.8),
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                        borderSide: const BorderSide(color: AppColors.amber, width: 1.5),
                       ),
                     ),
-                    onSubmitted: (_) => _validarEEntrarGerencia(
-                      dialogCtx,
-                      setDialogState,
-                      (err) => erroLocal = err,
-                      (v) => validandoLocal = v,
-                    ),
+                    onSubmitted: (_) => entrar(),
                   ),
                 ],
               ),
+              actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogCtx).pop(),
-                  child: Text('Cancelar', style: TextStyle(color: textSec)),
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF59E0B),
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                BotoesJanela(
+                  secundario: BotaoSecundario(texto: 'Cancelar', onPressed: () => Navigator.of(dialogCtx).pop()),
+                  principal: BotaoPrincipal(
+                    texto: 'Acessar Painel',
+                    icone: Icons.lock_open_rounded,
+                    cor: AppColors.amber,
+                    ocupado: validandoLocal,
+                    onPressed: validandoLocal ? null : entrar,
                   ),
-                  onPressed: validandoLocal
-                      ? null
-                      : () => _validarEEntrarGerencia(
-                            dialogCtx,
-                            setDialogState,
-                            (err) => erroLocal = err,
-                            (v) => validandoLocal = v,
-                          ),
-                  icon: validandoLocal
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                        )
-                      : const Icon(Icons.lock_open_rounded, size: 18),
-                  label: const Text('Acessar Painel', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ],
             );
@@ -366,117 +321,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _abrirAlterarPinMestre(BuildContext context) async {
-    final controllerNovoPin = TextEditingController();
-    final controllerConfirmaPin = TextEditingController();
-    String? erro;
-
     final bool? alterou = await showDialog<bool>(
       context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final isDark = widget.isDark;
-            final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-            final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
-
-            return AlertDialog(
-              backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.key_rounded, color: Color(0xFFF59E0B), size: 22),
-                  ),
-                  const SizedBox(width: 10),
-                  Text('Alterar PIN Mestre', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textPri)),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Defina um novo PIN Mestre de 4 dígitos para o desenvolvedor (armazenado como hash PBKDF2 com sal):', style: TextStyle(fontSize: 12.5, color: textSec)),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: controllerNovoPin,
-                    obscureText: true,
-                    autofocus: true,
-                    keyboardType: TextInputType.number,
-                    maxLength: 4,
-                    textAlign: TextAlign.center,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    style: TextStyle(fontSize: 20, letterSpacing: 8, fontWeight: FontWeight.w900, color: textPri),
-                    decoration: InputDecoration(
-                      labelText: 'Novo PIN (4 dígitos)',
-                      hintText: '••••',
-                      counterText: '',
-                      filled: true,
-                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: controllerConfirmaPin,
-                    obscureText: true,
-                    keyboardType: TextInputType.number,
-                    maxLength: 4,
-                    textAlign: TextAlign.center,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    style: TextStyle(fontSize: 20, letterSpacing: 8, fontWeight: FontWeight.w900, color: textPri),
-                    decoration: InputDecoration(
-                      labelText: 'Confirmar Novo PIN',
-                      hintText: '••••',
-                      counterText: '',
-                      errorText: erro,
-                      filled: true,
-                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: Text('Cancelar', style: TextStyle(color: textSec)),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF59E0B),
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () async {
-                    final p1 = controllerNovoPin.text.trim();
-                    final p2 = controllerConfirmaPin.text.trim();
-                    if (p1.length != 4 || p2.length != 4) {
-                      setModalState(() => erro = 'Ambos devem ter 4 dígitos');
-                      return;
-                    }
-                    if (p1 != p2) {
-                      setModalState(() => erro = 'Os PINs não conferem!');
-                      return;
-                    }
-                    await AuthService.alterarPinGerente(p1);
-                    Navigator.of(ctx).pop(true);
-                  },
-                  child: const Text('Salvar PIN Mestre', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (ctx) => const _AlterarPinMestreDialog(),
     );
-
-    controllerNovoPin.dispose();
-    controllerConfirmaPin.dispose();
 
     if (alterou == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -681,57 +529,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  /// Um grupo do Menu: título em caixa alta e os itens num cartão só,
-  /// separados por fio — a mesma forma dos blocos do Resumo.
-  Widget _grupo(String? titulo, List<Widget> itens) {
-    final surface = isDark ? AppColors.darkSurface : AppColors.lightSurface;
-    final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
-    final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
+  Widget _grupo(String? titulo, List<Widget> itens) => _grupoMenu(isDark, titulo, itens);
 
-    final linhas = <Widget>[];
-    for (var i = 0; i < itens.length; i++) {
-      // O fio comeca depois do icone, como nas listas do sistema.
-      if (i > 0) linhas.add(Divider(height: 1, thickness: 1, indent: 64, color: borderCol));
-      linhas.add(itens[i]);
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (titulo != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-              child: Text(
-                titulo.toUpperCase(),
-                style: TextStyle(
-                  fontSize: AppTexto.rotulo,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                  color: textTer,
-                ),
-              ),
-            ),
-          Container(
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: surface,
-              borderRadius: BorderRadius.circular(AppColors.radiusLg),
-              border: Border.all(color: borderCol),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: linhas),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Um item do Menu: ícone na cor da função, título, uma linha de apoio e a
-  /// seta (ou outro sinal no fim, como o selo "Restrito").
   Widget _itemMenu({
     required IconData icon,
     required Color iconColor,
@@ -739,55 +538,129 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required String subtitulo,
     required VoidCallback onTap,
     Widget? fim,
-  }) {
-    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
-    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
-    final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
+  }) =>
+      _itemMenuDe(
+        isDark,
+        icon: icon,
+        iconColor: iconColor,
+        titulo: titulo,
+        subtitulo: subtitulo,
+        onTap: onTap,
+        fim: fim,
+      );
+}
 
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: isDark ? 0.16 : 0.12),
-                borderRadius: BorderRadius.circular(AppColors.radiusSm),
-              ),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    titulo,
-                    style: TextStyle(fontSize: AppTexto.corpo, fontWeight: FontWeight.w700, color: textPri),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitulo,
-                    style: TextStyle(fontSize: AppTexto.rotulo, color: textSec),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            fim ?? Icon(Icons.chevron_right_rounded, color: textTer, size: 20),
-          ],
-        ),
-      ),
-    );
+/// Um grupo do Menu: título em caixa alta e os itens num cartão só,
+/// separados por fio — a mesma forma dos blocos do Resumo. Serve ao Menu e ao
+/// painel do desenvolvedor.
+Widget _grupoMenu(bool isDark, String? titulo, List<Widget> itens) {
+  final surface = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+  final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+  final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
+
+  final linhas = <Widget>[];
+  for (var i = 0; i < itens.length; i++) {
+    // O fio comeca depois do icone, como nas listas do sistema.
+    if (i > 0) linhas.add(Divider(height: 1, thickness: 1, indent: 64, color: borderCol));
+    linhas.add(itens[i]);
   }
+
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 18),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (titulo != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Text(
+              titulo.toUpperCase(),
+              style: TextStyle(
+                fontSize: AppTexto.rotulo,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: textTer,
+              ),
+            ),
+          ),
+        Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: surface,
+            borderRadius: BorderRadius.circular(AppColors.radiusLg),
+            border: Border.all(color: borderCol),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: linhas),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Um item do Menu: ícone na cor da função, título, uma linha de apoio e a
+/// seta (ou outro sinal no fim, como o selo "Restrito" ou um interruptor).
+/// [corTitulo] pinta o título quando o item pede atenção (zerar tudo, modo
+/// teste ligado).
+Widget _itemMenuDe(
+  bool isDark, {
+  required IconData icon,
+  required Color iconColor,
+  required String titulo,
+  required String subtitulo,
+  required VoidCallback? onTap,
+  Widget? fim,
+  Color? corTitulo,
+}) {
+  final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+  final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+  final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
+
+  return InkWell(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: isDark ? 0.16 : 0.12),
+              borderRadius: BorderRadius.circular(AppColors.radiusSm),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: TextStyle(fontSize: AppTexto.corpo, fontWeight: FontWeight.w700, color: corTitulo ?? textPri),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitulo,
+                  style: TextStyle(fontSize: AppTexto.rotulo, color: textSec),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          fim ?? Icon(Icons.chevron_right_rounded, color: textTer, size: 20),
+        ],
+      ),
+    ),
+  );
 }
 
 class _PainelGerenciaPage extends StatefulWidget {
@@ -834,20 +707,21 @@ class _PainelGerenciaPageState extends State<_PainelGerenciaPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
-    final bgScaffold = isDark ? const Color(0xFF090D16) : AppColors.lightBg;
-    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
-    final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
+    final bgScaffold = isDark ? AppColors.darkBg : AppColors.lightBg;
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     return PopScope(
       canPop: true,
       child: Scaffold(
         backgroundColor: bgScaffold,
         appBar: AppBar(
-          backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
           elevation: 0,
+          centerTitle: false,
           leading: IconButton(
             icon: Icon(Icons.arrow_back_rounded, color: textPri),
+            tooltip: 'Voltar',
             onPressed: () => Navigator.of(context).maybePop(),
           ),
           title: Column(
@@ -855,21 +729,17 @@ class _PainelGerenciaPageState extends State<_PainelGerenciaPage> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFFF59E0B), size: 20),
-                  const SizedBox(width: 8),
                   Text(
                     'Desenvolvedor',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: textPri,
-                    ),
+                    style: TextStyle(fontSize: AppTexto.valor, fontWeight: FontWeight.w700, color: textPri),
                   ),
+                  const SizedBox(width: 8),
+                  const SeloTurno(texto: 'Restrito', cor: AppColors.amber),
                 ],
               ),
               Text(
                 'Configurações administrativas e segurança',
-                style: TextStyle(fontSize: 11, color: textSec, fontWeight: FontWeight.normal),
+                style: TextStyle(fontSize: AppTexto.rotulo, color: textSec, fontWeight: FontWeight.normal),
               ),
             ],
           ),
@@ -879,262 +749,210 @@ class _PainelGerenciaPageState extends State<_PainelGerenciaPage> {
           ),
         ),
         body: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
           children: [
             // 0. Cobra a troca do PIN Mestre enquanto ele for o padrão de fábrica
-            if (_pinEhPadrao)
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.45) : const Color(0xFFFEE2E2),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.red),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.gpp_maybe_rounded, color: AppColors.red, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'PIN MESTRE AINDA É O DE FÁBRICA',
-                            style: TextStyle(
-                              color: isDark ? const Color(0xFFFECACA) : const Color(0xFF991B1B),
-                              fontWeight: FontWeight.w900,
-                              fontSize: 12,
-                              letterSpacing: 0.3,
+            if (_pinEhPadrao) ...[
+              const AvisoJanela(
+                cor: AppColors.red,
+                icone: Icons.gpp_maybe_rounded,
+                titulo: 'PIN Mestre ainda é o de fábrica',
+                texto: 'O PIN mestre abre qualquer turno e libera qualquer operação. '
+                    'Troque agora para um valor que só o desenvolvedor conheça.',
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            _grupoMenu(isDark, 'Segurança', [
+              _itemMenuDe(
+                isDark,
+                icon: Icons.key_rounded,
+                iconColor: AppColors.amber,
+                titulo: 'Alterar PIN Mestre do Desenvolvedor',
+                subtitulo: 'Modificar a senha administrativa mestre (PBKDF2 com sal)',
+                onTap: () async {
+                  widget.onAlterarPinMestre();
+                  _checarPinPadrao();
+                },
+              ),
+              _itemMenuDe(
+                isDark,
+                icon: Icons.badge_rounded,
+                iconColor: AppColors.accentLight,
+                titulo: 'Gestão de Operadores & Senhas',
+                subtitulo: 'Visualizar operadores cadastrados e redefinir PINs',
+                onTap: widget.onGestaoOperadores,
+              ),
+            ]),
+
+            _grupoMenu(isDark, 'Dados e relatórios', [
+              _itemMenuDe(
+                isDark,
+                icon: Icons.auto_graph_rounded,
+                iconColor: AppColors.purple,
+                titulo: 'Analytics & Desempenho',
+                subtitulo: 'Gráficos de vendas, ticket médio e formas de pagamento',
+                onTap: widget.onAnalytics,
+              ),
+              _itemMenuDe(
+                isDark,
+                icon: Icons.table_chart_rounded,
+                iconColor: AppColors.green,
+                titulo: 'Exportar Planilha Excel (CSV)',
+                subtitulo: 'Salvar ou compartilhar dados estruturados',
+                onTap: widget.onExportarCsv,
+              ),
+              // Modo Teste / Simulação: só o interruptor liga e desliga.
+              ValueListenableBuilder<bool>(
+                valueListenable: DriveService.modoTesteNotifier,
+                builder: (context, modoTeste, _) => _itemMenuDe(
+                  isDark,
+                  icon: Icons.science_outlined,
+                  iconColor: AppColors.amber,
+                  titulo: modoTeste ? 'Modo Teste / Simulação (ligado)' : 'Modo Teste / Simulação',
+                  subtitulo: 'Envia os relatórios para a pasta de homologação no Drive',
+                  corTitulo: modoTeste ? AppColors.amber : null,
+                  onTap: null,
+                  fim: Switch(
+                    value: modoTeste,
+                    activeThumbColor: AppColors.amber,
+                    onChanged: (novoValor) async {
+                      await DriveService.setModoTeste(novoValor);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              novoValor
+                                  ? '🧪 Modo Teste ativado! Relatórios irão para a homologação.'
+                                  : '✅ Modo Teste desativado. Relatórios irão para a pasta oficial.',
                             ),
+                            backgroundColor: novoValor ? AppColors.amber : AppColors.green,
+                            duration: const Duration(seconds: 3),
                           ),
-                          Text(
-                            'O PIN mestre abre qualquer turno e libera qualquer operação. Troque agora para um valor que só o desenvolvedor conheça.',
-                            style: TextStyle(
-                              color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFB91C1C),
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w500,
-                              height: 1.35,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                        );
+                      }
+                    },
+                  ),
                 ),
               ),
+            ]),
 
-            // 1. Alterar PIN Mestre da Gerência
-            _itemGerenciaCard(
-              icon: Icons.key_rounded,
-              iconColor: const Color(0xFFF59E0B),
-              iconBg: const Color(0xFF78350F).withValues(alpha: 0.4),
-              titulo: 'Alterar PIN Mestre do Desenvolvedor',
-              subtitulo: 'Modificar a senha administrativa mestre (PBKDF2 com sal)',
-              onTap: () async {
-                widget.onAlterarPinMestre();
-                _checarPinPadrao();
-              },
-            ),
-            const SizedBox(height: 10),
-
-            // 2. Gestão de Operadores & Senhas
-            _itemGerenciaCard(
-              icon: Icons.badge_rounded,
-              iconColor: const Color(0xFF38BDF8),
-              iconBg: const Color(0xFF0369A1).withValues(alpha: 0.4),
-              titulo: 'Gestão de Operadores & Senhas',
-              subtitulo: 'Visualizar operadores cadastrados e redefinir PINs',
-              onTap: widget.onGestaoOperadores,
-            ),
-            const SizedBox(height: 10),
-
-            // 3. Analytics & Desempenho
-            _itemGerenciaCard(
-              icon: Icons.auto_graph_rounded,
-              iconColor: const Color(0xFFA855F7),
-              iconBg: const Color(0xFF581C87).withValues(alpha: 0.4),
-              titulo: 'Analytics & Desempenho',
-              subtitulo: 'Gráficos de vendas, ticket médio e formas de pagamento',
-              onTap: widget.onAnalytics,
-            ),
-            const SizedBox(height: 10),
-
-            // 4. Exportar Planilha Excel (CSV)
-            _itemGerenciaCard(
-              icon: Icons.table_chart_rounded,
-              iconColor: const Color(0xFF10B981),
-              iconBg: const Color(0xFF064E3B).withValues(alpha: 0.4),
-              titulo: 'Exportar Planilha Excel (CSV)',
-              subtitulo: 'Salvar ou compartilhar dados estruturados',
-              onTap: widget.onExportarCsv,
-            ),
-            const SizedBox(height: 10),
-
-            // 5. Modo Teste / Simulação (Toggle)
-            ValueListenableBuilder<bool>(
-              valueListenable: DriveService.modoTesteNotifier,
-              builder: (context, modoTeste, _) {
-                final cardBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
-                final cardBorder = modoTeste
-                    ? const Color(0xFFF59E0B).withValues(alpha: 0.6)
-                    : (isDark ? const Color(0xFF1E293B) : AppColors.lightBorder);
-                final titleCol = modoTeste
-                    ? const Color(0xFFFBBF24)
-                    : (isDark ? Colors.white : AppColors.lightTextPri);
-
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: modoTeste ? const Color(0xFF78350F).withValues(alpha: 0.18) : cardBg,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: cardBorder, width: modoTeste ? 1.5 : 1.0),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF78350F).withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.science_outlined, color: Color(0xFFF59E0B), size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Modo Teste / Simulação',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: titleCol,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Envia os relatórios para a pasta de homologação no Drive',
-                              style: TextStyle(fontSize: 11, color: textSec),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      Switch(
-                        value: modoTeste,
-                        activeThumbColor: AppColors.amber,
-                        onChanged: (novoValor) async {
-                          await DriveService.setModoTeste(novoValor);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  novoValor
-                                      ? '🧪 Modo Teste ativado! Relatórios irão para a homologação.'
-                                      : '✅ Modo Teste desativado. Relatórios irão para a pasta oficial.',
-                                ),
-                                backgroundColor: novoValor ? AppColors.amber : AppColors.green,
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 10),
-
-            // 6. Limpar / Zerar Tudo
-            _itemGerenciaCard(
-              icon: Icons.delete_forever_rounded,
-              iconColor: const Color(0xFFEF4444),
-              iconBg: const Color(0xFF7F1D1D).withValues(alpha: 0.4),
-              titulo: 'Limpar / Zerar Tudo',
-              subtitulo: 'Reset completo e irreversível dos dados locais',
-              corBorda: const Color(0xFF7F1D1D).withValues(alpha: 0.6),
-              corTitulo: const Color(0xFFF87171),
-              onTap: widget.onLimparZerarTudo,
-            ),
-            const SizedBox(height: 24),
+            _grupoMenu(isDark, 'Zona de perigo', [
+              _itemMenuDe(
+                isDark,
+                icon: Icons.delete_forever_rounded,
+                iconColor: AppColors.red,
+                titulo: 'Limpar / Zerar Tudo',
+                subtitulo: 'Reset completo e irreversível dos dados locais',
+                corTitulo: AppColors.red,
+                onTap: widget.onLimparZerarTudo,
+              ),
+            ]),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _itemGerenciaCard({
-    required IconData icon,
-    required Color iconColor,
-    required Color iconBg,
-    required String titulo,
-    required String subtitulo,
-    required VoidCallback onTap,
-    Color? corBorda,
-    Color? corTitulo,
-  }) {
-    final isDark = widget.isDark;
-    final cardBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
-    final cardBorder = corBorda ?? (isDark ? const Color(0xFF1E293B) : AppColors.lightBorder);
-    final titleCol = corTitulo ?? (isDark ? Colors.white : AppColors.lightTextPri);
-    final subCol = isDark ? const Color(0xFF64748B) : AppColors.lightTextSec;
+/// Troca do PIN Mestre. Com estado próprio, os campos só são descartados
+/// quando a janela sai de vez.
+class _AlterarPinMestreDialog extends StatefulWidget {
+  const _AlterarPinMestreDialog();
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: cardBorder),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                // Caixa do icone neutra, na mesma lingua da grade de
-                // lancamento: a cor do item continua no glifo, que e o que o
-                // olho usa para achar a linha certa. Doze blocos tingidos numa
-                // lista faziam o Menu parecer outro aplicativo.
-                color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    titulo,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: titleCol,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitulo,
-                    style: TextStyle(fontSize: 11, color: subCol),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded, color: subCol, size: 18),
-          ],
-        ),
+  @override
+  State<_AlterarPinMestreDialog> createState() => _AlterarPinMestreDialogState();
+}
+
+class _AlterarPinMestreDialogState extends State<_AlterarPinMestreDialog> {
+  final _novo = TextEditingController();
+  final _confirma = TextEditingController();
+  String? _erro;
+
+  @override
+  void dispose() {
+    _novo.dispose();
+    _confirma.dispose();
+    super.dispose();
+  }
+
+  Future<void> _salvar() async {
+    final p1 = _novo.text.trim();
+    final p2 = _confirma.text.trim();
+    if (p1.length != 4 || p2.length != 4) {
+      setState(() => _erro = 'Ambos devem ter 4 dígitos');
+      return;
+    }
+    if (p1 != p2) {
+      setState(() => _erro = 'Os PINs não conferem!');
+      return;
+    }
+    await AuthService.alterarPinGerente(p1);
+    if (mounted) Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+
+    InputDecoration campo(String rotulo, {String? erro}) => InputDecoration(
+          labelText: rotulo,
+          hintText: '••••',
+          counterText: '',
+          errorText: erro,
+          filled: true,
+          fillColor: isDark ? AppColors.darkBg : AppColors.lightBg,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
+        );
+    final estiloPin = TextStyle(fontSize: 20, letterSpacing: 8, fontWeight: FontWeight.w700, color: textPri);
+
+    return AlertDialog(
+      title: const CabecalhoJanela(
+        icone: Icons.key_rounded,
+        cor: AppColors.amber,
+        titulo: 'Alterar PIN Mestre',
       ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const TextoJanela(
+            'Defina um novo PIN Mestre de 4 dígitos para o desenvolvedor (armazenado como hash PBKDF2 com sal):',
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _novo,
+            obscureText: true,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            maxLength: 4,
+            textAlign: TextAlign.center,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: estiloPin,
+            decoration: campo('Novo PIN (4 dígitos)'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _confirma,
+            obscureText: true,
+            keyboardType: TextInputType.number,
+            maxLength: 4,
+            textAlign: TextAlign.center,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: estiloPin,
+            decoration: campo('Confirmar Novo PIN', erro: _erro),
+            onSubmitted: (_) => _salvar(),
+          ),
+        ],
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      actions: [
+        BotoesJanela(
+          secundario: BotaoSecundario(texto: 'Cancelar', onPressed: () => Navigator.of(context).pop(false)),
+          principal: BotaoPrincipal(texto: 'Salvar PIN Mestre', cor: AppColors.amber, onPressed: _salvar),
+        ),
+      ],
     );
   }
 }

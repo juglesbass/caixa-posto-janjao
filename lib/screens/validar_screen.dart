@@ -4,9 +4,11 @@ import '../models/totais_turno.dart';
 import '../models/turno.dart';
 import '../services/database_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_texto.dart';
 import '../utils/app_haptics.dart';
 import '../utils/app_pronto.dart';
 import '../utils/currency_formatter.dart';
+import '../widgets/janela.dart';
 
 /// Tela pública de conferência e validação de autenticidade do fechamento de turno
 /// Acessível via rota web /validar?auth=AUTH-XXXX-XXXX-XXXX
@@ -124,7 +126,7 @@ class _ValidarScreenState extends State<ValidarScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF08090F) : const Color(0xFFF1F5F9),
+      backgroundColor: isDark ? AppColors.darkBg : AppColors.lightBg,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -140,15 +142,8 @@ class _ValidarScreenState extends State<ValidarScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E3A8A),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF1E3A8A).withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                        color: AppColors.accent,
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
@@ -159,8 +154,8 @@ class _ValidarScreenState extends State<ValidarScreen> {
                             'POSTO JANJÃO',
                             style: TextStyle(
                               color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              fontSize: AppTexto.valor,
                               letterSpacing: 1.0,
                             ),
                           ),
@@ -174,20 +169,17 @@ class _ValidarScreenState extends State<ValidarScreen> {
                   if (_carregando)
                     Container(
                       padding: const EdgeInsets.all(40),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF111420) : Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
-                        ),
-                      ),
-                      child: const Column(
+                      decoration: _cartao(isDark, isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                      child: Column(
                         children: [
-                          CircularProgressIndicator(color: Color(0xFF2563EB)),
-                          SizedBox(height: 16),
+                          const CircularProgressIndicator(color: AppColors.accent),
+                          const SizedBox(height: 16),
                           Text(
                             'Consultando registros de autenticidade...',
-                            style: TextStyle(fontSize: 13, color: Colors.grey),
+                            style: TextStyle(
+                              fontSize: AppTexto.corpo - 1,
+                              color: isDark ? AppColors.darkTextSec : AppColors.lightTextSec,
+                            ),
                           ),
                         ],
                       ),
@@ -202,25 +194,13 @@ class _ValidarScreenState extends State<ValidarScreen> {
                   const SizedBox(height: 20),
 
                   // BOTÃO DE ACESSO AO SISTEMA
-                  ElevatedButton.icon(
+                  BotaoPrincipal(
+                    texto: 'Acessar Sistema do Posto Janjão',
+                    icone: Icons.dashboard_rounded,
                     onPressed: () {
                       AppHaptics.light();
                       Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
                     },
-                    icon: const Icon(Icons.dashboard_rounded),
-                    label: const Text(
-                      'ACESSAR SISTEMA DO POSTO JANJÃO',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 2,
-                    ),
                   ),
                   const SizedBox(height: 16),
 
@@ -228,7 +208,7 @@ class _ValidarScreenState extends State<ValidarScreen> {
                     child: Text(
                       'Posto Janjão Ltda. · Autenticação Eletrônica Garantida',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: AppTexto.rotulo,
                         color: isDark ? AppColors.darkTextTer : AppColors.lightTextTer,
                       ),
                     ),
@@ -242,100 +222,92 @@ class _ValidarScreenState extends State<ValidarScreen> {
     );
   }
 
-  Widget _construirCardValido(BuildContext context, bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF111420) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: const Color(0xFF10B981).withValues(alpha: 0.5),
-          width: 1.5,
+  /// Moldura dos cartões desta tela: a mesma dos blocos do app, com a borda
+  /// na cor do resultado (verde válido, vermelho inválido).
+  BoxDecoration _cartao(bool isDark, Color borda) => BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(AppColors.radiusLg),
+        border: Border.all(color: borda),
+      );
+
+  Widget _selo(IconData icone, Color cor, bool isDark) => Container(
+        width: 64,
+        height: 64,
+        decoration: BoxDecoration(
+          color: cor.withValues(alpha: isDark ? 0.16 : 0.12),
+          shape: BoxShape.circle,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF10B981).withValues(alpha: 0.12),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+        child: Icon(icone, color: cor, size: 36),
+      );
+
+  Widget _tituloVerificacao(bool isDark) => Text(
+        'Posto Janjão - Verificação de Autenticidade',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: AppTexto.corpo - 1,
+          color: isDark ? AppColors.darkTextSec : AppColors.lightTextSec,
+        ),
+      );
+
+  Widget _construirCardValido(BuildContext context, bool isDark) {
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
+    final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final fio = Divider(color: borderCol, height: 16);
+
+    return Container(
+      decoration: _cartao(isDark, AppColors.green.withValues(alpha: 0.45)),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
       child: Column(
         children: [
-          // Cabeçalho da verificação
-          Text(
-            'Posto Janjão - Verificação de Autenticidade',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 13,
-              color: isDark ? AppColors.darkTextSec : AppColors.lightTextSec,
-            ),
-          ),
+          _tituloVerificacao(isDark),
           const SizedBox(height: 14),
-
-          // Ícone de Escudo Verde
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: const Color(0xFF10B981).withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF10B981), width: 2),
-            ),
-            child: const Icon(
-              Icons.verified_user_rounded,
-              color: Color(0xFF10B981),
-              size: 38,
-            ),
-          ),
+          _selo(Icons.verified_user_rounded, AppColors.green, isDark),
           const SizedBox(height: 12),
-
           const Text(
             'Documento Válido e Autenticado no Sistema',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Color(0xFF10B981),
-              fontWeight: FontWeight.w900,
-              fontSize: 16,
-              letterSpacing: 0.5,
+              color: AppColors.green,
+              fontWeight: FontWeight.w800,
+              fontSize: AppTexto.valor,
             ),
           ),
           const SizedBox(height: 16),
 
           // Caixa da Chave SHA-256
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF181D2E) : const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1),
-              ),
+              color: isDark ? AppColors.darkBg : AppColors.lightBg,
+              borderRadius: BorderRadius.circular(AppColors.radiusSm),
+              border: Border.all(color: borderCol),
             ),
             child: Row(
               children: [
-                const Icon(Icons.key_rounded, color: Color(0xFF0284C7), size: 18),
-                const SizedBox(width: 8),
+                const Icon(Icons.key_rounded, color: AppColors.accentLight, size: 18),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'CHAVE DIGITAL',
                         style: TextStyle(
-                          fontSize: 9.5,
+                          fontSize: AppTexto.rotulo - 1,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF0284C7),
+                          letterSpacing: 0.8,
+                          color: textTer,
                         ),
                       ),
                       SelectableText(
                         _authExibicao,
                         style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          fontFamily: AppTexto.numeros,
+                          fontSize: AppTexto.corpo - 1,
+                          fontWeight: FontWeight.w600,
+                          color: textPri,
                         ),
                       ),
                     ],
@@ -369,30 +341,30 @@ class _ValidarScreenState extends State<ValidarScreen> {
             valor: _turnoExibicao,
             isDark: isDark,
           ),
-          Divider(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0), height: 16),
+          fio,
           _blocoInformacao(
             icone: Icons.person_rounded,
             rotulo: 'Operador Caixa',
             valor: _operadorExibicao,
             isDark: isDark,
           ),
-          Divider(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0), height: 16),
+          fio,
           _blocoInformacao(
             icone: Icons.payments_rounded,
             rotulo: 'Total de Vendas',
             valor: _totalVendasExibicao,
-            valorColor: const Color(0xFF10B981),
+            valorColor: AppColors.green,
             isDark: isDark,
             destaque: true,
           ),
-          Divider(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0), height: 16),
+          fio,
           _blocoInformacao(
             icone: Icons.schedule_rounded,
             rotulo: 'Data/Hora da Assinatura',
             valor: _dataHoraExibicao,
             isDark: isDark,
           ),
-          Divider(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0), height: 16),
+          fio,
           _blocoInformacao(
             icone: Icons.shield_rounded,
             rotulo: 'Protocolo de Segurança',
@@ -406,60 +378,21 @@ class _ValidarScreenState extends State<ValidarScreen> {
 
   Widget _construirCardInvalido(BuildContext context, bool isDark) {
     return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF111420) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: const Color(0xFFEF4444).withValues(alpha: 0.5),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFEF4444).withValues(alpha: 0.12),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: _cartao(isDark, AppColors.red.withValues(alpha: 0.45)),
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          Text(
-            'Posto Janjão - Verificação de Autenticidade',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 13,
-              color: isDark ? AppColors.darkTextSec : AppColors.lightTextSec,
-            ),
-          ),
+          _tituloVerificacao(isDark),
           const SizedBox(height: 14),
-
-          // Ícone de Alerta Vermelho
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEF4444).withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFEF4444), width: 2),
-            ),
-            child: const Icon(
-              Icons.gpp_bad_rounded,
-              color: Color(0xFFEF4444),
-              size: 38,
-            ),
-          ),
+          _selo(Icons.gpp_bad_rounded, AppColors.red, isDark),
           const SizedBox(height: 12),
-
           const Text(
             'Documento não encontrado ou Chave Inválida',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Color(0xFFEF4444),
-              fontWeight: FontWeight.w900,
-              fontSize: 16,
-              letterSpacing: 0.5,
+              color: AppColors.red,
+              fontWeight: FontWeight.w800,
+              fontSize: AppTexto.valor,
             ),
           ),
           const SizedBox(height: 8),
@@ -469,38 +402,18 @@ class _ValidarScreenState extends State<ValidarScreen> {
                 : 'A chave informada não pôde ser autenticada nos registros do Posto Janjão. Certifique-se de que o fechamento foi homologado corretamente.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 12.5,
+              fontSize: AppTexto.corpo - 1,
+              height: 1.4,
               color: isDark ? AppColors.darkTextSec : AppColors.lightTextSec,
             ),
           ),
           const SizedBox(height: 16),
 
           if (_authExibicao.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF181D2E) : const Color(0xFFFEF2F2),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: const Color(0xFFEF4444).withValues(alpha: 0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Chave consultada: $_authExibicao',
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11.5,
-                        color: isDark ? Colors.white70 : const Color(0xFF991B1B),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            AvisoJanela(
+              cor: AppColors.red,
+              icone: Icons.error_outline_rounded,
+              texto: 'Chave consultada: $_authExibicao',
             ),
         ],
       ),
@@ -520,18 +433,9 @@ class _ValidarScreenState extends State<ValidarScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(7),
-            margin: const EdgeInsets.only(top: 2, right: 12),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              icone,
-              size: 18,
-              color: const Color(0xFF0284C7),
-            ),
+          Padding(
+            padding: const EdgeInsets.only(top: 2, right: 12),
+            child: IconeJanela(icone: icone, cor: AppColors.accentLight, tamanho: 32),
           ),
           Expanded(
             child: Column(
@@ -541,10 +445,9 @@ class _ValidarScreenState extends State<ValidarScreen> {
                 Text(
                   rotulo,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: AppTexto.rotulo,
                     fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
-                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                    color: isDark ? AppColors.darkTextSec : AppColors.lightTextSec,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -552,9 +455,9 @@ class _ValidarScreenState extends State<ValidarScreen> {
                   valor,
                   softWrap: true,
                   style: TextStyle(
-                    fontSize: destaque ? 16 : 13.5,
-                    fontWeight: destaque ? FontWeight.w900 : FontWeight.w700,
-                    color: valorColor ?? (isDark ? Colors.white : const Color(0xFF0F172A)),
+                    fontSize: destaque ? AppTexto.valor + 2 : AppTexto.corpo,
+                    fontWeight: destaque ? FontWeight.w800 : FontWeight.w700,
+                    color: valorColor ?? (isDark ? AppColors.darkTextPri : AppColors.lightTextPri),
                     height: 1.25,
                   ),
                 ),

@@ -4,8 +4,11 @@ import 'package:intl/intl.dart';
 import '../../models/operador_model.dart';
 import '../../services/operadores_sync_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_texto.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/validator.dart';
+import '../../widgets/cabecalho_turno.dart';
+import '../../widgets/janela.dart';
 
 class GestaoOperadoresScreen extends StatefulWidget {
   final bool isDark;
@@ -71,21 +74,19 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             final isDark = widget.isDark;
-            final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-            final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+            final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+            final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
 
             return AlertDialog(
-              backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               title: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0284C7).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
+                      color: AppColors.accent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(AppColors.radiusSm),
                     ),
-                    child: const Icon(Icons.person_add_rounded, color: Color(0xFF38BDF8), size: 22),
+                    child: const Icon(Icons.person_add_rounded, color: AppColors.accentLight, size: 22),
                   ),
                   const SizedBox(width: 10),
                   Text('Novo Operador', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri)),
@@ -109,8 +110,8 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                         labelText: 'Nome do Operador',
                         hintText: 'Ex: Carlos Silva',
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        fillColor: isDark ? AppColors.darkBg : AppColors.lightBg,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -121,14 +122,14 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                       maxLength: 4,
                       textAlign: TextAlign.center,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: TextStyle(fontSize: 18, letterSpacing: 6, fontWeight: FontWeight.w900, color: textPri),
+                      style: TextStyle(fontSize: 18, letterSpacing: 6, fontWeight: FontWeight.w800, color: textPri),
                       decoration: InputDecoration(
                         labelText: 'PIN Inicial (4 dígitos)',
                         hintText: '••••',
                         counterText: '',
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        fillColor: isDark ? AppColors.darkBg : AppColors.lightBg,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -139,15 +140,15 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                       maxLength: 4,
                       textAlign: TextAlign.center,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: TextStyle(fontSize: 18, letterSpacing: 6, fontWeight: FontWeight.w900, color: textPri),
+                      style: TextStyle(fontSize: 18, letterSpacing: 6, fontWeight: FontWeight.w800, color: textPri),
                       decoration: InputDecoration(
                         labelText: 'Confirmar PIN',
                         hintText: '••••',
                         counterText: '',
                         errorText: erro,
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        fillColor: isDark ? AppColors.darkBg : AppColors.lightBg,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
                       ),
                     ),
                   ],
@@ -160,9 +161,9 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0284C7),
+                    backgroundColor: AppColors.accent,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
                   ),
                   onPressed: salvando
                       ? null
@@ -243,21 +244,19 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             final isDark = widget.isDark;
-            final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-            final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+            final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+            final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
 
             return AlertDialog(
-              backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               title: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
+                      color: AppColors.amber.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(AppColors.radiusSm),
                     ),
-                    child: const Icon(Icons.password_rounded, color: Color(0xFFF59E0B), size: 22),
+                    child: const Icon(Icons.password_rounded, color: AppColors.amber, size: 22),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -284,14 +283,14 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                     maxLength: 4,
                     textAlign: TextAlign.center,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    style: TextStyle(fontSize: 18, letterSpacing: 6, fontWeight: FontWeight.w900, color: textPri),
+                    style: TextStyle(fontSize: 18, letterSpacing: 6, fontWeight: FontWeight.w800, color: textPri),
                     decoration: InputDecoration(
                       labelText: 'Novo PIN (4 dígitos)',
                       hintText: '••••',
                       counterText: '',
                       filled: true,
-                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      fillColor: isDark ? AppColors.darkBg : AppColors.lightBg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -302,15 +301,15 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                     maxLength: 4,
                     textAlign: TextAlign.center,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    style: TextStyle(fontSize: 18, letterSpacing: 6, fontWeight: FontWeight.w900, color: textPri),
+                    style: TextStyle(fontSize: 18, letterSpacing: 6, fontWeight: FontWeight.w800, color: textPri),
                     decoration: InputDecoration(
                       labelText: 'Confirmar Novo PIN',
                       hintText: '••••',
                       counterText: '',
                       errorText: erro,
                       filled: true,
-                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      fillColor: isDark ? AppColors.darkBg : AppColors.lightBg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
                     ),
                   ),
                 ],
@@ -322,9 +321,9 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF59E0B),
+                    backgroundColor: AppColors.amber,
                     foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
                   ),
                   onPressed: salvando
                       ? null
@@ -417,11 +416,11 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             final isDark = widget.isDark;
-            final bgModal = isDark ? const Color(0xFF111420) : Colors.white;
-            final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-            final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
-            final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
-            final cardInnerBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+            final bgModal = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+            final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+            final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+            final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+            final cardInnerBg = isDark ? AppColors.darkBg : AppColors.lightBg;
 
             // Busca operador mais recente da memória reativa
             final opAtual = OperadoresSyncService.operadoresNotifier.value
@@ -429,14 +428,19 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
 
             final dataCriada = DateFormat('dd/MM/yyyy HH:mm').format(opAtual.criadoEm.toLocal());
 
-            return Container(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-              decoration: BoxDecoration(
-                color: bgModal,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                border: Border(top: BorderSide(color: borderCol)),
+            // Material, e não uma caixa pintada: os itens (ListTile) desenham a
+            // onda do toque na superfície Material mais próxima, e com a caixa
+            // pintada por cima a onda ficava escondida.
+            return Material(
+              color: bgModal,
+              shape: RoundedRectangleBorder(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(AppColors.radiusXl)),
+                side: BorderSide(color: borderCol),
               ),
-              child: SafeArea(
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                child: SafeArea(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -462,11 +466,11 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                           height: 52,
                           decoration: BoxDecoration(
                             color: opAtual.ativo
-                                ? (isDark ? const Color(0xFF0369A1).withValues(alpha: 0.4) : const Color(0xFFE0F2FE))
-                                : (isDark ? const Color(0xFF334155).withValues(alpha: 0.4) : const Color(0xFFF1F5F9)),
+                                ? (isDark ? AppColors.accent.withValues(alpha: 0.4) : AppColors.accent.withValues(alpha: 0.10))
+                                : (isDark ? AppColors.darkSurfaceElevated.withValues(alpha: 0.4) : AppColors.lightSurfaceSubtle),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: opAtual.ativo ? const Color(0xFF0284C7) : const Color(0xFF64748B),
+                              color: opAtual.ativo ? AppColors.accent : AppColors.darkTextTer,
                               width: 2,
                             ),
                           ),
@@ -477,7 +481,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
                                 color: opAtual.ativo
-                                    ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7))
+                                    ? (isDark ? AppColors.accentLight : AppColors.accent)
                                     : textSec,
                               ),
                             ),
@@ -504,7 +508,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                                     decoration: BoxDecoration(
                                       color: opAtual.ativo
                                           ? AppColors.green.withValues(alpha: 0.15)
-                                          : Colors.red.withValues(alpha: 0.15),
+                                          : AppColors.red.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(5),
                                     ),
                                     child: Text(
@@ -512,7 +516,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                                       style: TextStyle(
                                         fontSize: 9.5,
                                         fontWeight: FontWeight.bold,
-                                        color: opAtual.ativo ? AppColors.green : Colors.red,
+                                        color: opAtual.ativo ? AppColors.green : AppColors.red,
                                       ),
                                     ),
                                   ),
@@ -520,7 +524,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF0284C7).withValues(alpha: 0.15),
+                                      color: AppColors.accent.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(5),
                                     ),
                                     child: Text(
@@ -528,7 +532,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                                       style: const TextStyle(
                                         fontSize: 9.5,
                                         fontWeight: FontWeight.bold,
-                                        color: Color(0xFF38BDF8),
+                                        color: AppColors.accentLight,
                                       ),
                                     ),
                                   ),
@@ -550,7 +554,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: cardInnerBg,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(AppColors.radiusMd),
                         border: Border.all(color: borderCol),
                       ),
                       child: Column(
@@ -608,16 +612,16 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                     ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
                         side: BorderSide(color: borderCol),
                       ),
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
+                          color: AppColors.amber.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(AppColors.radiusXs),
                         ),
-                        child: const Icon(Icons.password_rounded, color: Color(0xFFF59E0B), size: 20),
+                        child: const Icon(Icons.password_rounded, color: AppColors.amber, size: 20),
                       ),
                       title: Text(
                         'Alterar PIN de 4 Dígitos',
@@ -627,7 +631,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                         'Redefine a senha de autenticação e homologação no caixa',
                         style: TextStyle(fontSize: 11, color: textSec),
                       ),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFFF59E0B)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.amber),
                       onTap: () {
                         Navigator.of(ctx).pop();
                         _dialogRedefinirPin(opAtual);
@@ -639,14 +643,14 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                     ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
                         side: BorderSide(color: borderCol),
                       ),
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: (opAtual.ativo ? AppColors.green : Colors.grey).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
+                          color: (opAtual.ativo ? AppColors.green : AppColors.darkTextTer).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(AppColors.radiusXs),
                         ),
                         child: Icon(
                           opAtual.ativo ? Icons.check_circle_outline_rounded : Icons.block_rounded,
@@ -693,26 +697,26 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                     ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                        side: BorderSide(color: AppColors.red.withValues(alpha: 0.3)),
                       ),
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
+                          color: AppColors.red.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(AppColors.radiusXs),
                         ),
-                        child: const Icon(Icons.delete_forever_rounded, color: Colors.red, size: 20),
+                        child: const Icon(Icons.delete_forever_rounded, color: AppColors.red, size: 20),
                       ),
                       title: const Text(
                         'Excluir Operador',
-                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.red),
+                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.red),
                       ),
                       subtitle: Text(
                         'Remove permanentemente da nuvem (Firestore) e do banco local',
                         style: TextStyle(fontSize: 11, color: textSec),
                       ),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.red),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.red),
                       onTap: () {
                         Navigator.of(ctx).pop();
                         _dialogConfirmarExclusao(opAtual);
@@ -720,6 +724,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                     ),
                   ],
                 ),
+              ),
               ),
             );
           },
@@ -735,21 +740,19 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
           final isDark = widget.isDark;
-          final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-          final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+          final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+          final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
 
           return AlertDialog(
-            backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppColors.red.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(AppColors.radiusSm),
                   ),
-                  child: const Icon(Icons.delete_forever_rounded, color: Colors.red, size: 24),
+                  child: const Icon(Icons.delete_forever_rounded, color: AppColors.red, size: 24),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -782,9 +785,9 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
+                  backgroundColor: AppColors.red,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
                 ),
                 onPressed: excluindo
                     ? null
@@ -803,7 +806,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                                 content: Text(ok
                                     ? '🗑️ Operador "${op.nomeExibicao}" excluído com sucesso.'
                                     : 'Operador removido localmente.'),
-                                backgroundColor: Colors.red,
+                                backgroundColor: AppColors.red,
                                 duration: const Duration(seconds: 3),
                               ),
                             );
@@ -839,22 +842,20 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             final isDark = widget.isDark;
-            final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-            final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
+            final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+            final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
             final status = OperadoresSyncService.statusNotifier.value;
 
             return AlertDialog(
-              backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               title: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
+                      color: AppColors.accentLight.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(AppColors.radiusSm),
                     ),
-                    child: const Icon(Icons.cloud_sync_rounded, color: Color(0xFF38BDF8), size: 22),
+                    child: const Icon(Icons.cloud_sync_rounded, color: AppColors.accentLight, size: 22),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -876,10 +877,10 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                       decoration: BoxDecoration(
                         color: status.online
                             ? AppColors.green.withValues(alpha: 0.15)
-                            : const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
+                            : AppColors.amber.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(AppColors.radiusXs),
                         border: Border.all(
-                          color: status.online ? AppColors.green : const Color(0xFFF59E0B),
+                          color: status.online ? AppColors.green : AppColors.amber,
                           width: 1,
                         ),
                       ),
@@ -887,7 +888,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                         children: [
                           Icon(
                             status.online ? Icons.check_circle_rounded : Icons.info_outline_rounded,
-                            color: status.online ? AppColors.green : const Color(0xFFF59E0B),
+                            color: status.online ? AppColors.green : AppColors.amber,
                             size: 18,
                           ),
                           const SizedBox(width: 8),
@@ -897,7 +898,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: status.online ? AppColors.green : const Color(0xFFF59E0B),
+                                color: status.online ? AppColors.green : AppColors.amber,
                               ),
                             ),
                           ),
@@ -926,9 +927,9 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+                        color: isDark ? AppColors.darkBg : AppColors.lightBg,
+                        borderRadius: BorderRadius.circular(AppColors.radiusXs),
+                        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightSurfaceElevated),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -959,8 +960,8 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                         hintText: 'Ex: caixa-posto-janjao',
                         hintStyle: TextStyle(fontSize: 12, color: textSec),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        fillColor: isDark ? AppColors.darkBg : AppColors.lightBg,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppColors.radiusXs)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       ),
                     ),
@@ -971,7 +972,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: feedbackTeste!.startsWith('✅') ? AppColors.green : const Color(0xFFF59E0B),
+                          color: feedbackTeste!.startsWith('✅') ? AppColors.green : AppColors.amber,
                         ),
                       ),
                     ],
@@ -985,9 +986,9 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0284C7),
+                    backgroundColor: AppColors.accent,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusXs)),
                   ),
                   onPressed: testando
                       ? null
@@ -1031,226 +1032,207 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
-    final bgScaffold = isDark ? const Color(0xFF090D16) : AppColors.lightBg;
-    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
-    final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
+    final bgScaffold = isDark ? AppColors.darkBg : AppColors.lightBg;
+    final surface = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     return PopScope(
       canPop: true,
       child: Scaffold(
         backgroundColor: bgScaffold,
         appBar: AppBar(
-          backgroundColor: isDark ? const Color(0xFF111420) : Colors.white,
           elevation: 0,
+          centerTitle: false,
           leading: IconButton(
             icon: Icon(Icons.arrow_back_rounded, color: textPri),
+            tooltip: 'Voltar',
             onPressed: () => Navigator.of(context).maybePop(),
           ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.badge_rounded, color: Color(0xFF38BDF8), size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Gestão de Operadores',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: textPri),
-                ),
-              ],
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Gestão de Operadores',
+                style: TextStyle(fontSize: AppTexto.valor, fontWeight: FontWeight.w700, color: textPri),
+              ),
+              Text(
+                'Sincronização Nuvem (Firestore)',
+                style: TextStyle(fontSize: AppTexto.rotulo, color: textSec, fontWeight: FontWeight.normal),
+              ),
+            ],
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.info_outline_rounded, color: AppColors.amber),
+              tooltip: 'Diagnóstico Nuvem',
+              onPressed: _dialogDiagnosticoEConfiguracao,
             ),
-            Text(
-              'Sincronização Nuvem (Firestore)',
-              style: TextStyle(fontSize: 11, color: textSec, fontWeight: FontWeight.normal),
+            IconButton(
+              icon: const Icon(Icons.sync_rounded, color: AppColors.accentLight),
+              tooltip: 'Sincronizar com Nuvem',
+              onPressed: () => _carregarDados(forcarNuvem: true),
             ),
           ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline_rounded, color: Color(0xFFF59E0B)),
-            tooltip: 'Diagnóstico Nuvem',
-            onPressed: _dialogDiagnosticoEConfiguracao,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Divider(height: 1, color: borderCol),
           ),
-          IconButton(
-            icon: const Icon(Icons.sync_rounded, color: Color(0xFF38BDF8)),
-            tooltip: 'Sincronizar com Nuvem',
-            onPressed: () => _carregarDados(forcarNuvem: true),
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Divider(height: 1, color: borderCol),
         ),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Faixa de Status de Sincronização ──
-            ValueListenableBuilder<SyncStatus>(
-              valueListenable: OperadoresSyncService.statusNotifier,
-              builder: (context, status, _) {
-                return InkWell(
-                  onTap: _dialogDiagnosticoEConfiguracao,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-                    child: Row(
-                      children: [
-                        Icon(
-                          status.online ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
-                          size: 16,
-                          color: status.online ? AppColors.green : const Color(0xFFF59E0B),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            status.mensagem,
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: status.online ? AppColors.green : const Color(0xFFF59E0B),
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: (status.online ? AppColors.green : const Color(0xFFF59E0B)).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                status.online ? 'Online' : 'Diagnóstico',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: status.online ? AppColors.green : const Color(0xFFF59E0B),
-                                ),
-                              ),
-                              const SizedBox(width: 2),
-                              Icon(
-                                Icons.chevron_right_rounded,
-                                size: 12,
-                                color: status.online ? AppColors.green : const Color(0xFFF59E0B),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-
-            // ── Barra de Busca e Botão Novo Operador ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(
+        body: SafeArea(
+          child: Column(
+            children: [
+              // ── Faixa de Status de Sincronização ──
+              ValueListenableBuilder<SyncStatus>(
+                valueListenable: OperadoresSyncService.statusNotifier,
+                builder: (context, status, _) {
+                  final cor = status.online ? AppColors.green : AppColors.amber;
+                  final corTexto = isDark ? cor : Color.lerp(cor, Colors.black, 0.35)!;
+                  return InkWell(
+                    onTap: _dialogDiagnosticoEConfiguracao,
                     child: Container(
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF131C2E) : Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: borderCol),
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        style: TextStyle(fontSize: 13, color: textPri),
-                        decoration: InputDecoration(
-                          hintText: 'Buscar operador por nome...',
-                          hintStyle: TextStyle(fontSize: 12.5, color: textSec),
-                          prefixIcon: Icon(Icons.search_rounded, size: 18, color: textSec),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                        onChanged: (v) => setState(() => _filtro = v.trim()),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0284C7),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: _dialogNovoOperador,
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text('Novo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Lista de Operadores Reativa em Tempo Real ──
-            Expanded(
-              child: ValueListenableBuilder<List<OperadorModel>>(
-                valueListenable: OperadoresSyncService.operadoresNotifier,
-                builder: (context, listaNuvem, _) {
-                  final listaAtual = listaNuvem.isNotEmpty ? listaNuvem : _operadores;
-                  final operadoresFiltrados = listaAtual.where((op) {
-                    if (_filtro.isEmpty) return true;
-                    return op.nome.toLowerCase().contains(_filtro.toLowerCase());
-                  }).toList();
-
-                  if (_carregando && listaAtual.isEmpty) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (operadoresFiltrados.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      color: cor.withValues(alpha: isDark ? 0.10 : 0.08),
+                      child: Row(
                         children: [
-                          Icon(Icons.person_off_rounded, size: 48, color: textSec.withValues(alpha: 0.5)),
-                          const SizedBox(height: 12),
-                          Text(
-                            _filtro.isEmpty
-                                ? 'Nenhum operador cadastrado'
-                                : 'Nenhum operador encontrado para "$_filtro"',
-                            style: TextStyle(fontSize: 14, color: textSec, fontWeight: FontWeight.w600),
+                          Icon(
+                            status.online ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+                            size: 16,
+                            color: cor,
                           ),
-                          const SizedBox(height: 14),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0284C7),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              status.mensagem,
+                              style: TextStyle(fontSize: AppTexto.rotulo, fontWeight: FontWeight.w600, color: corTexto),
                             ),
-                            onPressed: _dialogNovoOperador,
-                            icon: const Icon(Icons.person_add_rounded, size: 18),
-                            label: const Text('Cadastrar Primeiro Operador'),
                           ),
+                          const SizedBox(width: 8),
+                          SeloTurno(texto: status.online ? 'Online' : 'Diagnóstico', cor: cor),
                         ],
                       ),
-                    );
-                  }
-
-                  return RefreshIndicator(
-                    onRefresh: () => _carregarDados(forcarNuvem: true),
-                    child: ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      itemCount: operadoresFiltrados.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (ctx, i) {
-                        final op = operadoresFiltrados[i];
-                        return _cardOperador(op, isDark, textPri, textSec, borderCol);
-                      },
                     ),
                   );
                 },
               ),
-            ),
-          ],
+
+              // ── Barra de Busca e Botão Novo Operador ──
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
+                        child: TextField(
+                          controller: _searchController,
+                          style: TextStyle(fontSize: AppTexto.corpo, color: textPri),
+                          decoration: InputDecoration(
+                            hintText: 'Buscar operador por nome...',
+                            hintStyle: TextStyle(fontSize: AppTexto.corpo - 1, color: textSec),
+                            prefixIcon: Icon(Icons.search_rounded, size: 20, color: textSec),
+                            filled: true,
+                            fillColor: surface,
+                            contentPadding: EdgeInsets.zero,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                              borderSide: BorderSide(color: borderCol),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                              borderSide: BorderSide(color: borderCol),
+                            ),
+                          ),
+                          onChanged: (v) => setState(() => _filtro = v.trim()),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      height: 44,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accent,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
+                        ),
+                        onPressed: _dialogNovoOperador,
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label:
+                            const Text('Novo', style: TextStyle(fontWeight: FontWeight.w700, fontSize: AppTexto.corpo)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Lista de Operadores Reativa em Tempo Real ──
+              Expanded(
+                child: ValueListenableBuilder<List<OperadorModel>>(
+                  valueListenable: OperadoresSyncService.operadoresNotifier,
+                  builder: (context, listaNuvem, _) {
+                    final listaAtual = listaNuvem.isNotEmpty ? listaNuvem : _operadores;
+                    final operadoresFiltrados = listaAtual.where((op) {
+                      if (_filtro.isEmpty) return true;
+                      return op.nome.toLowerCase().contains(_filtro.toLowerCase());
+                    }).toList();
+
+                    if (_carregando && listaAtual.isEmpty) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (operadoresFiltrados.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconeJanela(icone: Icons.person_off_rounded, cor: textSec, tamanho: 64),
+                              const SizedBox(height: 12),
+                              Text(
+                                _filtro.isEmpty
+                                    ? 'Nenhum operador cadastrado'
+                                    : 'Nenhum operador encontrado para "$_filtro"',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: AppTexto.corpo, color: textSec, fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 14),
+                              SizedBox(
+                                width: 260,
+                                child: BotaoPrincipal(
+                                  texto: 'Cadastrar Primeiro Operador',
+                                  icone: Icons.person_add_rounded,
+                                  onPressed: _dialogNovoOperador,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    return RefreshIndicator(
+                      onRefresh: () => _carregarDados(forcarNuvem: true),
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(14, 4, 14, 24),
+                        itemCount: operadoresFiltrados.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (ctx, i) {
+                          final op = operadoresFiltrados[i];
+                          return _cardOperador(op, isDark, textPri, textSec, borderCol);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -1263,47 +1245,34 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
     Color borderCol,
   ) {
     final dataFormatada = DateFormat('dd/MM/yyyy HH:mm').format(op.atualizadoEm.toLocal());
-    final cardBg = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
+    final surface = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final corAvatar = op.ativo ? AppColors.accentLight : textSec;
 
     return Material(
-      color: Colors.transparent,
+      color: surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppColors.radiusMd),
+        side: BorderSide(color: borderCol),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
         onTap: () => _modalGerenciarOperador(op),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: op.ativo ? borderCol : borderCol.withValues(alpha: 0.4),
-            ),
-          ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
           child: Row(
             children: [
-              // Avatar com inicial
+              // Avatar com inicial, na forma dos da tela de identificação
               Container(
-                width: 42,
-                height: 42,
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: op.ativo
-                      ? (isDark ? const Color(0xFF0369A1).withValues(alpha: 0.4) : const Color(0xFFE0F2FE))
-                      : (isDark ? const Color(0xFF334155).withValues(alpha: 0.4) : const Color(0xFFF1F5F9)),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: op.ativo ? const Color(0xFF0284C7) : const Color(0xFF64748B),
-                    width: 1.5,
-                  ),
+                  color: corAvatar.withValues(alpha: isDark ? 0.16 : 0.12),
+                  borderRadius: BorderRadius.circular(AppColors.radiusSm),
                 ),
-                child: Center(
-                  child: Text(
-                    op.nomeExibicao.isNotEmpty ? op.nomeExibicao[0].toUpperCase() : '?',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: op.ativo ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7)) : textSec,
-                    ),
-                  ),
+                child: Text(
+                  op.nomeExibicao.isNotEmpty ? op.nomeExibicao[0].toUpperCase() : '?',
+                  style: TextStyle(fontSize: AppTexto.valor + 1, fontWeight: FontWeight.w700, color: corAvatar),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1319,8 +1288,8 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                           child: Text(
                             op.nomeExibicao,
                             style: TextStyle(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.bold,
+                              fontSize: AppTexto.corpo,
+                              fontWeight: FontWeight.w700,
                               color: op.ativo ? textPri : textSec,
                               decoration: op.ativo ? null : TextDecoration.lineThrough,
                             ),
@@ -1329,59 +1298,36 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: op.ativo
-                                ? AppColors.green.withValues(alpha: 0.15)
-                                : Colors.red.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            op.ativo ? 'ATIVO' : 'INATIVO',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: op.ativo ? AppColors.green : Colors.red,
-                            ),
-                          ),
+                        SeloTurno(
+                          texto: op.ativo ? 'Ativo' : 'Inativo',
+                          cor: op.ativo ? AppColors.green : AppColors.red,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       'Atualizado: $dataFormatada • Toque para gerenciar',
-                      style: TextStyle(fontSize: 11, color: textSec),
+                      style: TextStyle(fontSize: AppTexto.rotulo, color: textSec),
                     ),
                   ],
                 ),
               ),
 
               // Ações Rápidas: Redefinir PIN, Alternar Status e Acessar Modal
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.password_rounded, size: 20),
-                    color: const Color(0xFFF59E0B),
-                    tooltip: 'Redefinir PIN de 4 dígitos',
-                    onPressed: () => _dialogRedefinirPin(op),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      op.ativo ? Icons.toggle_on_rounded : Icons.toggle_off_rounded,
-                      size: 28,
-                    ),
-                    color: op.ativo ? AppColors.green : textSec,
-                    tooltip: op.ativo ? 'Desativar Operador' : 'Ativar Operador',
-                    onPressed: () => _alternarStatus(op),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 20,
-                    color: textSec.withValues(alpha: 0.6),
-                  ),
-                ],
+              IconButton(
+                icon: const Icon(Icons.password_rounded, size: 20),
+                color: AppColors.amber,
+                tooltip: 'Redefinir PIN de 4 dígitos',
+                onPressed: () => _dialogRedefinirPin(op),
+              ),
+              IconButton(
+                icon: Icon(
+                  op.ativo ? Icons.toggle_on_rounded : Icons.toggle_off_rounded,
+                  size: 28,
+                ),
+                color: op.ativo ? AppColors.green : textSec,
+                tooltip: op.ativo ? 'Desativar Operador' : 'Ativar Operador',
+                onPressed: () => _alternarStatus(op),
               ),
             ],
           ),
