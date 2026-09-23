@@ -31,8 +31,17 @@ class _BicoItem {
         controllerLitros = TextEditingController(text: litros > 0 ? litros.toStringAsFixed(2) : '');
 
   String get combustivel => controllerCombustivel.text.trim();
-  double get preco => double.tryParse(controllerPreco.text.replaceAll(',', '.')) ?? 0.0;
-  double get litrosVendidos => double.tryParse(controllerLitros.text.replaceAll(',', '.')) ?? 0.0;
+  double get preco => numero(controllerPreco.text);
+  double get litrosVendidos => numero(controllerLitros.text);
+
+  /// Lê um número como o frentista digita: "1234,56", "1.234,56" ou "1234.56".
+  /// Antes só a vírgula virava ponto, e "1.234,56" (com ponto de milhar) virava
+  /// "1.234.56", que não é número: o bico ficava com zero litros sem aviso.
+  static double numero(String texto) {
+    var t = texto.trim().replaceAll(' ', '');
+    if (t.contains(',')) t = t.replaceAll('.', '').replaceAll(',', '.');
+    return double.tryParse(t) ?? 0.0;
+  }
   double get totalReais => litrosVendidos * preco;
 
   void dispose() {

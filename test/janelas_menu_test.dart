@@ -100,6 +100,15 @@ void main() {
       expect((bico1['final'] as num).toDouble(), 10);
     });
 
+    testWidgets('litros com ponto de milhar ("1.234,50") entram no total', (tester) async {
+      await abrir(tester, (_) => EncerrantesDialog(turnoId: turno.id!));
+      await tester.enterText(find.widgetWithText(TextField, 'Preço/L (R\$)').first, '2,00');
+      await tester.enterText(find.widgetWithText(TextField, 'Litros Vendidos').first, '1.234,50');
+      await tester.pump();
+      // 1.234,5 L × R$ 2,00. Antes o ponto de milhar zerava o bico.
+      expect(find.textContaining('2.469,00'), findsWidgets);
+    });
+
     testWidgets('cabe num celular de 375pt, claro e escuro', (tester) async {
       await abrir(tester, (_) => EncerrantesDialog(turnoId: turno.id!), largura: 375);
       expect(tester.takeException(), isNull);
@@ -267,5 +276,46 @@ void main() {
       expect(find.text('Os PINs digitados não coincidem'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+  });
+
+  // Por último: zera o banco deste arquivo de teste.
+  testWidgets('dois toques em "Sim, Zerar Tudo" zeram uma vez e fecham só a janela', (tester) async {
+    NotificationService.pendenciasCount.value = 0;
+    var concluidos = 0;
+    tester.view.physicalSize = const Size(440 * 3, 900 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.darkTheme(),
+      home: const Scaffold(body: Text('base')),
+    ));
+    // Uma tela por baixo da janela, como o painel do desenvolvedor.
+    final nav = tester.state<NavigatorState>(find.byType(Navigator));
+    nav.push(MaterialPageRoute<void>(
+      builder: (ctx) => Scaffold(
+        body: Center(
+          child: ElevatedButton(
+            onPressed: () => showDialog<void>(
+              context: ctx,
+              builder: (_) => ResetDialog(onResetConcluido: () => concluidos++),
+            ),
+            child: const Text('painel'),
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('painel'));
+    await tester.pumpAndSettle();
+
+    final botao = find.text('Sim, Zerar Tudo');
+    await tester.tap(botao);
+    await tester.tap(botao);
+    await esperar(tester);
+    await tester.pumpAndSettle();
+
+    expect(concluidos, 1);
+    expect(find.text('painel'), findsOneWidget);
+    expect(find.text('Sim, Zerar Tudo'), findsNothing);
   });
 }
