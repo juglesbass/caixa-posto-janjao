@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../dialogs/close_shift_dialog.dart';
 import '../dialogs/drive_failure_dialog.dart';
+import '../dialogs/progresso_fechamento_dialog.dart';
 import '../models/lancamento.dart';
 import '../models/motivo_pendencia.dart';
 import '../models/totais_turno.dart';
@@ -30,6 +31,8 @@ import '../utils/currency_formatter.dart';
 import '../utils/data_caixa.dart';
 import '../utils/payment_types.dart';
 import '../widgets/cabecalho_turno.dart';
+import '../widgets/campos_lancamento.dart';
+import '../widgets/janela.dart';
 import '../widgets/pending_sync_banner.dart';
 
 class SummaryScreen extends StatefulWidget {
@@ -207,40 +210,24 @@ class _SummaryScreenState extends State<SummaryScreen> {
     showDialog(
       context: context,
       builder: (ctx) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
         return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(
-            'Canhotos: $bandeira',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : AppColors.lightTextPri,
-            ),
-          ),
+          title: TituloJanela('Canhotos: $bandeira'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Informe a quantidade de comprovantes/canhotos físicos recolhidos no caixa:',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec,
-                ),
-              ),
+              const TextoJanela('Informe a quantidade de comprovantes/canhotos físicos recolhidos no caixa:'),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
                 autofocus: true,
                 keyboardType: TextInputType.number,
+                style: const TextStyle(fontFamily: AppTexto.numeros, fontSize: AppTexto.valor, fontWeight: FontWeight.w600),
                 decoration: InputDecoration(
                   labelText: 'Quantidade de Canhotos',
                   suffixText: 'un',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
                 ),
               ),
             ],
@@ -261,6 +248,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accent,
                 foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
               ),
               onPressed: () {
                 final novaQtd = int.tryParse(controller.text.trim()) ?? qtdAtual;
@@ -268,7 +257,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 _salvarNovoCanhoto(bandeira, novaQtd >= 0 ? novaQtd : 0);
                 if (onUpdate != null) onUpdate();
               },
-              child: const Text('Salvar'),
+              child: const Text('Salvar', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
           ],
         );
@@ -668,118 +657,19 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
     if (dadosFechamento == null) return;
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    // Diálogo de Progresso com Animações Dinâmicas (PDF -> Drive -> Sucesso)
-    final progressoNotifier = ValueNotifier<({
-      String titulo,
-      String subtitulo,
-      IconData icone,
-      Color corTema,
-      bool carregando,
-    })>((
-      titulo: 'HOMOLOGANDO TURNO',
+    // Janela de progresso (gravar -> PDF -> Drive -> entregue)
+    final progressoNotifier = ValueNotifier<PassoFechamento>((
+      titulo: 'Homologando turno',
       subtitulo: 'Autenticando e gravando turno no banco local...',
       icone: Icons.lock_clock_rounded,
-      corTema: const Color(0xFF38BDF8),
+      corTema: AppColors.accentLight,
       carregando: true,
     ));
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => PopScope(
-        canPop: false,
-        child: Dialog(
-          backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.lightSurface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-            child: ValueListenableBuilder(
-              valueListenable: progressoNotifier,
-              builder: (context, estado, _) {
-                return AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: Column(
-                    key: ValueKey(estado.titulo),
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 76,
-                        height: 76,
-                        decoration: BoxDecoration(
-                          color: estado.corTema.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: estado.corTema, width: 2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: estado.corTema.withValues(alpha: 0.25),
-                              blurRadius: 18,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: estado.carregando
-                              ? Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    SizedBox(
-                                      width: 48,
-                                      height: 48,
-                                      child: CircularProgressIndicator(
-                                        color: estado.corTema,
-                                        strokeWidth: 3,
-                                      ),
-                                    ),
-                                    Icon(
-                                      estado.icone,
-                                      color: estado.corTema,
-                                      size: 22,
-                                    ),
-                                  ],
-                                )
-                              : Icon(
-                                  estado.icone,
-                                  color: estado.corTema,
-                                  size: 42,
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        estado.titulo,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: estado.carregando
-                              ? (isDark ? Colors.white : AppColors.lightTextPri)
-                              : estado.corTema,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 16,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        estado.subtitulo,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec,
-                          fontSize: 13,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ),
+      builder: (ctx) => ProgressoFechamentoDialog(passo: progressoNotifier),
     );
 
     bool envioDriveOk = false;
@@ -816,10 +706,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
       final lancamentos = await db.obterLancamentos(widget.turno.id!);
 
       progressoNotifier.value = (
-        titulo: 'GERANDO RELATÓRIO',
+        titulo: 'Gerando relatório',
         subtitulo: 'Criando documento PDF autenticado digitalmente...',
         icone: Icons.picture_as_pdf_rounded,
-        corTema: const Color(0xFF38BDF8),
+        corTema: AppColors.accentLight,
         carregando: true,
       );
       final turnoFechado = widget.turno.copyWith(
@@ -844,10 +734,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
       );
 
       progressoNotifier.value = (
-        titulo: 'ENVIANDO AO GOOGLE DRIVE',
+        titulo: 'Enviando ao Google Drive',
         subtitulo: 'Entregando fechamento na pasta oficial do gerente...',
         icone: Icons.cloud_upload_rounded,
-        corTema: const Color(0xFF60A5FA),
+        corTema: AppColors.accentLight,
         carregando: true,
       );
       final resultadoDrive = await DriveService.enviarPdfDrive(
@@ -859,10 +749,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
         authHash: dadosFechamento!.authHash,
         aoConfirmarEntrega: () {
           progressoNotifier.value = (
-            titulo: 'CONFIRMANDO ENTREGA',
+            titulo: 'Confirmando entrega',
             subtitulo: 'O Google demorou a responder. Conferindo se o PDF chegou à pasta...',
             icone: Icons.fact_check_rounded,
-            corTema: const Color(0xFF60A5FA),
+            corTema: AppColors.accentLight,
             carregando: true,
           );
         },
@@ -886,10 +776,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
       if (envioDriveOk) {
         progressoNotifier.value = (
-          titulo: 'ENTREGUE COM SUCESSO!',
+          titulo: 'Entregue com sucesso!',
           subtitulo: resultadoDrive.mensagem,
           icone: Icons.cloud_done_rounded,
-          corTema: const Color(0xFF10B981),
+          corTema: AppColors.green,
           carregando: false,
         );
         AppHaptics.medium();
@@ -1437,344 +1327,290 @@ class _SummaryScreenState extends State<SummaryScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.lightSurface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppColors.radiusXl)),
-      ),
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             final totalBandeira = lancamentosBandeira.fold<double>(0.0, (acc, l) => acc + l.valor);
             final qtdBandeira = lancamentosBandeira.length;
-            final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-            final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
-            final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
-            final cardBg = isDark ? const Color(0xFF131C2E) : const Color(0xFFF8FAFC);
+            final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+            final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+            final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
+            final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+            // A folha já é branca no tema claro: o bloco fica no cinza do fundo.
+            final blocoBg = isDark ? AppColors.darkSurface : AppColors.lightBg;
+            final canhotos = _canhotosManual[bandeira] ?? qtdBandeira;
+
+            Future<void> editar(Lancamento l) async {
+              final result = await _editarLancamentoDialog(context, l);
+              if (result != null) {
+                await db.atualizarLancamento(
+                  l.id!,
+                  widget.turno.id!,
+                  l.tipo,
+                  result.valor,
+                  result.descricao,
+                );
+                widget.onTurnoAlterado();
+                final atualizados = await db.obterLancamentos(widget.turno.id!);
+                setSheetState(() {
+                  lancamentosBandeira = ehPix
+                      ? atualizados.where((item) => PaymentTypes.ehPix(item.tipo)).toList()
+                      : atualizados.where((item) => item.tipo == bandeira).toList();
+                });
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Lançamento atualizado com sucesso!'),
+                      backgroundColor: AppColors.green,
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              }
+            }
+
+            Future<void> excluir(Lancamento l) async {
+              final confirmar = await _confirmarExclusaoDialog(context, l);
+              if (confirmar == true) {
+                await db.deletarLancamento(l.id!, widget.turno.id!);
+                widget.onTurnoAlterado();
+                final atualizados = await db.obterLancamentos(widget.turno.id!);
+                final restantes = ehPix
+                    ? atualizados.where((item) => PaymentTypes.ehPix(item.tipo)).toList()
+                    : atualizados.where((item) => item.tipo == bandeira).toList();
+                if (restantes.isEmpty) {
+                  if (mounted && Navigator.canPop(sheetContext)) {
+                    Navigator.pop(sheetContext);
+                  }
+                } else {
+                  setSheetState(() {
+                    lancamentosBandeira = restantes;
+                  });
+                }
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('🗑️ Lançamento excluído com sucesso!'),
+                      backgroundColor: AppColors.red,
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              }
+            }
 
             return SafeArea(
               child: Container(
                 constraints: BoxConstraints(
                   maxHeight: MediaQuery.of(context).size.height * 0.75,
                 ),
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                padding: const EdgeInsets.fromLTRB(16, 10, 8, 16),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Handle superior do modal
                     Center(
                       child: Container(
                         width: 36,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                          color: textTer.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
                     const SizedBox(height: 12),
-
-                    // Cabeçalho da Bandeira / Forma de Pagamento
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: corTipo.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(iconeTipo, color: corTipo, size: 22),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                bandeira,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: textPri,
-                                ),
-                              ),
-                              Text(
-                                '$qtdBandeira lançamento(s) • Total: ${CurrencyFormatter.formatar(totalBandeira)}',
-                                style: TextStyle(fontSize: 12, color: textSec),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.close_rounded, color: textSec),
-                          onPressed: () => Navigator.of(sheetContext).pop(),
-                        ),
-                      ],
+                    CabecalhoJanela(
+                      icone: iconeTipo,
+                      cor: corTipo,
+                      titulo: bandeira,
+                      subtitulo: '$qtdBandeira lançamento(s) · Total ${CurrencyFormatter.formatar(totalBandeira)}',
+                      onFechar: () => Navigator.of(sheetContext).pop(),
                     ),
-                    const SizedBox(height: 8),
-                    Divider(height: 1, color: borderCol),
-                    const SizedBox(height: 12),
-
-                    // Ajuste de Canhotos Físicos (exclusivo para cartões)
-                    if (!ehPix) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: borderCol),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            // Ocupa so o que sobra: os botoes - e + nunca podem
-                            // ser empurrados para fora num celular estreito.
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 14),
+                    Padding(
+                      // O X do cabeçalho fica colado na borda; o resto não.
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Canhotos físicos (só cartão: Pix não tem papel)
+                          if (!ehPix) ...[
+                            Container(
+                              padding: const EdgeInsets.fromLTRB(16, 6, 4, 6),
+                              decoration: BoxDecoration(
+                                color: blocoBg,
+                                borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                                border: Border.all(color: borderCol),
+                              ),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    'Canhotos Físicos (QTD)',
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: textPri,
+                                  // Ocupa so o que sobra: os botoes - e + nunca podem
+                                  // ser empurrados para fora num celular estreito.
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Canhotos físicos',
+                                          style: TextStyle(
+                                            fontSize: AppTexto.corpo,
+                                            fontWeight: FontWeight.w700,
+                                            color: textPri,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          'Base de vendas: $qtdBandeira un',
+                                          style: TextStyle(fontSize: AppTexto.rotulo, color: textSec),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  Text(
-                                    'Base de vendas: $qtdBandeira un',
-                                    style: TextStyle(fontSize: 10.5, color: textSec),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                  IconButton(
+                                    icon: const Icon(Icons.remove_circle_outline_rounded, size: 22),
+                                    color: AppColors.red,
+                                    tooltip: 'Um canhoto a menos',
+                                    onPressed: () {
+                                      if (canhotos > 0) {
+                                        _salvarNovoCanhoto(bandeira, canhotos - 1);
+                                        setSheetState(() {});
+                                      }
+                                    },
+                                  ),
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(AppColors.radiusXs),
+                                    onTap: () => _dialogEditarCanhoto(
+                                      bandeira,
+                                      canhotos,
+                                      () => setSheetState(() {}),
+                                    ),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(AppColors.radiusXs),
+                                        border: Border.all(color: AppColors.accentLight.withValues(alpha: 0.5)),
+                                      ),
+                                      child: Text(
+                                        '$canhotos un',
+                                        style: TextStyle(
+                                          fontFamily: AppTexto.numeros,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: AppTexto.corpo,
+                                          color: textPri,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.add_circle_outline_rounded, size: 22),
+                                    color: AppColors.green,
+                                    tooltip: 'Um canhoto a mais',
+                                    onPressed: () {
+                                      _salvarNovoCanhoto(bandeira, canhotos + 1);
+                                      setSheetState(() {});
+                                    },
                                   ),
                                 ],
                               ),
                             ),
-                            Row(
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.remove_circle_outline_rounded, size: 20),
-                                  color: AppColors.red,
-                                  onPressed: () {
-                                    final atual = _canhotosManual[bandeira] ?? qtdBandeira;
-                                    if (atual > 0) {
-                                      _salvarNovoCanhoto(bandeira, atual - 1);
-                                      setSheetState(() {});
-                                    }
-                                  },
-                                ),
-                                InkWell(
-                                  onTap: () => _dialogEditarCanhoto(
-                                    bandeira,
-                                    _canhotosManual[bandeira] ?? qtdBandeira,
-                                    () => setSheetState(() {}),
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: const Color(0xFF0284C7)),
-                                    ),
-                                    child: Text(
-                                      '${_canhotosManual[bandeira] ?? qtdBandeira} un',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0284C7)),
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-                                  color: AppColors.green,
-                                  onPressed: () {
-                                    final atual = _canhotosManual[bandeira] ?? qtdBandeira;
-                                    _salvarNovoCanhoto(bandeira, atual + 1);
-                                    setSheetState(() {});
-                                  },
-                                ),
-                              ],
-                            ),
+                            const SizedBox(height: 12),
                           ],
-                        ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                    ],
+                    ),
 
-                    // Lista de Lançamentos
+                    // Lançamentos: um bloco só, separado por fio, como no Resumo
                     if (lancamentosBandeira.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 32),
                         child: Center(
                           child: Text(
                             'Nenhum lançamento restante.',
-                            style: TextStyle(color: textSec, fontSize: 13),
+                            style: TextStyle(color: textSec, fontSize: AppTexto.corpo),
                           ),
                         ),
                       )
                     else
                       Flexible(
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: lancamentosBandeira.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
-                          itemBuilder: (ctx, index) {
-                            final l = lancamentosBandeira[index];
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: cardBg,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: borderCol),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: corTipo.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      '#${l.id ?? index + 1}',
-                                      style: TextStyle(
-                                        color: corTipo,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          CurrencyFormatter.formatar(l.valor),
-                                          style: TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w900,
-                                            color: corTipo,
-                                          ),
-                                        ),
-                                        Row(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Container(
+                            clipBehavior: Clip.antiAlias,
+                            decoration: BoxDecoration(
+                              color: blocoBg,
+                              borderRadius: BorderRadius.circular(AppColors.radiusLg),
+                              border: Border.all(color: borderCol),
+                            ),
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              padding: EdgeInsets.zero,
+                              itemCount: lancamentosBandeira.length,
+                              separatorBuilder: (_, __) => Divider(height: 1, thickness: 1, color: borderCol),
+                              itemBuilder: (ctx, index) {
+                                final l = lancamentosBandeira[index];
+                                return Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 6, 4, 6),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Icon(Icons.access_time_rounded, size: 11, color: textSec),
-                                            const SizedBox(width: 3),
                                             Text(
-                                              l.hora,
-                                              style: TextStyle(fontSize: 11, color: textSec),
-                                            ),
-                                            if (l.descricao.isNotEmpty) ...[
-                                              const SizedBox(width: 6),
-                                              Text('•', style: TextStyle(fontSize: 11, color: textSec)),
-                                              const SizedBox(width: 6),
-                                              Expanded(
-                                                child: Text(
-                                                  l.descricao,
-                                                  style: TextStyle(fontSize: 11, color: textSec),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
+                                              CurrencyFormatter.formatar(l.valor),
+                                              style: TextStyle(
+                                                fontFamily: AppTexto.numeros,
+                                                fontSize: AppTexto.valor,
+                                                fontWeight: FontWeight.w600,
+                                                color: textPri,
                                               ),
-                                            ],
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text.rich(
+                                              TextSpan(
+                                                children: [
+                                                  TextSpan(
+                                                    text: '#${l.id ?? index + 1} · ${l.hora}',
+                                                    style: TextStyle(fontFamily: AppTexto.numeros, color: textTer),
+                                                  ),
+                                                  if (l.descricao.isNotEmpty) TextSpan(text: '  ·  ${l.descricao}'),
+                                                ],
+                                              ),
+                                              style: TextStyle(fontSize: AppTexto.rotulo, color: textSec),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                           ],
                                         ),
+                                      ),
+                                      if (!widget.turno.aberto)
+                                        const Padding(
+                                          padding: EdgeInsets.only(right: 10),
+                                          child: SeloTurno(texto: 'Bloqueado', cor: AppColors.amber),
+                                        )
+                                      else ...[
+                                        IconButton(
+                                          icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.accentLight),
+                                          tooltip: 'Editar valor',
+                                          onPressed: () => editar(l),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.red),
+                                          tooltip: 'Excluir lançamento',
+                                          onPressed: () => excluir(l),
+                                        ),
                                       ],
-                                    ),
+                                    ],
                                   ),
-
-                                  if (!widget.turno.aberto)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF78350F).withValues(alpha: 0.3),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: const Color(0xFFF59E0B), width: 0.8),
-                                      ),
-                                      child: const Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.lock_rounded, size: 13, color: Color(0xFFFBBF24)),
-                                          SizedBox(width: 4),
-                                          Text('Bloqueado', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFFBBF24))),
-                                        ],
-                                      ),
-                                    )
-                                  else ...[
-                                    // Botão Editar
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_outlined, size: 19, color: Color(0xFF38BDF8)),
-                                      tooltip: 'Editar valor',
-                                      onPressed: () async {
-                                        final result = await _editarLancamentoDialog(context, l);
-                                        if (result != null) {
-                                          await db.atualizarLancamento(
-                                            l.id!,
-                                            widget.turno.id!,
-                                            l.tipo,
-                                            result.valor,
-                                            result.descricao,
-                                          );
-                                          widget.onTurnoAlterado();
-                                          final atualizados = await db.obterLancamentos(widget.turno.id!);
-                                          setSheetState(() {
-                                            lancamentosBandeira = ehPix
-                                                ? atualizados.where((item) => PaymentTypes.ehPix(item.tipo)).toList()
-                                                : atualizados.where((item) => item.tipo == bandeira).toList();
-                                          });
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(
-                                                content: Text('✅ Lançamento atualizado com sucesso!'),
-                                                backgroundColor: AppColors.green,
-                                                duration: Duration(seconds: 2),
-                                              ),
-                                            );
-                                          }
-                                        }
-                                      },
-                                    ),
-
-                                    // Botão Excluir
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline_rounded, size: 19, color: AppColors.red),
-                                      tooltip: 'Excluir lançamento',
-                                      onPressed: () async {
-                                        final confirmar = await _confirmarExclusaoDialog(context, l);
-                                        if (confirmar == true) {
-                                          await db.deletarLancamento(l.id!, widget.turno.id!);
-                                          widget.onTurnoAlterado();
-                                          final atualizados = await db.obterLancamentos(widget.turno.id!);
-                                          final restantes = ehPix
-                                              ? atualizados.where((item) => PaymentTypes.ehPix(item.tipo)).toList()
-                                              : atualizados.where((item) => item.tipo == bandeira).toList();
-                                          if (restantes.isEmpty) {
-                                            if (mounted && Navigator.canPop(sheetContext)) {
-                                              Navigator.pop(sheetContext);
-                                            }
-                                          } else {
-                                            setSheetState(() {
-                                              lancamentosBandeira = restantes;
-                                            });
-                                          }
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(
-                                                content: Text('🗑️ Lançamento excluído com sucesso!'),
-                                                backgroundColor: AppColors.red,
-                                                duration: Duration(seconds: 2),
-                                              ),
-                                            );
-                                          }
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            );
-                          },
+                                );
+                              },
+                            ),
+                          ),
                         ),
                       ),
                   ],
@@ -1792,148 +1628,116 @@ class _SummaryScreenState extends State<SummaryScreen> {
     }
   }
 
-  Future<({double valor, String descricao})?> _editarLancamentoDialog(BuildContext context, Lancamento l) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
-    final controllerValor = TextEditingController(text: CurrencyFormatter.formatar(l.valor));
-    final controllerDesc = TextEditingController(text: l.descricao);
-    String? erro;
-
-    final resultado = await showDialog<({double valor, String descricao})>(
+  Future<({double valor, String descricao})?> _editarLancamentoDialog(BuildContext context, Lancamento l) {
+    return showDialog<({double valor, String descricao})>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.lightSurface,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: BorderSide(color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder),
-            ),
-            title: Row(
-              children: [
-                const Icon(Icons.edit_rounded, color: Color(0xFF38BDF8), size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Editar Lançamento',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri),
-                ),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Bandeira: ${l.tipo}',
-                    style: TextStyle(fontSize: 12, color: textSec, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: controllerValor,
-                    autofocus: true,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [CurrencyInputFormatter()],
-                    decoration: InputDecoration(
-                      labelText: 'Novo Valor (R\$)',
-                      errorText: erro,
-                      prefixIcon: const Icon(Icons.attach_money_rounded),
-                      filled: true,
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                    ),
-                    onChanged: (_) {
-                      if (erro != null) setDialogState(() => erro = null);
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: controllerDesc,
-                    decoration: const InputDecoration(
-                      labelText: 'Descrição / Placa (Opcional)',
-                      prefixIcon: Icon(Icons.edit_note_rounded),
-                      filled: true,
-                      isDense: true,
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, null),
-                child: Text('Cancelar', style: TextStyle(color: textSec)),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final valor = CurrencyFormatter.parse(controllerValor.text);
-                  if (valor <= 0) {
-                    setDialogState(() => erro = 'Informe um valor maior que zero');
-                    return;
-                  }
-                  Navigator.pop(ctx, (valor: valor, descricao: controllerDesc.text.trim()));
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: const Text('Salvar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          );
-        },
-      ),
+      builder: (ctx) => _EditarValorDialog(lancamento: l),
     );
-
-    controllerValor.dispose();
-    controllerDesc.dispose();
-    return resultado;
   }
 
   Future<bool?> _confirmarExclusaoDialog(BuildContext context, Lancamento l) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
-
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.lightSurface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: isDark ? const Color(0xFF1E293B) : AppColors.lightBorder),
+        title: const TituloJanela('Excluir lançamento?', icone: Icons.warning_amber_rounded, cor: AppColors.red),
+        content: TextoJanela(
+          'Deseja remover o lançamento de ${CurrencyFormatter.formatar(l.valor)} em ${l.tipo} (Horário: ${l.hora})?\n\n'
+          'Os totais do turno serão recalculados automaticamente.',
         ),
-        title: Row(
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          BotoesJanela(
+            secundario: BotaoSecundario(texto: 'Cancelar', onPressed: () => Navigator.pop(ctx, false)),
+            principal: BotaoPrincipal(
+              texto: 'Sim, Excluir',
+              icone: Icons.delete_outline_rounded,
+              cor: AppColors.red,
+              onPressed: () => Navigator.pop(ctx, true),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Editar um lançamento pelo detalhe da bandeira: só valor e descrição — a
+/// bandeira é a da lista de onde se veio. Usa as mesmas peças de quem lança e
+/// de "Corrigir lançamento".
+///
+/// É um widget com estado para que os campos sejam descartados só quando a
+/// janela sai de vez: descartados logo depois do `showDialog`, a animação de
+/// saída ainda os desenhava e dava erro.
+class _EditarValorDialog extends StatefulWidget {
+  final Lancamento lancamento;
+
+  const _EditarValorDialog({required this.lancamento});
+
+  @override
+  State<_EditarValorDialog> createState() => _EditarValorDialogState();
+}
+
+class _EditarValorDialogState extends State<_EditarValorDialog> {
+  late final TextEditingController _valor =
+      TextEditingController(text: CurrencyFormatter.formatar(widget.lancamento.valor));
+  late final TextEditingController _descricao = TextEditingController(text: widget.lancamento.descricao);
+  String? _erro;
+
+  @override
+  void dispose() {
+    _valor.dispose();
+    _descricao.dispose();
+    super.dispose();
+  }
+
+  void _salvar() {
+    final valor = CurrencyFormatter.parse(_valor.text);
+    if (valor <= 0) {
+      setState(() => _erro = 'Informe um valor maior que zero');
+      return;
+    }
+    Navigator.pop(context, (valor: valor, descricao: _descricao.text.trim()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = widget.lancamento;
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Icon(Icons.warning_amber_rounded, color: AppColors.red, size: 22),
-            const SizedBox(width: 8),
-            Text(
-              'Excluir Lançamento?',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri),
+            CabecalhoJanela(
+              icone: AppIcones.doTipo(l.tipo),
+              cor: AppColors.getCorTipo(l.tipo),
+              titulo: 'Editar lançamento',
+              subtitulo: '${l.tipo} · ${l.hora}',
+              onFechar: () => Navigator.pop(context),
+            ),
+            const SizedBox(height: 14),
+            CampoValorVenda(
+              controller: _valor,
+              autofocus: true,
+              rotulo: 'Valor',
+              podeLancar: false,
+              erro: _erro,
+              onChanged: (_) {
+                if (_erro != null) setState(() => _erro = null);
+              },
+              onLancar: _salvar,
+            ),
+            const SizedBox(height: 12),
+            CampoDescricao(controller: _descricao, onSubmitted: _salvar),
+            const SizedBox(height: 16),
+            BotoesJanela(
+              secundario: BotaoSecundario(texto: 'Cancelar', onPressed: () => Navigator.pop(context)),
+              principal: BotaoPrincipal(texto: 'Salvar', icone: Icons.check_circle_rounded, onPressed: _salvar),
             ),
           ],
         ),
-        content: Text(
-          'Deseja remover o lançamento de ${CurrencyFormatter.formatar(l.valor)} em ${l.tipo} (Horário: ${l.hora})?\n\n'
-          'Os totais do turno serão recalculados automaticamente.',
-          style: TextStyle(fontSize: 13, color: textSec, height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancelar', style: TextStyle(color: textSec)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.red,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text('Sim, Excluir', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
       ),
     );
   }

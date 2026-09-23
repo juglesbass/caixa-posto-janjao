@@ -121,4 +121,63 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(BottomSheet), findsOneWidget);
   });
+
+  // Detalhe da bandeira: corrigir um valor pela lista grava no banco.
+  testWidgets('editar pelo detalhe grava o valor novo', (tester) async {
+    await abrir(tester);
+    await tester.tap(find.textContaining('Rede Master Crédito', findRichText: true));
+    await esperar(tester);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Editar valor').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Editar lançamento'), findsOneWidget);
+
+    // O campo de valor da janela (atrás dela está o das vendas do sistema).
+    final campoValor = find.descendant(of: find.byType(Dialog), matching: find.byType(TextField)).first;
+    await tester.enterText(campoValor, '26000'); // R$ 260,00
+    await tester.pump();
+    await tester.tap(find.text('Salvar'));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 60)));
+    }
+
+    expect(find.text('Editar lançamento'), findsNothing);
+    final lancamentos = await tester.runAsync(() => DatabaseService.instance.obterLancamentos(turno.id!));
+    final cartao = lancamentos!.firstWhere((l) => l.tipo == 'Rede Master Crédito');
+    expect(cartao.valor, 260);
+
+    // Volta ao valor de antes para não mexer nos outros testes.
+    await tester.runAsync(() => DatabaseService.instance
+        .atualizarLancamento(cartao.id!, turno.id!, cartao.tipo, 255.71, cartao.descricao));
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('excluir pelo detalhe pede confirmação e cancelar não apaga', (tester) async {
+    await abrir(tester);
+    await tester.tap(find.textContaining('Rede Master Crédito', findRichText: true));
+    await esperar(tester);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Excluir lançamento').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Excluir lançamento?'), findsOneWidget);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+
+    final lancamentos = await tester.runAsync(() => DatabaseService.instance.obterLancamentos(turno.id!));
+    expect(lancamentos!.where((l) => l.tipo == 'Rede Master Crédito'), hasLength(1));
+  });
+
+  testWidgets('detalhe da bandeira cabe num celular de 375pt', (tester) async {
+    await abrir(tester);
+    tester.view.physicalSize = const Size(375 * 3, 812 * 3);
+    await tester.pump();
+    await tester.tap(find.textContaining('Rede Master Crédito', findRichText: true));
+    await esperar(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Canhotos físicos'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
