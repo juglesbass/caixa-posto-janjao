@@ -9,6 +9,7 @@ import '../theme/app_texto.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/payment_types.dart';
 import '../widgets/cabecalho_turno.dart';
+import '../widgets/filtro_pilula.dart';
 
 class HistoryScreen extends StatefulWidget {
   final Turno turno;
@@ -189,7 +190,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 for (final f in filtros)
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: _Filtro(
+                    child: FiltroPilula(
                       texto: f,
                       selecionado: _filtroTipo == f,
                       onTap: () => setState(() {
@@ -258,48 +259,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Um filtro da barra do Histórico: pílula com borda; o escolhido acende no
-/// azul do app.
-class _Filtro extends StatelessWidget {
-  final String texto;
-  final bool selecionado;
-  final VoidCallback onTap;
-
-  const _Filtro({required this.texto, required this.selecionado, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
-    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
-    final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
-    final corSel = isDark ? AppColors.accentLight : AppColors.accent;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppColors.radiusSm),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selecionado ? corSel.withValues(alpha: isDark ? 0.16 : 0.10) : surfaceColor,
-          borderRadius: BorderRadius.circular(AppColors.radiusSm),
-          border: Border.all(color: selecionado ? corSel : borderColor, width: selecionado ? 1.5 : 1),
-        ),
-        child: Text(
-          texto,
-          style: TextStyle(
-            fontSize: AppTexto.rotulo + 1,
-            fontWeight: selecionado ? FontWeight.w700 : FontWeight.w500,
-            color: selecionado ? corSel : textSec,
-          ),
-        ),
       ),
     );
   }

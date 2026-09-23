@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../data/produtos_data.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_texto.dart';
 import '../utils/app_haptics.dart';
+import '../widgets/filtro_pilula.dart';
+import '../widgets/janela.dart';
 
 class ConsultaProdutosScreen extends StatefulWidget {
   const ConsultaProdutosScreen({super.key});
@@ -114,26 +117,29 @@ class _ConsultaProdutosScreenState extends State<ConsultaProdutosScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgScaffold = isDark ? const Color(0xFF08090F) : AppColors.lightBg;
-    final surfaceCard = isDark ? const Color(0xFF131C2E) : AppColors.lightSurface;
+    final bgScaffold = isDark ? AppColors.darkBg : AppColors.lightBg;
+    final surface = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final campoBg = isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle;
     final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
     final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
-    final borderCol = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
+    final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
+    final borderCol = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final corCodigo = isDark ? AppColors.accentLight : AppColors.accent;
 
     final lista = _produtosFiltrados;
 
     return Scaffold(
       backgroundColor: bgScaffold,
       appBar: AppBar(
-        title: const Column(
+        title: Column(
           children: [
-            Text(
+            const Text(
               'Consulta de Produtos',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.2),
+              style: TextStyle(fontSize: AppTexto.valor, fontWeight: FontWeight.w700),
             ),
             Text(
               'Tabela de códigos rápidos do posto',
-              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              style: TextStyle(fontSize: AppTexto.rotulo, color: textSec),
             ),
           ],
         ),
@@ -144,9 +150,9 @@ class _ConsultaProdutosScreenState extends State<ConsultaProdutosScreen> {
           children: [
             // ── Barra Fixa de Pesquisa ──
             Container(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF111420) : Colors.white,
+                color: surface,
                 border: Border(bottom: BorderSide(color: borderCol)),
               ),
               child: Column(
@@ -156,14 +162,15 @@ class _ConsultaProdutosScreenState extends State<ConsultaProdutosScreen> {
                     controller: _buscaController,
                     focusNode: _focusNode,
                     onChanged: (v) => setState(() => _termoBusca = v),
-                    style: TextStyle(color: textPri, fontSize: 14),
+                    style: TextStyle(color: textPri, fontSize: AppTexto.corpo),
                     decoration: InputDecoration(
                       hintText: 'Buscar por código (ex: 00488) ou nome...',
-                      hintStyle: TextStyle(color: textSec, fontSize: 13),
-                      prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF38BDF8), size: 22),
+                      hintStyle: TextStyle(color: textSec, fontSize: AppTexto.corpo - 1),
+                      prefixIcon: Icon(Icons.search_rounded, color: textSec, size: 22),
                       suffixIcon: _termoBusca.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear_rounded, size: 18),
+                              tooltip: 'Limpar busca',
                               onPressed: () {
                                 _buscaController.clear();
                                 setState(() => _termoBusca = '');
@@ -171,60 +178,44 @@ class _ConsultaProdutosScreenState extends State<ConsultaProdutosScreen> {
                             )
                           : null,
                       filled: true,
-                      fillColor: isDark ? const Color(0xFF181D2E) : const Color(0xFFF1F5F9),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      fillColor: campoBg,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
                         borderSide: BorderSide(color: borderCol),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
                         borderSide: BorderSide(color: borderCol),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                        borderSide: BorderSide(color: corCodigo, width: 1.5),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
 
                   // ── Filtro Rápido por Categorias ──
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    child: Row(
-                      children: _categorias.map((cat) {
-                        final selecionada = _categoriaSelecionada == cat;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: ChoiceChip(
-                            label: Text(
-                              cat,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: selecionada ? FontWeight.bold : FontWeight.normal,
-                                color: selecionada
-                                    ? Colors.white
-                                    : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569)),
-                              ),
-                            ),
-                            selected: selecionada,
-                            selectedColor: const Color(0xFF2563EB),
-                            backgroundColor: isDark ? const Color(0xFF181D2E) : const Color(0xFFE2E8F0),
-                            side: BorderSide(
-                              color: selecionada ? const Color(0xFF2563EB) : borderCol,
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            onSelected: (val) {
-                              if (val) {
+                  SizedBox(
+                    height: 52,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      children: [
+                        for (final cat in _categorias)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: FiltroPilula(
+                              texto: cat,
+                              selecionado: _categoriaSelecionada == cat,
+                              onTap: () {
                                 AppHaptics.selection();
                                 setState(() => _categoriaSelecionada = cat);
-                              }
-                            },
+                              },
+                            ),
                           ),
-                        );
-                      }).toList(),
+                      ],
                     ),
                   ),
                 ],
@@ -233,21 +224,18 @@ class _ConsultaProdutosScreenState extends State<ConsultaProdutosScreen> {
 
             // ── Barra de Status / Contagem de Resultados ──
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${lista.length} produto(s) encontrado(s)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: textSec,
+                  Expanded(
+                    child: Text(
+                      '${lista.length} produto(s) encontrado(s)',
+                      style: TextStyle(fontSize: AppTexto.rotulo, fontWeight: FontWeight.w600, color: textSec),
                     ),
                   ),
                   Text(
                     'Toque para copiar o código',
-                    style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFF475569) : const Color(0xFF94A3B8)),
+                    style: TextStyle(fontSize: AppTexto.rotulo, color: textTer),
                   ),
                 ],
               ),
@@ -262,41 +250,31 @@ class _ConsultaProdutosScreenState extends State<ConsultaProdutosScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF181D2E) : const Color(0xFFE2E8F0),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.search_off_rounded, size: 40, color: Color(0xFF38BDF8)),
-                            ),
+                            IconeJanela(icone: Icons.search_off_rounded, cor: corCodigo, tamanho: 64),
                             const SizedBox(height: 14),
                             Text(
                               'Nenhum produto encontrado',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri),
+                              style: TextStyle(fontSize: AppTexto.valor, fontWeight: FontWeight.w700, color: textPri),
                             ),
                             const SizedBox(height: 6),
                             Text(
                               'Verifique se digitou o código ou nome correto.',
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 12, color: textSec),
+                              style: TextStyle(fontSize: AppTexto.corpo - 1, color: textSec),
                             ),
-                            const SizedBox(height: 14),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                _buscaController.clear();
-                                setState(() {
-                                  _termoBusca = '';
-                                  _categoriaSelecionada = 'Todos';
-                                });
-                              },
-                              icon: const Icon(Icons.refresh_rounded, size: 16),
-                              label: const Text('Limpar Filtros'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF2563EB),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: 200,
+                              child: BotaoPrincipal(
+                                texto: 'Limpar Filtros',
+                                icone: Icons.refresh_rounded,
+                                onPressed: () {
+                                  _buscaController.clear();
+                                  setState(() {
+                                    _termoBusca = '';
+                                    _categoriaSelecionada = 'Todos';
+                                  });
+                                },
                               ),
                             ),
                           ],
@@ -304,80 +282,65 @@ class _ConsultaProdutosScreenState extends State<ConsultaProdutosScreen> {
                       ),
                     )
                   : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(14, 6, 14, 16),
+                      padding: const EdgeInsets.fromLTRB(14, 4, 14, 16),
                       itemCount: lista.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final p = lista[index];
-                        return InkWell(
-                          onTap: () => _copiarCodigo(p),
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: surfaceCard,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: borderCol),
-                            ),
-                            child: Row(
-                              children: [
-                                // Badge do Código
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF0284C7).withValues(alpha: 0.16),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.4)),
-                                  ),
-                                  child: Text(
-                                    p.codigo,
-                                    style: const TextStyle(
-                                      fontFamily: 'monospace',
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w900,
-                                      color: Color(0xFF38BDF8),
-                                      letterSpacing: 0.5,
+                        return Material(
+                          color: surface,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                            side: BorderSide(color: borderCol),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: () => _copiarCodigo(p),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
+                              child: Row(
+                                children: [
+                                  // Código em coluna: o que o frentista procura primeiro
+                                  Container(
+                                    constraints: const BoxConstraints(minWidth: 64),
+                                    padding: const EdgeInsets.only(right: 12),
+                                    child: Text(
+                                      p.codigo,
+                                      style: TextStyle(
+                                        fontFamily: AppTexto.numeros,
+                                        fontSize: AppTexto.valor,
+                                        fontWeight: FontWeight.w600,
+                                        color: corCodigo,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-
-                                // Descrição e Categoria
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        p.descricao,
-                                        style: TextStyle(
-                                          fontSize: 13.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: textPri,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          p.descricao,
+                                          style: TextStyle(
+                                            fontSize: AppTexto.corpo,
+                                            fontWeight: FontWeight.w700,
+                                            color: textPri,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        p.categoria,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: isDark ? const Color(0xFF64748B) : const Color(0xFF64748B),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          p.categoria,
+                                          style: TextStyle(fontSize: AppTexto.rotulo, color: textTer),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-
-                                // Botão Copiar
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.content_copy_rounded,
-                                    size: 18,
-                                    color: Color(0xFF38BDF8),
+                                  IconButton(
+                                    icon: Icon(Icons.content_copy_rounded, size: 18, color: textSec),
+                                    tooltip: 'Copiar código ${p.codigo}',
+                                    onPressed: () => _copiarCodigo(p),
                                   ),
-                                  tooltip: 'Copiar código ${p.codigo}',
-                                  onPressed: () => _copiarCodigo(p),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         );

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/app_haptics.dart';
+import '../widgets/janela.dart';
 
 class TrocarPinDialog extends StatefulWidget {
   final String operador;
@@ -94,44 +95,19 @@ class _TrocarPinDialogState extends State<TrocarPinDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgScaffold = isDark ? const Color(0xFF0F172A) : AppColors.lightSurface;
-    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
-    final borderColor = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
+    final estiloPin = TextStyle(
+      fontSize: 20,
+      letterSpacing: 8,
+      fontWeight: FontWeight.w700,
+      color: isDark ? AppColors.darkTextPri : AppColors.lightTextPri,
+    );
 
     return AlertDialog(
-      backgroundColor: bgScaffold,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: borderColor),
-      ),
-      title: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2563EB).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(AppColors.radiusSm),
-            ),
-            child: const Icon(Icons.password_rounded, color: Color(0xFF38BDF8), size: 22),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Alterar PIN de Segurança',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri),
-                ),
-                Text(
-                  'Operador: ${widget.operador}',
-                  style: TextStyle(fontSize: 11, color: textSec),
-                ),
-              ],
-            ),
-          ),
-        ],
+      title: CabecalhoJanela(
+        icone: Icons.password_rounded,
+        cor: AppColors.accentLight,
+        titulo: 'Alterar PIN de Segurança',
+        subtitulo: 'Operador: ${widget.operador}',
       ),
       content: SingleChildScrollView(
         child: SizedBox(
@@ -147,7 +123,7 @@ class _TrocarPinDialogState extends State<TrocarPinDialog> {
                 textAlign: TextAlign.center,
                 maxLength: 4,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                style: TextStyle(fontSize: 20, letterSpacing: 8, fontWeight: FontWeight.bold, color: textPri),
+                style: estiloPin,
                 decoration: InputDecoration(
                   labelText: 'PIN Atual (ou PIN do Desenvolvedor)',
                   counterText: '',
@@ -169,7 +145,7 @@ class _TrocarPinDialogState extends State<TrocarPinDialog> {
                 textAlign: TextAlign.center,
                 maxLength: 4,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                style: TextStyle(fontSize: 20, letterSpacing: 8, fontWeight: FontWeight.bold, color: textPri),
+                style: estiloPin,
                 decoration: InputDecoration(
                   labelText: 'Novo PIN (4 dígitos)',
                   counterText: '',
@@ -191,7 +167,7 @@ class _TrocarPinDialogState extends State<TrocarPinDialog> {
                 textAlign: TextAlign.center,
                 maxLength: 4,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                style: TextStyle(fontSize: 20, letterSpacing: 8, fontWeight: FontWeight.bold, color: textPri),
+                style: estiloPin,
                 decoration: InputDecoration(
                   labelText: 'Confirmar Novo PIN',
                   counterText: '',
@@ -210,20 +186,14 @@ class _TrocarPinDialogState extends State<TrocarPinDialog> {
           ),
         ),
       ),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text('Cancelar', style: TextStyle(color: textSec)),
-        ),
-        ElevatedButton(
-          onPressed: _salvando ? null : _confirmarTroca,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.accent,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-          child: Text(
-            _salvando ? 'Salvando...' : 'Salvar Novo PIN',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        BotoesJanela(
+          secundario: BotaoSecundario(texto: 'Cancelar', onPressed: () => Navigator.of(context).pop(false)),
+          principal: BotaoPrincipal(
+            texto: _salvando ? 'Salvando...' : 'Salvar Novo PIN',
+            ocupado: _salvando,
+            onPressed: _salvando ? null : _confirmarTroca,
           ),
         ),
       ],

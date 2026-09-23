@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_texto.dart';
 import '../utils/app_haptics.dart';
+import '../widgets/janela.dart';
 
 class CadastroPinDialog extends StatefulWidget {
   final String operador;
@@ -86,45 +88,27 @@ class _CadastroPinDialogState extends State<CadastroPinDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgScaffold = isDark ? const Color(0xFF0F172A) : AppColors.lightSurface;
-    final textPri = isDark ? Colors.white : AppColors.lightTextPri;
-    final textSec = isDark ? const Color(0xFF94A3B8) : AppColors.lightTextSec;
-    final borderColor = isDark ? const Color(0xFF1E293B) : AppColors.lightBorder;
+    final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
+    final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
+    final estiloPin = TextStyle(fontSize: 22, letterSpacing: 12, fontWeight: FontWeight.w700, color: textPri);
 
     return PopScope(
       canPop: !widget.obrigatorio,
       child: AlertDialog(
-        backgroundColor: bgScaffold,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: borderColor),
-        ),
-        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        titlePadding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
         title: Column(
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2563EB).withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF2563EB), width: 1.5),
-              ),
-              child: const Icon(Icons.shield_rounded, color: Color(0xFF38BDF8), size: 30),
-            ),
+            const IconeJanela(icone: Icons.shield_rounded, cor: AppColors.accentLight, tamanho: 56),
             const SizedBox(height: 12),
             Text(
               'Cadastre seu PIN de 4 dígitos',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-                color: textPri,
-              ),
+              style: TextStyle(fontSize: AppTexto.valor + 1, fontWeight: FontWeight.w700, color: textPri),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               'Operador: ${widget.operador}\nEste PIN será solicitado para trancar a tela e homologar o fechamento de caixa.',
-              style: TextStyle(fontSize: 12, color: textSec, height: 1.35),
+              style: TextStyle(fontSize: AppTexto.rotulo + 1, color: textSec, height: 1.35),
               textAlign: TextAlign.center,
             ),
           ],
@@ -143,12 +127,7 @@ class _CadastroPinDialogState extends State<CadastroPinDialog> {
                   textAlign: TextAlign.center,
                   maxLength: 4,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  style: TextStyle(
-                    fontSize: 22,
-                    letterSpacing: 12,
-                    fontWeight: FontWeight.bold,
-                    color: textPri,
-                  ),
+                  style: estiloPin,
                   decoration: InputDecoration(
                     labelText: 'Novo PIN (4 números)',
                     counterText: '',
@@ -170,12 +149,7 @@ class _CadastroPinDialogState extends State<CadastroPinDialog> {
                   textAlign: TextAlign.center,
                   maxLength: 4,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  style: TextStyle(
-                    fontSize: 22,
-                    letterSpacing: 12,
-                    fontWeight: FontWeight.bold,
-                    color: textPri,
-                  ),
+                  style: estiloPin,
                   decoration: InputDecoration(
                     labelText: 'Confirmar Novo PIN',
                     counterText: '',
@@ -198,18 +172,11 @@ class _CadastroPinDialogState extends State<CadastroPinDialog> {
         actions: [
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: BotaoPrincipal(
+              texto: _salvando ? 'Gravando PIN...' : 'Confirmar e Cadastrar PIN',
+              icone: Icons.check_circle_rounded,
+              ocupado: _salvando,
               onPressed: _salvando ? null : _salvar,
-              icon: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-              label: Text(
-                _salvando ? 'Gravando PIN...' : 'Confirmar e Cadastrar PIN',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
             ),
           ),
         ],

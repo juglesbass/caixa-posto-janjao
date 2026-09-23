@@ -1,10 +1,14 @@
 import 'dart:io';
 
+import 'package:caixa_posto_janjao/dialogs/bloqueio_dialog.dart';
+import 'package:caixa_posto_janjao/dialogs/cadastro_pin_dialog.dart';
 import 'package:caixa_posto_janjao/dialogs/drive_failure_dialog.dart';
 import 'package:caixa_posto_janjao/dialogs/encerrantes_dialog.dart';
 import 'package:caixa_posto_janjao/dialogs/reset_dialog.dart';
+import 'package:caixa_posto_janjao/dialogs/trocar_pin_dialog.dart';
 import 'package:caixa_posto_janjao/dialogs/turnos_anteriores_dialog.dart';
 import 'package:caixa_posto_janjao/models/turno.dart';
+import 'package:caixa_posto_janjao/screens/consulta_produtos_screen.dart';
 import 'package:caixa_posto_janjao/services/database_service.dart';
 import 'package:caixa_posto_janjao/services/notification_service.dart';
 import 'package:caixa_posto_janjao/theme/app_theme.dart';
@@ -189,6 +193,78 @@ void main() {
       NotificationService.pendenciasCount.value = 0;
       await tester.pump();
       expect(find.text('Sim, Zerar Tudo'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('Consulta de Produtos', () {
+    testWidgets('busca pelo código, copia ao tocar e limpa filtros', (tester) async {
+      tester.view.physicalSize = const Size(375 * 3, 812 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      String? copiado;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') copiado = (call.arguments as Map)['text'] as String?;
+        return null;
+      });
+      addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+
+      await tester.pumpWidget(MaterialApp(theme: AppTheme.darkTheme(), home: const ConsultaProdutosScreen()));
+      expect(tester.takeException(), isNull);
+
+      await tester.enterText(find.byType(TextField), '488');
+      await tester.pump();
+      expect(find.text('ADITIVO RAD IPI PRONTO 1L'), findsOneWidget);
+
+      await tester.tap(find.text('ADITIVO RAD IPI PRONTO 1L'));
+      await tester.pump();
+      expect(copiado, '00488');
+      expect(find.textContaining('Código 00488 copiado'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'zzzz');
+      await tester.pump();
+      expect(find.text('Nenhum produto encontrado'), findsOneWidget);
+      await tester.tap(find.text('Limpar Filtros'));
+      await tester.pump();
+      expect(find.text('Nenhum produto encontrado'), findsNothing);
+      await tester.pump(const Duration(seconds: 3));
+    });
+  });
+
+  group('PIN', () {
+    testWidgets('bloqueio: PIN errado mostra o erro, e a tela cabe em 375pt', (tester) async {
+      await abrir(tester, (_) => const BloqueioDialog(operador: 'Agildo Gomes'), largura: 375);
+      expect(find.text('Caixa bloqueado'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), '12');
+      await tester.tap(find.text('Desbloquear Caixa'));
+      await esperar(tester);
+      expect(find.text('PIN Incorreto. Acesso Negado!'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('trocar PIN: PIN atual errado mostra o erro', (tester) async {
+      await abrir(tester, (_) => const TrocarPinDialog(operador: 'Agildo Gomes'), largura: 375);
+      await tester.enterText(find.byType(TextField).first, '12');
+      await tester.tap(find.text('Salvar Novo PIN'));
+      await esperar(tester);
+      expect(find.textContaining('PIN atual incorreto'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('cadastro de PIN confere tamanho e confirmação', (tester) async {
+      await abrir(tester, (_) => const CadastroPinDialog(operador: 'Bruno Costa', obrigatorio: true), largura: 375);
+      final botao = find.text('Confirmar e Cadastrar PIN');
+
+      await tester.enterText(find.byType(TextField).first, '12');
+      await tester.tap(botao);
+      await tester.pump();
+      expect(find.text('O PIN deve ter exatamente 4 números'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).first, '1234');
+      await tester.enterText(find.byType(TextField).last, '1235');
+      await tester.tap(botao);
+      await tester.pump();
+      expect(find.text('Os PINs digitados não coincidem'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });
