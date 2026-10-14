@@ -616,9 +616,16 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                                     ),
                                   ),
                                   const SizedBox(width: 5),
-                                  Text(
-                                    'Dinheiro Físico',
-                                    style: TextStyle(fontSize: 11, color: textSec),
+                                  // Flexível: em Android de 360 ou com a fonte do
+                                  // sistema aumentada, o rótulo encolhe em vez de
+                                  // empurrar o valor para fora da janela.
+                                  Flexible(
+                                    child: Text(
+                                      'Dinheiro Físico',
+                                      style: TextStyle(fontSize: 11, color: textSec),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -656,9 +663,13 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                                     ),
                                   ),
                                   const SizedBox(width: 5),
-                                  Text(
-                                    'Cartões / Vouchers',
-                                    style: TextStyle(fontSize: 11, color: textSec),
+                                  Flexible(
+                                    child: Text(
+                                      'Cartões / Vouchers',
+                                      style: TextStyle(fontSize: 11, color: textSec),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -790,29 +801,38 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Uma linha só, com rótulo e operador dividindo a largura.
+                    // Antes eram duas linhas aninhadas sem limite: nome comprido
+                    // ("Pablo Aymar Santos") em celular estreito empurrava tudo
+                    // para fora da janela de fechamento.
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.shield_rounded, color: AppColors.accentLight, size: 15),
-                            const SizedBox(width: 5),
-                            Text(
-                              'Assinatura Digital (PIN)',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: textPri,
-                              ),
+                        const Icon(Icons.shield_rounded, color: AppColors.accentLight, size: 15),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            'Assinatura Digital (PIN)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: textPri,
                             ),
-                          ],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                        Text(
-                          widget.turno.operador,
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.accentLight,
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            widget.turno.operador,
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.accentLight,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.end,
                           ),
                         ),
                       ],

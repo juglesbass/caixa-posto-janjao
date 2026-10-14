@@ -336,8 +336,11 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
                             Expanded(
                               flex: 2,
                               child: Container(
-                                height: 48,
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                // Altura mínima, não fixa: com a fonte do sistema
+                                // um pouco maior, o rótulo e o valor não cabiam
+                                // nos 48 e cortavam embaixo.
+                                constraints: const BoxConstraints(minHeight: 48),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: AppColors.green.withValues(alpha: isDark ? 0.12 : 0.08),
                                   borderRadius: BorderRadius.circular(AppColors.radiusSm),

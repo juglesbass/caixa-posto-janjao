@@ -501,7 +501,11 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Row(
+                              // Wrap: se os dois selos não couberem lado a lado,
+                              // o segundo desce em vez de sair da tela.
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -520,7 +524,6 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                     decoration: BoxDecoration(
@@ -579,16 +582,27 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                               Icon(Icons.local_gas_station_outlined, size: 16, color: textSec),
                               const SizedBox(width: 8),
                               Text('Posto: ', style: TextStyle(fontSize: 11.5, color: textSec)),
-                              Text(
-                                opAtual.postoId,
-                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: textPri),
+                              // O código do posto pode ser um identificador longo
+                              // do Firestore: sem limite ele empurrava a linha
+                              // centenas de pixels para fora da tela.
+                              Expanded(
+                                child: Text(
+                                  opAtual.postoId,
+                                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: textPri),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              const Spacer(),
+                              const SizedBox(width: 8),
                               Icon(Icons.access_time_rounded, size: 14, color: textSec),
                               const SizedBox(width: 4),
-                              Text(
-                                'Cadastrado: $dataCriada',
-                                style: TextStyle(fontSize: 10.5, color: textSec),
+                              Flexible(
+                                child: Text(
+                                  'Cadastrado: $dataCriada',
+                                  style: TextStyle(fontSize: 10.5, color: textSec),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ],
                           ),
