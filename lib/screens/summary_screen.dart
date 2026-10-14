@@ -833,7 +833,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
       progressoNotifier.value = (
         titulo: 'ENVIANDO AO GOOGLE DRIVE',
-        subtitulo: 'Entregando fechamento na pasta oficial do gerente...',
+        // O gesto que mais derruba o envio é abrir outro app logo depois de
+        // encerrar: o Android congela o nosso no fundo e o PDF fica no celular.
+        subtitulo: 'Não saia do app até aparecer ENTREGUE.',
         icone: Icons.cloud_upload_rounded,
         corTema: const Color(0xFF60A5FA),
         carregando: true,
@@ -848,9 +850,18 @@ class _SummaryScreenState extends State<SummaryScreen> {
         aoConfirmarEntrega: () {
           progressoNotifier.value = (
             titulo: 'CONFIRMANDO ENTREGA',
-            subtitulo: 'O Google demorou a responder. Conferindo se o PDF chegou à pasta...',
+            subtitulo: 'Conferindo se o PDF chegou à pasta. Não saia do app.',
             icone: Icons.fact_check_rounded,
             corTema: const Color(0xFF60A5FA),
+            carregando: true,
+          );
+        },
+        aoTentarDeNovo: () {
+          progressoNotifier.value = (
+            titulo: 'TENTANDO DE NOVO',
+            subtitulo: 'A conexão caiu no meio do envio. Tentando outra vez — não saia do app.',
+            icone: Icons.sync_rounded,
+            corTema: const Color(0xFFF59E0B),
             carregando: true,
           );
         },

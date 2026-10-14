@@ -37,6 +37,12 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Entrega as notificacoes agendadas pelo app (lembrete de PDF que
+             nao chegou ao gerente). Sem ele o Android aceita o agendamento e
+             descarta o aviso na hora de mostrar. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

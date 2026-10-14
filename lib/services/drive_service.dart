@@ -27,6 +27,21 @@ enum EstadoEntrega {
   semResposta,
 }
 
+/// O que o fechamento faz depois de um envio que terminou sem confirmação
+enum SegundaChance {
+  /// O Google confirmou que o PDF está na pasta: nada mais a fazer
+  concluir,
+
+  /// O Google respondeu que não está: a rede voltou, reenviar é seguro
+  reenviar,
+
+  /// Nenhuma resposta: provavelmente a rede trocando, vale esperar e perguntar
+  aguardarRede,
+
+  /// O script não sabe responder: não reenvia às cegas, fica para a fila
+  desistir,
+}
+
 class DriveService {
   static final http.Client _client = http.Client();
 
@@ -273,6 +288,25 @@ class DriveService {
     return resultado;
   }
 
+  /// Quanto esperar a rede voltar antes da segunda chance. É o tempo típico de
+  /// o celular largar o Wi-Fi do posto e firmar nos dados móveis.
+  static const Duration esperaTrocaDeRede = Duration(seconds: 8);
+
+  /// O que fazer depois de um envio sem confirmação, conforme a consulta.
+  ///
+  /// A regra que importa: só reenvia quando o Google acabou de dizer que o
+  /// fechamento não está na pasta. Sem essa resposta — script antigo, sem a
+  /// consulta — reenviar às cegas poderia criar um segundo arquivo do mesmo
+  /// caixa, e aí quem resolve é a fila, com calma.
+  static SegundaChance decidirSegundaChance(EstadoEntrega consulta) {
+    return switch (consulta) {
+      EstadoEntrega.entregue => SegundaChance.concluir,
+      EstadoEntrega.naoEncontrado => SegundaChance.reenviar,
+      EstadoEntrega.semResposta => SegundaChance.aguardarRede,
+      EstadoEntrega.semSuporte => SegundaChance.desistir,
+    };
+  }
+
   /// Motivo da pendência quando o envio não pôde ser confirmado.
   ///
   /// A regra que importa: se a consulta chegou ao Google, havia internet — e o
@@ -332,6 +366,17 @@ class DriveService {
     return (response: response, confirmacaoPerdida: confirmacaoPerdida);
   }
 
+  /// Repete o mesmo envio uma vez. Só é chamado depois de o Google responder
+  /// que o fechamento não está na pasta — ver [decidirSegundaChance].
+  static Future<bool> _reenviarUmaVez(String webhookUrl, String corpo) async {
+    try {
+      final envio = await _executarPostWebhook(webhookUrl, corpo);
+      return isRespostaSucesso(envio.response) && !envio.confirmacaoPerdida;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Envia o arquivo PDF (em bytes) para o Google Drive do Gerente via Webhook
   ///
   /// [aoConfirmarEntrega] é chamado se o envio terminar sem confirmação e o app
@@ -344,6 +389,7 @@ class DriveService {
     int? turnoNumero,
     String? authHash,
     VoidCallback? aoConfirmarEntrega,
+    VoidCallback? aoTentarDeNovo,
   }) async {
     final db = DatabaseService.instance;
     final numeroTurnoExibicao = turnoNumero ?? turnoId;
@@ -357,18 +403,27 @@ class DriveService {
 
     var webhookUrl = defaultWebhookUrl;
     var foiTimeout = false;
+    String? corpoEnvio;
 
     try {
       webhookUrl = await db.getConfig('google_drive_webhook_url', padrao: defaultWebhookUrl);
 
       if (webhookUrl.isEmpty) {
         await db.removerPendenciaDrive(turnoId);
+        await NotificationService.cancelarLembreteEnvio(turnoId);
         await NotificationService.atualizarPendencias();
         return (
           sucesso: true,
           mensagem: 'PDF salvo localmente (Drive não configurado)'
         );
       }
+
+      // Agendado ANTES de enviar: se o app for cortado no meio, nenhum código
+      // nosso roda depois. Cancelado assim que a entrega é confirmada.
+      await NotificationService.agendarLembreteEnvio(
+        turnoId: turnoId,
+        operador: operador,
+      );
 
       final payload = {
         'nome_arquivo': nomeEnvio,
@@ -386,13 +441,15 @@ class DriveService {
         'modo_teste': isTeste,
       };
 
-      final envio = await _executarPostWebhook(webhookUrl, jsonEncode(payload));
+      corpoEnvio = jsonEncode(payload);
+      final envio = await _executarPostWebhook(webhookUrl, corpoEnvio);
       final response = envio.response;
 
       if (isRespostaSucesso(response)) {
         if (!envio.confirmacaoPerdida) {
           // Envio confirmado: remove pendência e limpa banners
           await db.removerPendenciaDrive(turnoId);
+          await NotificationService.cancelarLembreteEnvio(turnoId);
           await NotificationService.atualizarPendencias();
           return (
             sucesso: true,
@@ -434,6 +491,8 @@ class DriveService {
     }
 
     // Chegar aqui é não saber se o PDF chegou. Em vez de chutar, pergunta.
+    final corpo = corpoEnvio;
+    final urlEnvio = webhookUrl;
     return _resolverEnvioSemConfirmacao(
       webhookUrl: webhookUrl,
       authHash: authHash,
@@ -444,6 +503,8 @@ class DriveService {
       numeroTurnoExibicao: numeroTurnoExibicao,
       isTeste: isTeste,
       aoConfirmarEntrega: aoConfirmarEntrega,
+      reenviar: corpo == null ? null : () => _reenviarUmaVez(urlEnvio, corpo),
+      aoTentarDeNovo: aoTentarDeNovo,
     );
   }
 
@@ -457,6 +518,8 @@ class DriveService {
     required int numeroTurnoExibicao,
     required bool isTeste,
     VoidCallback? aoConfirmarEntrega,
+    Future<bool> Function()? reenviar,
+    VoidCallback? aoTentarDeNovo,
   }) async {
     final db = DatabaseService.instance;
 
@@ -465,10 +528,29 @@ class DriveService {
     if (webhookUrl.isNotEmpty && hash.isNotEmpty) {
       aoConfirmarEntrega?.call();
       consulta = await confirmarEntrega(webhookUrl, hash);
+
+      // Segunda chance, uma só, enquanto o frentista ainda está na tela.
+      //
+      // O caso real: ele encerra no Wi-Fi do posto e sai andando; no meio do
+      // envio o celular troca para os dados móveis e a conexão do PDF cai. A
+      // rede volta em segundos, mas antes isso virava pendência parada no
+      // celular até o app voltar à tela — às vezes na manhã seguinte.
+      if (reenviar != null) {
+        if (decidirSegundaChance(consulta) == SegundaChance.aguardarRede) {
+          aoTentarDeNovo?.call();
+          await Future<void>.delayed(esperaTrocaDeRede);
+          consulta = await verificarEntrega(webhookUrl, hash);
+        }
+        if (decidirSegundaChance(consulta) == SegundaChance.reenviar) {
+          aoTentarDeNovo?.call();
+          if (await reenviar()) consulta = EstadoEntrega.entregue;
+        }
+      }
     }
 
     if (consulta == EstadoEntrega.entregue) {
       await db.removerPendenciaDrive(turnoId);
+      await NotificationService.cancelarLembreteEnvio(turnoId);
       await NotificationService.atualizarPendencias();
       return (
         sucesso: true,
@@ -568,6 +650,7 @@ class DriveService {
           final turno = await db.obterTurnoPorId(turnoId);
           if (turno == null) {
             await db.removerPendenciaDrive(turnoId);
+            await NotificationService.cancelarLembreteEnvio(turnoId);
             continue;
           }
 
@@ -587,6 +670,7 @@ class DriveService {
           if (authHash.isNotEmpty &&
               await verificarEntrega(webhookUrl, authHash) == EstadoEntrega.entregue) {
             await db.removerPendenciaDrive(turnoId);
+            await NotificationService.cancelarLembreteEnvio(turnoId);
             sucessos++;
             continue;
           }
@@ -647,6 +731,7 @@ class DriveService {
             if (isRespostaSucesso(envio.response)) {
               if (!envio.confirmacaoPerdida) {
                 await db.removerPendenciaDrive(turnoId);
+                await NotificationService.cancelarLembreteEnvio(turnoId);
                 sucessos++;
                 continue;
               }
@@ -680,6 +765,7 @@ class DriveService {
                 : EstadoEntrega.semResposta;
             if (consulta == EstadoEntrega.entregue) {
               await db.removerPendenciaDrive(turnoId);
+              await NotificationService.cancelarLembreteEnvio(turnoId);
               sucessos++;
             } else {
               await db.salvarPendenciaDrive(
