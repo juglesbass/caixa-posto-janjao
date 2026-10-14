@@ -16,6 +16,16 @@ class NotificationService {
   static const int _idPendencia = 1001;
   static const int _idSucesso = 1002;
 
+  /// Um lembrete por turno, para a entrega de um não cancelar o aviso de outro
+  static const int _idLembreteBase = 2000;
+  static int _idLembrete(int turnoId) => _idLembreteBase + turnoId % 1000;
+
+  /// Quanto esperar antes de lembrar. Um envio normal termina em segundos, e o
+  /// pior caso com sinal ruim fica perto de um minuto e meio: cinco minutos é
+  /// folga suficiente para nunca avisar no meio de um envio que ainda vai dar
+  /// certo.
+  static const Duration esperaLembreteEnvio = Duration(minutes: 5);
+
   /// Inicializa o serviço e verifica a fila.
   ///
   /// Só prepara o canal de notificação: a permissão em si é pedida em
@@ -77,6 +87,35 @@ class NotificationService {
     showSystemNotification(titulo, corpo);
     mostrarNotificacaoLocal(id: _idPendencia, titulo: titulo, corpo: corpo);
   }
+
+  /// Deixa agendado, no sistema, um aviso para o caso de o envio do fechamento
+  /// ser cortado no meio.
+  ///
+  /// O caso real: o frentista encerra o turno no Wi-Fi do posto, vai para o
+  /// carro e abre outro app. O nosso vai para o fundo, o Android congela, e o
+  /// PDF fica no celular — sem aviso nenhum, porque nenhum código nosso roda
+  /// mais. Agendado antes, o aviso aparece mesmo assim, e tocar nele abre o
+  /// app, que manda a fila.
+  ///
+  /// Só é cancelado quando a entrega é confirmada. O texto não afirma que o
+  /// PDF não chegou: se o app foi cortado logo depois de o Google gravar, ele
+  /// pode ter chegado — e quem confirma é a fila, ao abrir.
+  static Future<void> agendarLembreteEnvio({
+    required int turnoId,
+    required String operador,
+  }) async {
+    await agendarNotificacaoLocal(
+      id: _idLembrete(turnoId),
+      titulo: 'Posto Janjão ⛽ - Confira o envio do caixa',
+      corpo: 'Não deu para confirmar que o caixa de $operador chegou ao gerente. '
+          'Toque para abrir o app e terminar o envio.',
+      daqui: esperaLembreteEnvio,
+    );
+  }
+
+  /// A entrega foi confirmada: o lembrete daquele turno não tem mais motivo
+  static Future<void> cancelarLembreteEnvio(int turnoId) =>
+      cancelarNotificacaoLocal(_idLembrete(turnoId));
 
   /// Notifica o usuário de que os PDFs pendentes foram enviados com sucesso
   static void notificarSucessoDrive({required int totalEnviados}) {

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 /// Notificações locais em Android e iOS.
 ///
@@ -91,5 +92,52 @@ Future<void> mostrarNotificacaoLocal({
     );
   } catch (e) {
     debugPrint('[Notificações] Falha ao exibir: $e');
+  }
+}
+
+/// Agenda um aviso para daqui a [daqui], que o sistema mostra mesmo com o app
+/// congelado em segundo plano ou fechado.
+///
+/// É o que cobre o envio cortado no meio: o frentista encerra o turno, abre
+/// outro app, e o nosso para de rodar antes de saber se o PDF chegou. Nenhum
+/// código nosso roda depois disso — mas o aviso já está entregue ao sistema.
+Future<void> agendarNotificacaoLocal({
+  required int id,
+  required String titulo,
+  required String corpo,
+  required Duration daqui,
+}) async {
+  if (!_plataformaSuportada) return;
+  try {
+    await inicializarNotificacoesLocais();
+    if (!_inicializado) return;
+    // Em UTC de propósito: só importa "daqui a X minutos", e o UTC já vem
+    // embutido no pacote. Carregar a base inteira de fusos só para isso
+    // pesaria no app sem mudar o momento em que o aviso aparece.
+    final quando = tz.TZDateTime.now(tz.UTC).add(daqui);
+    await _plugin.zonedSchedule(
+      id: id,
+      scheduledDate: quando,
+      notificationDetails: _detalhes,
+      // Inexato basta para um lembrete de minutos, e não exige a permissão de
+      // alarme exato, que o Android 14 deixa desligada por padrão.
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      title: titulo,
+      body: corpo,
+    );
+  } catch (e) {
+    debugPrint('[Notificações] Falha ao agendar: $e');
+  }
+}
+
+/// Cancela um aviso agendado ou já exibido com este [id].
+Future<void> cancelarNotificacaoLocal(int id) async {
+  if (!_plataformaSuportada) return;
+  try {
+    await inicializarNotificacoesLocais();
+    if (!_inicializado) return;
+    await _plugin.cancel(id: id);
+  } catch (e) {
+    debugPrint('[Notificações] Falha ao cancelar: $e');
   }
 }

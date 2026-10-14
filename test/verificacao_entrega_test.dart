@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:caixa_posto_janjao/models/motivo_pendencia.dart';
 import 'package:caixa_posto_janjao/services/drive_service.dart';
+import 'package:caixa_posto_janjao/services/notification_service.dart';
 
 void main() {
   group('Consulta de entrega - ler a resposta do Apps Script', () {
@@ -105,6 +106,56 @@ void main() {
       );
       expect(DriveService.esperasConfirmacao.first, Duration.zero);
       expect(total, lessThanOrEqualTo(const Duration(seconds: 30)));
+    });
+  });
+
+  group('Segunda chance - envio que caiu no meio do fechamento', () {
+    test('Google confirmou que o PDF está na pasta: só concluir', () {
+      expect(
+        DriveService.decidirSegundaChance(EstadoEntrega.entregue),
+        SegundaChance.concluir,
+      );
+    });
+
+    test('Google respondeu que não está: a rede voltou, reenviar é seguro', () {
+      // O caso do frentista que sai do Wi-Fi do posto no meio do envio: a
+      // consulta já passa pelos dados móveis e diz que o PDF não chegou.
+      expect(
+        DriveService.decidirSegundaChance(EstadoEntrega.naoEncontrado),
+        SegundaChance.reenviar,
+      );
+    });
+
+    test('Nenhuma resposta: espera a rede firmar antes de decidir', () {
+      expect(
+        DriveService.decidirSegundaChance(EstadoEntrega.semResposta),
+        SegundaChance.aguardarRede,
+      );
+    });
+
+    test('Script que não sabe responder: nunca reenvia às cegas', () {
+      // Sem a consulta não dá para saber se o primeiro envio gravou. Reenviar
+      // aqui poderia deixar dois PDFs do mesmo caixa na pasta do gerente.
+      expect(
+        DriveService.decidirSegundaChance(EstadoEntrega.semSuporte),
+        SegundaChance.desistir,
+      );
+    });
+
+    test('Espera da troca de rede é curta para quem está parado na tela', () {
+      expect(DriveService.esperaTrocaDeRede, greaterThan(Duration.zero));
+      expect(DriveService.esperaTrocaDeRede, lessThanOrEqualTo(const Duration(seconds: 10)));
+    });
+
+    test('Lembrete só dispara depois que todo envio possível já terminou', () {
+      // Pior caso do envio: POST (35s) + redirect (20s) + consultas (24s) +
+      // espera da rede + consulta (15s) + segunda tentativa (35s + 20s). O
+      // lembrete não pode chegar no meio disso dizendo que algo deu errado.
+      const piorCaso = Duration(seconds: 35 + 20 + 24 + 15 + 35 + 20);
+      expect(
+        NotificationService.esperaLembreteEnvio,
+        greaterThan(piorCaso + DriveService.esperaTrocaDeRede),
+      );
     });
   });
 }
