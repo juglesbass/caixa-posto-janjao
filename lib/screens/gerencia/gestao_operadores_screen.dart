@@ -89,7 +89,16 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                     child: const Icon(Icons.person_add_rounded, color: AppColors.accentLight, size: 22),
                   ),
                   const SizedBox(width: 10),
-                  Text('Novo Operador', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri)),
+                  // Igual aos títulos das outras janelas desta tela, que já
+                  // tinham limite: este era o único que podia vazar.
+                  Expanded(
+                    child: Text(
+                      'Novo Operador',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPri),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
               content: SingleChildScrollView(
