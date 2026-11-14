@@ -172,11 +172,12 @@ void main() {
       theme: AppTheme.darkTheme(),
       home: const ValidarScreen(authHash: 'AUTH-1A2B-3C4D-5E6F'),
     ));
-    for (var i = 0; i < 4; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 60)));
+    final naoEncontrado = find.text('Documento não encontrado ou Chave Inválida');
+    for (var i = 0; i < 100 && naoEncontrado.evaluate().isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
       await tester.pump();
     }
-    expect(find.text('Documento não encontrado ou Chave Inválida'), findsOneWidget);
+    expect(naoEncontrado, findsOneWidget);
     expect(find.textContaining('Formato de chave reconhecido'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

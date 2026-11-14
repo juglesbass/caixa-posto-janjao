@@ -312,6 +312,10 @@ void main() {
     await tester.tap(botao);
     await tester.tap(botao);
     await esperar(tester);
+    for (var i = 0; i < 100 && concluidos == 0; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+    }
     await tester.pumpAndSettle();
 
     expect(concluidos, 1);
