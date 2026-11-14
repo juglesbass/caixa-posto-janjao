@@ -22,6 +22,7 @@ void main() {
       expect(Validator.validarNomeOperador('123'), isNotNull);
       expect(Validator.validarNomeOperador('12345'), isNotNull);
       expect(Validator.validarNomeOperador('@#\$%'), isNotNull);
+      expect(Validator.validarNomeOperador('×÷×÷'), isNotNull);
     });
 
     test('Aceita nomes válidos com 3 ou mais letras alfabéticas', () {
@@ -126,6 +127,13 @@ void main() {
           diferentes(equipe[i], equipe[j]);
         }
       }
+    });
+
+    test('Formatação mantém conectivos em minúscula no meio e diferencia sufixo numérico', () {
+      expect(Validator.formatarNomeOperador('  maria   dos   santos  '), equals('Maria dos Santos'));
+      expect(Validator.formatarNomeOperador('da silva'), equals('Da Silva'));
+      diferentes('João 2', 'João');
+      diferentes('João 2', 'João 3');
     });
   });
 }

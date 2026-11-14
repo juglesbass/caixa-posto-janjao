@@ -1096,7 +1096,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
             IconButton(
               icon: const Icon(Icons.sync_rounded, color: AppColors.accentLight),
               tooltip: 'Sincronizar com Nuvem',
-              onPressed: () => _carregarDados(forcarNuvem: true),
+              onPressed: _carregando ? null : () => _carregarDados(forcarNuvem: true),
             ),
           ],
           bottom: PreferredSize(
@@ -1147,8 +1147,8 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: SizedBox(
-                        height: 44,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 44),
                         child: TextField(
                           controller: _searchController,
                           style: TextStyle(fontSize: AppTexto.corpo, color: textPri),
@@ -1158,7 +1158,8 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                             prefixIcon: Icon(Icons.search_rounded, size: 20, color: textSec),
                             filled: true,
                             fillColor: surface,
-                            contentPadding: EdgeInsets.zero,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(AppColors.radiusSm),
                               borderSide: BorderSide(color: borderCol),
@@ -1173,13 +1174,14 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    SizedBox(
-                      height: 44,
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 44),
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.accent,
                           foregroundColor: Colors.white,
                           elevation: 0,
+                          minimumSize: const Size(0, 44),
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
                         ),

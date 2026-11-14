@@ -55,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
   double _valorRecebido = 0.0;
   String? _erroValor;
   bool _enviando = false;
+  bool _abrindoSeletor = false;
 
   @override
   void initState() {
@@ -100,20 +101,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _abrirSeletorCartoes() async {
-    final bandeiraEscolhida = await showDialog<String>(
-      context: context,
-      builder: (ctx) => CardBrandDialog(
-        maquinaAtiva: _maquinaAtiva,
-        bandeiraSelecionada: _bandeiraCartaoAtiva,
-      ),
-    );
+    if (_abrindoSeletor) return;
+    _abrindoSeletor = true;
+    try {
+      final bandeiraEscolhida = await showDialog<String>(
+        context: context,
+        builder: (ctx) => CardBrandDialog(
+          maquinaAtiva: _maquinaAtiva,
+          bandeiraSelecionada: _bandeiraCartaoAtiva,
+        ),
+      );
 
-    if (bandeiraEscolhida != null) {
-      AppHaptics.light();
-      setState(() {
-        _bandeiraCartaoAtiva = bandeiraEscolhida;
-        _tipoAtivo = '$_maquinaAtiva $bandeiraEscolhida';
-      });
+      if (!mounted) return;
+      if (bandeiraEscolhida != null) {
+        AppHaptics.light();
+        setState(() {
+          _bandeiraCartaoAtiva = bandeiraEscolhida;
+          _tipoAtivo = '$_maquinaAtiva $bandeiraEscolhida';
+        });
+      }
+    } finally {
+      _abrindoSeletor = false;
     }
   }
 
@@ -234,6 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.manage_search_rounded, color: AppColors.accentLight),
             tooltip: 'Tabela de Códigos / Produtos',
             onPressed: () {
+              if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (ctx) => const ConsultaProdutosScreen()),

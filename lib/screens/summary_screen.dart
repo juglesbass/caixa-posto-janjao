@@ -138,7 +138,21 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
   @override
   void dispose() {
-    _debounceTimer?.cancel();
+    if (_debounceTimer?.isActive ?? false) {
+      _debounceTimer!.cancel();
+      final turnoId = widget.turno.id;
+      if (turnoId != null && widget.turno.aberto) {
+        DatabaseService.instance.salvarAuditoria(
+          turnoId,
+          _vendasSistema,
+          _observacao,
+          justificativa: _observacao,
+          canhotos: Map<String, int>.from(_canhotosManual),
+        );
+      }
+    } else {
+      _debounceTimer?.cancel();
+    }
     _vendasSistemaController.dispose();
     _observacaoController.dispose();
     super.dispose();
@@ -161,39 +175,35 @@ class _SummaryScreenState extends State<SummaryScreen> {
     return Rect.fromLTWH(0, size.height / 2, size.width, 100);
   }
 
+  void _agendarSalvarAuditoria() {
+    final turnoId = widget.turno.id;
+    if (turnoId == null || !widget.turno.aberto) return;
+    final vendasSnapshot = _vendasSistema;
+    final obsSnapshot = _observacao;
+    final canhotosSnapshot = Map<String, int>.from(_canhotosManual);
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      DatabaseService.instance.salvarAuditoria(
+        turnoId,
+        vendasSnapshot,
+        obsSnapshot,
+        justificativa: obsSnapshot,
+        canhotos: canhotosSnapshot,
+      );
+    });
+  }
+
   void _atualizarVendasSistema(String text) {
     final valor = CurrencyFormatter.parse(text);
     setState(() {
       _vendasSistema = valor;
     });
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-      if (widget.turno.id != null) {
-        DatabaseService.instance.salvarAuditoria(
-          widget.turno.id!,
-          _vendasSistema,
-          _observacao,
-          justificativa: _observacao,
-          canhotos: _canhotosManual,
-        );
-      }
-    });
+    _agendarSalvarAuditoria();
   }
 
   void _atualizarObservacao(String text) {
     _observacao = text;
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-      if (widget.turno.id != null) {
-        DatabaseService.instance.salvarAuditoria(
-          widget.turno.id!,
-          _vendasSistema,
-          _observacao,
-          justificativa: _observacao,
-          canhotos: _canhotosManual,
-        );
-      }
-    });
+    _agendarSalvarAuditoria();
   }
 
   void _salvarNovoCanhoto(String bandeira, int novaQtd) async {
@@ -672,7 +682,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
       ),
     );
 
-    if (dadosFechamento == null) return;
+    if (!mounted || dadosFechamento == null) return;
 
     // Janela de progresso (gravar -> PDF -> Drive -> entregue)
     final progressoNotifier = ValueNotifier<PassoFechamento>((
@@ -822,22 +832,24 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
       if (!mounted) return;
 
-      widget.onTurnoAlterado();
+      final messenger = ScaffoldMessenger.of(context);
 
       if (!envioDriveOk) {
-        showDialog(
+        await showDialog(
           context: context,
           builder: (ctx) => DriveFailureDialog(
             turnoNumero: widget.turno.numero,
             operador: widget.turno.operador,
             mensagemErro: resultadoDrive.mensagem,
-            onSincronizado: () {
-              widget.onTurnoAlterado();
-            },
+            onSincronizado: () {},
           ),
         );
+        if (mounted) {
+          widget.onTurnoAlterado();
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
+        widget.onTurnoAlterado();
+        messenger.showSnackBar(
           SnackBar(
             content: Text(resultadoDrive.mensagem),
             backgroundColor: AppColors.green,
@@ -1134,6 +1146,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                             children: [
                               TextFormField(
                                 controller: _vendasSistemaController,
+                                enabled: widget.turno.aberto,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                 inputFormatters: [CurrencyInputFormatter()],
                                 style: TextStyle(color: textPri, fontWeight: FontWeight.w800, fontSize: AppTexto.valor),
@@ -1157,6 +1170,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     // ── Observações ──
                     TextFormField(
                       controller: _observacaoController,
+                      enabled: widget.turno.aberto,
                       maxLines: 2,
                       style: TextStyle(color: textPri, fontSize: AppTexto.corpo),
                       decoration: campo('Observações / justificativa (opcional)', Icons.edit_note_rounded),
@@ -1183,7 +1197,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                 corTexto: widget.turno.aberto ? Colors.white : textSec,
                                 altura: 52,
                                 principal: true,
-                                onPressed: _processando ? null : _encerrarTurno,
+                                onPressed: (_processando || !widget.turno.aberto) ? null : _encerrarTurno,
                               ),
                             ),
                             const SizedBox(height: 10),
@@ -1505,20 +1519,22 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                     icon: const Icon(Icons.remove_circle_outline_rounded, size: 22),
                                     color: AppColors.red,
                                     tooltip: 'Um canhoto a menos',
-                                    onPressed: () {
-                                      if (canhotos > 0) {
-                                        _salvarNovoCanhoto(bandeira, canhotos - 1);
-                                        setSheetState(() {});
-                                      }
-                                    },
+                                    onPressed: (widget.turno.aberto && canhotos > 0)
+                                        ? () {
+                                            _salvarNovoCanhoto(bandeira, canhotos - 1);
+                                            setSheetState(() {});
+                                          }
+                                        : null,
                                   ),
                                   InkWell(
                                     borderRadius: BorderRadius.circular(AppColors.radiusXs),
-                                    onTap: () => _dialogEditarCanhoto(
-                                      bandeira,
-                                      canhotos,
-                                      () => setSheetState(() {}),
-                                    ),
+                                    onTap: widget.turno.aberto
+                                        ? () => _dialogEditarCanhoto(
+                                              bandeira,
+                                              canhotos,
+                                              () => setSheetState(() {}),
+                                            )
+                                        : null,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                       decoration: BoxDecoration(
@@ -1540,10 +1556,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                     icon: const Icon(Icons.add_circle_outline_rounded, size: 22),
                                     color: AppColors.green,
                                     tooltip: 'Um canhoto a mais',
-                                    onPressed: () {
-                                      _salvarNovoCanhoto(bandeira, canhotos + 1);
-                                      setSheetState(() {});
-                                    },
+                                    onPressed: widget.turno.aberto
+                                        ? () {
+                                            _salvarNovoCanhoto(bandeira, canhotos + 1);
+                                            setSheetState(() {});
+                                          }
+                                        : null,
                                   ),
                                 ],
                               ),

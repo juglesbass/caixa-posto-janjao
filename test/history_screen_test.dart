@@ -11,8 +11,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
-  late Turno turno;
-
   setUpAll(() async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
@@ -28,6 +26,22 @@ void main() {
     }
   }
 
+  Future<Turno> criarTurnoBase(WidgetTester tester) async {
+    late Turno turnoCriado;
+    await tester.runAsync(() async {
+      final db = DatabaseService.instance;
+      final aberto = await db.obterTurnoAberto();
+      if (aberto != null) {
+        await db.fecharTurno(aberto.id!);
+      }
+      turnoCriado = await db.abrirNovoTurno('Agildo Gomes');
+      await db.inserirLancamento(turnoCriado.id!, 'Dinheiro', 60, 'Troco');
+      await db.inserirLancamento(turnoCriado.id!, 'Pag Pix', 80, '');
+      await db.inserirLancamento(turnoCriado.id!, 'Rede Master Crédito', 255.71, '');
+    });
+    return turnoCriado;
+  }
+
   Future<void> abrir(WidgetTester tester, Turno t) async {
     tester.view.physicalSize = const Size(440 * 3, 956 * 3);
     tester.view.devicePixelRatio = 3;
@@ -40,13 +54,7 @@ void main() {
   }
 
   testWidgets('lista, filtra, e o filtro de Sangria só aparece com sangria antiga', (tester) async {
-    await tester.runAsync(() async {
-      final db = DatabaseService.instance;
-      turno = await db.obterTurnoAberto() ?? await db.abrirNovoTurno('Agildo Gomes');
-      await db.inserirLancamento(turno.id!, 'Dinheiro', 60, 'Troco');
-      await db.inserirLancamento(turno.id!, 'Pag Pix', 80, '');
-      await db.inserirLancamento(turno.id!, 'Rede Master Crédito', 255.71, '');
-    });
+    final turno = await criarTurnoBase(tester);
     await abrir(tester, turno);
 
     expect(find.text('3 lançamentos neste turno'), findsOneWidget);
@@ -67,6 +75,7 @@ void main() {
   });
 
   testWidgets('tocar num lançamento abre a correção', (tester) async {
+    final turno = await criarTurnoBase(tester);
     await abrir(tester, turno);
     await tester.tap(find.text('Pag Pix'));
     await tester.pumpAndSettle();
@@ -74,6 +83,7 @@ void main() {
   });
 
   testWidgets('turno fechado não deixa corrigir', (tester) async {
+    final turno = await criarTurnoBase(tester);
     final fechado = Turno(
       id: turno.id,
       numero: turno.numero,
@@ -98,6 +108,7 @@ void main() {
   // Aba escondida não relê o turno a cada lançamento do Início; ao ser aberta
   // de novo, mostra o que entrou enquanto estava escondida.
   testWidgets('escondido não relê; ao voltar, mostra o que entrou', (tester) async {
+    final turno = await criarTurnoBase(tester);
     tester.view.physicalSize = const Size(440 * 3, 956 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -120,6 +131,7 @@ void main() {
   });
 
   testWidgets('filtro Pix separa Pag Pix de Pix da maquininha (Rede Pix)', (tester) async {
+    final turno = await criarTurnoBase(tester);
     await tester.runAsync(() => DatabaseService.instance.inserirLancamento(turno.id!, 'Rede Pix', 95, ''));
     await abrir(tester, turno);
 

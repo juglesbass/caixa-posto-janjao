@@ -160,40 +160,42 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   ),
                 ],
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Para liberar o fechamento ou redefinir a senha de "${widget.turno.operador}", digite o PIN Mestre do Desenvolvedor:',
-                    style: TextStyle(fontSize: 12.5, color: textSec),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: controllerPinGerente,
-                    obscureText: true,
-                    autofocus: true,
-                    keyboardType: TextInputType.number,
-                    maxLength: 4,
-                    textAlign: TextAlign.center,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    style: TextStyle(
-                      fontSize: 22,
-                      letterSpacing: 10,
-                      fontWeight: FontWeight.w900,
-                      color: textPri,
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Para liberar o fechamento ou redefinir a senha de "${widget.turno.operador}", digite o PIN Mestre do Desenvolvedor:',
+                      style: TextStyle(fontSize: 12.5, color: textSec),
                     ),
-                    decoration: InputDecoration(
-                      hintText: '••••',
-                      counterText: '',
-                      errorText: erroGerente,
-                      filled: true,
-                      fillColor: isDark ? AppColors.darkBg : AppColors.lightSurfaceSubtle,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: controllerPinGerente,
+                      obscureText: true,
+                      autofocus: true,
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                      textAlign: TextAlign.center,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      style: TextStyle(
+                        fontSize: 22,
+                        letterSpacing: 10,
+                        fontWeight: FontWeight.w900,
+                        color: textPri,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: '••••',
+                        counterText: '',
+                        errorText: erroGerente,
+                        filled: true,
+                        fillColor: isDark ? AppColors.darkBg : AppColors.lightSurfaceSubtle,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -1010,13 +1012,17 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                 child: ElevatedButton.icon(
                   onPressed: _validando ? null : _validarEEncerrar,
                   icon: const Icon(Icons.verified_rounded, color: Colors.white, size: 17),
-                  label: Text(
-                    _validando ? 'Autenticando...' : 'Autenticar e Fechar',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      fontSize: 13,
-                      letterSpacing: 0.3,
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      _validando ? 'Autenticando...' : 'Autenticar e Fechar',
+                      maxLines: 1,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        fontSize: 13,
+                        letterSpacing: 0.3,
+                      ),
                     ),
                   ),
                   style: ElevatedButton.styleFrom(

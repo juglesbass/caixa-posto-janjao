@@ -226,4 +226,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(CloseShiftDialog), findsOneWidget);
   });
+
+  testWidgets('turno fechado bloqueia campos de auditoria, botão de encerrar e canhotos', (tester) async {
+    await abrir(tester);
+    final fechado = Turno(
+      id: turno.id,
+      numero: turno.numero,
+      data: turno.data,
+      dataCaixa: turno.dataCaixa,
+      operador: turno.operador,
+      aberto: false,
+      fechadoEm: '22/09/2026 23:00:00',
+      vendasSistema: 415.71,
+      observacao: 'Fechado ok',
+      fundoCaixa: turno.fundoCaixa,
+      versao: turno.versao,
+    );
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.lightTheme(),
+      home: SummaryScreen(turno: fechado, totais: totais, onTurnoAlterado: () {}),
+    ));
+    await esperar(tester);
+
+    for (final field in tester.widgetList<TextFormField>(find.byType(TextFormField))) {
+      expect(field.enabled, isFalse);
+    }
+
+    await tester.ensureVisible(find.text('Turno fechado'));
+    await tester.tap(find.text('Turno fechado'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CloseShiftDialog), findsNothing);
+
+    await tester.tap(find.textContaining('Rede Master Crédito', findRichText: true));
+    await esperar(tester);
+    await tester.pumpAndSettle();
+    final menosBtn = tester.widget<IconButton>(
+      find.byWidgetPredicate((w) => w is IconButton && w.tooltip == 'Um canhoto a menos').first,
+    );
+    final maisBtn = tester.widget<IconButton>(
+      find.byWidgetPredicate((w) => w is IconButton && w.tooltip == 'Um canhoto a mais').first,
+    );
+    expect(menosBtn.onPressed, isNull);
+    expect(maisBtn.onPressed, isNull);
+  });
 }

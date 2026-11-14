@@ -34,9 +34,32 @@ class OperadorModel {
   /// Nome formatado para exibição (ex: "João Victor")
   String get nomeExibicao => nome.trim();
 
-  /// Chave normalizada para comparação insensível a maiúsculas/minúsculas e acentos
+  /// Chave normalizada em minúsculas com `_` no lugar de espaços (compatível com
+  /// `AuthService.normalizarOperador` e com as chaves já salvas no aparelho).
   String get nomeNormalizado =>
       nome.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
+
+  static DateTime? _parseDataOpcional(dynamic raw) {
+    if (raw == null) return null;
+    final texto = raw.toString().trim();
+    if (texto.isEmpty) return null;
+    return DateTime.tryParse(texto);
+  }
+
+  static bool _parseBool(dynamic val, {bool padrao = false}) {
+    if (val == null) return padrao;
+    if (val is bool) return val;
+    if (val is num) return val == 1;
+    final texto = val.toString().trim().toLowerCase();
+    if (texto == '1' || texto == 'true') return true;
+    if (texto == '0' || texto == 'false') return false;
+    return padrao;
+  }
+
+  static String? _textoOpcional(dynamic val) {
+    if (val == null) return null;
+    return val is String ? val : val.toString();
+  }
 
   OperadorModel copyWith({
     String? id,
@@ -79,28 +102,23 @@ class OperadorModel {
 
   /// Constrói a partir de Map plano (SQLite / SharedPreferences)
   factory OperadorModel.fromMap(Map<String, dynamic> map) {
-    DateTime dataCriado = DateTime.now();
-    if (map['criado_em'] != null) {
-      dataCriado = DateTime.tryParse(map['criado_em'].toString()) ?? DateTime.now();
-    } else if (map['criadoEm'] != null) {
-      dataCriado = DateTime.tryParse(map['criadoEm'].toString()) ?? DateTime.now();
-    }
-
-    DateTime dataAtualizada = DateTime.now();
-    if (map['atualizado_em'] != null) {
-      dataAtualizada = DateTime.tryParse(map['atualizado_em'].toString()) ?? DateTime.now();
-    } else if (map['atualizadoEm'] != null) {
-      dataAtualizada = DateTime.tryParse(map['atualizadoEm'].toString()) ?? DateTime.now();
-    }
+    final dataAtualizada =
+        _parseDataOpcional(map['atualizado_em']) ??
+        _parseDataOpcional(map['atualizadoEm']) ??
+        DateTime.now();
+    final dataCriado =
+        _parseDataOpcional(map['criado_em']) ??
+        _parseDataOpcional(map['criadoEm']) ??
+        dataAtualizada;
 
     return OperadorModel(
-      id: map['id'] as String? ?? '',
-      nome: map['nome'] as String? ?? '',
-      pinHash: map['pin_hash'] as String? ?? (map['pin'] as String? ?? ''),
-      perfil: map['perfil'] as String? ?? (map['role'] as String? ?? 'operador'),
-      ativo: map['ativo'] == null ? true : (map['ativo'] == 1 || map['ativo'] == true),
-      removido: map['removido'] == 1 || map['removido'] == true,
-      postoId: map['posto_id'] as String? ?? (map['postoId'] as String? ?? 'posto_janjao'),
+      id: _textoOpcional(map['id']) ?? '',
+      nome: _textoOpcional(map['nome']) ?? '',
+      pinHash: _textoOpcional(map['pin_hash']) ?? (_textoOpcional(map['pin']) ?? ''),
+      perfil: _textoOpcional(map['perfil']) ?? (_textoOpcional(map['role']) ?? 'operador'),
+      ativo: _parseBool(map['ativo'], padrao: true),
+      removido: _parseBool(map['removido'], padrao: false),
+      postoId: _textoOpcional(map['posto_id']) ?? (_textoOpcional(map['postoId']) ?? 'posto_janjao'),
       criadoEm: dataCriado,
       atualizadoEm: dataAtualizada,
     );
@@ -142,42 +160,49 @@ class OperadorModel {
 
     // Extrai ID do campo explícito ou do caminho do documento Firestore
     String docId = docIdFallback ?? '';
-    if (fields.containsKey('id') && fields['id']['stringValue'] != null) {
-      docId = fields['id']['stringValue'].toString();
+    final campoId = fields['id'];
+    final idExplicito = campoId is Map ? campoId['stringValue']?.toString() : null;
+    if (idExplicito != null && idExplicito.trim().isNotEmpty) {
+      docId = idExplicito;
     } else if (json.containsKey('name')) {
-      final pathParts = (json['name'] as String?)?.split('/') ?? [];
-      if (pathParts.isNotEmpty) {
+      final pathParts = (json['name']?.toString() ?? '').split('/');
+      if (pathParts.isNotEmpty && pathParts.last.isNotEmpty) {
         docId = pathParts.last;
       }
     }
 
-    final nome = fields['nome']?['stringValue']?.toString() ?? '';
-    final pinHash = fields['pin_hash']?['stringValue']?.toString() ??
-        (fields['pin']?['stringValue']?.toString() ?? '');
-    final perfil = fields['perfil']?['stringValue']?.toString() ??
-        (fields['role']?['stringValue']?.toString() ?? 'operador');
-    final ativo = fields['ativo']?['booleanValue'] as bool? ?? true;
-    final removido = fields['removido']?['booleanValue'] as bool? ?? false;
-    final postoId = fields['postoId']?['stringValue']?.toString() ??
-        (fields['posto_id']?['stringValue']?.toString() ?? 'posto_janjao');
-
-    DateTime dataCriado = DateTime.now();
-    if (fields['criadoEm']?['timestampValue'] != null) {
-      dataCriado = DateTime.tryParse(fields['criadoEm']['timestampValue'].toString()) ?? DateTime.now();
-    } else if (fields['criado_em']?['timestampValue'] != null) {
-      dataCriado = DateTime.tryParse(fields['criado_em']['timestampValue'].toString()) ?? DateTime.now();
-    } else if (json['createTime'] != null) {
-      dataCriado = DateTime.tryParse(json['createTime'].toString()) ?? DateTime.now();
+    String? strField(String chave) {
+      final f = fields[chave];
+      return f is Map ? f['stringValue']?.toString() : null;
     }
 
-    DateTime dataAtualizada = DateTime.now();
-    if (fields['atualizadoEm']?['timestampValue'] != null) {
-      dataAtualizada = DateTime.tryParse(fields['atualizadoEm']['timestampValue'].toString()) ?? DateTime.now();
-    } else if (fields['atualizado_em']?['timestampValue'] != null) {
-      dataAtualizada = DateTime.tryParse(fields['atualizado_em']['timestampValue'].toString()) ?? DateTime.now();
-    } else if (json['updateTime'] != null) {
-      dataAtualizada = DateTime.tryParse(json['updateTime'].toString()) ?? DateTime.now();
+    bool? boolField(String chave) {
+      final f = fields[chave];
+      return f is Map ? f['booleanValue'] as bool? : null;
     }
+
+    DateTime? tsField(String chave) {
+      final f = fields[chave];
+      return f is Map ? _parseDataOpcional(f['timestampValue']) : null;
+    }
+
+    final nome = strField('nome') ?? '';
+    final pinHash = strField('pin_hash') ?? (strField('pin') ?? '');
+    final perfil = strField('perfil') ?? (strField('role') ?? 'operador');
+    final ativo = boolField('ativo') ?? true;
+    final removido = boolField('removido') ?? false;
+    final postoId = strField('postoId') ?? (strField('posto_id') ?? 'posto_janjao');
+
+    final dataAtualizada =
+        tsField('atualizadoEm') ??
+        tsField('atualizado_em') ??
+        _parseDataOpcional(json['updateTime']) ??
+        DateTime.now();
+    final dataCriado =
+        tsField('criadoEm') ??
+        tsField('criado_em') ??
+        _parseDataOpcional(json['createTime']) ??
+        dataAtualizada;
 
     return OperadorModel(
       id: docId,

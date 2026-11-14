@@ -21,6 +21,7 @@ class TurnosAnterioresDialog extends StatefulWidget {
 class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
   List<Turno> _turnos = [];
   bool _carregando = true;
+  bool _reabrindo = false;
 
   @override
   void initState() {
@@ -41,48 +42,56 @@ class _TurnosAnterioresDialogState extends State<TurnosAnterioresDialog> {
   }
 
   void _solicitarReabertura(Turno t) async {
-    // Reabrir fecha o turno que estiver aberto, e esse fechamento não gera
-    // relatório nem envia nada ao Drive. Desde 25/08 isso acontecia em silêncio
-    // — pelo menu Configurações dava para, no meio do turno, reabrir um antigo e
-    // perder o relatório do atual sem saber. Mesma correção do "Trocar
-    // operador" (6428276): continua possível, mas como escolha declarada.
-    final aberto = await DatabaseService.instance.obterTurnoAberto();
-    if (!mounted) return;
-    if (aberto != null && aberto.id != t.id) {
-      final confirmou = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const TituloJanela('Fechar o turno atual?', icone: Icons.warning_amber_rounded, cor: AppColors.amber),
-          content: TextoJanela(
-            'O turno #${aberto.numero} está aberto no nome de ${aberto.operador}.\n\n'
-            'Reabrir o turno #${t.numero} fecha esse turno. Esse fechamento não '
-            'gera relatório nem envia nada ao Google Drive.\n\n'
-            'Para encerrar com relatório, use "Fechar Caixa & Resumo" antes de reabrir.',
-          ),
-          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          actions: [
-            BotoesJanela(
-              secundario: BotaoSecundario(texto: 'Cancelar', onPressed: () => Navigator.of(ctx).pop(false)),
-              principal: BotaoPrincipal(
-                texto: 'Fechar e reabrir',
-                cor: AppColors.red,
-                onPressed: () => Navigator.of(ctx).pop(true),
+    if (_reabrindo) return;
+    _reabrindo = true;
+    try {
+      // Reabrir fecha o turno que estiver aberto, e esse fechamento não gera
+      // relatório nem envia nada ao Drive. Desde 25/08 isso acontecia em silêncio
+      // — pelo menu Configurações dava para, no meio do turno, reabrir um antigo e
+      // perder o relatório do atual sem saber. Mesma correção do "Trocar
+      // operador" (6428276): continua possível, mas como escolha declarada.
+      final aberto = await DatabaseService.instance.obterTurnoAberto();
+      if (!mounted) return;
+      if (aberto != null && aberto.id != t.id) {
+        final confirmou = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const TituloJanela('Fechar o turno atual?', icone: Icons.warning_amber_rounded, cor: AppColors.amber),
+            content: SingleChildScrollView(
+              child: TextoJanela(
+                'O turno #${aberto.numero} está aberto no nome de ${aberto.operador}.\n\n'
+                'Reabrir o turno #${t.numero} fecha esse turno. Esse fechamento não '
+                'gera relatório nem envia nada ao Google Drive.\n\n'
+                'Para encerrar com relatório, use "Fechar Caixa & Resumo" antes de reabrir.',
               ),
             ),
-          ],
-        ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            actions: [
+              BotoesJanela(
+                secundario: BotaoSecundario(texto: 'Cancelar', onPressed: () => Navigator.of(ctx).pop(false)),
+                principal: BotaoPrincipal(
+                  texto: 'Fechar e reabrir',
+                  cor: AppColors.red,
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                ),
+              ),
+            ],
+          ),
+        );
+        if (confirmou != true || !mounted) return;
+      }
+
+      final autorizado = await showDialog<bool>(
+        context: context,
+        builder: (_) => _PinReaberturaDialog(turno: t),
       );
-      if (confirmou != true || !mounted) return;
-    }
 
-    final autorizado = await showDialog<bool>(
-      context: context,
-      builder: (_) => _PinReaberturaDialog(turno: t),
-    );
-
-    if (autorizado == true && mounted) {
-      Navigator.of(context).pop();
-      widget.onReabrirTurno(t);
+      if (autorizado == true && mounted) {
+        Navigator.of(context).pop();
+        widget.onReabrirTurno(t);
+      }
+    } finally {
+      _reabrindo = false;
     }
   }
 
@@ -254,6 +263,7 @@ class _PinReaberturaDialog extends StatefulWidget {
 class _PinReaberturaDialogState extends State<_PinReaberturaDialog> {
   final _controller = TextEditingController();
   String? _erro;
+  bool _validando = false;
 
   @override
   void dispose() {
@@ -262,7 +272,12 @@ class _PinReaberturaDialogState extends State<_PinReaberturaDialog> {
   }
 
   Future<void> _autorizar() async {
+    if (_validando) return;
     final pin = _controller.text.trim();
+    setState(() {
+      _erro = null;
+      _validando = true;
+    });
     final ok = await AuthService.validarPin(widget.turno.operador, pin);
     if (!mounted) return;
     if (ok) {
@@ -270,6 +285,7 @@ class _PinReaberturaDialogState extends State<_PinReaberturaDialog> {
     } else {
       AppHaptics.heavy();
       setState(() {
+        _validando = false;
         _erro = 'PIN incorreto. Acesso negado.';
       });
       _controller.clear();
@@ -283,44 +299,55 @@ class _PinReaberturaDialogState extends State<_PinReaberturaDialog> {
 
     return AlertDialog(
       title: TituloJanela('Reabrir Turno #${t.numero}', icone: Icons.lock_open_rounded),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextoJanela('Digite o PIN de ${t.operador} ou do desenvolvedor para autorizar a reabertura:'),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            obscureText: true,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            maxLength: 4,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: TextStyle(
-              fontSize: 20,
-              letterSpacing: 8,
-              fontWeight: FontWeight.w700,
-              color: isDark ? AppColors.darkTextPri : AppColors.lightTextPri,
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextoJanela('Digite o PIN de ${t.operador} ou do desenvolvedor para autorizar a reabertura:'),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              maxLength: 4,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: TextStyle(
+                fontSize: 20,
+                letterSpacing: 8,
+                fontWeight: FontWeight.w700,
+                color: isDark ? AppColors.darkTextPri : AppColors.lightTextPri,
+              ),
+              decoration: InputDecoration(
+                labelText: 'PIN de 4 dígitos',
+                counterText: '',
+                prefixIcon: const Icon(Icons.shield_outlined),
+                errorText: _erro,
+                filled: true,
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
+              ),
+              onSubmitted: (_) {
+                if (!_validando) _autorizar();
+              },
             ),
-            decoration: InputDecoration(
-              labelText: 'PIN de 4 dígitos',
-              counterText: '',
-              prefixIcon: const Icon(Icons.shield_outlined),
-              errorText: _erro,
-              filled: true,
-              isDense: true,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppColors.radiusSm)),
-            ),
-            onSubmitted: (_) => _autorizar(),
-          ),
-        ],
+          ],
+        ),
       ),
       actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       actions: [
         BotoesJanela(
-          secundario: BotaoSecundario(texto: 'Cancelar', onPressed: () => Navigator.of(context).pop(false)),
-          principal: BotaoPrincipal(texto: 'Autorizar Reabertura', onPressed: _autorizar),
+          secundario: BotaoSecundario(
+            texto: 'Cancelar',
+            onPressed: _validando ? null : () => Navigator.of(context).pop(false),
+          ),
+          principal: BotaoPrincipal(
+            texto: 'Autorizar Reabertura',
+            ocupado: _validando,
+            onPressed: _validando ? null : _autorizar,
+          ),
         ),
       ],
     );

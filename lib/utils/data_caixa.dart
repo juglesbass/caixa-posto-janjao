@@ -64,8 +64,35 @@ class DataCaixa {
 
   /// "14/09/2026" → "14/09", para caber em botão
   static String curta(String data) {
-    final partes = data.split('/');
-    return partes.length >= 2 ? '${partes[0]}/${partes[1]}' : data;
+    final limpo = data.trim();
+    final partes = limpo.split('/');
+    return partes.length >= 2 ? '${partes[0]}/${partes[1]}' : limpo;
+  }
+
+  /// Normaliza uma data de caixa ("dd/MM/yyyy" ou "yyyy-MM-dd") para uso em
+  /// nomes de arquivo ("dd-MM-yyyy"), caindo para a data de hoje se vazia.
+  static String dataParaNomeArquivo(String dataBase, {DateTime? agora}) {
+    final fallback = DateFormat('dd-MM-yyyy').format(agora ?? DateTime.now());
+    final limpo = dataBase.trim();
+    if (limpo.isEmpty) return fallback;
+    final somenteData = limpo.split(' ').first;
+    if (somenteData.contains('/')) {
+      final partes = somenteData.split('/');
+      if (partes.length >= 3) {
+        return '${partes[0].padLeft(2, '0')}-${partes[1].padLeft(2, '0')}-${partes[2]}';
+      }
+      return fallback;
+    }
+    if (somenteData.contains('-')) {
+      final partes = somenteData.split('-');
+      if (partes.length >= 3) {
+        if (partes[0].length == 4) {
+          return '${partes[2].padLeft(2, '0')}-${partes[1].padLeft(2, '0')}-${partes[0]}';
+        }
+        return '${partes[0].padLeft(2, '0')}-${partes[1].padLeft(2, '0')}-${partes[2]}';
+      }
+    }
+    return fallback;
   }
 
   /// O caixa ainda aberto é de um dia anterior, e a madrugada já acabou?

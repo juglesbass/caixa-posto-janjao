@@ -1,16 +1,16 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../models/lancamento.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
+import '../utils/arquivo_local.dart';
 import '../utils/conciliacao.dart';
 import '../utils/currency_formatter.dart';
+import '../utils/data_caixa.dart';
 import '../utils/payment_types.dart';
 import 'auth_service.dart';
 
@@ -103,39 +103,8 @@ class PdfService {
   /// e, se o nome já existir na pasta, cria o próximo "_vN" em vez de
   /// sobrescrever ou mandar o anterior para a lixeira.
   static String gerarNomeArquivo({required Turno turno}) {
-    // Normalizar nome do operador (ex: "João Victor")
     final operadorLimpo = turno.operador.trim().replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
-    
-    // Extrair data no formato dd-MM-yyyy
-    String dataFormatada;
-    final dataBase = turno.dataCaixa;
-    try {
-      if (dataBase.contains('/')) {
-        final partes = dataBase.split(' ')[0].split('/');
-        if (partes.length >= 3) {
-          dataFormatada = '${partes[0].padLeft(2, '0')}-${partes[1].padLeft(2, '0')}-${partes[2]}';
-        } else {
-          dataFormatada = DateFormat('dd-MM-yyyy').format(DateTime.now());
-        }
-      } else if (dataBase.contains('-')) {
-        final partes = dataBase.split(' ')[0].split('-');
-        if (partes.length >= 3) {
-          if (partes[0].length == 4) {
-            // ISO yyyy-MM-dd
-            dataFormatada = '${partes[2].padLeft(2, '0')}-${partes[1].padLeft(2, '0')}-${partes[0]}';
-          } else {
-            dataFormatada = '${partes[0].padLeft(2, '0')}-${partes[1].padLeft(2, '0')}-${partes[2]}';
-          }
-        } else {
-          dataFormatada = DateFormat('dd-MM-yyyy').format(DateTime.now());
-        }
-      } else {
-        dataFormatada = DateFormat('dd-MM-yyyy').format(DateTime.now());
-      }
-    } catch (_) {
-      dataFormatada = DateFormat('dd-MM-yyyy').format(DateTime.now());
-    }
-
+    final dataFormatada = DataCaixa.dataParaNomeArquivo(turno.dataCaixa);
     final sufixoVersao = (turno.versao > 1) ? '_v${turno.versao}' : '';
     final baseNome = operadorLimpo.isNotEmpty ? '$operadorLimpo $dataFormatada' : dataFormatada;
     return '$baseNome$sufixoVersao.pdf';
@@ -148,10 +117,7 @@ class PdfService {
   }) async {
     if (kIsWeb) return null;
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/$nomeArquivo');
-      await file.writeAsBytes(pdfBytes, flush: true);
-      return file.path;
+      return await salvarBytesDocumento(bytes: pdfBytes, nomeArquivo: nomeArquivo);
     } catch (e) {
       debugPrint('Erro ao salvar PDF localmente: $e');
       return null;

@@ -132,13 +132,18 @@ class _ConsultaProdutosScreenState extends State<ConsultaProdutosScreen> {
       backgroundColor: bgScaffold,
       appBar: AppBar(
         title: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
               'Consulta de Produtos',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: AppTexto.valor, fontWeight: FontWeight.w700),
             ),
             Text(
               'Tabela de códigos rápidos do posto',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: AppTexto.rotulo, color: textSec),
             ),
           ],
@@ -196,12 +201,11 @@ class _ConsultaProdutosScreenState extends State<ConsultaProdutosScreen> {
                   ),
 
                   // ── Filtro Rápido por Categorias ──
-                  SizedBox(
-                    height: 52,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
                       children: [
                         for (final cat in _categorias)
                           Padding(
@@ -233,9 +237,13 @@ class _ConsultaProdutosScreenState extends State<ConsultaProdutosScreen> {
                       style: TextStyle(fontSize: AppTexto.rotulo, fontWeight: FontWeight.w600, color: textSec),
                     ),
                   ),
-                  Text(
-                    'Toque para copiar o código',
-                    style: TextStyle(fontSize: AppTexto.rotulo, color: textTer),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Toque para copiar o código',
+                      textAlign: TextAlign.right,
+                      style: TextStyle(fontSize: AppTexto.rotulo, color: textTer),
+                    ),
                   ),
                 ],
               ),
@@ -245,15 +253,17 @@ class _ConsultaProdutosScreenState extends State<ConsultaProdutosScreen> {
             Expanded(
               child: lista.isEmpty
                   ? Center(
-                      child: Padding(
+                      child: SingleChildScrollView(
                         padding: const EdgeInsets.all(24),
                         child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             IconeJanela(icone: Icons.search_off_rounded, cor: corCodigo, tamanho: 64),
                             const SizedBox(height: 14),
                             Text(
                               'Nenhum produto encontrado',
+                              textAlign: TextAlign.center,
                               style: TextStyle(fontSize: AppTexto.valor, fontWeight: FontWeight.w700, color: textPri),
                             ),
                             const SizedBox(height: 6),

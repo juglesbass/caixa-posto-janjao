@@ -49,6 +49,8 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool get isDark => widget.isDark;
   final _controllerPinMestre = TextEditingController();
+  bool _exportandoCsv = false;
+  bool _sincronizandoDrive = false;
 
   @override
   void dispose() {
@@ -79,8 +81,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _exportarCsv(BuildContext context) async {
-    if (widget.turno == null) return;
+  Future<void> _exportarCsv(BuildContext context) async {
+    if (widget.turno == null || _exportandoCsv) return;
+    _exportandoCsv = true;
     try {
       final db = DatabaseService.instance;
       final lancamentos = await db.obterLancamentos(widget.turno!.id!);
@@ -95,10 +98,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SnackBar(content: Text('Erro ao exportar CSV: $e'), backgroundColor: AppColors.red),
         );
       }
+    } finally {
+      _exportandoCsv = false;
     }
   }
 
-  void _sincronizarDrive(BuildContext context) async {
+  Future<void> _sincronizarDrive(BuildContext context) async {
+    if (_sincronizandoDrive) return;
+    _sincronizandoDrive = true;
     try {
       final res = await DriveService.sincronizarTodasPendencias();
       widget.onRecarregar();
@@ -117,6 +124,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SnackBar(content: Text('Erro na sincronização: $e'), backgroundColor: AppColors.red),
         );
       }
+    } finally {
+      _sincronizandoDrive = false;
     }
   }
 
@@ -159,10 +168,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _limparZerarTudo(BuildContext context) {
+    final navigator = Navigator.of(context);
     showDialog(
       context: context,
       builder: (ctx) => ResetDialog(
         onResetConcluido: () {
+          navigator.popUntil((route) => route.isFirst);
           widget.onRecarregar();
           widget.onAbrirNovoTurno();
         },
@@ -197,56 +208,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 titulo: 'Desenvolvedor',
                 subtitulo: 'Informe o PIN Mestre (4 dígitos)',
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const TextoJanela(
-                    'Digite a senha administrativa para acessar o painel restrito de configurações e segurança:',
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _controllerPinMestre,
-                    obscureText: true,
-                    autofocus: true,
-                    keyboardType: TextInputType.number,
-                    maxLength: 4,
-                    textAlign: TextAlign.center,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    style: TextStyle(
-                      fontSize: 24,
-                      letterSpacing: 10,
-                      fontWeight: FontWeight.w700,
-                      color: textPri,
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const TextoJanela(
+                      'Digite a senha administrativa para acessar o painel restrito de configurações e segurança:',
                     ),
-                    decoration: InputDecoration(
-                      hintText: '••••',
-                      counterText: '',
-                      errorText: erroLocal,
-                      filled: true,
-                      fillColor: isDark ? AppColors.darkBg : AppColors.lightBg,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                        borderSide: BorderSide(color: borderCol),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _controllerPinMestre,
+                      obscureText: true,
+                      autofocus: true,
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                      textAlign: TextAlign.center,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      style: TextStyle(
+                        fontSize: 24,
+                        letterSpacing: 10,
+                        fontWeight: FontWeight.w700,
+                        color: textPri,
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                        borderSide: BorderSide(color: borderCol),
+                      decoration: InputDecoration(
+                        hintText: '••••',
+                        counterText: '',
+                        errorText: erroLocal,
+                        filled: true,
+                        fillColor: isDark ? AppColors.darkBg : AppColors.lightBg,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                          borderSide: BorderSide(color: borderCol),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                          borderSide: BorderSide(color: borderCol),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                          borderSide: const BorderSide(color: AppColors.amber, width: 1.5),
+                        ),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                        borderSide: const BorderSide(color: AppColors.amber, width: 1.5),
-                      ),
+                      onSubmitted: (_) {
+                        if (!validandoLocal) entrar();
+                      },
                     ),
-                    onSubmitted: (_) => entrar(),
-                  ),
-                ],
+                  ],
+                ),
               ),
               actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               actions: [
                 BotoesJanela(
-                  secundario: BotaoSecundario(texto: 'Cancelar', onPressed: () => Navigator.of(dialogCtx).pop()),
+                  secundario: BotaoSecundario(
+                    texto: 'Cancelar',
+                    onPressed: validandoLocal ? null : () => Navigator.of(dialogCtx).pop(),
+                  ),
                   principal: BotaoPrincipal(
                     texto: 'Acessar Painel',
                     icone: Icons.lock_open_rounded,
@@ -326,7 +344,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (ctx) => const _AlterarPinMestreDialog(),
     );
 
-    if (alterou == true && mounted) {
+    if (alterou == true && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('✅ PIN Mestre do Desenvolvedor atualizado com sucesso!'),
@@ -667,7 +685,7 @@ class _PainelGerenciaPage extends StatefulWidget {
   final bool isDark;
   final Turno? turno;
   final TotaisTurno totais;
-  final VoidCallback onAlterarPinMestre;
+  final Future<void> Function() onAlterarPinMestre;
   final VoidCallback onGestaoOperadores;
   final VoidCallback onAnalytics;
   final VoidCallback onExportarCsv;
@@ -729,9 +747,13 @@ class _PainelGerenciaPageState extends State<_PainelGerenciaPage> {
             children: [
               Row(
                 children: [
-                  Text(
-                    'Desenvolvedor',
-                    style: TextStyle(fontSize: AppTexto.valor, fontWeight: FontWeight.w700, color: textPri),
+                  Flexible(
+                    child: Text(
+                      'Desenvolvedor',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: AppTexto.valor, fontWeight: FontWeight.w700, color: textPri),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   const SeloTurno(texto: 'Restrito', cor: AppColors.amber),
@@ -771,7 +793,7 @@ class _PainelGerenciaPageState extends State<_PainelGerenciaPage> {
                 titulo: 'Alterar PIN Mestre do Desenvolvedor',
                 subtitulo: 'Modificar a senha administrativa mestre (PBKDF2 com sal)',
                 onTap: () async {
-                  widget.onAlterarPinMestre();
+                  await widget.onAlterarPinMestre();
                   _checarPinPadrao();
                 },
               ),
@@ -868,6 +890,7 @@ class _AlterarPinMestreDialogState extends State<_AlterarPinMestreDialog> {
   final _novo = TextEditingController();
   final _confirma = TextEditingController();
   String? _erro;
+  bool _salvando = false;
 
   @override
   void dispose() {
@@ -877,6 +900,7 @@ class _AlterarPinMestreDialogState extends State<_AlterarPinMestreDialog> {
   }
 
   Future<void> _salvar() async {
+    if (_salvando) return;
     final p1 = _novo.text.trim();
     final p2 = _confirma.text.trim();
     if (p1.length != 4 || p2.length != 4) {
@@ -887,8 +911,21 @@ class _AlterarPinMestreDialogState extends State<_AlterarPinMestreDialog> {
       setState(() => _erro = 'Os PINs não conferem!');
       return;
     }
-    await AuthService.alterarPinGerente(p1);
-    if (mounted) Navigator.of(context).pop(true);
+    setState(() {
+      _erro = null;
+      _salvando = true;
+    });
+    try {
+      await AuthService.alterarPinGerente(p1);
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _erro = 'Erro ao salvar PIN: $e';
+          _salvando = false;
+        });
+      }
+    }
   }
 
   @override
@@ -913,44 +950,56 @@ class _AlterarPinMestreDialogState extends State<_AlterarPinMestreDialog> {
         cor: AppColors.amber,
         titulo: 'Alterar PIN Mestre',
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const TextoJanela(
-            'Defina um novo PIN Mestre de 4 dígitos para o desenvolvedor (armazenado como hash PBKDF2 com sal):',
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _novo,
-            obscureText: true,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            maxLength: 4,
-            textAlign: TextAlign.center,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: estiloPin,
-            decoration: campo('Novo PIN (4 dígitos)'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _confirma,
-            obscureText: true,
-            keyboardType: TextInputType.number,
-            maxLength: 4,
-            textAlign: TextAlign.center,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: estiloPin,
-            decoration: campo('Confirmar Novo PIN', erro: _erro),
-            onSubmitted: (_) => _salvar(),
-          ),
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const TextoJanela(
+              'Defina um novo PIN Mestre de 4 dígitos para o desenvolvedor (armazenado como hash PBKDF2 com sal):',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _novo,
+              obscureText: true,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              textAlign: TextAlign.center,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: estiloPin,
+              decoration: campo('Novo PIN (4 dígitos)'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _confirma,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              textAlign: TextAlign.center,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: estiloPin,
+              decoration: campo('Confirmar Novo PIN', erro: _erro),
+              onSubmitted: (_) {
+                if (!_salvando) _salvar();
+              },
+            ),
+          ],
+        ),
       ),
       actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       actions: [
         BotoesJanela(
-          secundario: BotaoSecundario(texto: 'Cancelar', onPressed: () => Navigator.of(context).pop(false)),
-          principal: BotaoPrincipal(texto: 'Salvar PIN Mestre', cor: AppColors.amber, onPressed: _salvar),
+          secundario: BotaoSecundario(
+            texto: 'Cancelar',
+            onPressed: _salvando ? null : () => Navigator.of(context).pop(false),
+          ),
+          principal: BotaoPrincipal(
+            texto: 'Salvar PIN Mestre',
+            cor: AppColors.amber,
+            ocupado: _salvando,
+            onPressed: _salvando ? null : _salvar,
+          ),
         ),
       ],
     );

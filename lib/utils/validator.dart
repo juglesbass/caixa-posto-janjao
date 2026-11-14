@@ -10,7 +10,8 @@ class Validator {
       return 'Digite pelo menos o primeiro nome completo (mín. 3 letras)';
     }
 
-    final letras = RegExp(r'[a-zA-ZÀ-ÿ]').allMatches(nomeLimpo);
+    // Exclui símbolos matemáticos × (U+00D7) e ÷ (U+00F7) do intervalo latino.
+    final letras = RegExp(r'[a-zA-ZÀ-ÖØ-öø-ÿ]').allMatches(nomeLimpo);
     if (letras.length < 3) {
       return 'Digite pelo menos o primeiro nome completo (mín. 3 letras)';
     }
@@ -22,11 +23,18 @@ class Validator {
   static String formatarNomeOperador(String nome) {
     final limpo = nome.trim();
     if (limpo.isEmpty) return 'Não informado';
-    return limpo.split(' ').where((p) => p.isNotEmpty).map((palavra) {
-      final minuscula = palavra.toLowerCase();
-      if (minuscula.length == 1) return minuscula.toUpperCase();
-      return minuscula[0].toUpperCase() + minuscula.substring(1);
-    }).join(' ');
+    final palavras = limpo.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    return [
+      for (var i = 0; i < palavras.length; i++)
+        _capitalizarPalavra(palavras[i], primeira: i == 0),
+    ].join(' ');
+  }
+
+  static String _capitalizarPalavra(String palavra, {required bool primeira}) {
+    final minuscula = palavra.toLowerCase();
+    if (!primeira && _conectivos.contains(minuscula)) return minuscula;
+    if (minuscula.length == 1) return minuscula.toUpperCase();
+    return minuscula[0].toUpperCase() + minuscula.substring(1);
   }
 
   /// Indica se dois nomes parecem ser da mesma pessoa.
@@ -45,6 +53,11 @@ class Validator {
     final palavrasA = _palavrasDoNome(a);
     final palavrasB = _palavrasDoNome(b);
     if (palavrasA.isEmpty || palavrasB.isEmpty) return false;
+
+    // Distintivos numéricos explícitos (ex: "João 2" vs "João" / "João 3")
+    final numsA = palavrasA.where((p) => RegExp(r'^\d+$').hasMatch(p)).join(',');
+    final numsB = palavrasB.where((p) => RegExp(r'^\d+$').hasMatch(p)).join(',');
+    if (numsA != numsB) return false;
 
     final aEhMaisCurto = palavrasA.length <= palavrasB.length;
     final curto = aEhMaisCurto ? palavrasA : palavrasB;
@@ -106,7 +119,7 @@ class Validator {
       }
     }
     return texto
-        .split(RegExp(r'[^a-z]+'))
+        .split(RegExp(r'[^a-z0-9]+'))
         .where((p) => p.isNotEmpty && !_conectivos.contains(p))
         .toList();
   }

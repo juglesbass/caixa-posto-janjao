@@ -33,7 +33,6 @@ class NotificationService {
   static Future<void> inicializar() async {
     try {
       await inicializarNotificacoesLocais();
-      requestNotificationPermission();
       await atualizarPendencias();
     } catch (_) {}
   }

@@ -40,36 +40,46 @@ class HudTotais extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'TOTAL DO TURNO',
-                      style: TextStyle(
-                        fontSize: AppTexto.rotulo,
-                        fontWeight: FontWeight.bold,
-                        color: textSec,
-                        letterSpacing: 1.3,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'TOTAL DO TURNO',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: AppTexto.rotulo,
+                          fontWeight: FontWeight.bold,
+                          color: textSec,
+                          letterSpacing: 1.3,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      CurrencyFormatter.formatar(totais.totalGeral),
-                      // Fonte comum e bem pesada no numero grande: a
-                      // monoespacada deixava o total com cara de terminal.
-                      style: TextStyle(
-                        fontSize: AppTexto.total,
-                        fontWeight: FontWeight.w800,
-                        color: textPri,
-                        letterSpacing: -0.5,
-                        height: 1.05,
+                      const SizedBox(height: 5),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          CurrencyFormatter.formatar(totais.totalGeral),
+                          // Fonte comum e bem pesada no numero grande: a
+                          // monoespacada deixava o total com cara de terminal.
+                          style: TextStyle(
+                            fontSize: AppTexto.total,
+                            fontWeight: FontWeight.w800,
+                            color: textPri,
+                            letterSpacing: -0.5,
+                            height: 1.05,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 // O bloco inteiro abre o resumo: melhor dizer isso com palavra
                 // do que com um icone de carteira que nao leva a lugar obvio.
                 const Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       'resumo',

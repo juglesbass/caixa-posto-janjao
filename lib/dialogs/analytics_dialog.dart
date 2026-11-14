@@ -31,7 +31,20 @@ class AnalyticsDialog extends StatelessWidget {
     final percCartoes = (totais.cartoes / totalGeral) * 100;
     final percPix = (totais.pix / totalGeral) * 100;
     final percDinheiro = (totais.dinheiro / totalGeral) * 100;
-    final percOutros = ((totais.requisicao + totais.depositoGlobal) / totalGeral) * 100;
+    final percRequisicao = (totais.requisicao / totalGeral) * 100;
+    final percDeposito = (totais.depositoGlobal / totalGeral) * 100;
+    final percDespesas = (totais.despesas / totalGeral) * 100;
+
+    final qtdDinheiro = totais.qtdDinheiro > 0 ? totais.qtdDinheiro : (totais.dinheiro > 0 ? 1 : 0);
+    final qtdRequisicao = totais.qtdRequisicao > 0 ? totais.qtdRequisicao : (totais.requisicao > 0 ? 1 : 0);
+    final qtdDeposito = totais.qtdDepositoGlobal > 0 ? totais.qtdDepositoGlobal : (totais.depositoGlobal > 0 ? 1 : 0);
+    final qtdDespesas = totais.qtdDespesas > 0 ? totais.qtdDespesas : (totais.despesas > 0 ? 1 : 0);
+    final totalLancamentos = totais.qtdCartoes +
+        totais.qtdPix +
+        qtdDinheiro +
+        qtdRequisicao +
+        qtdDeposito +
+        qtdDespesas;
 
     // Mesmas cores e ícones das formas de pagamento no resto do app: antes o
     // Pix saía verde e o dinheiro âmbar só aqui.
@@ -46,7 +59,7 @@ class AnalyticsDialog extends StatelessWidget {
         isDark: isDark,
       ),
       _itemMetrica(
-        titulo: 'Pix (Caixa/Direto)',
+        titulo: 'Pag Pix',
         icone: AppIcones.pix,
         valor: totais.pix,
         percentual: percPix,
@@ -60,6 +73,7 @@ class AnalyticsDialog extends StatelessWidget {
         valor: totais.dinheiro,
         percentual: percDinheiro,
         cor: AppColors.green,
+        quantidade: qtdDinheiro > 0 ? '$qtdDinheiro vendas' : null,
         isDark: isDark,
       ),
       if (totais.requisicao > 0)
@@ -67,8 +81,9 @@ class AnalyticsDialog extends StatelessWidget {
           titulo: 'Requisição / Faturado',
           icone: AppIcones.requisicao,
           valor: totais.requisicao,
-          percentual: (totais.requisicao / totalGeral) * 100,
+          percentual: percRequisicao,
           cor: AppColors.amber,
+          quantidade: '$qtdRequisicao vendas',
           isDark: isDark,
         ),
       if (totais.depositoGlobal > 0)
@@ -76,8 +91,19 @@ class AnalyticsDialog extends StatelessWidget {
           titulo: 'Depósito Global',
           icone: AppIcones.deposito,
           valor: totais.depositoGlobal,
-          percentual: (totais.depositoGlobal / totalGeral) * 100,
+          percentual: percDeposito,
           cor: AppColors.brown,
+          quantidade: '$qtdDeposito vendas',
+          isDark: isDark,
+        ),
+      if (totais.despesas > 0)
+        _itemMetrica(
+          titulo: 'Despesas',
+          icone: AppIcones.despesas,
+          valor: totais.despesas,
+          percentual: percDespesas,
+          cor: AppColors.red,
+          quantidade: '$qtdDespesas lançamentos',
           isDark: isDark,
         ),
     ];
@@ -129,21 +155,33 @@ class AnalyticsDialog extends StatelessWidget {
                               ],
                             ),
                           ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text('Qtd Lançamentos', style: TextStyle(color: textSec, fontSize: AppTexto.rotulo)),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${totais.qtdCartoes + totais.qtdPix + (totais.dinheiro > 0 ? 1 : 0) + (totais.requisicao > 0 ? 1 : 0) + (totais.depositoGlobal > 0 ? 1 : 0)} un',
-                                style: TextStyle(
-                                  fontFamily: AppTexto.numeros,
-                                  color: textPri,
-                                  fontSize: AppTexto.valor,
-                                  fontWeight: FontWeight.w600,
+                          const SizedBox(width: 8),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 130),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerRight,
+                                  child: Text('Qtd Lançamentos', style: TextStyle(color: textSec, fontSize: AppTexto.rotulo)),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 4),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    '$totalLancamentos un',
+                                    style: TextStyle(
+                                      fontFamily: AppTexto.numeros,
+                                      color: textPri,
+                                      fontSize: AppTexto.valor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -178,10 +216,20 @@ class AnalyticsDialog extends StatelessWidget {
                                 flex: math.max(1, (percDinheiro * 10).toInt()),
                                 child: Container(color: AppColors.green),
                               ),
-                            if (percOutros > 0)
+                            if (percRequisicao > 0)
                               Expanded(
-                                flex: math.max(1, (percOutros * 10).toInt()),
+                                flex: math.max(1, (percRequisicao * 10).toInt()),
                                 child: Container(color: AppColors.amber),
+                              ),
+                            if (percDeposito > 0)
+                              Expanded(
+                                flex: math.max(1, (percDeposito * 10).toInt()),
+                                child: Container(color: AppColors.brown),
+                              ),
+                            if (percDespesas > 0)
+                              Expanded(
+                                flex: math.max(1, (percDespesas * 10).toInt()),
+                                child: Container(color: AppColors.red),
                               ),
                           ],
                         ),
@@ -250,28 +298,35 @@ class AnalyticsDialog extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                CurrencyFormatter.formatar(valor),
-                style: TextStyle(
-                  fontFamily: AppTexto.numeros,
-                  color: textPri,
-                  fontWeight: FontWeight.w600,
-                  fontSize: AppTexto.corpo,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 135),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    CurrencyFormatter.formatar(valor),
+                    style: TextStyle(
+                      fontFamily: AppTexto.numeros,
+                      color: textPri,
+                      fontWeight: FontWeight.w600,
+                      fontSize: AppTexto.corpo,
+                    ),
+                  ),
                 ),
-              ),
-              Text(
-                '${percentual.toStringAsFixed(1)}%',
-                style: TextStyle(
-                  fontFamily: AppTexto.numeros,
-                  color: textSec,
-                  fontSize: AppTexto.rotulo,
-                  fontWeight: FontWeight.w600,
+                Text(
+                  '${percentual.toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    fontFamily: AppTexto.numeros,
+                    color: textSec,
+                    fontSize: AppTexto.rotulo,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

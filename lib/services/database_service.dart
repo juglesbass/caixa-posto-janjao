@@ -603,28 +603,40 @@ class DatabaseService {
 
   Future<void> reabrirTurno(int turnoId) async {
     final db = await database;
-    // Fecha qualquer outro que esteja aberto. A tela pede confirmação antes de
-    // chegar aqui (TurnosAnterioresDialog). O horário entra para o turno
-    // fechado assim não aparecer no histórico como se nunca tivesse fechado;
-    // COALESCE preserva um horário que já exista.
-    await db.rawUpdate(
-      'UPDATE turnos SET aberto = 0, fechado_em = COALESCE(fechado_em, ?) '
-      'WHERE aberto = 1 AND id != ?',
-      [DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now()), turnoId],
-    );
-    // Reabre o selecionado e incrementa a versão para versionamento sequencial de relatórios
-    final turnoAtual = await obterTurnoPorId(turnoId);
-    final proximaVersao = (turnoAtual?.versao ?? 1) + 1;
-    await db.update(
-      'turnos',
-      {
-        'aberto': 1,
-        'fechado_em': null,
-        'versao': proximaVersao,
-      },
-      where: 'id = ?',
-      whereArgs: [turnoId],
-    );
+    final agora = DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now());
+    await db.transaction((txn) async {
+      // Fecha qualquer outro que esteja aberto. A tela pede confirmação antes
+      // de chegar aqui (TurnosAnterioresDialog). O horário entra para o turno
+      // fechado assim não aparecer no histórico como se nunca tivesse fechado;
+      // COALESCE preserva um horário que já exista.
+      await txn.rawUpdate(
+        'UPDATE turnos SET aberto = 0, fechado_em = COALESCE(fechado_em, ?) '
+        'WHERE aberto = 1 AND id != ?',
+        [agora, turnoId],
+      );
+      // Reabre o selecionado e incrementa a versão para versionamento sequencial
+      // de relatórios.
+      final turnoRows = await txn.query(
+        'turnos',
+        columns: ['versao'],
+        where: 'id = ?',
+        whereArgs: [turnoId],
+        limit: 1,
+      );
+      final versaoAtual = turnoRows.isNotEmpty
+          ? (turnoRows.first['versao'] as num?)?.toInt() ?? 1
+          : 1;
+      await txn.update(
+        'turnos',
+        {
+          'aberto': 1,
+          'fechado_em': null,
+          'versao': versaoAtual + 1,
+        },
+        where: 'id = ?',
+        whereArgs: [turnoId],
+      );
+    });
   }
 
   Future<void> salvarAuditoria(
@@ -783,13 +795,17 @@ class DatabaseService {
         : 0.0;
 
     double dinheiro = 0.0;
+    int qtdDinheiro = 0;
     double pix = 0.0;
     int qtdPix = 0;
     double cartoes = 0.0;
     int qtdCartoes = 0;
     double requisicao = 0.0;
+    int qtdRequisicao = 0;
     double depositoGlobal = 0.0;
+    int qtdDepositoGlobal = 0;
     double despesas = 0.0;
+    int qtdDespesas = 0;
     double sangrias = 0.0;
     int qtdSangrias = 0;
     double suprimentos = 0.0;
@@ -803,15 +819,19 @@ class DatabaseService {
 
       if (PaymentTypes.ehDinheiro(tipo)) {
         dinheiro += valor;
+        qtdDinheiro++;
       } else if (PaymentTypes.ehPix(tipo)) {
         pix += valor;
         qtdPix++;
       } else if (PaymentTypes.ehRequisicao(tipo)) {
         requisicao += valor;
+        qtdRequisicao++;
       } else if (PaymentTypes.ehDeposito(tipo)) {
         depositoGlobal += valor;
+        qtdDepositoGlobal++;
       } else if (PaymentTypes.ehDespesa(tipo)) {
         despesas += valor;
+        qtdDespesas++;
       } else if (PaymentTypes.ehSangria(tipo)) {
         sangrias += valor;
         qtdSangrias++;
@@ -839,13 +859,17 @@ class DatabaseService {
 
     return TotaisTurno(
       dinheiro: dinheiro,
+      qtdDinheiro: qtdDinheiro,
       pix: pix,
       qtdPix: qtdPix,
       cartoes: cartoes,
       qtdCartoes: qtdCartoes,
       requisicao: requisicao,
+      qtdRequisicao: qtdRequisicao,
       depositoGlobal: depositoGlobal,
+      qtdDepositoGlobal: qtdDepositoGlobal,
       despesas: despesas,
+      qtdDespesas: qtdDespesas,
       sangrias: sangrias,
       qtdSangrias: qtdSangrias,
       suprimentos: suprimentos,
@@ -1104,16 +1128,18 @@ class DatabaseService {
     final batch = db.batch();
 
     if (substituirTudo) {
-      final idsNuvem = operadores.map((o) => o.id).where((id) => id.isNotEmpty).toList();
+      final idsNuvem = operadores.map((o) => o.id).where((id) => id.isNotEmpty).toSet();
       if (idsNuvem.isEmpty) {
         batch.delete('operadores_cache');
       } else {
-        final placeholders = List.filled(idsNuvem.length, '?').join(',');
-        batch.delete(
-          'operadores_cache',
-          where: 'id NOT IN ($placeholders)',
-          whereArgs: idsNuvem,
-        );
+        // Compara em memória para não depender do limite de parâmetros do SQLite.
+        final existentes = await db.query('operadores_cache', columns: ['id']);
+        for (final row in existentes) {
+          final idLocal = row['id']?.toString();
+          if (idLocal != null && !idsNuvem.contains(idLocal)) {
+            batch.delete('operadores_cache', where: 'id = ?', whereArgs: [idLocal]);
+          }
+        }
       }
     }
 

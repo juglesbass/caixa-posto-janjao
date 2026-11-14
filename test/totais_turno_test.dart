@@ -64,13 +64,32 @@ void main() {
       expect(totais.totalGeral, equals(530));
     });
 
-    test('copyWith preserva suprimentos', () {
-      final base = TotaisTurno(suprimentos: 75, qtdSuprimentos: 2);
+    test('copyWith preserva suprimentos e contadores de meios', () {
+      final base = TotaisTurno(
+        suprimentos: 75,
+        qtdSuprimentos: 2,
+        qtdDinheiro: 3,
+        qtdRequisicao: 4,
+        qtdDepositoGlobal: 1,
+        qtdDespesas: 2,
+      );
       final copia = base.copyWith(vendasSistema: 1000);
 
       expect(copia.suprimentos, equals(75));
       expect(copia.qtdSuprimentos, equals(2));
+      expect(copia.qtdDinheiro, equals(3));
+      expect(copia.qtdRequisicao, equals(4));
+      expect(copia.qtdDepositoGlobal, equals(1));
+      expect(copia.qtdDespesas, equals(2));
       expect(copia.vendasSistema, equals(1000));
+    });
+
+    test('temDiferenca, ehSobra e ehFalta respeitam tolerância de meio centavo', () {
+      expect(TotaisTurno(diferenca: 0.004).temDiferenca, isFalse);
+      expect(TotaisTurno(diferenca: -0.004).temDiferenca, isFalse);
+      expect(TotaisTurno(diferenca: 0.005).temDiferenca, isTrue);
+      expect(TotaisTurno(diferenca: 0.005).ehSobra, isTrue);
+      expect(TotaisTurno(diferenca: -0.005).ehFalta, isTrue);
     });
   });
 }

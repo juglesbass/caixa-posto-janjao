@@ -18,13 +18,17 @@ class ItemDetalheCartao {
 /// Totais agregados de um turno
 class TotaisTurno {
   final double dinheiro;
+  final int qtdDinheiro;
   final double pix;
   final int qtdPix;
   final double cartoes;
   final int qtdCartoes;
   final double requisicao;
+  final int qtdRequisicao;
   final double depositoGlobal;
+  final int qtdDepositoGlobal;
   final double despesas;
+  final int qtdDespesas;
   final double sangrias;
   final int qtdSangrias;
   final double suprimentos;
@@ -38,13 +42,17 @@ class TotaisTurno {
 
   TotaisTurno({
     this.dinheiro = 0.0,
+    this.qtdDinheiro = 0,
     this.pix = 0.0,
     this.qtdPix = 0,
     this.cartoes = 0.0,
     this.qtdCartoes = 0,
     this.requisicao = 0.0,
+    this.qtdRequisicao = 0,
     this.depositoGlobal = 0.0,
+    this.qtdDepositoGlobal = 0,
     this.despesas = 0.0,
+    this.qtdDespesas = 0,
     this.sangrias = 0.0,
     this.qtdSangrias = 0,
     this.suprimentos = 0.0,
@@ -57,19 +65,23 @@ class TotaisTurno {
     this.detalheCartoes = const {},
   });
 
-  bool get temDiferenca => diferenca.abs() >= 0.01;
-  bool get ehSobra => diferenca > 0.01;
-  bool get ehFalta => diferenca < -0.01;
+  bool get temDiferenca => diferenca.abs() >= 0.005;
+  bool get ehSobra => diferenca >= 0.005;
+  bool get ehFalta => diferenca <= -0.005;
 
   TotaisTurno copyWith({
     double? dinheiro,
+    int? qtdDinheiro,
     double? pix,
     int? qtdPix,
     double? cartoes,
     int? qtdCartoes,
     double? requisicao,
+    int? qtdRequisicao,
     double? depositoGlobal,
+    int? qtdDepositoGlobal,
     double? despesas,
+    int? qtdDespesas,
     double? sangrias,
     int? qtdSangrias,
     double? suprimentos,
@@ -83,13 +95,17 @@ class TotaisTurno {
   }) {
     return TotaisTurno(
       dinheiro: dinheiro ?? this.dinheiro,
+      qtdDinheiro: qtdDinheiro ?? this.qtdDinheiro,
       pix: pix ?? this.pix,
       qtdPix: qtdPix ?? this.qtdPix,
       cartoes: cartoes ?? this.cartoes,
       qtdCartoes: qtdCartoes ?? this.qtdCartoes,
       requisicao: requisicao ?? this.requisicao,
+      qtdRequisicao: qtdRequisicao ?? this.qtdRequisicao,
       depositoGlobal: depositoGlobal ?? this.depositoGlobal,
+      qtdDepositoGlobal: qtdDepositoGlobal ?? this.qtdDepositoGlobal,
       despesas: despesas ?? this.despesas,
+      qtdDespesas: qtdDespesas ?? this.qtdDespesas,
       sangrias: sangrias ?? this.sangrias,
       qtdSangrias: qtdSangrias ?? this.qtdSangrias,
       suprimentos: suprimentos ?? this.suprimentos,

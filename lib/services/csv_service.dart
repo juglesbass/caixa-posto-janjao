@@ -1,23 +1,51 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/lancamento.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
+import '../utils/arquivo_local.dart';
+import '../utils/data_caixa.dart';
 import '../utils/payment_types.dart';
 
 class CsvService {
-  /// Gera e compartilha o arquivo CSV do Fechamento de Turno
-  static Future<void> exportarECompartilharCsv({
+  /// Escapa célula textual para CSV (separador `;`) e neutraliza injeção de
+  /// fórmulas em planilhas (`=`, `+`, `-`, `@`, TAB) preservando números e `-`.
+  static String formatarCelulaTexto(String valor) {
+    var limpo = valor.replaceAll(RegExp(r'[\r\n]+'), ' ');
+    if (limpo.isNotEmpty && limpo != '-') {
+      final primeiro = limpo[0];
+      if ((primeiro == '=' ||
+              primeiro == '+' ||
+              primeiro == '-' ||
+              primeiro == '@' ||
+              primeiro == '\t') &&
+          double.tryParse(limpo.trim()) == null) {
+        limpo = "'$limpo";
+      }
+    }
+    return '"${limpo.replaceAll('"', '""')}"';
+  }
+
+  /// Gera o nome do arquivo CSV do Fechamento de Turno.
+  static String gerarNomeArquivo(Turno turno) {
+    final operadorLimpo = turno.operador.trim().replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
+    final dataCaixaStr = DataCaixa.dataParaNomeArquivo(turno.dataCaixa);
+    final sufixoVersao = (turno.versao > 1) ? '_v${turno.versao}' : '';
+    final baseNome = operadorLimpo.isNotEmpty ? '$operadorLimpo $dataCaixaStr' : dataCaixaStr;
+    return '$baseNome$sufixoVersao.csv';
+  }
+
+  /// Monta o conteúdo CSV do Fechamento de Turno.
+  static String montarCsv({
     required Turno turno,
     required TotaisTurno totais,
     required List<Lancamento> lancamentos,
-  }) async {
+    DateTime? agora,
+  }) {
     final buffer = StringBuffer();
 
     // UTF-8 BOM para garantir acentuação correta no Excel / Planilhas
@@ -26,22 +54,22 @@ class CsvService {
     // Metadados do Turno
     buffer.writeln('POSTO JANJÃO - RELATÓRIO DE FECHAMENTO DE TURNO');
     buffer.writeln('Turno;${turno.numero}');
-    buffer.writeln('Operador;${turno.operador}');
-    buffer.writeln('Caixa do Dia;${turno.dataCaixa}');
-    buffer.writeln('Aberto Em;${turno.data}');
-    buffer.writeln('Fechado Em;${turno.fechadoEm ?? "Aberto"}');
-    buffer.writeln('Data de Exportação;${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())}');
+    buffer.writeln('Operador;${formatarCelulaTexto(turno.operador)}');
+    buffer.writeln('Caixa do Dia;${formatarCelulaTexto(turno.dataCaixa)}');
+    buffer.writeln('Aberto Em;${formatarCelulaTexto(turno.data)}');
+    buffer.writeln('Fechado Em;${formatarCelulaTexto(turno.fechadoEm ?? 'Aberto')}');
+    buffer.writeln('Data de Exportação;${DateFormat('dd/MM/yyyy HH:mm:ss').format(agora ?? DateTime.now())}');
     buffer.writeln('');
 
     // Resumo Financeiro
     buffer.writeln('RESUMO FINANCEIRO');
     buffer.writeln('Item;Quantidade;Valor (R\$)');
-    buffer.writeln('Dinheiro em Espécie;-;${totais.dinheiro.toStringAsFixed(2)}');
-    buffer.writeln('Pagamento Pix;-;${totais.pix.toStringAsFixed(2)}');
+    buffer.writeln('Dinheiro em Espécie;${totais.qtdDinheiro};${totais.dinheiro.toStringAsFixed(2)}');
+    buffer.writeln('Pagamento Pix;${totais.qtdPix};${totais.pix.toStringAsFixed(2)}');
     buffer.writeln('Total Cartões;${totais.qtdCartoes};${totais.cartoes.toStringAsFixed(2)}');
-    buffer.writeln('Requisição (A Prazo);-;${totais.requisicao.toStringAsFixed(2)}');
-    buffer.writeln('Depósito Global;-;${totais.depositoGlobal.toStringAsFixed(2)}');
-    buffer.writeln('Despesas;-;${totais.despesas.toStringAsFixed(2)}');
+    buffer.writeln('Requisição (A Prazo);${totais.qtdRequisicao};${totais.requisicao.toStringAsFixed(2)}');
+    buffer.writeln('Depósito Global;${totais.qtdDepositoGlobal};${totais.depositoGlobal.toStringAsFixed(2)}');
+    buffer.writeln('Despesas;${totais.qtdDespesas};${totais.despesas.toStringAsFixed(2)}');
     buffer.writeln('TOTAL GERAL (PISTA);-;${totais.totalGeral.toStringAsFixed(2)}');
     // Sem a venda do sistema nao ha conferencia: nada de "diferenca" igual ao
     // total inteiro (ver Conciliacao).
@@ -61,7 +89,7 @@ class CsvService {
       buffer.writeln('Nenhum cartão lançado;0;0.00');
     } else {
       for (final e in PaymentTypes.ordenarCartoes(totais.detalheCartoes.entries)) {
-        buffer.writeln('${e.key};${e.value.qtd};${e.value.total.toStringAsFixed(2)}');
+        buffer.writeln('${formatarCelulaTexto(e.key)};${e.value.qtd};${e.value.total.toStringAsFixed(2)}');
       }
     }
     buffer.writeln('');
@@ -71,13 +99,27 @@ class CsvService {
     buffer.writeln('ID;Hora;Tipo de Pagamento;Descrição / Observação;Valor (R\$)');
     for (final l in lancamentos) {
       final desc = l.descricao.trim().isNotEmpty ? l.descricao : '-';
-      buffer.writeln('${l.id};${l.hora};"${l.tipo.replaceAll('"', '""')}";"${desc.replaceAll('"', '""').replaceAll('\n', ' ')}";${l.valor.toStringAsFixed(2)}');
+      buffer.writeln(
+        '${l.id};${l.hora};${formatarCelulaTexto(l.tipo)};${formatarCelulaTexto(desc)};${l.valor.toStringAsFixed(2)}',
+      );
     }
 
-    final csvContent = buffer.toString();
+    return buffer.toString();
+  }
+
+  /// Gera e compartilha o arquivo CSV do Fechamento de Turno
+  static Future<void> exportarECompartilharCsv({
+    required Turno turno,
+    required TotaisTurno totais,
+    required List<Lancamento> lancamentos,
+  }) async {
+    final csvContent = montarCsv(
+      turno: turno,
+      totais: totais,
+      lancamentos: lancamentos,
+    );
     final operadorLimpo = turno.operador.trim().replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
-    final dataHojeStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
-    final nomeArquivo = '$operadorLimpo $dataHojeStr.csv';
+    final nomeArquivo = gerarNomeArquivo(turno);
 
     const origem = ui.Rect.fromLTWH(0, 0, 100, 100);
 
@@ -98,12 +140,14 @@ class CsvService {
         ),
       );
     } else {
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/$nomeArquivo');
-      await file.writeAsString(csvContent, encoding: utf8);
+      final caminho = await salvarTextoTemporario(
+        conteudo: csvContent,
+        nomeArquivo: nomeArquivo,
+      );
+      if (caminho == null) return;
       await SharePlus.instance.share(
         ShareParams(
-          files: [XFile(file.path, mimeType: 'text/csv')],
+          files: [XFile(caminho, mimeType: 'text/csv')],
           subject: 'Fechamento CSV - $operadorLimpo',
           sharePositionOrigin: origem,
         ),

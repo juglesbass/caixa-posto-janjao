@@ -74,40 +74,69 @@ class Turno {
     };
   }
 
-  factory Turno.fromMap(Map<String, dynamic> map) {
-    Map<String, int> canhotosMap = {};
-    if (map['canhotos'] != null && map['canhotos'] is String && (map['canhotos'] as String).trim().isNotEmpty) {
+  static Map<String, int> _parseCanhotos(dynamic bruto) {
+    dynamic mapa = bruto;
+    if (mapa is String && mapa.trim().isNotEmpty) {
       try {
-        final decoded = jsonDecode(map['canhotos'] as String);
-        if (decoded is Map) {
-          canhotosMap = decoded.map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
-        }
-      } catch (_) {}
-    } else if (map['canhotos'] is Map) {
-      try {
-        canhotosMap = (map['canhotos'] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
-      } catch (_) {}
+        mapa = jsonDecode(mapa);
+      } catch (_) {
+        return {};
+      }
     }
+    if (mapa is! Map) return {};
+    final resultado = <String, int>{};
+    for (final entry in mapa.entries) {
+      final v = entry.value;
+      final qtd = v is num ? v.toInt() : int.tryParse(v?.toString() ?? '');
+      if (qtd != null) {
+        resultado[entry.key.toString()] = qtd;
+      }
+    }
+    return resultado;
+  }
 
-    final valorVendas = ((map['venda_sistema'] ?? map['vendas_sistema']) as num?)?.toDouble() ?? 0.0;
-    final obs = map['observacao'] as String? ?? '';
-    final just = map['justificativa'] as String? ?? (obs.isNotEmpty ? obs : null);
+  static int? _parseInt(dynamic val) {
+    if (val == null) return null;
+    if (val is int) return val;
+    if (val is num) return val.toInt();
+    return int.tryParse(val.toString().trim());
+  }
+
+  static double _parseDouble(dynamic val, {double padrao = 0.0}) {
+    if (val == null) return padrao;
+    if (val is double) return val;
+    if (val is num) return val.toDouble();
+    return double.tryParse(val.toString().trim().replaceAll(',', '.')) ?? padrao;
+  }
+
+  factory Turno.fromMap(Map<String, dynamic> map) {
+    final canhotosMap = _parseCanhotos(map['canhotos']);
+
+    final valorVendas = _parseDouble(map['venda_sistema'] ?? map['vendas_sistema']);
+    final obs = map['observacao']?.toString() ?? '';
+    final justBruta = map['justificativa']?.toString();
+    final just = (justBruta != null && justBruta.trim().isNotEmpty)
+        ? justBruta
+        : (obs.trim().isNotEmpty ? obs : null);
+
+    final abertoBruto = map['aberto'];
+    final aberto = abertoBruto == 1 || abertoBruto == true || abertoBruto == '1' || abertoBruto == 'true';
 
     return Turno(
-      id: map['id'] as int?,
-      numero: (map['numero'] as num?)?.toInt() ?? 1,
-      data: map['data'] as String? ?? '',
-      operador: map['operador'] as String? ?? 'Não informado',
-      aberto: map['aberto'] == 1 || map['aberto'] == true,
-      fechadoEm: map['fechado_em'] as String?,
+      id: _parseInt(map['id']),
+      numero: _parseInt(map['numero']) ?? 1,
+      data: map['data']?.toString() ?? '',
+      operador: map['operador']?.toString() ?? 'Não informado',
+      aberto: aberto,
+      fechadoEm: map['fechado_em']?.toString(),
       vendasSistema: valorVendas,
       observacao: obs,
       justificativa: just,
       canhotos: canhotosMap,
-      fundoCaixa: (map['fundo_caixa'] as num?)?.toDouble() ?? 0.0,
-      authHash: map['auth_hash'] as String?,
-      versao: (map['versao'] as num?)?.toInt() ?? 1,
-      dataCaixa: map['data_caixa'] as String?,
+      fundoCaixa: _parseDouble(map['fundo_caixa']),
+      authHash: map['auth_hash']?.toString(),
+      versao: _parseInt(map['versao']) ?? 1,
+      dataCaixa: map['data_caixa']?.toString(),
     );
   }
 

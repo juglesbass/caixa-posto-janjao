@@ -677,19 +677,19 @@ class DriveService {
           }
 
           final authHash = turno.authHash ?? '';
+          final isTeste = await isModoTeste();
+          final folderId = isTeste ? pastaTestesId : pastaOficialId;
 
           // Já chegou? Então só limpa a fila — sem reenviar e sem montar o PDF à
           // toa, o que também poupa o celular.
           if (authHash.isNotEmpty &&
-              await verificarEntrega(webhookUrl, authHash) == EstadoEntrega.entregue) {
+              await verificarEntrega(webhookUrl, authHash, pasta: folderId) ==
+                  EstadoEntrega.entregue) {
             await db.removerPendenciaDrive(turnoId);
             await NotificationService.cancelarLembreteEnvio(turnoId);
             sucessos++;
             continue;
           }
-
-          final isTeste = await isModoTeste();
-          final folderId = isTeste ? pastaTestesId : pastaOficialId;
 
           // Montagem do PDF separada do envio: se falhar aqui nada foi à rede,
           // e o motivo não pode ser "sem internet".

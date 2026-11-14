@@ -52,57 +52,59 @@ class _DriveFailureDialogState extends State<DriveFailureDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            CabecalhoJanela(
-              icone: Icons.cloud_off_rounded,
-              cor: AppColors.amber,
-              titulo: 'Envio Pendente para o Drive',
-              subtitulo: 'Turno #${widget.turnoNumero} · ${widget.operador}',
-            ),
-            const SizedBox(height: 16),
-            const AvisoJanela(
-              cor: AppColors.green,
-              icone: Icons.check_circle_rounded,
-              texto: 'O turno foi encerrado e está guardado com segurança neste dispositivo.',
-            ),
-            const SizedBox(height: 8),
-            // Motivo real do envio. Este texto era fixo em "falta de conexão
-            // com a internet" desde 25/08 e aparecia até quando havia sinal e o
-            // PDF já estava no Drive.
-            AvisoJanela(
-              cor: AppColors.amber,
-              icone: Icons.warning_amber_rounded,
-              texto: widget.mensagemErro,
-            ),
-            const SizedBox(height: 16),
-
-            if (_feedback != null) ...[
-              AvisoJanela(
-                cor: _sucesso ? AppColors.green : AppColors.red,
-                icone: _sucesso ? Icons.check_circle_rounded : Icons.error_outline_rounded,
-                texto: _feedback!,
+      child: SingleChildScrollView(
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              CabecalhoJanela(
+                icone: Icons.cloud_off_rounded,
+                cor: AppColors.amber,
+                titulo: 'Envio Pendente para o Drive',
+                subtitulo: 'Turno #${widget.turnoNumero} · ${widget.operador}',
               ),
               const SizedBox(height: 16),
-            ],
+              const AvisoJanela(
+                cor: AppColors.green,
+                icone: Icons.check_circle_rounded,
+                texto: 'O turno foi encerrado e está guardado com segurança neste dispositivo.',
+              ),
+              const SizedBox(height: 8),
+              // Motivo real do envio. Este texto era fixo em "falta de conexão
+              // com a internet" desde 25/08 e aparecia até quando havia sinal e o
+              // PDF já estava no Drive.
+              AvisoJanela(
+                cor: AppColors.amber,
+                icone: Icons.warning_amber_rounded,
+                texto: widget.mensagemErro,
+              ),
+              const SizedBox(height: 16),
 
-            BotaoPrincipal(
-              texto: _enviando ? 'Enviando ao Drive...' : 'Tentar Enviar Novamente Agora',
-              icone: Icons.sync_rounded,
-              ocupado: _enviando,
-              onPressed: _enviando ? null : _tentarReenviar,
-            ),
-            const SizedBox(height: 4),
-            BotaoSecundario(
-              texto: 'Entendido, Enviar Mais Tarde',
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
+              if (_feedback != null) ...[
+                AvisoJanela(
+                  cor: _sucesso ? AppColors.green : AppColors.red,
+                  icone: _sucesso ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                  texto: _feedback!,
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              BotaoPrincipal(
+                texto: _enviando ? 'Enviando ao Drive...' : 'Tentar Enviar Novamente Agora',
+                icone: Icons.sync_rounded,
+                ocupado: _enviando,
+                onPressed: _enviando ? null : _tentarReenviar,
+              ),
+              const SizedBox(height: 4),
+              BotaoSecundario(
+                texto: 'Entendido, Enviar Mais Tarde',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
         ),
       ),
     );

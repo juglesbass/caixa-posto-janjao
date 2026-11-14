@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
@@ -33,6 +34,38 @@ void requestNotificationPermission() {
   } catch (_) {}
 }
 
+Future<void> _mostrarNotificacaoAsync(
+  JSObject ctor,
+  String title,
+  JSAny? opcoes,
+) async {
+  // No Chrome para Android (PWA), `new Notification(...)` falha: apenas
+  // `ServiceWorkerRegistration.showNotification(...)` exibe o aviso.
+  try {
+    final nav = globalContext.getProperty<JSObject?>('navigator'.toJS);
+    final sw = nav?.getProperty<JSObject?>('serviceWorker'.toJS);
+    final controller = sw?.getProperty<JSObject?>('controller'.toJS);
+    if (sw != null && controller != null) {
+      final pronto = sw.getProperty<JSPromise<JSObject>?>('ready'.toJS);
+      if (pronto != null) {
+        final reg = await pronto.toDart;
+        final ret = reg.callMethodVarArgs<JSAny?>(
+          'showNotification'.toJS,
+          <JSAny?>[title.toJS, opcoes],
+        );
+        if (ret != null && ret.isA<JSPromise>()) {
+          await (ret as JSPromise<JSAny?>).toDart;
+        }
+        return;
+      }
+    }
+  } catch (_) {}
+
+  try {
+    (ctor as JSFunction).callAsConstructor<JSObject>(title.toJS, opcoes);
+  } catch (_) {}
+}
+
 void showSystemNotification(String title, String body) {
   try {
     final ctor = _construtorNotification();
@@ -44,6 +77,6 @@ void showSystemNotification(String title, String body) {
       'icon': 'icons/Icon-192.png',
     }.jsify();
 
-    (ctor as JSFunction).callAsConstructor<JSObject>(title.toJS, opcoes);
+    unawaited(_mostrarNotificacaoAsync(ctor, title, opcoes));
   } catch (_) {}
 }

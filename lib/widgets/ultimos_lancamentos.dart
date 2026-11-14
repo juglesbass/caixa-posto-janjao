@@ -164,17 +164,23 @@ class _UltimosLancamentosState extends State<UltimosLancamentos> {
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 9),
             child: Row(
               children: [
-                Text(
-                  'ÚLTIMOS LANÇAMENTOS',
-                  style: TextStyle(
-                    fontSize: AppTexto.rotulo,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.8,
-                    color: textTer,
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'ÚLTIMOS LANÇAMENTOS',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: AppTexto.rotulo,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8,
+                      color: textTer,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
+                  flex: 2,
                   child: Text(
                     'toque para corrigir',
                     textAlign: TextAlign.right,
@@ -271,13 +277,21 @@ class _Linha extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Text(
-              valor,
-              style: TextStyle(
-                fontFamily: AppTexto.numeros,
-                fontSize: AppTexto.valor,
-                fontWeight: FontWeight.w600,
-                color: textPri,
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 130),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(
+                  valor,
+                  style: TextStyle(
+                    fontFamily: AppTexto.numeros,
+                    fontSize: AppTexto.valor,
+                    fontWeight: FontWeight.w600,
+                    color: textPri,
+                  ),
+                ),
               ),
             ),
             if (primeira) ...[

@@ -29,12 +29,7 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # Informativo: o analyze aponta avisos de estilo que já existiam antes
-      # desta configuração. Ele não derruba o workflow para não confundir
-      # "aviso antigo" com "mudança quebrada" — quem reprova de verdade são os
-      # dois passos abaixo, que compilam o app para a VM e para o Web.
       - name: Run Flutter Analyze
-        continue-on-error: true
         run: flutter analyze
 
       - name: Run Flutter Tests

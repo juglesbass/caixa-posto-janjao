@@ -32,13 +32,13 @@ class Lancamento {
 
   factory Lancamento.fromMap(Map<String, dynamic> map) {
     return Lancamento(
-      id: map['id'] as int?,
+      id: (map['id'] as num?)?.toInt(),
       turnoId: (map['turno_id'] as num?)?.toInt() ?? 0,
-      tipo: map['tipo'] as String? ?? 'Dinheiro',
+      tipo: map['tipo']?.toString() ?? 'Dinheiro',
       valor: (map['valor'] as num?)?.toDouble() ?? 0.0,
-      descricao: map['descricao'] as String? ?? '',
-      hora: map['hora'] as String? ?? '',
-      dataHora: map['data_hora'] as String? ?? '',
+      descricao: map['descricao']?.toString() ?? '',
+      hora: map['hora']?.toString() ?? '',
+      dataHora: map['data_hora']?.toString() ?? '',
     );
   }
 
