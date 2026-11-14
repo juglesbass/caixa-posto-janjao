@@ -181,10 +181,10 @@ class PdfService {
 
     final idDoc = 'Documento #PDF-${turno.numero.toString().padLeft(4, '0')}';
 
-    // Contagem de Pix
+    // Contagem de Pag Pix (Pix da conta independente, excluindo Pix de máquinas)
     int qtdPix = 0;
     for (final l in lancamentos) {
-      if (l.tipo.toLowerCase().contains('pix')) qtdPix++;
+      if (PaymentTypes.ehPix(l.tipo)) qtdPix++;
     }
 
     // Dimensões otimizadas para tela de smartphone (380pt) com altura proporcional que preenche a tela

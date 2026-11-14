@@ -118,4 +118,19 @@ void main() {
     await esperar(tester);
     expect(find.text('Requisição'), findsOneWidget);
   });
+
+  testWidgets('filtro Pix separa Pag Pix de Pix da maquininha (Rede Pix)', (tester) async {
+    await tester.runAsync(() => DatabaseService.instance.inserirLancamento(turno.id!, 'Rede Pix', 95, ''));
+    await abrir(tester, turno);
+
+    await tester.tap(find.text('Pix'));
+    await tester.pump();
+    expect(find.text('Pag Pix'), findsOneWidget);
+    expect(find.text('Rede Pix'), findsNothing);
+
+    await tester.tap(find.text('Cartões'));
+    await tester.pump();
+    expect(find.text('Rede Pix'), findsOneWidget);
+    expect(find.text('Pag Pix'), findsNothing);
+  });
 }

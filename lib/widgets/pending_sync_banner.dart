@@ -28,25 +28,28 @@ class PendingSyncBanner extends StatefulWidget {
 class _PendingSyncBannerState extends State<PendingSyncBanner> {
   bool _sincronizando = false;
 
-  Future<void> _sincronizar(BuildContext context) async {
+  Future<void> _sincronizar() async {
+    if (_sincronizando) return;
     setState(() => _sincronizando = true);
 
-    final res = await DriveService.sincronizarTodasPendencias();
+    try {
+      final res = await DriveService.sincronizarTodasPendencias();
 
-    if (mounted) {
-      setState(() => _sincronizando = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res.mensagem),
+            backgroundColor: res.todosOk ? AppColors.green : AppColors.amber,
+            duration: const Duration(seconds: 4),
+          ),
+        );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res.mensagem),
-          backgroundColor: res.todosOk ? AppColors.green : AppColors.amber,
-          duration: const Duration(seconds: 4),
-        ),
-      );
-
-      if (res.todosOk && widget.onSincronizado != null) {
-        widget.onSincronizado!();
+        if (res.todosOk && widget.onSincronizado != null) {
+          widget.onSincronizado!();
+        }
       }
+    } finally {
+      if (mounted) setState(() => _sincronizando = false);
     }
   }
 
@@ -82,7 +85,7 @@ class _PendingSyncBannerState extends State<PendingSyncBanner> {
   Widget _bannerPendencias() {
     return ValueListenableBuilder<int>(
       valueListenable: NotificationService.pendenciasCount,
-      builder: (context, totalPendencias, _) {
+      builder: (_, totalPendencias, __) {
         if (totalPendencias <= 0) return const SizedBox.shrink();
 
         return Padding(
@@ -92,7 +95,7 @@ class _PendingSyncBannerState extends State<PendingSyncBanner> {
           // boa, erro do servidor ou tela de login.
           child: ValueListenableBuilder<String?>(
             valueListenable: NotificationService.motivoPendencia,
-            builder: (context, motivo, _) => AvisoJanela(
+            builder: (_, motivo, __) => AvisoJanela(
               cor: AppColors.amber,
               icone: Icons.cloud_off_rounded,
               titulo: '$totalPendencias PDF(s) pendente(s) no Drive',
@@ -105,7 +108,7 @@ class _PendingSyncBannerState extends State<PendingSyncBanner> {
                       child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.amber),
                     )
                   : ElevatedButton(
-                      onPressed: () => _sincronizar(context),
+                      onPressed: _sincronizar,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.amber,
                         foregroundColor: Colors.black,

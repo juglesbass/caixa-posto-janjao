@@ -42,6 +42,7 @@ class _EditLaunchDialogState extends State<EditLaunchDialog> {
   late TextEditingController _controllerDesc;
   late String _tipoSelecionado;
   String? _erroValor;
+  bool _enviando = false;
 
   static const _maquinas = [PaymentTypes.maquinaRede, PaymentTypes.maquinaCielo, 'Stone', 'PagBank'];
 
@@ -96,6 +97,7 @@ class _EditLaunchDialogState extends State<EditLaunchDialog> {
   }
 
   void _salvar() {
+    if (_enviando) return;
     final valor = CurrencyFormatter.parse(_controllerValor.text);
     if (valor <= 0) {
       AppHaptics.heavy();
@@ -103,6 +105,7 @@ class _EditLaunchDialogState extends State<EditLaunchDialog> {
       return;
     }
 
+    _enviando = true;
     Navigator.of(context).pop();
     widget.onSalvar((
       tipo: _tipoSelecionado,
@@ -127,6 +130,8 @@ class _EditLaunchDialogState extends State<EditLaunchDialog> {
           ),
           ElevatedButton(
             onPressed: () {
+              if (_enviando) return;
+              _enviando = true;
               Navigator.of(ctx).pop();
               Navigator.of(context).pop();
               widget.onDeletar();

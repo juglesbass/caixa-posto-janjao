@@ -52,6 +52,8 @@ class _BicoItem {
 }
 
 class _EncerrantesDialogState extends State<EncerrantesDialog> {
+  bool _salvando = false;
+
   final List<_BicoItem> _bicos = [
     _BicoItem(bico: 'Bico 01', combustivel: 'Gasolina Comum', preco: 5.89),
     _BicoItem(bico: 'Bico 02', combustivel: 'Gasolina Aditivada', preco: 6.09),
@@ -103,12 +105,21 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
     final salvos = await db.obterEncerrantes(widget.turnoId);
     if (!mounted) return;
     if (salvos.isNotEmpty) {
-      if (_bicos.isEmpty) return;
       for (final s in salvos) {
-        final bico = _bicos.firstWhere(
-          (b) => b.bico == s['bico'],
-          orElse: () => _bicos.first,
-        );
+        final nomeSalvo = (s['bico'] as String?)?.trim() ?? '';
+        if (nomeSalvo.isEmpty) continue;
+        final idx = _bicos.indexWhere((b) => b.bico == nomeSalvo);
+        final _BicoItem bico;
+        if (idx >= 0) {
+          bico = _bicos[idx];
+        } else {
+          bico = _BicoItem(
+            bico: nomeSalvo,
+            combustivel: prefs.getString('bico_${nomeSalvo}_combustivel') ?? 'Gasolina Comum',
+            preco: prefs.getDouble('bico_${nomeSalvo}_preco') ?? 5.89,
+          );
+          _bicos.add(bico);
+        }
         if (s['combustivel'] != null && (s['combustivel'] as String).isNotEmpty) {
           bico.controllerCombustivel.text = s['combustivel'];
         }
@@ -125,7 +136,11 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
   }
 
   void _adicionarBico() {
-    final novoIndex = _bicos.length + 1;
+    final existentes = _bicos.map((b) => b.bico).toSet();
+    var novoIndex = 1;
+    while (existentes.contains('Bico ${novoIndex.toString().padLeft(2, '0')}')) {
+      novoIndex++;
+    }
     final nomeBico = 'Bico ${novoIndex.toString().padLeft(2, '0')}';
     setState(() {
       _bicos.add(_BicoItem(
@@ -145,33 +160,40 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
   }
 
   void _salvar() async {
-    final db = DatabaseService.instance;
-    final prefs = await SharedPreferences.getInstance();
+    if (_salvando) return;
+    setState(() => _salvando = true);
 
-    for (final b in _bicos) {
-      await db.salvarEncerrante(
-        widget.turnoId,
-        b.bico,
-        b.combustivel,
-        0.0, // Não necessita de leitura inicial
-        b.litrosVendidos, // Salva diretamente os litros vendidos
-        b.preco,
+    try {
+      final db = DatabaseService.instance;
+      final prefs = await SharedPreferences.getInstance();
+
+      for (final b in _bicos) {
+        await db.salvarEncerrante(
+          widget.turnoId,
+          b.bico,
+          b.combustivel,
+          0.0, // Não necessita de leitura inicial
+          b.litrosVendidos, // Salva diretamente os litros vendidos
+          b.preco,
+        );
+
+        // Salva os valores de preço e combustível para lembrar no próximo turno
+        await prefs.setString('bico_${b.bico}_combustivel', b.combustivel);
+        await prefs.setDouble('bico_${b.bico}_preco', b.preco);
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Encerrantes salvos com sucesso!'),
+          backgroundColor: AppColors.green,
+          duration: Duration(seconds: 2),
+        ),
       );
-
-      // Salva os valores de preço e combustível para lembrar no próximo turno
-      await prefs.setString('bico_${b.bico}_combustivel', b.combustivel);
-      await prefs.setDouble('bico_${b.bico}_preco', b.preco);
+      Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _salvando = false);
     }
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✅ Encerrantes salvos com sucesso!'),
-        backgroundColor: AppColors.green,
-        duration: Duration(seconds: 2),
-      ),
-    );
-    Navigator.of(context).pop();
   }
 
   double get _totalLitrosGeral => _bicos.fold(0.0, (acc, b) => acc + b.litrosVendidos);
@@ -445,8 +467,16 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
 
             // ── Botões de Ação ──
             BotoesJanela(
-              secundario: BotaoSecundario(texto: 'Voltar', onPressed: () => Navigator.of(context).pop()),
-              principal: BotaoPrincipal(texto: 'Salvar Encerrantes', icone: Icons.check_circle_rounded, onPressed: _salvar),
+              secundario: BotaoSecundario(
+                texto: 'Voltar',
+                onPressed: _salvando ? null : () => Navigator.of(context).pop(),
+              ),
+              principal: BotaoPrincipal(
+                texto: _salvando ? 'Salvando...' : 'Salvar Encerrantes',
+                icone: Icons.check_circle_rounded,
+                ocupado: _salvando,
+                onPressed: _salvando ? null : _salvar,
+              ),
             ),
           ],
         ),

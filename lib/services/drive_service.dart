@@ -190,6 +190,11 @@ class DriveService {
       return true;
     }
 
+    // Nunca aceitar 4xx/5xx como sucesso mesmo se o JSON contiver a palavra 'success'
+    if (status < 200 || status >= 400) {
+      return false;
+    }
+
     // 3. Fallback de verificação de palavras-chave no corpo
     final bodyLower = body.toLowerCase();
     if (bodyLower.contains('success') ||
@@ -213,11 +218,12 @@ class DriveService {
   // ──────────────────────────────────────────────────────────────────────────
 
   /// Endereço da consulta "este fechamento chegou?" no mesmo Apps Script.
-  static Uri montarUrlVerificacao(String webhookUrl, String authHash) {
+  static Uri montarUrlVerificacao(String webhookUrl, String authHash, {String? pasta}) {
     final base = Uri.parse(webhookUrl);
     return base.replace(queryParameters: {
       ...base.queryParameters,
       'verificar': authHash,
+      if (pasta != null && pasta.trim().isNotEmpty) 'pasta': pasta.trim(),
     });
   }
 
@@ -242,11 +248,15 @@ class DriveService {
   }
 
   /// Pergunta UMA vez ao Apps Script se o fechamento [authHash] já está na pasta.
-  static Future<EstadoEntrega> verificarEntrega(String webhookUrl, String authHash) async {
+  static Future<EstadoEntrega> verificarEntrega(
+    String webhookUrl,
+    String authHash, {
+    String? pasta,
+  }) async {
     if (authHash.trim().isEmpty) return EstadoEntrega.semResposta;
     try {
       final response = await _client
-          .get(montarUrlVerificacao(webhookUrl, authHash))
+          .get(montarUrlVerificacao(webhookUrl, authHash, pasta: pasta))
           .timeout(const Duration(seconds: 15));
       return interpretarVerificacao(response);
     } catch (_) {
@@ -273,6 +283,7 @@ class DriveService {
   static Future<EstadoEntrega> confirmarEntrega(
     String webhookUrl,
     String authHash, {
+    String? pasta,
     List<Duration> esperas = esperasConfirmacao,
   }) async {
     var resultado = EstadoEntrega.semResposta;
@@ -280,7 +291,7 @@ class DriveService {
       if (esperas[i] > Duration.zero) {
         await Future<void>.delayed(esperas[i]);
       }
-      final estado = await verificarEntrega(webhookUrl, authHash);
+      final estado = await verificarEntrega(webhookUrl, authHash, pasta: pasta);
       if (estado == EstadoEntrega.entregue) return estado;
       if (estado == EstadoEntrega.semSuporte) return estado;
       if (estado == EstadoEntrega.semResposta && i == 0) return estado;
@@ -526,9 +537,10 @@ class DriveService {
 
     var consulta = EstadoEntrega.semResposta;
     final hash = authHash ?? '';
+    final pasta = isTeste ? pastaTestesId : pastaOficialId;
     if (webhookUrl.isNotEmpty && hash.isNotEmpty) {
       aoConfirmarEntrega?.call();
-      consulta = await confirmarEntrega(webhookUrl, hash);
+      consulta = await confirmarEntrega(webhookUrl, hash, pasta: pasta);
 
       // Segunda chance, uma só, enquanto o frentista ainda está na tela.
       //
@@ -540,7 +552,7 @@ class DriveService {
         if (decidirSegundaChance(consulta) == SegundaChance.aguardarRede) {
           aoTentarDeNovo?.call();
           await Future<void>.delayed(esperaTrocaDeRede);
-          consulta = await verificarEntrega(webhookUrl, hash);
+          consulta = await verificarEntrega(webhookUrl, hash, pasta: pasta);
         }
         if (decidirSegundaChance(consulta) == SegundaChance.reenviar) {
           aoTentarDeNovo?.call();
@@ -762,7 +774,7 @@ class DriveService {
             // Uma consulta só, sem esperar: a fila roda de novo sozinha, e a
             // próxima rodada pergunta outra vez antes de reenviar.
             final consulta = authHash.isNotEmpty
-                ? await verificarEntrega(webhookUrl, authHash)
+                ? await verificarEntrega(webhookUrl, authHash, pasta: folderId)
                 : EstadoEntrega.semResposta;
             if (consulta == EstadoEntrega.entregue) {
               await db.removerPendenciaDrive(turnoId);

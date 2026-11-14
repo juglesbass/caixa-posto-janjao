@@ -64,16 +64,24 @@ class ResetDialog extends StatelessWidget {
     );
   }
 
+  static bool _enviandoPendencias = false;
+
   Future<void> _enviarPendencias(BuildContext context) async {
+    if (_enviandoPendencias) return;
+    _enviandoPendencias = true;
     final messenger = ScaffoldMessenger.of(context);
-    final res = await DriveService.sincronizarTodasPendencias();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(res.mensagem),
-        backgroundColor: res.todosOk ? AppColors.green : AppColors.amber,
-        duration: const Duration(seconds: 4),
-      ),
-    );
+    try {
+      final res = await DriveService.sincronizarTodasPendencias();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(res.mensagem),
+          backgroundColor: res.todosOk ? AppColors.green : AppColors.amber,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } finally {
+      _enviandoPendencias = false;
+    }
   }
 
   /// Dois toques em "Sim, Zerar Tudo" rodavam o reset duas vezes, e cada um
@@ -105,7 +113,7 @@ class ResetDialog extends StatelessWidget {
       }
 
       await NotificationService.atualizarPendencias();
-      navigator.pop();
+      if (context.mounted && navigator.canPop()) navigator.pop();
       messenger.showSnackBar(
         const SnackBar(
           content: Text('🗑️ Todos os dados foram zerados com sucesso!'),

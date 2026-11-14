@@ -40,6 +40,7 @@ class _QuickLaunchModalState extends State<QuickLaunchModal> {
   String _bandeira = 'Master Débito';
   double _valor = 0.0;
   String? _erroValor;
+  bool _lancando = false;
 
   @override
   void dispose() {
@@ -83,6 +84,7 @@ class _QuickLaunchModalState extends State<QuickLaunchModal> {
   }
 
   void _lancar() {
+    if (_lancando) return;
     final valor = CurrencyFormatter.parse(_controllerValor.text);
     if (valor <= 0) {
       AppHaptics.heavy();
@@ -90,6 +92,7 @@ class _QuickLaunchModalState extends State<QuickLaunchModal> {
       return;
     }
 
+    _lancando = true;
     AppHaptics.light();
     Navigator.of(context).pop();
     widget.onLancar((

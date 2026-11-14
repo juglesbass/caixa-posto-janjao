@@ -63,10 +63,11 @@ void main() {
       expect(DriveService.isRespostaSucesso(http.Response('{"status":"error","message":"Falha"}', 200)), isFalse);
       expect(DriveService.isRespostaSucesso(http.Response('{"success":false}', 200)), isFalse);
 
-      // Falhas reais do servidor
+      // Falhas reais do servidor (inclusive 500 contendo JSON com "success")
       expect(DriveService.isRespostaSucesso(http.Response('Bad Request', 400)), isFalse);
       expect(DriveService.isRespostaSucesso(http.Response('Not Found', 404)), isFalse);
       expect(DriveService.isRespostaSucesso(http.Response('Internal Error', 500)), isFalse);
+      expect(DriveService.isRespostaSucesso(http.Response('{"success":false,"error":"Erro interno"}', 500)), isFalse);
     });
 
     test('Tela de login do Google em HTTP 200 NÃO é entrega no Drive', () {

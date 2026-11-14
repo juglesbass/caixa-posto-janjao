@@ -54,6 +54,14 @@ void main() {
       );
       expect(uri.path, '/macros/s/ABC/exec');
       expect(uri.queryParameters['verificar'], 'AUTH-1A2B-3C4D-5E6F');
+      expect(uri.queryParameters.containsKey('pasta'), isFalse);
+
+      final uriComPasta = DriveService.montarUrlVerificacao(
+        'https://script.google.com/macros/s/ABC/exec',
+        'AUTH-1A2B-3C4D-5E6F',
+        pasta: 'FOLDER_123',
+      );
+      expect(uriComPasta.queryParameters['pasta'], 'FOLDER_123');
     });
 
     test('Sem hash não consulta nada', () async {

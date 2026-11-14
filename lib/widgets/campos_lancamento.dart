@@ -118,7 +118,7 @@ class CampoValorVenda extends StatelessWidget {
         ),
       ),
       onChanged: onChanged,
-      onSubmitted: (_) => onLancar(),
+      onSubmitted: enviando ? null : (_) => onLancar(),
     );
   }
 }

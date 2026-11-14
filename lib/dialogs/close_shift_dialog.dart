@@ -334,12 +334,13 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
     final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
     final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
     String? erro;
+    bool salvando = false;
 
     final bool? alterou = await showDialog<bool>(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setModalState) {
+          builder: (_, setModalState) {
             return AlertDialog(
               backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -371,7 +372,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
+                  onPressed: salvando ? null : () => Navigator.of(ctx).pop(false),
                   child: Text('Cancelar', style: TextStyle(color: textSec)),
                 ),
                 ElevatedButton(
@@ -380,17 +381,29 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  onPressed: () async {
-                    final np = controllerNovoPin.text.trim();
-                    if (np.length != 4) {
-                      setModalState(() => erro = 'Informe exatamente 4 dígitos');
-                      return;
-                    }
-                    await AuthService.cadastrarOuAlterarPin(widget.turno.operador, np);
-                    if (!ctx.mounted) return;
-                    Navigator.of(ctx).pop(true);
-                  },
-                  child: const Text('Salvar Novo PIN'),
+                  onPressed: salvando
+                      ? null
+                      : () async {
+                          final np = controllerNovoPin.text.trim();
+                          if (np.length != 4) {
+                            setModalState(() => erro = 'Informe exatamente 4 dígitos');
+                            return;
+                          }
+                          setModalState(() => salvando = true);
+                          try {
+                            await AuthService.cadastrarOuAlterarPin(widget.turno.operador, np);
+                            if (!ctx.mounted) return;
+                            Navigator.of(ctx).pop(true);
+                          } catch (_) {
+                            if (ctx.mounted) {
+                              setModalState(() {
+                                salvando = false;
+                                erro = 'Erro ao salvar PIN';
+                              });
+                            }
+                          }
+                        },
+                  child: Text(salvando ? 'Salvando...' : 'Salvar Novo PIN'),
                 ),
               ],
             );

@@ -72,7 +72,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setModalState) {
+          builder: (_, setModalState) {
             final isDark = widget.isDark;
             final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
             final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
@@ -214,7 +214,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                                 ),
                               );
                             }
-                          } else {
+                          } else if (ctx.mounted) {
                             setModalState(() {
                               salvando = false;
                               erro = 'Falha ao salvar operador.';
@@ -251,7 +251,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setModalState) {
+          builder: (_, setModalState) {
             final isDark = widget.isDark;
             final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
             final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
@@ -367,7 +367,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                                 ),
                               );
                             }
-                          } else {
+                          } else if (ctx.mounted) {
                             setModalState(() {
                               salvando = false;
                               erro = 'Falha ao atualizar PIN.';
@@ -423,7 +423,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setSheetState) {
+          builder: (_, setSheetState) {
             final isDark = widget.isDark;
             final bgModal = isDark ? AppColors.darkSurface : AppColors.lightSurface;
             final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
@@ -699,7 +699,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                             operadorId: opAtual.id,
                             ativo: val,
                           );
-                          setSheetState(() {});
+                          if (ctx.mounted) setSheetState(() {});
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -761,7 +761,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) {
+        builder: (_, setModalState) {
           final isDark = widget.isDark;
           final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
           final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
@@ -863,7 +863,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setModalState) {
+          builder: (_, setModalState) {
             final isDark = widget.isDark;
             final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
             final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
@@ -1027,6 +1027,7 @@ class _GestaoOperadoresScreenState extends State<GestaoOperadoresScreen> {
                           await OperadoresSyncService.setProjectId(novoProj);
                           final res = await OperadoresSyncService.forcarSincronizacao();
 
+                          if (!ctx.mounted) return;
                           setModalState(() {
                             testando = false;
                             feedbackTeste = res.sucesso

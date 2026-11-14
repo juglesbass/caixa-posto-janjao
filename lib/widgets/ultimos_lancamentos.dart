@@ -72,6 +72,9 @@ class _UltimosLancamentosState extends State<UltimosLancamentos> {
   void didUpdateWidget(covariant UltimosLancamentos anterior) {
     super.didUpdateWidget(anterior);
     if (anterior.turno.id != widget.turno.id) {
+      _carregouUmaVez = false;
+      _idDestaque = null;
+      _timerDestaque?.cancel();
       _carregar();
     }
   }

@@ -40,6 +40,7 @@ class _TrocarPinDialogState extends State<TrocarPinDialog> {
     final confirma = _controllerConfirma.text.trim();
 
     setState(() {
+      _salvando = true;
       _erroAtual = null;
       _erroNovo = null;
       _erroConfirma = null;
@@ -49,23 +50,30 @@ class _TrocarPinDialogState extends State<TrocarPinDialog> {
     if (!mounted) return;
     if (!atualValido) {
       AppHaptics.heavy();
-      setState(() => _erroAtual = 'PIN atual incorreto (ou PIN do Desenvolvedor)');
+      setState(() {
+        _salvando = false;
+        _erroAtual = 'PIN atual incorreto (ou PIN do Desenvolvedor)';
+      });
       return;
     }
 
     if (novo.length != 4 || int.tryParse(novo) == null) {
       AppHaptics.heavy();
-      setState(() => _erroNovo = 'O novo PIN deve ter 4 dígitos');
+      setState(() {
+        _salvando = false;
+        _erroNovo = 'O novo PIN deve ter 4 dígitos';
+      });
       return;
     }
 
     if (confirma != novo) {
       AppHaptics.heavy();
-      setState(() => _erroConfirma = 'A confirmação não confere com o novo PIN');
+      setState(() {
+        _salvando = false;
+        _erroConfirma = 'A confirmação não confere com o novo PIN';
+      });
       return;
     }
-
-    setState(() => _salvando = true);
 
     try {
       await AuthService.cadastrarOuAlterarPin(widget.operador, novo);

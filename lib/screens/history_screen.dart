@@ -93,10 +93,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
       _lancamentosFiltradosCache = _lancamentos;
     } else if (_filtroTipo == 'Cartões') {
       _lancamentosFiltradosCache = _lancamentos.where((l) => PaymentTypes.ehCartao(l.tipo)).toList();
+    } else if (_filtroTipo == 'Pix' || _filtroTipo == PaymentTypes.pix) {
+      _lancamentosFiltradosCache = _lancamentos.where((l) => PaymentTypes.ehPix(l.tipo)).toList();
     } else {
       _lancamentosFiltradosCache = _lancamentos.where((l) => l.tipo.toLowerCase().contains(_filtroTipo.toLowerCase())).toList();
     }
     return _lancamentosFiltradosCache!;
+  }
+
+  static String _detectarMaquina(String tipo) {
+    final tLower = tipo.trim().toLowerCase();
+    if (tLower.startsWith('cielo ')) return PaymentTypes.maquinaCielo;
+    if (tLower.startsWith('stone ')) return 'Stone';
+    if (tLower.startsWith('pagbank ')) return 'PagBank';
+    return PaymentTypes.maquinaRede;
   }
 
   void _abrirEdicao(Lancamento lancamento) async {
@@ -104,7 +114,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       context: context,
       builder: (ctx) => EditLaunchDialog(
         lancamento: lancamento,
-        maquinaAtiva: PaymentTypes.maquinaRede,
+        maquinaAtiva: _detectarMaquina(lancamento.tipo),
         onSalvar: (dados) async {
           final db = DatabaseService.instance;
           await db.atualizarLancamento(

@@ -113,6 +113,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
     // comparação incluía o Map de canhotos (nunca igual entre instâncias), então
     // qualquer lançamento novo reconstruía a tela e apagava o valor em digitação.
     if (oldWidget.turno.id != widget.turno.id) {
+      _debounceTimer?.cancel();
       _vendasSistema = widget.turno.vendasSistema;
       _observacao = widget.turno.textoJustificativa;
       _vendasSistemaController.text = _vendasSistema > 0 ? CurrencyFormatter.formatar(_vendasSistema) : '';
@@ -1356,7 +1357,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
       isScrollControlled: true,
       builder: (sheetContext) {
         return StatefulBuilder(
-          builder: (context, setSheetState) {
+          builder: (sheetBuilderCtx, setSheetState) {
             final totalBandeira = lancamentosBandeira.fold<double>(0.0, (acc, l) => acc + l.valor);
             final qtdBandeira = lancamentosBandeira.length;
             final textPri = isDark ? AppColors.darkTextPri : AppColors.lightTextPri;
@@ -1368,7 +1369,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
             final canhotos = _canhotosManual[bandeira] ?? qtdBandeira;
 
             Future<void> editar(Lancamento l) async {
-              final result = await _editarLancamentoDialog(context, l);
+              final result = await _editarLancamentoDialog(sheetBuilderCtx, l);
               if (result != null) {
                 await db.atualizarLancamento(
                   l.id!,
@@ -1379,11 +1380,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 );
                 widget.onTurnoAlterado();
                 final atualizados = await db.obterLancamentos(widget.turno.id!);
-                setSheetState(() {
-                  lancamentosBandeira = ehPix
-                      ? atualizados.where((item) => PaymentTypes.ehPix(item.tipo)).toList()
-                      : atualizados.where((item) => item.tipo == bandeira).toList();
-                });
+                if (sheetBuilderCtx.mounted) {
+                  setSheetState(() {
+                    lancamentosBandeira = ehPix
+                        ? atualizados.where((item) => PaymentTypes.ehPix(item.tipo)).toList()
+                        : atualizados.where((item) => item.tipo == bandeira).toList();
+                  });
+                }
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -1397,7 +1400,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
             }
 
             Future<void> excluir(Lancamento l) async {
-              final confirmar = await _confirmarExclusaoDialog(context, l);
+              final confirmar = await _confirmarExclusaoDialog(sheetBuilderCtx, l);
               if (confirmar == true) {
                 await db.deletarLancamento(l.id!, widget.turno.id!);
                 widget.onTurnoAlterado();
@@ -1409,7 +1412,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                   if (mounted && Navigator.canPop(sheetContext)) {
                     Navigator.pop(sheetContext);
                   }
-                } else {
+                } else if (sheetBuilderCtx.mounted) {
                   setSheetState(() {
                     lancamentosBandeira = restantes;
                   });
@@ -1429,7 +1432,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
             return SafeArea(
               child: Container(
                 constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.75,
+                  maxHeight: MediaQuery.of(sheetBuilderCtx).size.height * 0.75,
                 ),
                 padding: const EdgeInsets.fromLTRB(16, 10, 8, 16),
                 child: Column(
