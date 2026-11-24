@@ -94,6 +94,8 @@ class CampoValorVenda extends StatelessWidget {
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.accent,
+                      disabledBackgroundColor: AppColors.accent,
+                      disabledForegroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       // Sem sombra: profundidade por borda e cor, como o resto.
                       elevation: 0,

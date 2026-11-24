@@ -72,41 +72,31 @@ class DatabaseService {
     }
 
     if (kIsWeb) {
-      // Tenta primeiro com Web Worker (sqflite_sw.js) para tirar as leituras e
-      // gravações do IndexedDB da thread principal da interface (60fps lisos).
-      // Se o navegador restringir Workers, cai automaticamente para a thread
-      // principal lendo o mesmo banco IndexedDB ('sqflite_databases').
+      // Usa `databaseFactoryFfiWebNoWebWorker` de propósito: o IndexedDbFileSystem
+      // já executa leituras/escritas em cache de RAM (< 1ms) e persiste os blocos
+      // no IndexedDB de forma assíncrona em segundo plano. O `databaseFactoryFfiWeb`
+      // usa SharedWorker + MessageChannel por consulta, que no Safari do iPhone
+      // (PWA) sofre pausas aleatórias de 1–3s no processo do worker ao lançar vendas.
+      databaseFactory = databaseFactoryFfiWebNoWebWorker;
       try {
-        databaseFactory = databaseFactoryFfiWeb;
         db = await openDatabase(
           'caixa_posto_janjao_web.db',
           version: 1,
           onCreate: criar,
-        ).timeout(const Duration(seconds: 6));
+        );
         armazenamentoPersistente = true;
-      } catch (eWorker) {
-        debugPrint('[DB] Web Worker indisponível ($eWorker), usando modo direto...');
-        try {
-          databaseFactory = databaseFactoryFfiWebNoWebWorker;
-          db = await openDatabase(
-            'caixa_posto_janjao_web.db',
-            version: 1,
-            onCreate: criar,
-          );
-          armazenamentoPersistente = true;
-        } catch (e) {
-          // Causa mais comum: 'web/sqlite3.wasm' ausente no build (rode
-          // `dart run sqflite_common_ffi_web:setup`) ou bloqueado pelo servidor.
-          debugPrint('[DB] Falha ao abrir banco persistente no Web: $e');
-          debugPrint('[DB] Ativando banco em memória — os dados NÃO sobrevivem ao recarregar a página.');
-          armazenamentoPersistente = false;
-          erroArmazenamento = e.toString();
-          db = await openDatabase(
-            inMemoryDatabasePath,
-            version: 1,
-            onCreate: criar,
-          );
-        }
+      } catch (e) {
+        // Causa mais comum: 'web/sqlite3.wasm' ausente no build (rode
+        // `dart run sqflite_common_ffi_web:setup`) ou bloqueado pelo servidor.
+        debugPrint('[DB] Falha ao abrir banco persistente no Web: $e');
+        debugPrint('[DB] Ativando banco em memória — os dados NÃO sobrevivem ao recarregar a página.');
+        armazenamentoPersistente = false;
+        erroArmazenamento = e.toString();
+        db = await openDatabase(
+          inMemoryDatabasePath,
+          version: 1,
+          onCreate: criar,
+        );
       }
     } else {
       final dbPath = await getDatabasesPath();
