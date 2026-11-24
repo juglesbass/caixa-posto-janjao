@@ -43,7 +43,11 @@ void main() {
     await _fonteReal();
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    SharedPreferences.setMockInitialValues({});
     await databaseFactory.setDatabasesPath(Directory.systemTemp.createTempSync('caixa_teste_').path);
+    // Pré-aquece o SQLite e o esquema uma vez antes dos testes, evitando que a
+    // migração inicial caia no meio do primeiro clique em runners lentos do CI.
+    await DatabaseService.instance.database;
   });
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -91,7 +95,12 @@ void main() {
       expect(find.textContaining('58,90'), findsWidgets);
 
       await tester.tap(find.text('Salvar Encerrantes'));
-      await esperar(tester);
+      // Aguarda no relógio real o FFI concluir a gravação antes do pumpAndSettle,
+      // pois enquanto salva há um CircularProgressIndicator infinito no botão.
+      for (var i = 0; i < 60 && find.text('Encerrantes de Bombas').evaluate().isNotEmpty; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump(const Duration(milliseconds: 50));
+      }
       await tester.pumpAndSettle();
       expect(find.text('Encerrantes de Bombas'), findsNothing);
 

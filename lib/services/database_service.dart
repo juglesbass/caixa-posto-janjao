@@ -1121,6 +1121,32 @@ class DatabaseService {
     );
   }
 
+  /// Grava todos os bicos numa única transação em lote (batch), evitando 4+
+  /// idas sequenciais ao disco/IndexedDB ao salvar encerrantes.
+  Future<void> salvarEncerrantesEmLote(
+    int turnoId,
+    List<({String bico, String combustivel, double inicial, double finalLitros, double preco})> itens,
+  ) async {
+    if (itens.isEmpty) return;
+    final db = await database;
+    final batch = db.batch();
+    for (final item in itens) {
+      batch.insert(
+        'encerrantes',
+        {
+          'turno_id': turnoId,
+          'bico': item.bico,
+          'combustivel': item.combustivel,
+          'inicial': item.inicial,
+          'final': item.finalLitros,
+          'preco': item.preco,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
   // CACHE DE OPERADORES (OFFLINE-FIRST FIRESTORE)
   // ──────────────────────────────────────────────────────────────────────────

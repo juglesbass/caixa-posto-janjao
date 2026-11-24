@@ -167,16 +167,21 @@ class _EncerrantesDialogState extends State<EncerrantesDialog> {
       final db = DatabaseService.instance;
       final prefs = await SharedPreferences.getInstance();
 
-      for (final b in _bicos) {
-        await db.salvarEncerrante(
-          widget.turnoId,
-          b.bico,
-          b.combustivel,
-          0.0, // Não necessita de leitura inicial
-          b.litrosVendidos, // Salva diretamente os litros vendidos
-          b.preco,
-        );
+      await db.salvarEncerrantesEmLote(
+        widget.turnoId,
+        [
+          for (final b in _bicos)
+            (
+              bico: b.bico,
+              combustivel: b.combustivel,
+              inicial: 0.0,
+              finalLitros: b.litrosVendidos,
+              preco: b.preco,
+            ),
+        ],
+      );
 
+      for (final b in _bicos) {
         // Salva os valores de preço e combustível para lembrar no próximo turno
         await prefs.setString('bico_${b.bico}_combustivel', b.combustivel);
         await prefs.setDouble('bico_${b.bico}_preco', b.preco);
