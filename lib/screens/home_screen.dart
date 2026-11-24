@@ -11,6 +11,7 @@ import '../utils/currency_formatter.dart';
 import '../utils/payment_types.dart';
 import '../widgets/cabecalho_turno.dart';
 import '../widgets/campos_lancamento.dart';
+import '../widgets/confirmacao_lancamento.dart';
 import '../widgets/hud_totais.dart';
 import '../widgets/machine_selector.dart';
 import '../widgets/payment_grid.dart';
@@ -48,13 +49,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final ValueNotifier<double> _valorVendaNotifier = ValueNotifier<double>(0.0);
   final ValueNotifier<double> _valorRecebidoNotifier = ValueNotifier<double>(0.0);
+  final ValueNotifier<bool> _enviandoNotifier = ValueNotifier<bool>(false);
 
   String _maquinaAtiva = PaymentTypes.maquinaRede;
   String _tipoAtivo = PaymentTypes.dinheiro;
   String _bandeiraCartaoAtiva = 'Master Débito';
 
   String? _erroValor;
-  bool _enviando = false;
   bool _abrindoSeletor = false;
 
   @override
@@ -106,6 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
     PaymentTypes.maquinaAtivaNotifier.removeListener(_sincronizarMaquinaGlobal);
     _valorVendaNotifier.dispose();
     _valorRecebidoNotifier.dispose();
+    _enviandoNotifier.dispose();
     _controllerValor.dispose();
     _controllerDesc.dispose();
     _controllerRecebido.dispose();
@@ -165,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _lancarVenda() async {
-    if (_enviando) return;
+    if (_enviandoNotifier.value) return;
 
     final valor = CurrencyFormatter.parse(_controllerValor.text);
     if (valor <= 0) {
@@ -176,10 +178,10 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    setState(() {
-      _enviando = true;
-      _erroValor = null;
-    });
+    _enviandoNotifier.value = true;
+    if (_erroValor != null) {
+      setState(() => _erroValor = null);
+    }
 
     try {
       final db = DatabaseService.instance;
@@ -191,26 +193,38 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
 
+      final descricao = _controllerDesc.text.trim();
+
       await db.inserirLancamento(
         widget.turno.id!,
         tipoFinal,
         valor,
-        _controllerDesc.text.trim(),
+        descricao,
       );
 
       AppHaptics.light();
 
       if (!mounted) return;
 
-      // Sem faixa de "lancado": a confirmacao e o lancamento entrando, aceso,
-      // no topo dos ultimos lancamentos (UltimosLancamentos). A faixa verde
-      // aparecia embaixo, por cima do rodape, longe de onde o olho estava.
       _controllerValor.clear();
       _controllerDesc.clear();
       _controllerRecebido.clear();
 
       _valorVendaNotifier.value = 0.0;
       _valorRecebidoNotifier.value = 0.0;
+
+      // Confirmação visual clara no topo com valor e forma de pagamento.
+      ConfirmacaoLancamento.mostrar(
+        context,
+        valor: valor,
+        tipo: tipoFinal,
+      );
+
+      // Comportamento padrão após lançar: recolher o teclado de forma limpa
+      // somente depois que o banco gravou e o campo limpou, evitando disputa
+      // entre a animação do teclado e a gravação no PWA/mobile.
+      _focusNodeValor.unfocus();
+      FocusManager.instance.primaryFocus?.unfocus();
       // Totais e últimos lançamentos se atualizam pelo aviso do banco
       // (lancamentosNotifier), que o inserirLancamento acabou de disparar.
     } catch (e) {
@@ -223,11 +237,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _enviando = false;
-        });
-      }
+      _enviandoNotifier.value = false;
     }
   }
 
@@ -370,24 +380,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // ── Campo Principal de Valor (isolado para não repintar a tela ao digitar) ──
-                  ValueListenableBuilder<double>(
-                    valueListenable: _valorVendaNotifier,
-                    builder: (context, valorVenda, _) => CampoValorVenda(
-                      controller: _controllerValor,
-                      focusNode: _focusNodeValor,
-                      podeLancar: valorVenda > 0,
-                      enviando: _enviando,
-                      erro: _erroValor,
-                      onLimpar: valorVenda > 0 ? _limparValorVenda : null,
-                      onChanged: (val) {
-                        _valorVendaNotifier.value = CurrencyFormatter.parse(val);
-                        if (_erroValor != null) {
-                          setState(() => _erroValor = null);
-                        }
-                      },
-                      onLancar: _lancarVenda,
-                    ),
+                  // ── Campo Principal de Valor (isolado para não repintar a tela ao digitar/lançar) ──
+                  ListenableBuilder(
+                    listenable: Listenable.merge([_valorVendaNotifier, _enviandoNotifier]),
+                    builder: (context, _) {
+                      final valorVenda = _valorVendaNotifier.value;
+                      return CampoValorVenda(
+                        controller: _controllerValor,
+                        focusNode: _focusNodeValor,
+                        podeLancar: valorVenda > 0,
+                        enviando: _enviandoNotifier.value,
+                        erro: _erroValor,
+                        onLimpar: valorVenda > 0 ? _limparValorVenda : null,
+                        onChanged: (val) {
+                          _valorVendaNotifier.value = CurrencyFormatter.parse(val);
+                          if (_erroValor != null) {
+                            setState(() => _erroValor = null);
+                          }
+                        },
+                        onLancar: _lancarVenda,
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
 

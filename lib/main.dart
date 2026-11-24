@@ -28,6 +28,7 @@ import 'utils/app_pronto.dart';
 import 'utils/data_caixa.dart';
 import 'utils/payment_types.dart';
 import 'widgets/bottom_nav_bar.dart';
+import 'widgets/confirmacao_lancamento.dart';
 import 'widgets/janela.dart';
 import 'widgets/pending_sync_banner.dart';
 
@@ -262,14 +263,14 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     _inicializarApp();
     _tentarSincronizarFilaInicial();
     _iniciarTimerFila();
-    DatabaseService.lancamentosNotifier.addListener(_recarregarDados);
+    DatabaseService.lancamentosNotifier.addListener(_recarregarAposLancamento);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timerFila?.cancel();
-    DatabaseService.lancamentosNotifier.removeListener(_recarregarDados);
+    DatabaseService.lancamentosNotifier.removeListener(_recarregarAposLancamento);
     super.dispose();
   }
 
@@ -375,6 +376,22 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         setState(() => _carregando = false);
       }
     }
+  }
+
+  /// Caminho leve para atualização após inserir/editar/excluir um lançamento:
+  /// evita reler tabela de turnos e pendências do Drive a cada venda lançada.
+  Future<void> _recarregarAposLancamento() async {
+    final turno = _turnoAtual;
+    final turnoId = turno?.id;
+    if (turno == null || turnoId == null) {
+      await _recarregarDados();
+      return;
+    }
+    final totais = await DatabaseService.instance.obterTotaisTurno(turnoId);
+    if (!mounted) return;
+    setState(() {
+      _totais = totais;
+    });
   }
 
   Future<void> _recarregarDados() async {
@@ -718,6 +735,13 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
             dados.valor,
             dados.descricao,
           );
+          if (mounted) {
+            ConfirmacaoLancamento.mostrar(
+              context,
+              valor: dados.valor,
+              tipo: dados.tipo,
+            );
+          }
           // Os totais se atualizam pelo aviso do banco (lancamentosNotifier).
         },
       ),

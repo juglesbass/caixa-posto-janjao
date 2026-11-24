@@ -121,6 +121,7 @@ class _QuickLaunchModalState extends State<QuickLaunchModal> {
 
     _lancando = true;
     AppHaptics.light();
+    FocusManager.instance.primaryFocus?.unfocus();
     Navigator.of(context).pop();
     widget.onLancar((
       tipo: _tipoSelecionado,

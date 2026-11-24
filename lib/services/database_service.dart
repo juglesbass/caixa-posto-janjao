@@ -774,13 +774,14 @@ class DatabaseService {
     lancamentosNotifier.value++;
   }
 
-  Future<List<Lancamento>> obterLancamentos(int turnoId) async {
+  Future<List<Lancamento>> obterLancamentos(int turnoId, {int? limit}) async {
     final db = await database;
     final maps = await db.query(
       'lancamentos',
       where: 'turno_id = ?',
       orderBy: 'id DESC',
       whereArgs: [turnoId],
+      limit: limit,
     );
     return maps.map((m) => Lancamento.fromMap(m)).toList();
   }

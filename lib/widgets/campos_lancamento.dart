@@ -55,44 +55,56 @@ class CampoValorVenda extends StatelessWidget {
 
     Widget? sufixo;
     if (podeLancar || onLimpar != null) {
-      sufixo = Padding(
-        padding: const EdgeInsets.only(right: 6, top: 6, bottom: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (onLimpar != null)
-              IconButton(
-                onPressed: enviando ? null : onLimpar,
-                icon: Icon(Icons.cancel_rounded, color: textSec, size: 20),
-                tooltip: 'Limpar valor',
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-              ),
-            if (podeLancar)
-              ElevatedButton.icon(
-                onPressed: enviando ? null : onLancar,
-                icon: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
-                label: const Text(
-                  'LANÇAR',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: AppTexto.corpo,
-                    letterSpacing: 0.5,
+      // `Focus(descendantsAreFocusable: false)` impede que o botão LANÇAR ou ×
+      // roube o foco do <input> no PWA antes do onPressed rodar (o que derrubava
+      // o teclado no meio do toque e causava engasgo). O GestureDetector opaco
+      // evita que toques na borda do botão vazem para o unfocus global do app.
+      sufixo = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {},
+        child: Focus(
+          canRequestFocus: false,
+          descendantsAreFocusable: false,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 6, top: 6, bottom: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (onLimpar != null)
+                  IconButton(
+                    onPressed: enviando ? null : onLimpar,
+                    icon: Icon(Icons.cancel_rounded, color: textSec, size: 20),
+                    tooltip: 'Limpar valor',
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  // Sem sombra: profundidade por borda e cor, como o resto.
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                if (podeLancar)
+                  ElevatedButton.icon(
+                    onPressed: enviando ? null : onLancar,
+                    icon: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                    label: const Text(
+                      'LANÇAR',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: AppTexto.corpo,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accent,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      // Sem sombra: profundidade por borda e cor, como o resto.
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-          ],
+              ],
+            ),
+          ),
         ),
       );
     }

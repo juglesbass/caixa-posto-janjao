@@ -84,10 +84,10 @@ class _UltimosLancamentosState extends State<UltimosLancamentos> {
     final id = widget.turno.id;
     if (id == null) return;
     try {
-      // A consulta já vem do mais novo para o mais antigo.
-      final lista = await DatabaseService.instance.obterLancamentos(id);
+      // A consulta já vem do mais novo para o mais antigo; lê só os _quantos
+      // exibidos em vez de varrer todo o turno no SQLite/IndexedDB.
+      final novos = await DatabaseService.instance.obterLancamentos(id, limit: _quantos);
       if (!mounted) return;
-      final novos = lista.take(_quantos).toList();
 
       // Brilha so o que e novo de verdade: nao na abertura da tela, nem quando
       // uma correcao ou exclusao reordena a lista.
