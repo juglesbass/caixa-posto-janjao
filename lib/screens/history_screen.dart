@@ -101,20 +101,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return _lancamentosFiltradosCache!;
   }
 
-  static String _detectarMaquina(String tipo) {
-    final tLower = tipo.trim().toLowerCase();
-    if (tLower.startsWith('cielo ')) return PaymentTypes.maquinaCielo;
-    if (tLower.startsWith('stone ')) return 'Stone';
-    if (tLower.startsWith('pagbank ')) return 'PagBank';
-    return PaymentTypes.maquinaRede;
-  }
-
   void _abrirEdicao(Lancamento lancamento) async {
+    final maquinaLancamento = PaymentTypes.ehCartao(lancamento.tipo)
+        ? PaymentTypes.detectarMaquina(lancamento.tipo)
+        : PaymentTypes.maquinaAtivaNotifier.value;
+
     await showDialog(
       context: context,
       builder: (ctx) => EditLaunchDialog(
         lancamento: lancamento,
-        maquinaAtiva: _detectarMaquina(lancamento.tipo),
+        maquinaAtiva: maquinaLancamento,
         onSalvar: (dados) async {
           final db = DatabaseService.instance;
           await db.atualizarLancamento(

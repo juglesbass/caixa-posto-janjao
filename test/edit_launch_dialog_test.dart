@@ -113,5 +113,19 @@ void main() {
       await abrir(tester, lanc('Cielo VR Multibenefícios', 500), largura: 375);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('preserva máquina original do cartão mesmo se tela estiver em Rede', (tester) async {
+      await abrir(tester, lanc('Cielo Master Débito', 120));
+
+      await tester.tap(find.text('Cartões'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Elo Débito'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar correção'));
+      await tester.pumpAndSettle();
+
+      expect(salvo, isNotNull);
+      expect(salvo!.tipo, 'Cielo Elo Débito');
+    });
   });
 }

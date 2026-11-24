@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
@@ -121,7 +122,7 @@ class _CadastroPinDialogState extends State<CadastroPinDialog> {
               children: [
                 TextField(
                   controller: _controllerPin,
-                  autofocus: true,
+                  autofocus: !kIsWeb,
                   obscureText: true,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,

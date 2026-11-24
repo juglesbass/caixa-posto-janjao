@@ -10,6 +10,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_icones.dart';
 import '../theme/app_texto.dart';
 import '../utils/currency_formatter.dart';
+import '../utils/payment_types.dart';
 
 /// Os dois últimos lançamentos do turno, com correção a um toque.
 ///
@@ -116,11 +117,17 @@ class _UltimosLancamentosState extends State<UltimosLancamentos> {
     final turnoId = widget.turno.id;
     if (turnoId == null || lancamento.id == null) return;
 
+    // Preserva a máquina original caso o lançamento já seja de cartão: evita
+    // transformar um cartão Rede em Cielo sem querer quando a chave da tela mudou.
+    final maquinaLancamento = PaymentTypes.ehCartao(lancamento.tipo)
+        ? PaymentTypes.detectarMaquina(lancamento.tipo)
+        : widget.maquinaAtiva;
+
     showDialog<void>(
       context: context,
       builder: (ctx) => EditLaunchDialog(
         lancamento: lancamento,
-        maquinaAtiva: widget.maquinaAtiva,
+        maquinaAtiva: maquinaLancamento,
         onSalvar: (dados) async {
           await DatabaseService.instance.atualizarLancamento(
             lancamento.id!,

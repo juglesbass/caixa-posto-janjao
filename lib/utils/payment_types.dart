@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 /// Constantes e listas de métodos de pagamento e cartões
 class PaymentTypes {
   static const String dinheiro = 'Dinheiro';
@@ -10,6 +13,39 @@ class PaymentTypes {
 
   static const String maquinaRede = 'Rede';
   static const String maquinaCielo = 'Cielo';
+
+  /// Estado global reativo da maquininha ativa, compartilhado entre a tela
+  /// Início, o modal "+" de lançamento rápido e abertura/fechamento de turno.
+  static final ValueNotifier<String> maquinaAtivaNotifier =
+      ValueNotifier<String>(maquinaRede);
+
+  static Future<String> carregarMaquinaAtiva() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final maq = prefs.getString('maquina_ativa') ?? maquinaRede;
+      maquinaAtivaNotifier.value = maq;
+      return maq;
+    } catch (_) {
+      return maquinaAtivaNotifier.value;
+    }
+  }
+
+  static Future<void> definirMaquinaAtiva(String maquina) async {
+    maquinaAtivaNotifier.value = maquina;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('maquina_ativa', maquina);
+    } catch (_) {}
+  }
+
+  /// Detecta a máquina original gravada num lançamento de cartão
+  static String detectarMaquina(String tipo) {
+    final tLower = tipo.trim().toLowerCase();
+    if (tLower.startsWith('cielo ')) return maquinaCielo;
+    if (tLower.startsWith('stone ')) return 'Stone';
+    if (tLower.startsWith('pagbank ')) return 'PagBank';
+    return maquinaRede;
+  }
 
   /// Ordem oficial de exibição de cartões e vouchers:
   /// 1. FITCARD

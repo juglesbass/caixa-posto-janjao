@@ -54,6 +54,11 @@ class PaymentGrid extends StatelessWidget {
           tipoAtivo == PaymentTypes.despesas, () => onSelecionarTipo(PaymentTypes.despesas)),
     ];
 
+    // Acompanha suavemente caso o usuário use letra maior no sistema (> 1.0x),
+    // mantendo exatamente 76 / 64 na escala padrão 1.0x.
+    final escalaTexto = MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.2);
+    final alturaCard = (compacto ? 64.0 : 76.0) * escalaTexto;
+
     return GridView(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -64,7 +69,7 @@ class PaymentGrid extends StatelessWidget {
         crossAxisCount: 2,
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
-        mainAxisExtent: compacto ? 64 : 76,
+        mainAxisExtent: alturaCard,
       ),
       children: [
         for (final f in formas) _CardMetodo(forma: f, compacto: compacto),

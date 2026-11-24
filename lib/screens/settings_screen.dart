@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../dialogs/analytics_dialog.dart';
@@ -84,6 +85,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _exportarCsv(BuildContext context) async {
     if (widget.turno == null || _exportandoCsv) return;
     _exportandoCsv = true;
+    final box = context.findRenderObject() as RenderBox?;
+    final origin = (box != null && box.hasSize && box.size.width > 0 && box.size.height > 0)
+        ? (box.localToGlobal(Offset.zero) & box.size)
+        : Rect.fromLTWH(0, MediaQuery.sizeOf(context).height / 2, MediaQuery.sizeOf(context).width, 100);
     try {
       final db = DatabaseService.instance;
       final lancamentos = await db.obterLancamentos(widget.turno!.id!);
@@ -91,6 +96,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         turno: widget.turno!,
         totais: widget.totais,
         lancamentos: lancamentos,
+        sharePositionOrigin: origin,
       );
     } catch (e) {
       if (context.mounted) {
@@ -220,7 +226,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     TextField(
                       controller: _controllerPinMestre,
                       obscureText: true,
-                      autofocus: true,
+                      autofocus: !kIsWeb,
                       keyboardType: TextInputType.number,
                       maxLength: 4,
                       textAlign: TextAlign.center,
@@ -962,7 +968,7 @@ class _AlterarPinMestreDialogState extends State<_AlterarPinMestreDialog> {
             TextField(
               controller: _novo,
               obscureText: true,
-              autofocus: true,
+              autofocus: !kIsWeb,
               keyboardType: TextInputType.number,
               maxLength: 4,
               textAlign: TextAlign.center,

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
@@ -125,7 +126,7 @@ class _TrocarPinDialogState extends State<TrocarPinDialog> {
             children: [
               TextField(
                 controller: _controllerAtual,
-                autofocus: true,
+                autofocus: !kIsWeb,
                 obscureText: true,
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,

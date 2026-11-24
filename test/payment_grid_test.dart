@@ -119,5 +119,34 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('cabe num celular de 375pt mesmo com fonte aumentada (1.15x)', (tester) async {
+      tester.view.physicalSize = const Size(375 * 3, 812 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme(),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: const TextScaler.linear(1.15),
+            ),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: PaymentGrid(
+                tipoAtivo: '${PaymentTypes.maquinaRede} Master Crédito',
+                bandeiraCartaoAtiva: 'Master Crédito',
+                onSelecionarTipo: (_) {},
+                onAbrirSeletorCartoes: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+    });
   });
 }

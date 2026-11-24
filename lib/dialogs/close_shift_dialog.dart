@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -173,7 +174,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                     TextField(
                       controller: controllerPinGerente,
                       obscureText: true,
-                      autofocus: true,
+                      autofocus: !kIsWeb,
                       keyboardType: TextInputType.number,
                       maxLength: 4,
                       textAlign: TextAlign.center,
@@ -355,7 +356,7 @@ class _CloseShiftDialogState extends State<CloseShiftDialog> {
                   TextField(
                     controller: controllerNovoPin,
                     obscureText: true,
-                    autofocus: true,
+                    autofocus: !kIsWeb,
                     keyboardType: TextInputType.number,
                     maxLength: 4,
                     textAlign: TextAlign.center,

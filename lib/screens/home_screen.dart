@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../dialogs/card_brand_dialog.dart';
 import '../models/totais_turno.dart';
 import '../models/turno.dart';
@@ -47,12 +46,13 @@ class _HomeScreenState extends State<HomeScreen> {
   final _controllerRecebido = TextEditingController();
   final _focusNodeValor = FocusNode();
 
+  final ValueNotifier<double> _valorVendaNotifier = ValueNotifier<double>(0.0);
+  final ValueNotifier<double> _valorRecebidoNotifier = ValueNotifier<double>(0.0);
+
   String _maquinaAtiva = PaymentTypes.maquinaRede;
   String _tipoAtivo = PaymentTypes.dinheiro;
   String _bandeiraCartaoAtiva = 'Master Débito';
 
-  double _valorVenda = 0.0;
-  double _valorRecebido = 0.0;
   String? _erroValor;
   bool _enviando = false;
   bool _abrindoSeletor = false;
@@ -60,32 +60,52 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _focusNodeValor.addListener(_onFocusValorChange);
+    PaymentTypes.maquinaAtivaNotifier.addListener(_sincronizarMaquinaGlobal);
     _carregarMaquinaAtiva();
   }
 
-  void _onFocusValorChange() {
-    if (mounted) setState(() {});
+  void _sincronizarMaquinaGlobal() {
+    final novaMaq = PaymentTypes.maquinaAtivaNotifier.value;
+    if (!mounted || novaMaq == _maquinaAtiva) return;
+    setState(() {
+      _maquinaAtiva = novaMaq;
+      if (PaymentTypes.ehCartao(_tipoAtivo)) {
+        _tipoAtivo = '$_maquinaAtiva $_bandeiraCartaoAtiva';
+      }
+    });
   }
 
   void _carregarMaquinaAtiva() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final maqSalva = prefs.getString('maquina_ativa') ?? PaymentTypes.maquinaRede;
-      if (mounted) {
-        setState(() {
-          _maquinaAtiva = maqSalva;
-          if (PaymentTypes.ehCartao(_tipoAtivo)) {
-            _tipoAtivo = '$_maquinaAtiva $_bandeiraCartaoAtiva';
-          }
-        });
-      }
-    } catch (_) {}
+    final maqSalva = await PaymentTypes.carregarMaquinaAtiva();
+    if (mounted && maqSalva != _maquinaAtiva) {
+      setState(() {
+        _maquinaAtiva = maqSalva;
+        if (PaymentTypes.ehCartao(_tipoAtivo)) {
+          _tipoAtivo = '$_maquinaAtiva $_bandeiraCartaoAtiva';
+        }
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.turno.id != widget.turno.id) {
+      _controllerValor.clear();
+      _controllerDesc.clear();
+      _controllerRecebido.clear();
+      _valorVendaNotifier.value = 0.0;
+      _valorRecebidoNotifier.value = 0.0;
+      _erroValor = null;
+      _carregarMaquinaAtiva();
+    }
   }
 
   @override
   void dispose() {
-    _focusNodeValor.removeListener(_onFocusValorChange);
+    PaymentTypes.maquinaAtivaNotifier.removeListener(_sincronizarMaquinaGlobal);
+    _valorVendaNotifier.dispose();
+    _valorRecebidoNotifier.dispose();
     _controllerValor.dispose();
     _controllerDesc.dispose();
     _controllerRecebido.dispose();
@@ -127,12 +147,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _setValorRapido(double v) {
     AppHaptics.light();
-    final novoValor = _valorVenda + v;
+    final novoValor = _valorVendaNotifier.value + v;
     _controllerValor.text = CurrencyFormatter.formatar(novoValor);
-    setState(() {
-      _valorVenda = novoValor;
-      _erroValor = null;
-    });
+    _valorVendaNotifier.value = novoValor;
+    if (_erroValor != null) {
+      setState(() => _erroValor = null);
+    }
+  }
+
+  void _limparValorVenda() {
+    AppHaptics.light();
+    _controllerValor.clear();
+    _valorVendaNotifier.value = 0.0;
+    if (_erroValor != null) {
+      setState(() => _erroValor = null);
+    }
   }
 
   void _lancarVenda() async {
@@ -180,10 +209,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _controllerDesc.clear();
       _controllerRecebido.clear();
 
-      setState(() {
-        _valorVenda = 0.0;
-        _valorRecebido = 0.0;
-      });
+      _valorVendaNotifier.value = 0.0;
+      _valorRecebidoNotifier.value = 0.0;
       // Totais e últimos lançamentos se atualizam pelo aviso do banco
       // (lancamentosNotifier), que o inserirLancamento acabou de disparar.
     } catch (e) {
@@ -300,15 +327,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
 
                   // ── HUD Bento Grid de Totais ──
-                  HudTotais(
-                    totais: widget.totais,
-                    onTapDetalhes: widget.onAbrirResumo,
+                  RepaintBoundary(
+                    child: HudTotais(
+                      totais: widget.totais,
+                      onTapDetalhes: widget.onAbrirResumo,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   // ── Conferência rápida do que acabou de ser lançado ──
-                  UltimosLancamentos(
-                    turno: widget.turno,
-                    maquinaAtiva: _maquinaAtiva,
+                  RepaintBoundary(
+                    child: UltimosLancamentos(
+                      turno: widget.turno,
+                      maquinaAtiva: _maquinaAtiva,
+                    ),
                   ),
                   const SizedBox(height: 14),
 
@@ -323,55 +354,61 @@ class _HomeScreenState extends State<HomeScreen> {
                           _tipoAtivo = '$_maquinaAtiva $_bandeiraCartaoAtiva';
                         }
                       });
-                      try {
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setString('maquina_ativa', maq);
-                      } catch (_) {}
+                      await PaymentTypes.definirMaquinaAtiva(maq);
                     },
                   ),
                   const SizedBox(height: 12),
 
                   // ── Grade de Formas de Pagamento ──
-                  PaymentGrid(
-                    tipoAtivo: _tipoAtivo,
-                    bandeiraCartaoAtiva: _bandeiraCartaoAtiva,
-                    onSelecionarTipo: _selecionarTipo,
-                    onAbrirSeletorCartoes: _abrirSeletorCartoes,
+                  RepaintBoundary(
+                    child: PaymentGrid(
+                      tipoAtivo: _tipoAtivo,
+                      bandeiraCartaoAtiva: _bandeiraCartaoAtiva,
+                      onSelecionarTipo: _selecionarTipo,
+                      onAbrirSeletorCartoes: _abrirSeletorCartoes,
+                    ),
                   ),
                   const SizedBox(height: 14),
 
-                  // ── Campo Principal de Valor ──
-                  CampoValorVenda(
-                    controller: _controllerValor,
-                    focusNode: _focusNodeValor,
-                    podeLancar: _valorVenda > 0,
-                    enviando: _enviando,
-                    erro: _erroValor,
-                    onChanged: (val) {
-                      setState(() {
-                        _valorVenda = CurrencyFormatter.parse(val);
-                        if (_erroValor != null) _erroValor = null;
-                      });
-                    },
-                    onLancar: _lancarVenda,
+                  // ── Campo Principal de Valor (isolado para não repintar a tela ao digitar) ──
+                  ValueListenableBuilder<double>(
+                    valueListenable: _valorVendaNotifier,
+                    builder: (context, valorVenda, _) => CampoValorVenda(
+                      controller: _controllerValor,
+                      focusNode: _focusNodeValor,
+                      podeLancar: valorVenda > 0,
+                      enviando: _enviando,
+                      erro: _erroValor,
+                      onLimpar: valorVenda > 0 ? _limparValorVenda : null,
+                      onChanged: (val) {
+                        _valorVendaNotifier.value = CurrencyFormatter.parse(val);
+                        if (_erroValor != null) {
+                          setState(() => _erroValor = null);
+                        }
+                      },
+                      onLancar: _lancarVenda,
+                    ),
                   ),
                   const SizedBox(height: 12),
 
                   // ── Atalhos Rápidos (+ R$ 10 a + R$ 500) ──
-                  QuickAmountRow(onSelecionarValor: _setValorRapido),
+                  RepaintBoundary(
+                    child: QuickAmountRow(onSelecionarValor: _setValorRapido),
+                  ),
                   const SizedBox(height: 12),
 
                   // ── Calculadora de Troco (Se Dinheiro) ──
                   if (ehDinheiro) ...[
-                    TrocoCalculator(
-                      valorVenda: _valorVenda,
-                      valorRecebido: _valorRecebido,
-                      controllerRecebido: _controllerRecebido,
-                      onChanged: (val) {
-                        setState(() {
-                          _valorRecebido = CurrencyFormatter.parse(val);
-                        });
-                      },
+                    ListenableBuilder(
+                      listenable: Listenable.merge([_valorVendaNotifier, _valorRecebidoNotifier]),
+                      builder: (context, _) => TrocoCalculator(
+                        valorVenda: _valorVendaNotifier.value,
+                        valorRecebido: _valorRecebidoNotifier.value,
+                        controllerRecebido: _controllerRecebido,
+                        onChanged: (val) {
+                          _valorRecebidoNotifier.value = CurrencyFormatter.parse(val);
+                        },
+                      ),
                     ),
                     const SizedBox(height: 12),
                   ],

@@ -6,6 +6,7 @@ import '../utils/app_haptics.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/payment_types.dart';
 import '../widgets/campos_lancamento.dart';
+import '../widgets/machine_selector.dart';
 import '../widgets/payment_grid.dart';
 import 'card_brand_dialog.dart';
 
@@ -41,6 +42,7 @@ class _EditLaunchDialogState extends State<EditLaunchDialog> {
   late TextEditingController _controllerValor;
   late TextEditingController _controllerDesc;
   late String _tipoSelecionado;
+  late String _maquinaSelecionada;
   String? _erroValor;
   bool _enviando = false;
 
@@ -54,6 +56,9 @@ class _EditLaunchDialogState extends State<EditLaunchDialog> {
     );
     _controllerDesc = TextEditingController(text: widget.lancamento.descricao);
     _tipoSelecionado = widget.lancamento.tipo;
+    _maquinaSelecionada = PaymentTypes.ehCartao(_tipoSelecionado)
+        ? PaymentTypes.detectarMaquina(_tipoSelecionado)
+        : widget.maquinaAtiva;
   }
 
   @override
@@ -82,18 +87,28 @@ class _EditLaunchDialogState extends State<EditLaunchDialog> {
       PaymentTypes.ehCartao(tipo);
 
   Future<void> _escolherBandeira() async {
-    final atual = _tipoSelecionado.startsWith('${widget.maquinaAtiva} ')
+    final atual = PaymentTypes.ehCartao(_tipoSelecionado)
         ? _bandeiraDe(_tipoSelecionado)
         : '';
     final escolhida = await showDialog<String>(
       context: context,
       builder: (ctx) => CardBrandDialog(
-        maquinaAtiva: widget.maquinaAtiva,
+        maquinaAtiva: _maquinaSelecionada,
         bandeiraSelecionada: atual,
       ),
     );
     if (escolhida == null || !mounted) return;
-    setState(() => _tipoSelecionado = '${widget.maquinaAtiva} $escolhida');
+    setState(() => _tipoSelecionado = '$_maquinaSelecionada $escolhida');
+  }
+
+  void _trocarMaquinaEdicao(String novaMaquina) {
+    setState(() {
+      _maquinaSelecionada = novaMaquina;
+      if (PaymentTypes.ehCartao(_tipoSelecionado)) {
+        final bandeiraAtual = _bandeiraDe(_tipoSelecionado);
+        _tipoSelecionado = '$_maquinaSelecionada $bandeiraAtual';
+      }
+    });
   }
 
   void _salvar() {
@@ -206,6 +221,13 @@ class _EditLaunchDialogState extends State<EditLaunchDialog> {
                     'Forma atual: $_tipoSelecionado. Continua assim se você não escolher outra.',
                     style: TextStyle(fontSize: AppTexto.rotulo, color: textPri, height: 1.3),
                   ),
+                ),
+                const SizedBox(height: 10),
+              ],
+              if (PaymentTypes.ehCartao(_tipoSelecionado)) ...[
+                MachineSelector(
+                  maquinaAtiva: _maquinaSelecionada,
+                  onSelecionar: _trocarMaquinaEdicao,
                 ),
                 const SizedBox(height: 10),
               ],

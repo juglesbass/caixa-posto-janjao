@@ -158,6 +158,14 @@
       window.history.pushState({ app: 'caixa-janjao' }, '', window.location.href);
     }
 
+    // Solicita armazenamento persistente para que o Safari (iOS) e o Android não
+    // apaguem o IndexedDB (sqlite3.wasm) sob pressão de memória ou inatividade.
+    try {
+      if (navigator.storage && navigator.storage.persist) {
+        navigator.storage.persist().catch(function() {});
+      }
+    } catch (_) {}
+
     // Em rede lenta o bundle pode levar bem mais que alguns segundos. Em vez de
     // sumir com o loader (deixando tela preta), avisa o usuário e só desiste
     // depois de bastante tempo.

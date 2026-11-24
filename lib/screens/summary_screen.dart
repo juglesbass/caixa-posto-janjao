@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 // [DriveService.aquecerPdf], ficam prontos antes do primeiro uso.
 import 'package:printing/printing.dart' deferred as printing;
 import 'package:share_plus/share_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../dialogs/close_shift_dialog.dart';
 import '../dialogs/drive_failure_dialog.dart';
@@ -30,6 +29,7 @@ import '../utils/conciliacao.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/data_caixa.dart';
 import '../utils/payment_types.dart';
+import '../utils/web_download.dart';
 import '../widgets/cabecalho_turno.dart';
 import '../widgets/campos_lancamento.dart';
 import '../widgets/janela.dart';
@@ -231,7 +231,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
-                autofocus: true,
+                autofocus: !kIsWeb,
                 keyboardType: TextInputType.number,
                 style: const TextStyle(fontFamily: AppTexto.numeros, fontSize: AppTexto.valor, fontWeight: FontWeight.w600),
                 decoration: InputDecoration(
@@ -416,12 +416,21 @@ class _SummaryScreenState extends State<SummaryScreen> {
           ),
         );
       } else {
-        await printing.loadLibrary();
-        await printing.Printing.sharePdf(
-          bytes: pdfBytes,
-          filename: nomeArquivo,
-          bounds: origin,
-        );
+        try {
+          await printing.loadLibrary();
+          await printing.Printing.sharePdf(
+            bytes: pdfBytes,
+            filename: nomeArquivo,
+            bounds: origin,
+          );
+        } catch (_) {
+          final baixou = baixarArquivoWeb(
+            bytes: pdfBytes,
+            nomeArquivo: nomeArquivo,
+            mimeType: 'application/pdf',
+          );
+          if (!baixou) rethrow;
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -436,6 +445,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
   // 4. Excel (CSV)
   void _exportarExcel(BuildContext btnContext) async {
     setState(() => _processando = true);
+    final origin = _obterOrigemCompartilhamento(btnContext);
 
     try {
       final db = DatabaseService.instance;
@@ -451,6 +461,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
         turno: turnoAtualizado,
         totais: _totaisAtualizados,
         lancamentos: lancamentos,
+        sharePositionOrigin: origin,
       );
     } catch (e) {
       if (!mounted) return;
@@ -739,6 +750,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
         corTema: AppColors.accentLight,
         carregando: true,
       );
+      // Libera um frame para desenhar o novo passo antes da montagem síncrona do PDF
+      await Future<void>.delayed(const Duration(milliseconds: 24));
       final turnoFechado = widget.turno.copyWith(
         aberto: false,
         vendasSistema: dadosFechamento!.vendasSistema,
@@ -807,10 +820,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
       }
 
       // Redefine a preferência de máquina ativa para Rede ao fechar o turno
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('maquina_ativa', PaymentTypes.maquinaRede);
-      } catch (_) {}
+      await PaymentTypes.definirMaquinaAtiva(PaymentTypes.maquinaRede);
 
       if (envioDriveOk) {
         progressoNotifier.value = (
@@ -1768,7 +1778,7 @@ class _EditarValorDialogState extends State<_EditarValorDialog> {
             const SizedBox(height: 14),
             CampoValorVenda(
               controller: _valor,
-              autofocus: true,
+              autofocus: !kIsWeb,
               rotulo: 'Valor',
               podeLancar: false,
               erro: _erro,

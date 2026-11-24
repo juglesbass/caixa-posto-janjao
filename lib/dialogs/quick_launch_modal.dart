@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_texto.dart';
@@ -5,6 +6,7 @@ import '../utils/app_haptics.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/payment_types.dart';
 import '../widgets/campos_lancamento.dart';
+import '../widgets/machine_selector.dart';
 import '../widgets/payment_grid.dart';
 import '../widgets/quick_amount_row.dart';
 import 'card_brand_dialog.dart';
@@ -36,11 +38,18 @@ class QuickLaunchModal extends StatefulWidget {
 class _QuickLaunchModalState extends State<QuickLaunchModal> {
   final _controllerValor = TextEditingController();
   final _controllerDesc = TextEditingController();
+  late String _maquinaAtiva;
   String _tipoSelecionado = PaymentTypes.dinheiro;
   String _bandeira = 'Master Débito';
   double _valor = 0.0;
   String? _erroValor;
   bool _lancando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _maquinaAtiva = widget.maquinaAtiva;
+  }
 
   @override
   void dispose() {
@@ -53,13 +62,22 @@ class _QuickLaunchModalState extends State<QuickLaunchModal> {
     setState(() => _tipoSelecionado = tipo);
   }
 
-  /// Cartões abre a escolha de bandeira, como na tela Início. A máquina é a
-  /// que está ativa — a mesma que a lista antiga usava.
+  Future<void> _selecionarMaquina(String maq) async {
+    setState(() {
+      _maquinaAtiva = maq;
+      if (PaymentTypes.ehCartao(_tipoSelecionado)) {
+        _tipoSelecionado = '$_maquinaAtiva $_bandeira';
+      }
+    });
+    await PaymentTypes.definirMaquinaAtiva(maq);
+  }
+
+  /// Cartões abre a escolha de bandeira, como na tela Início.
   Future<void> _abrirSeletorCartoes() async {
     final escolhida = await showDialog<String>(
       context: context,
       builder: (ctx) => CardBrandDialog(
-        maquinaAtiva: widget.maquinaAtiva,
+        maquinaAtiva: _maquinaAtiva,
         bandeiraSelecionada: _bandeira,
       ),
     );
@@ -67,7 +85,7 @@ class _QuickLaunchModalState extends State<QuickLaunchModal> {
     AppHaptics.light();
     setState(() {
       _bandeira = escolhida;
-      _tipoSelecionado = '${widget.maquinaAtiva} $escolhida';
+      _tipoSelecionado = '$_maquinaAtiva $escolhida';
     });
   }
 
@@ -79,6 +97,15 @@ class _QuickLaunchModalState extends State<QuickLaunchModal> {
     _controllerValor.text = CurrencyFormatter.formatar(novo);
     setState(() {
       _valor = novo;
+      _erroValor = null;
+    });
+  }
+
+  void _limparValor() {
+    AppHaptics.light();
+    _controllerValor.clear();
+    setState(() {
+      _valor = 0.0;
       _erroValor = null;
     });
   }
@@ -109,90 +136,105 @@ class _QuickLaunchModalState extends State<QuickLaunchModal> {
     final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
     final textTer = isDark ? AppColors.darkTextTer : AppColors.lightTextTer;
 
+    final viewInsetsBottom = MediaQuery.viewInsetsOf(context).bottom;
+    final maxModalHeight = MediaQuery.sizeOf(context).height * 0.92;
+
     // Mesma margem lateral da tela Início (14), para os cartões e o conteúdo
     // deles caírem nas mesmas linhas das duas telas.
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        top: 8,
-        left: 14,
-        right: 14,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Alça: diz que a folha pode ser arrastada para baixo para fechar.
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 10),
-                decoration: BoxDecoration(
-                  color: textTer.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Row(
+    return SafeArea(
+      top: true,
+      bottom: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxModalHeight),
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: viewInsetsBottom + 16,
+            top: 8,
+            left: 14,
+            right: 14,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(width: 2),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Lançamento rápido',
-                        style: TextStyle(
-                          fontSize: AppTexto.valor,
-                          fontWeight: FontWeight.w700,
-                          color: textPri,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      // Cartão cai na máquina ativa; melhor dizer antes de lançar.
-                      Text(
-                        'Cartões na máquina ${widget.maquinaAtiva}',
-                        style: TextStyle(fontSize: AppTexto.rotulo, color: textSec),
-                      ),
-                    ],
+                // Alça: diz que a folha pode ser arrastada para baixo para fechar.
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: textTer.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded),
-                  tooltip: 'Fechar',
-                  onPressed: () => Navigator.of(context).pop(),
+                Row(
+                  children: [
+                    const SizedBox(width: 2),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Lançamento rápido',
+                            style: TextStyle(
+                              fontSize: AppTexto.valor,
+                              fontWeight: FontWeight.w700,
+                              color: textPri,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Cartões na máquina $_maquinaAtiva',
+                            style: TextStyle(fontSize: AppTexto.rotulo, color: textSec),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      tooltip: 'Fechar',
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 10),
+                MachineSelector(
+                  maquinaAtiva: _maquinaAtiva,
+                  onSelecionar: _selecionarMaquina,
+                ),
+                const SizedBox(height: 10),
+                PaymentGrid(
+                  tipoAtivo: _tipoSelecionado,
+                  bandeiraCartaoAtiva: _bandeira,
+                  onSelecionarTipo: _selecionarTipo,
+                  onAbrirSeletorCartoes: _abrirSeletorCartoes,
+                  compacto: true,
+                ),
+                const SizedBox(height: 14),
+                CampoValorVenda(
+                  controller: _controllerValor,
+                  autofocus: !kIsWeb,
+                  podeLancar: _valor > 0,
+                  erro: _erroValor,
+                  onLimpar: _valor > 0 ? _limparValor : null,
+                  onChanged: (val) {
+                    setState(() {
+                      _valor = CurrencyFormatter.parse(val);
+                      if (_erroValor != null) _erroValor = null;
+                    });
+                  },
+                  onLancar: _lancar,
+                ),
+                const SizedBox(height: 12),
+                QuickAmountRow(onSelecionarValor: _somarValor),
+                const SizedBox(height: 12),
+                CampoDescricao(controller: _controllerDesc, onSubmitted: _lancar),
               ],
             ),
-            const SizedBox(height: 12),
-            PaymentGrid(
-              tipoAtivo: _tipoSelecionado,
-              bandeiraCartaoAtiva: _bandeira,
-              onSelecionarTipo: _selecionarTipo,
-              onAbrirSeletorCartoes: _abrirSeletorCartoes,
-              compacto: true,
-            ),
-            const SizedBox(height: 14),
-            CampoValorVenda(
-              controller: _controllerValor,
-              autofocus: true,
-              podeLancar: _valor > 0,
-              erro: _erroValor,
-              onChanged: (val) {
-                setState(() {
-                  _valor = CurrencyFormatter.parse(val);
-                  if (_erroValor != null) _erroValor = null;
-                });
-              },
-              onLancar: _lancar,
-            ),
-            const SizedBox(height: 12),
-            QuickAmountRow(onSelecionarValor: _somarValor),
-            const SizedBox(height: 12),
-            CampoDescricao(controller: _controllerDesc, onSubmitted: _lancar),
-          ],
+          ),
         ),
       ),
     );

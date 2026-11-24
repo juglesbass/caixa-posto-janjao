@@ -10,6 +10,7 @@ import '../models/turno.dart';
 import '../utils/arquivo_local.dart';
 import '../utils/data_caixa.dart';
 import '../utils/payment_types.dart';
+import '../utils/web_download.dart';
 
 class CsvService {
   /// Escapa célula textual para CSV (separador `;`) e neutraliza injeção de
@@ -112,6 +113,7 @@ class CsvService {
     required Turno turno,
     required TotaisTurno totais,
     required List<Lancamento> lancamentos,
+    ui.Rect? sharePositionOrigin,
   }) async {
     final csvContent = montarCsv(
       turno: turno,
@@ -121,24 +123,36 @@ class CsvService {
     final operadorLimpo = turno.operador.trim().replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
     final nomeArquivo = gerarNomeArquivo(turno);
 
-    const origem = ui.Rect.fromLTWH(0, 0, 100, 100);
+    final origem = sharePositionOrigin ?? const ui.Rect.fromLTWH(0, 0, 100, 100);
+    final csvBytes = Uint8List.fromList(utf8.encode(csvContent));
 
     if (kIsWeb) {
-      // No Web o arquivo vai em memória (não há sistema de arquivos gravável)
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [
-            XFile.fromData(
-              utf8.encode(csvContent),
-              name: nomeArquivo,
-              mimeType: 'text/csv',
-            ),
-          ],
-          fileNameOverrides: [nomeArquivo],
-          subject: 'Fechamento CSV - $operadorLimpo',
-          sharePositionOrigin: origem,
-        ),
-      );
+      // No Web tenta o compartilhamento nativo; se o navegador recusar (ex.:
+      // Safari iOS após await do SQLite expirar o gesto, ou desktop sem Web
+      // Share de arquivos), faz download direto via Blob URL.
+      try {
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [
+              XFile.fromData(
+                csvBytes,
+                name: nomeArquivo,
+                mimeType: 'text/csv',
+              ),
+            ],
+            fileNameOverrides: [nomeArquivo],
+            subject: 'Fechamento CSV - $operadorLimpo',
+            sharePositionOrigin: origem,
+          ),
+        );
+      } catch (e) {
+        final baixou = baixarArquivoWeb(
+          bytes: csvBytes,
+          nomeArquivo: nomeArquivo,
+          mimeType: 'text/csv;charset=utf-8',
+        );
+        if (!baixou) rethrow;
+      }
     } else {
       final caminho = await salvarTextoTemporario(
         conteudo: csvContent,

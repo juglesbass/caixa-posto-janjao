@@ -9,6 +9,7 @@ import 'notification_service.dart';
 // Diferido de propósito: o `pdf_service` arrasta os pacotes `pdf` e `printing`,
 // que são o trecho mais pesado do pacote JavaScript do PWA, e nada disso é
 // necessário para desenhar a tela de identificação. Ver [DriveService.aquecerPdf].
+import 'package:printing/printing.dart' deferred as printing;
 import 'pdf_service.dart' deferred as pdf_service;
 
 /// Resposta da consulta "este fechamento chegou?" ao Apps Script.
@@ -58,6 +59,8 @@ class DriveService {
   static Future<void> aquecerPdf() async {
     try {
       await pdf_service.loadLibrary();
+      await printing.loadLibrary();
+      assert((printing.Printing).toString().isNotEmpty);
       // A fonte também: no PWA é mais um arquivo que precisa estar no cache
       // antes de um fechamento sem sinal.
       await pdf_service.PdfService.aquecerFontes();

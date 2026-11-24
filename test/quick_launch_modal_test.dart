@@ -81,5 +81,33 @@ void main() {
 
       expect(lancado!.tipo, PaymentTypes.dinheiro);
     });
+
+    testWidgets('permite limpar valor em um toque e alternar máquina para Cielo', (tester) async {
+      await abrir(tester);
+
+      await tester.tap(find.text('+100'));
+      await tester.pump();
+      expect(find.text('LANÇAR'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Limpar valor'));
+      await tester.pump();
+      expect(find.text('LANÇAR'), findsNothing);
+
+      await tester.tap(find.text('Cielo'));
+      await tester.pump();
+      await tester.tap(find.text('Cartões'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Visa Débito'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('+50'));
+      await tester.pump();
+      await tester.tap(find.text('LANÇAR'));
+      await tester.pumpAndSettle();
+
+      expect(lancado, isNotNull);
+      expect(lancado!.valor, 50);
+      expect(lancado!.tipo, 'Cielo Visa Débito');
+    });
   });
 }

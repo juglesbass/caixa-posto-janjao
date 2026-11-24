@@ -26,6 +26,9 @@ class CampoValorVenda extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final VoidCallback onLancar;
 
+  /// Limpa o valor digitado em um toque (ex.: após somar atalho errado).
+  final VoidCallback? onLimpar;
+
   /// Rótulo do campo. Na correção de um lançamento vira só "Valor".
   final String rotulo;
 
@@ -39,6 +42,7 @@ class CampoValorVenda extends StatelessWidget {
     this.erro,
     required this.onChanged,
     required this.onLancar,
+    this.onLimpar,
     this.rotulo = 'Valor da Venda',
   });
 
@@ -49,11 +53,57 @@ class CampoValorVenda extends StatelessWidget {
     final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
+    Widget? sufixo;
+    if (podeLancar || onLimpar != null) {
+      sufixo = Padding(
+        padding: const EdgeInsets.only(right: 6, top: 6, bottom: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (onLimpar != null)
+              IconButton(
+                onPressed: enviando ? null : onLimpar,
+                icon: Icon(Icons.cancel_rounded, color: textSec, size: 20),
+                tooltip: 'Limpar valor',
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+              ),
+            if (podeLancar)
+              ElevatedButton.icon(
+                onPressed: enviando ? null : onLancar,
+                icon: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                label: const Text(
+                  'LANÇAR',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: AppTexto.corpo,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  // Sem sombra: profundidade por borda e cor, como o resto.
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppColors.radiusSm),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
     return TextField(
       controller: controller,
       focusNode: focusNode,
       autofocus: autofocus,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      // CurrencyInputFormatter trabalha por dígitos (centavos) e ignora vírgula:
+      // teclado numérico puro oferece teclas maiores e mais limpas em iOS/Android.
+      keyboardType: TextInputType.number,
       inputFormatters: [CurrencyInputFormatter()],
       textInputAction: TextInputAction.done,
       style: TextStyle(
@@ -74,33 +124,7 @@ class CampoValorVenda extends StatelessWidget {
           child: Icon(Icons.attach_money_rounded, color: AppColors.accentLight, size: 26),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 48),
-        suffixIcon: podeLancar
-            ? Padding(
-                padding: const EdgeInsets.only(right: 6, top: 6, bottom: 6),
-                child: ElevatedButton.icon(
-                  onPressed: enviando ? null : onLancar,
-                  icon: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
-                  label: const Text(
-                    'LANÇAR',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: AppTexto.corpo,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    // Sem sombra: profundidade por borda e cor, como o resto.
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                    ),
-                  ),
-                ),
-              )
-            : null,
+        suffixIcon: sufixo,
         errorText: erro,
         filled: true,
         fillColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,

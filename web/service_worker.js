@@ -30,6 +30,21 @@ const CACHE = 'caixa-janjao-' + VERSAO;
 // sai de sincronia e publica um app quebrado.
 const NUCLEO = ['./', 'index.html', 'flutter_bootstrap.js', 'manifest.json'];
 
+// Recursos críticos para operação 100% offline (banco SQLite Web, Worker e
+// fontes do PDF). São pré-carregados individualmente sem abortar a instalação
+// caso algum nome mude (ex.: build Wasm vs JS).
+const RECURSOS_OFFLINE = [
+  'main.dart.js',
+  'sqlite3.wasm',
+  'sqflite_sw.js',
+  'favicon.png',
+  'icons/Icon-192.png',
+  'assets/AssetManifest.bin',
+  'assets/FontManifest.json',
+  'assets/assets/fonts/Roboto-Regular.ttf',
+  'assets/assets/fonts/Roboto-Bold.ttf',
+];
+
 // Toda navegação é guardada e lida sob esta chave. O endereço de abertura do
 // PWA nem sempre é idêntico ao da aba do navegador, e usar a própria requisição
 // como chave fazia uma não encontrar o que a outra tinha guardado.
@@ -40,6 +55,9 @@ self.addEventListener('install', (event) => {
     try {
       const cache = await caches.open(CACHE);
       await cache.addAll(NUCLEO);
+      await Promise.allSettled(
+        RECURSOS_OFFLINE.map((item) => cache.add(item)),
+      );
     } catch (e) {
       // Rede ruim durante a instalação não pode abortar o worker: o que faltou
       // entra no cache na primeira vez que o app pedir.

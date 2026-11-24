@@ -25,7 +25,9 @@ class TrocoCalculator extends StatelessWidget {
     final textSec = isDark ? AppColors.darkTextSec : AppColors.lightTextSec;
 
     final troco = valorRecebido - valorVenda;
-    final temTrocoValido = valorRecebido > 0 && valorVenda > 0 && troco >= 0;
+    final temValorParaComparar = valorRecebido > 0 && valorVenda > 0;
+    final faltaValor = temValorParaComparar && troco < 0;
+    final corResultado = faltaValor ? AppColors.amber : AppColors.green;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -39,7 +41,7 @@ class TrocoCalculator extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controllerRecebido,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: TextInputType.number,
               inputFormatters: [CurrencyInputFormatter()],
               decoration: InputDecoration(
                 labelText: 'Valor Recebido em Dinheiro',
@@ -66,30 +68,30 @@ class TrocoCalculator extends StatelessWidget {
               onChanged: onChanged,
             ),
           ),
-          if (temTrocoValido) ...[
+          if (temValorParaComparar) ...[
             const SizedBox(width: 12),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 160),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.green.withValues(alpha: 0.15),
+                  color: corResultado.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(AppColors.radiusSm),
-                  border: Border.all(color: AppColors.green.withValues(alpha: 0.4)),
+                  border: Border.all(color: corResultado.withValues(alpha: 0.4)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const FittedBox(
+                    FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerRight,
                       child: Text(
-                        'TROCO A DEVOLVER:',
+                        faltaValor ? 'FALTA RECEBER:' : 'TROCO A DEVOLVER:',
                         maxLines: 1,
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.green,
+                          color: corResultado,
                         ),
                       ),
                     ),
@@ -98,11 +100,11 @@ class TrocoCalculator extends StatelessWidget {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerRight,
                       child: Text(
-                        CurrencyFormatter.formatar(troco),
-                        style: const TextStyle(
+                        CurrencyFormatter.formatar(troco.abs()),
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
-                          color: AppColors.green,
+                          color: corResultado,
                         ),
                       ),
                     ),

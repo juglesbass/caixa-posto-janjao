@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/turno.dart';
@@ -308,7 +309,7 @@ class _PinReaberturaDialogState extends State<_PinReaberturaDialog> {
             const SizedBox(height: 14),
             TextField(
               controller: _controller,
-              autofocus: true,
+              autofocus: !kIsWeb,
               obscureText: true,
               keyboardType: TextInputType.number,
               textAlign: TextAlign.center,

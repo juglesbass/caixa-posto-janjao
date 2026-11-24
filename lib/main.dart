@@ -103,7 +103,9 @@ Future<void> _aquecerServicos() async {
   // recebe os toques. Rodando junto da abertura, isso pegava o operador no meio
   // dos primeiros toques nos menus e parecia app travado. Para um fechamento que
   // vem minutos ou horas depois, esta espera não custa nada.
-  await Future<void>.delayed(const Duration(seconds: 12));
+  // Pré-carregamento do PDF e da impressão após a tela inicial estabilizar,
+  // garantindo que os módulos diferidos fiquem em memória e no cache offline.
+  await Future<void>.delayed(const Duration(seconds: 4));
   await DriveService.aquecerPdf();
 }
 
@@ -172,11 +174,17 @@ class _CaixaPostoJanjaoAppState extends State<CaixaPostoJanjaoApp> {
         Locale('pt', 'BR'),
       ],
       builder: (context, child) {
-        // Tanto no iOS quanto no Android e Web, qualquer toque fora de um campo recolhe o teclado imediatamente
-        return GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-          child: child ?? const SizedBox.shrink(),
+        // Limita a escala de fonte do sistema num intervalo seguro (0.9x–1.15x)
+        // para respeitar acessibilidade sem estourar cards em Android/iPhone com
+        // "Fonte Muito Grande", e recolhe o teclado ao tocar fora de um campo.
+        return MediaQuery.withClampedTextScaling(
+          minScaleFactor: 0.9,
+          maxScaleFactor: 1.15,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
       initialRoute: _obterRotaInicial(),
@@ -464,11 +472,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         if (!confirmou || !mounted) return;
       }
 
-      // Novo turno sempre inicia com a máquina Rede por padrão
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('maquina_ativa', PaymentTypes.maquinaRede);
-      } catch (_) {}
+      //Novo turno sempre inicia com a máquina Rede por padrão
+      await PaymentTypes.definirMaquinaAtiva(PaymentTypes.maquinaRede);
 
       // Caixa aberto de madrugada pode ser do dia anterior: pergunta.
       final dataCaixa = await _escolherDataCaixa();
@@ -691,17 +696,14 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   void _abrirLancamentoRapido() async {
     if (_turnoAtual == null) return;
 
-    String maquinaAtiva = PaymentTypes.maquinaRede;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      maquinaAtiva = prefs.getString('maquina_ativa') ?? PaymentTypes.maquinaRede;
-    } catch (_) {}
+    final maquinaAtiva = await PaymentTypes.carregarMaquinaAtiva();
 
     if (!mounted) return;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: widget.isDark ? AppColors.darkSheetBg : AppColors.lightSheetBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppColors.radiusXl)),
@@ -798,8 +800,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       bottomNavigationBar: BottomNavBar(
         indiceAtual: _indiceAba,
         onTrocarAba: (i) {
-          setState(() => _indiceAba = i);
-          _recarregarDados();
+          // Os dados e totais já são mantidos em tempo real por lancamentosNotifier:
+          // evitar consultar o SQLite a cada troca de aba elimina engasgos no PWA.
+          if (_indiceAba != i) {
+            setState(() => _indiceAba = i);
+          }
         },
         onAbrirLancamentoRapido: _abrirLancamentoRapido,
       ),
